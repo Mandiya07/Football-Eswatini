@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -330,12 +331,18 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
 
         const unsubscribe = listenToCompetition(selectedCompetition, (data) => {
             if (data) {
-                // Use Maps to ensure no duplicate matches are displayed within each list
                 const fixtureMap = new Map<string, CompetitionFixture>();
+                const now = new Date();
+                now.setHours(0, 0, 0, 0); // Set to start of today for date-only comparison
+
                 (data.fixtures || []).forEach(f => {
-                    if (f.status !== 'finished') { // Only consider scheduled/live for fixtures
-                       const key = getMatchKey(f);
-                       if (key) fixtureMap.set(key, f);
+                    // A fixture is a match that is not finished AND is scheduled for today or a future date.
+                    if (f.status !== 'finished' && f.fullDate) {
+                       const matchDate = new Date(f.fullDate + 'T00:00:00'); // Normalize to avoid timezone issues
+                       if (matchDate >= now) {
+                            const key = getMatchKey(f);
+                            if (key) fixtureMap.set(key, f);
+                       }
                     }
                 });
 

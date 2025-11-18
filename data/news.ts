@@ -13,7 +13,7 @@ export interface NewsItem {
 export const newsData: NewsItem[] = [
   {
     id: '1',
-    image: 'https://picsum.photos/400/300?random=1',
+    image: 'https://images.unsplash.com/photo-1540744233412-f0c6c7a13c2f?auto=format&fit=crop&w=800&q=80',
     title: 'Highlanders Secure a Dramatic Last-Minute Victory',
     date: 'October 26, 2023',
     url: '/news/highlanders-dramatic-victory',
@@ -23,7 +23,7 @@ export const newsData: NewsItem[] = [
   },
   {
     id: '2',
-    image: 'https://picsum.photos/400/300?random=2',
+    image: 'https://images.unsplash.com/photo-1521412644187-c49fa049e8be?auto=format&fit=crop&w=800&q=80',
     title: 'Swallows Unveil New Talent for the Upcoming Season',
     date: 'October 25, 2023',
     url: '/news/swallows-unveil-talent',
@@ -33,7 +33,7 @@ export const newsData: NewsItem[] = [
   },
   {
     id: '3',
-    image: 'https://picsum.photos/400/300?random=3',
+    image: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80',
     title: 'AFCON Qualifiers: Sihlangu Semnikati Gears Up for Tough Away Match',
     date: 'October 24, 2023',
     url: '/news/sihlangu-gears-up',
@@ -43,7 +43,7 @@ export const newsData: NewsItem[] = [
   },
   {
     id: '4',
-    image: 'https://picsum.photos/400/300?random=4',
+    image: 'https://images.unsplash.com/photo-1551958214-2d58ccb33587?auto=format&fit=crop&w=800&q=80',
     title: 'Champions League: Manchester United Stun Bayern Munich',
     date: 'October 26, 2023',
     url: '/news/man-u-stuns-bayern',
@@ -53,7 +53,7 @@ export const newsData: NewsItem[] = [
   },
   {
     id: '5',
-    image: 'https://picsum.photos/400/300?random=5',
+    image: 'https://images.unsplash.com/photo-1614632537190-23e4142776fd?auto=format&fit=crop&w=800&q=80',
     title: 'Messi Guides Inter Miami to Another Final',
     date: 'October 25, 2023',
     url: '/news/messi-inter-miami',
@@ -63,7 +63,7 @@ export const newsData: NewsItem[] = [
   },
   {
     id: '6',
-    image: 'https://picsum.photos/400/300?random=6',
+    image: 'https://images.unsplash.com/photo-1558521458-8535a39207de?auto=format&fit=crop&w=800&q=80',
     title: 'Young Buffaloes Coach Talks Strategy for CAF Cup',
     date: 'October 23, 2023',
     url: '/news/buffaloes-caf-cup',
