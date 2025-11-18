@@ -142,11 +142,21 @@ export const normalizeTeamName = (inputName: string, officialNames: string[]): s
  */
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
     const teamsMap: Map<string, Team> = new Map();
+    
+    // Normalization function to handle minor name variations (e.g., "Team" vs "Team FC", "Team F.C.")
+    const normalize = (name: string) => 
+        (name || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\.|fc/g, '') // remove all dots and 'fc'
+        .replace(/\s+/g, ' ') // collapse multiple spaces
+        .trim();
+
     baseTeams.forEach(team => {
         // Create a shallow copy and reset stats. This is safe as we replace the stats object entirely.
         const teamCopy = { ...team };
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' };
-        teamsMap.set(team.name.trim(), teamCopy);
+        teamsMap.set(normalize(team.name), teamCopy);
     });
     
     // Combine results with any fixtures that are mistakenly marked as 'finished'
@@ -169,8 +179,8 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
 
     for (const fixture of sortedFinishedMatches) {
-        const teamA = teamsMap.get(fixture.teamA.trim());
-        const teamB = teamsMap.get(fixture.teamB.trim());
+        const teamA = teamsMap.get(normalize(fixture.teamA));
+        const teamB = teamsMap.get(normalize(fixture.teamB));
         
         if (!teamA || !teamB) {
             console.warn(`Could not find one or both teams for fixture: ${fixture.teamA} vs ${fixture.teamB}`);
