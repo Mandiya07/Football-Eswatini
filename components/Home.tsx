@@ -1,0 +1,73 @@
+
+
+
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import Hero from './Hero';
+import QuickAccess from './QuickAccess';
+import LiveScoreboard from './LiveScoreboard';
+import OnboardingModal from './OnboardingModal';
+import { useAuth } from '../contexts/AuthContext';
+import SectionLoader from './SectionLoader';
+
+// Lazy load components that are below the fold
+const SponsorSpotlight = lazy(() => import('./SponsorSpotlight'));
+const NewsSection = lazy(() => import('./News'));
+const VideoHub = lazy(() => import('./VideoHub'));
+const AdBanner = lazy(() => import('./AdBanner'));
+const Fixtures = lazy(() => import('./Fixtures'));
+const Logs = lazy(() => import('./Logs'));
+const Features = lazy(() => import('./Features'));
+
+
+const Home: React.FC = () => {
+  const { isLoggedIn } = useAuth();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (isLoggedIn && !localStorage.getItem('onboardingComplete')) {
+        const timer = setTimeout(() => setShowOnboarding(true), 500);
+        return () => clearTimeout(timer);
+    }
+  }, [isLoggedIn]);
+
+  const handleOnboardingFinish = () => {
+      localStorage.setItem('onboardingComplete', 'true');
+      setShowOnboarding(false);
+  };
+
+  return (
+    <>
+      {showOnboarding && <OnboardingModal onClose={handleOnboardingFinish} />}
+      <Hero />
+      <QuickAccess />
+      <LiveScoreboard />
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-20">
+        <Suspense fallback={<SectionLoader />}>
+          <SponsorSpotlight />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+          <NewsSection />
+        </Suspense>
+        <div id="matches">
+          <Suspense fallback={<SectionLoader />}>
+            <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" />
+          </Suspense>
+        </div>
+        <Suspense fallback={<SectionLoader />}>
+          <VideoHub />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+          <AdBanner placement="homepage-banner" />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+            <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="max-h-80" />
+        </Suspense>
+        <Suspense fallback={<SectionLoader />}>
+            <Features />
+        </Suspense>
+      </div>
+    </>
+  );
+};
+
+export default Home;

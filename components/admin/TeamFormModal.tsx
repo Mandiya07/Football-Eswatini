@@ -1,0 +1,136 @@
+import React, { useState, useEffect } from 'react';
+import { Team } from '../../data/teams';
+import { Card, CardContent } from '../ui/Card';
+import Button from '../ui/Button';
+import XIcon from '../icons/XIcon';
+
+type TeamFormData = {
+    name: string;
+    crestUrl: string;
+    kitSponsorName: string;
+    kitSponsorLogoUrl: string;
+};
+
+interface TeamFormModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number) => void;
+    team: Team | null;
+}
+
+const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, team }) => {
+    const [formData, setFormData] = useState<TeamFormData>({
+        name: '',
+        crestUrl: '',
+        kitSponsorName: '',
+        kitSponsorLogoUrl: '',
+    });
+
+    useEffect(() => {
+        if (team) {
+            setFormData({
+                name: team.name,
+                crestUrl: team.crestUrl,
+                kitSponsorName: team.kitSponsor?.name || '',
+                kitSponsorLogoUrl: team.kitSponsor?.logoUrl || '',
+            });
+        } else {
+            setFormData({ name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '' });
+        }
+    }, [team, isOpen]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'crestUrl' | 'kitSponsorLogoUrl') => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setFormData(prev => ({ ...prev, [field]: reader.result as string }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const dataToSave: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>> = {
+            name: formData.name,
+            crestUrl: formData.crestUrl || `https://via.placeholder.com/128/CCCCCC/FFFFFF?text=${formData.name.substring(0, 2).toUpperCase()}`,
+        };
+
+        if (formData.kitSponsorName.trim() && formData.kitSponsorLogoUrl.trim()) {
+            dataToSave.kitSponsor = {
+                name: formData.kitSponsorName.trim(),
+                logoUrl: formData.kitSponsorLogoUrl.trim(),
+            };
+        } else {
+            dataToSave.kitSponsor = undefined;
+        }
+
+        onSave(dataToSave, team?.id);
+    };
+
+    const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+            <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto relative animate-slide-up" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800" aria-label="Close form"><XIcon className="w-6 h-6" /></button>
+                <CardContent className="p-8">
+                    <h2 className="text-2xl font-bold font-display mb-6">{team ? 'Edit Team' : 'Create New Team'}</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
+                            <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required className={inputClass} />
+                        </div>
+                        <div>
+                            <label htmlFor="crestUrl" className="block text-sm font-medium text-gray-700 mb-1">Crest URL or Upload</label>
+                            <div className="flex items-center gap-2">
+                                <input type="text" id="crestUrl" name="crestUrl" value={formData.crestUrl} onChange={handleChange} className={inputClass} placeholder="Paste URL or leave blank for placeholder"/>
+                                <label htmlFor="crestUpload" className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                    Upload
+                                    <input type="file" id="crestUpload" onChange={(e) => handleFileChange(e, 'crestUrl')} accept="image/*" className="sr-only" />
+                                </label>
+                            </div>
+                            {formData.crestUrl && <img src={formData.crestUrl} alt="Crest preview" className="mt-4 h-24 w-24 object-contain border rounded-full p-2 mx-auto" />}
+                        </div>
+                        
+                        <div className="space-y-4 pt-4 border-t">
+                            <h3 className="text-lg font-semibold text-gray-700">Kit Sponsor (Optional)</h3>
+                             <div>
+                                <label htmlFor="kitSponsorName" className="block text-sm font-medium text-gray-700 mb-1">Sponsor Name</label>
+                                <input type="text" id="kitSponsorName" name="kitSponsorName" value={formData.kitSponsorName} onChange={handleChange} className={inputClass} placeholder="e.g., Umbro" />
+                            </div>
+                             <div>
+                                <label htmlFor="kitSponsorLogoUrl" className="block text-sm font-medium text-gray-700 mb-1">Sponsor Logo URL or Upload</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="text" id="kitSponsorLogoUrl" name="kitSponsorLogoUrl" value={formData.kitSponsorLogoUrl} onChange={handleChange} className={inputClass} placeholder="https://.../logo.png"/>
+                                    <label htmlFor="sponsorLogoUpload" className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                        Upload
+                                        <input type="file" id="sponsorLogoUpload" onChange={(e) => handleFileChange(e, 'kitSponsorLogoUrl')} accept="image/*" className="sr-only" />
+                                    </label>
+                                </div>
+                                {formData.kitSponsorLogoUrl && <img src={formData.kitSponsorLogoUrl} alt="Sponsor logo preview" className="mt-2 h-16 object-contain" />}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4">
+                            <Button type="button" onClick={onClose} className="bg-gray-200 text-gray-800">Cancel</Button>
+                            <Button type="submit" className="bg-primary text-white hover:bg-primary-dark">Save Team</Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
+    );
+};
+
+export default TeamFormModal;

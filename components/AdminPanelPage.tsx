@@ -1,0 +1,144 @@
+import React, { useState, lazy } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import AdminLoginPrompt from './admin/AdminLoginPrompt';
+import ApprovalQueue from './admin/ApprovalQueue';
+import MergeTeams from './admin/MergeTeams';
+import RecalculateLogs from './admin/ManualStandings'; // Kept filename for simplicity, but it's the new component
+import CreateEntities from './admin/CreateEntities';
+import TournamentBracket from './admin/TournamentBracket';
+import NewsManagement from './admin/NewsManagement';
+import ShopManagement from './admin/ShopManagement';
+import ScoutingManagement from './admin/ScoutingManagement';
+import DirectoryManagement from './admin/DirectoryManagement';
+import VideoManagement from './admin/VideoManagement';
+import ResetAllData from './admin/ResetAllData';
+
+import CheckCircleIcon from './icons/CheckCircleIcon';
+import GitMergeIcon from './icons/GitMergeIcon';
+import RefreshIcon from './icons/RefreshIcon';
+import DatabaseIcon from './icons/DatabaseIcon';
+import BracketIcon from './icons/BracketIcon';
+import NewspaperIcon from './icons/NewspaperIcon';
+import TagIcon from './icons/TagIcon';
+import BinocularsIcon from './icons/BinocularsIcon';
+import BookIcon from './icons/BookIcon';
+import FilmIcon from './icons/FilmIcon';
+import CategoryManagement from './admin/CategoryManagement';
+import LayersIcon from './icons/LayersIcon';
+import AlertTriangleIcon from './icons/AlertTriangleIcon';
+import UsersIcon from './icons/UsersIcon';
+import MegaphoneIcon from './icons/MegaphoneIcon';
+import RadioIcon from './icons/RadioIcon';
+import UploadCloudIcon from './icons/UploadCloudIcon';
+
+const ManageTeams = lazy(() => import('./admin/ManageTeams'));
+const AdManagement = lazy(() => import('./admin/AdManagement'));
+const LiveUpdatesEntry = lazy(() => import('./admin/LiveUpdatesEntry'));
+const SeedDatabase = lazy(() => import('./admin/SeedDatabase'));
+
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'live-entry' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'seed';
+
+const AdminPanelPage: React.FC = () => {
+  const { isLoggedIn, user } = useAuth();
+  const [activeTab, setActiveTab] = useState<AdminTab>('approvals');
+
+  if (!isLoggedIn || user?.role !== 'super_admin') {
+    return (
+      <div className="bg-gray-50 py-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
+          <AdminLoginPrompt />
+        </div>
+      </div>
+    );
+  }
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'approvals': return <ApprovalQueue />;
+      case 'news': return <NewsManagement />;
+      case 'shop': return <ShopManagement />;
+      case 'scouting': return <ScoutingManagement />;
+      case 'directory': return <DirectoryManagement />;
+      case 'videos': return <VideoManagement />;
+      case 'ads': return <AdManagement />;
+      case 'live-entry': return <LiveUpdatesEntry />;
+      case 'create': return <CreateEntities />;
+      case 'categories': return <CategoryManagement />;
+      case 'teams': return <ManageTeams />;
+      case 'merge': return <MergeTeams />;
+      case 'standings': return <RecalculateLogs />;
+      case 'tournament': return <TournamentBracket />;
+      case 'reset': return <ResetAllData />;
+      case 'seed': return <SeedDatabase />;
+      default: return null;
+    }
+  };
+
+  const TabButton: React.FC<{tabName: AdminTab; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>>; className?: string}> = ({ tabName, label, Icon, className = '' }) => (
+    <button
+        onClick={() => setActiveTab(tabName)}
+        className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light w-full text-left ${
+            activeTab === tabName 
+            ? `shadow ${className}`
+            : `hover:bg-gray-100 ${className}`
+        } ${activeTab === tabName && !className.includes('bg-') ? 'bg-primary text-white' : ''} ${!className.includes('text-') ? 'text-gray-600' : ''}`}
+        role="tab"
+        aria-selected={activeTab === tabName}
+    >
+        <Icon className="w-5 h-5" />
+        <span>{label}</span>
+    </button>
+  );
+
+  return (
+    <div className="bg-gray-50 py-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
+            <div className="mb-8">
+                <h1 className="text-4xl font-display font-extrabold text-blue-800">
+                    Administrator Panel
+                </h1>
+                <p className="text-lg text-gray-600">
+                    High-level data management and moderation tools.
+                </p>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-8 items-start">
+                <aside className="w-full md:w-64 flex-shrink-0">
+                    <div className="space-y-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Content</h4>
+                        <TabButton tabName="news" label="News" Icon={NewspaperIcon} />
+                        <TabButton tabName="shop" label="Shop Items" Icon={TagIcon} />
+                        <TabButton tabName="scouting" label="Scouting" Icon={BinocularsIcon} />
+                        <TabButton tabName="directory" label="Directory" Icon={BookIcon} />
+                        <TabButton tabName="videos" label="Videos" Icon={FilmIcon} />
+                        <TabButton tabName="ads" label="Ad Management" Icon={MegaphoneIcon} />
+
+                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
+                        <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
+                        <TabButton tabName="live-entry" label="Live Updates Entry" Icon={RadioIcon} />
+                        <TabButton tabName="seed" label="Seed Database" Icon={UploadCloudIcon} />
+                        <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
+                        <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
+                        <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />
+                        <TabButton tabName="merge" label="Merge Teams" Icon={GitMergeIcon} />
+                        <TabButton tabName="standings" label="Recalculate Logs" Icon={RefreshIcon} />
+                        <TabButton tabName="tournament" label="Tournament Bracket" Icon={BracketIcon} />
+
+                        <div className="!mt-6 pt-4 border-t border-red-200">
+                            <h4 className="font-bold text-xs uppercase text-red-600 px-4">Danger Zone</h4>
+                             <div className="p-2">
+                                <TabButton tabName="reset" label="Reset All Competition Data" Icon={AlertTriangleIcon} className="bg-red-50 hover:bg-red-100 text-red-700" />
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+                <main className="flex-grow w-full">
+                    {renderContent()}
+                </main>
+            </div>
+        </div>
+    </div>
+  );
+};
+
+export default AdminPanelPage;

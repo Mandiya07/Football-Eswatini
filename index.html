@@ -1,0 +1,94 @@
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.5.0/"
+  }
+}
+</script>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' data: https://cdn.tailwindcss.com https://aistudiocdn.com https://www.gstatic.com *.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com data:; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com *.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://jsonplaceholder.typicode.com https://api.football-data.org; img-src 'self' data: https: https://images.unsplash.com; object-src 'none';">
+    <title>Football Eswatini</title>
+    
+    <!-- PWA additions -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#002B7F" />
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                DEFAULT: '#002B7F', // Eswatini Blue
+                dark: '#001e5a',
+                light: '#1a4a9f',
+              },
+              secondary: {
+                DEFAULT: '#D22730', // Eswatini Red
+              },
+              accent: {
+                DEFAULT: '#FDB913', // Eswatini Yellow
+              },
+              neutral: {
+                light: '#f9fafb',
+                DEFAULT: '#f3f4f6',
+                dark: '#1f2937',
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              display: ['Poppins', 'sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+      }
+      
+      .bg-eswatini-pattern {
+        background-color: #f9fafb; /* bg-gray-50 */
+        background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24' 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23e5e7eb' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M12 0 L6 6 L0 0 L0 24 L6 18 L12 24 L18 18 L24 24 L24 0 L18 6 Z'/%3E%3C/g%3E%3C/svg%3E");
+      }
+    </style>
+  </head>
+  <body class="bg-eswatini-pattern">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js').then(registration => {
+            console.log('SW registered: ', registration);
+          }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>
