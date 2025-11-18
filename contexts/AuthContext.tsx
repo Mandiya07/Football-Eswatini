@@ -73,7 +73,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         favoriteTeamIds: [],
     };
 
-    await setDoc(doc(db, "users", firebaseUser.uid), newUserProfile);
+    try {
+        await setDoc(doc(db, "users", firebaseUser.uid), newUserProfile);
+    } catch (error) {
+        console.warn("Could not create user profile in Firestore (offline?), proceeding with auth only.", error);
+    }
     setUser({ id: firebaseUser.uid, ...newUserProfile });
     closeAuthModal();
   };
@@ -81,73 +85,97 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-        if (firebaseUser) {
-            const userDocRef = doc(db, 'users', firebaseUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-
-            // Enforce roles for special demo accounts on every login to self-correct potential DB errors
-            let expectedRole: User['role'] | null = null;
-            let expectedClub: string | undefined = undefined;
-
-            if (firebaseUser.email === 'admin@eswatini.football') {
-                expectedRole = 'super_admin';
-            } else if (firebaseUser.email === 'club@eswatini.football') {
-                expectedRole = 'club_admin';
-                expectedClub = 'Mbabane Swallows';
-            }
-
-            if (userDocSnap.exists()) {
-                const userDataFromDb = userDocSnap.data();
-                let needsUpdate = false;
-                const updates: Partial<User> = {};
-
-                if (expectedRole && userDataFromDb.role !== expectedRole) {
-                    updates.role = expectedRole;
-                    needsUpdate = true;
-                }
-                if (expectedClub && userDataFromDb.club !== expectedClub) {
-                    updates.club = expectedClub;
-                    needsUpdate = true;
+        try {
+            if (firebaseUser) {
+                const userDocRef = doc(db, 'users', firebaseUser.uid);
+                let userDocSnap;
+                
+                try {
+                    userDocSnap = await getDoc(userDocRef);
+                } catch (err) {
+                    console.warn("Failed to fetch user profile (offline or network error). Using basic auth data.");
+                    // Fallback: Create a basic user object from Firebase Auth data so the app can still load
+                    setUser({
+                        id: firebaseUser.uid,
+                        name: firebaseUser.displayName || 'User',
+                        email: firebaseUser.email!,
+                        avatar: firebaseUser.photoURL || `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
+                        role: 'user', // Default to basic user if we can't check DB
+                        favoriteTeamIds: [],
+                    });
+                    setLoading(false);
+                    return;
                 }
 
-                const plainUser = {
-                    name: userDataFromDb.name,
-                    email: userDataFromDb.email,
-                    avatar: userDataFromDb.avatar,
-                    role: userDataFromDb.role,
-                    club: userDataFromDb.club,
-                    favoriteTeamIds: userDataFromDb.favoriteTeamIds || [],
-                };
-                
-                // Immediately set the user state with the corrected role
-                const finalUser = { id: firebaseUser.uid, ...plainUser, ...updates } as User;
-                setUser(finalUser);
-                
-                // Asynchronously update the database if a correction was needed
-                if (needsUpdate) {
-                    try {
-                        await updateDoc(userDocRef, updates);
-                    } catch (error) {
-                        handleFirestoreError(error, 'auto-correct user role');
+                // Check for special roles again to self-correct or initialize
+                let expectedRole: User['role'] | null = null;
+                let expectedClub: string | undefined = undefined;
+
+                if (firebaseUser.email === 'admin@eswatini.football') {
+                    expectedRole = 'super_admin';
+                } else if (firebaseUser.email === 'club@eswatini.football') {
+                    expectedRole = 'club_admin';
+                    expectedClub = 'Mbabane Swallows';
+                }
+
+                if (userDocSnap.exists()) {
+                    const userDataFromDb = userDocSnap.data();
+                    let needsUpdate = false;
+                    const updates: Partial<User> = {};
+
+                    if (expectedRole && userDataFromDb.role !== expectedRole) {
+                        updates.role = expectedRole;
+                        needsUpdate = true;
                     }
+                    if (expectedClub && userDataFromDb.club !== expectedClub) {
+                        updates.club = expectedClub;
+                        needsUpdate = true;
+                    }
+
+                    const plainUser = {
+                        name: userDataFromDb.name,
+                        email: userDataFromDb.email,
+                        avatar: userDataFromDb.avatar,
+                        role: userDataFromDb.role,
+                        club: userDataFromDb.club,
+                        favoriteTeamIds: userDataFromDb.favoriteTeamIds || [],
+                    };
+                    
+                    // Immediately set the user state
+                    const finalUser = { id: firebaseUser.uid, ...plainUser, ...updates } as User;
+                    setUser(finalUser);
+                    
+                    // Asynchronously update the database if a correction was needed
+                    if (needsUpdate) {
+                        updateDoc(userDocRef, updates).catch(err => console.warn("Failed to update user role", err));
+                    }
+                } else {
+                    // This block handles first-time sign-in if a user exists in Auth but not Firestore
+                    const newUserProfile: Omit<User, 'id'> = {
+                        name: firebaseUser.displayName || 'New User',
+                        email: firebaseUser.email!,
+                        avatar: firebaseUser.photoURL || `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
+                        role: expectedRole || 'user',
+                        club: expectedClub,
+                        favoriteTeamIds: [],
+                    };
+                    try {
+                        await setDoc(userDocRef, newUserProfile);
+                    } catch (err) {
+                        console.warn("Failed to create user profile in Firestore (offline?)", err);
+                    }
+                    setUser({ id: firebaseUser.uid, ...newUserProfile });
                 }
             } else {
-                // This block handles first-time sign-in if a user exists in Auth but not Firestore
-                const newUserProfile: Omit<User, 'id'> = {
-                    name: firebaseUser.displayName || 'New User',
-                    email: firebaseUser.email!,
-                    avatar: firebaseUser.photoURL || `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
-                    role: expectedRole || 'user',
-                    club: expectedClub,
-                    favoriteTeamIds: [],
-                };
-                await setDoc(userDocRef, newUserProfile);
-                setUser({ id: firebaseUser.uid, ...newUserProfile });
+                setUser(null);
             }
-        } else {
+        } catch (error) {
+            console.error("Auth state change critical error:", error);
             setUser(null);
+        } finally {
+            // CRITICAL: Ensure loading is set to false so the app can render, even if auth fails.
+            setLoading(false);
         }
-        setLoading(false);
     });
 
     return () => unsubscribe();
@@ -158,12 +186,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateUser = async (updatedFields: Partial<User>) => {
     if (!user) return;
+    // Optimistic update
+    setUser(prevUser => prevUser ? { ...prevUser, ...updatedFields } : null);
+    
     const userDocRef = doc(db, 'users', user.id);
     try {
         await updateDoc(userDocRef, updatedFields);
-        setUser(prevUser => prevUser ? { ...prevUser, ...updatedFields } : null);
     } catch(error) {
         handleFirestoreError(error, 'update user profile');
+        // If update fails, we might want to revert local state, but for now we keep optimistic update
+        // as retries might handle it if offline.
     }
   };
 

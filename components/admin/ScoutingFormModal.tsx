@@ -52,7 +52,12 @@ const ScoutingFormModal: React.FC<ScoutingFormModalProps> = ({ isOpen, onClose, 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseInt(value, 10) : value }));
+        if (type === 'number') {
+            const numValue = parseInt(value, 10);
+            setFormData(prev => ({ ...prev, [name]: isNaN(numValue) ? 0 : numValue }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

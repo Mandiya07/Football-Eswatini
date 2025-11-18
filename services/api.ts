@@ -25,17 +25,15 @@ export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
     console.error(`Firestore error during '${operation}':`, error);
     
-    let userMessage = `Operation '${operation}' failed. Please try again.`;
+    // We log the error to console but avoid alerting the user with a popup, 
+    // as this can block the UI during network instability.
+    // UI components should handle empty data or error states gracefully.
     
     if (firebaseError.code === 'permission-denied' || firebaseError.code === 'failed-precondition') {
-        userMessage = `Permission Denied: You do not have the required permissions to perform the '${operation}' operation. This can be caused by database security rules or a missing database index. Please check the developer console for more details.`;
+        console.warn(`Permission Denied for '${operation}'. Check security rules.`);
     } else if (firebaseError.code === 'unavailable') {
-        userMessage = `Could not connect to the database for '${operation}'. Please check your internet connection.`;
-    } else {
-        userMessage = `An unexpected error occurred during '${operation}'. Check the console for more details. Message: ${firebaseError.message}`;
+        console.warn(`Firestore unavailable for '${operation}'. Client offline.`);
     }
-    
-    alert(userMessage);
 };
 
 

@@ -1,3 +1,4 @@
+
 import { Team, CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 
@@ -152,18 +153,43 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         .replace(/\s+/g, ' ') // collapse multiple spaces
         .trim();
 
+    // 1. Initialize map with baseTeams, ensuring stats are reset
     baseTeams.forEach(team => {
-        // Create a shallow copy and reset stats. This is safe as we replace the stats object entirely.
         const teamCopy = { ...team };
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' };
         teamsMap.set(normalize(team.name), teamCopy);
     });
     
-    // Combine results with any fixtures that are mistakenly marked as 'finished'
-    const allFinishedMatches = [
-        ...(allResults || []).filter(r => r.status === 'finished' && r.scoreA != null && r.scoreB != null),
-        ...(allFixtures || []).filter(f => f.status === 'finished' && f.scoreA != null && f.scoreB != null)
-    ];
+    const allMatches = [...(allResults || []), ...(allFixtures || [])];
+
+    // 2. Discover teams from all matches that might not be in baseTeams to make the function resilient
+    allMatches.forEach(match => {
+        [match.teamA, match.teamB].forEach(teamName => {
+            if (teamName) {
+                const normalizedName = normalize(teamName);
+                if (!teamsMap.has(normalizedName)) {
+                    // This is a new team discovered from match data.
+                    // Create a placeholder team object for it.
+                    console.log(`Discovered new team "${teamName}" from match data. Adding to standings calculation.`);
+                    const newTeam: Team = {
+                        id: Date.now() + Math.random(), // Temporary, non-persistent ID
+                        name: teamName.trim(),
+                        crestUrl: '', // Will be looked up by UI via directory anyway
+                        stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+                        players: [],
+                        fixtures: [],
+                        results: [],
+                        staff: [],
+                    };
+                    teamsMap.set(normalizedName, newTeam);
+                }
+            }
+        });
+    });
+    
+    // 3. Combine results with any fixtures that are mistakenly marked as 'finished'
+    const allFinishedMatches = allMatches
+        .filter(r => r.status === 'finished' && r.scoreA != null && r.scoreB != null);
     
     // Create a composite key to ensure logical uniqueness, not just by ID.
     // A match is unique by its participants and date, regardless of home/away.
@@ -240,3 +266,4 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
 
     return updatedTeams;
 };
+    

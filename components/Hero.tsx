@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CompetitionFixture, Team } from '../data/teams';
@@ -16,7 +15,6 @@ const Hero: React.FC = () => {
     const competitionId = 'mtn-premier-league';
     const heroImageUrl = "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1935&auto=format&fit=crop";
 
-
     useEffect(() => {
         const getNextMatch = async () => {
             const [premierLeagueData, directoryEntries] = await Promise.all([
@@ -31,9 +29,14 @@ const Hero: React.FC = () => {
             if (premierLeagueData) {
                 setTeams(premierLeagueData.teams || []);
                 if (premierLeagueData.fixtures) {
+                    const now = new Date();
                     const upcoming = premierLeagueData.fixtures
                         .filter(f => f.status === 'scheduled' && f.fullDate)
-                        .sort((a, b) => +new Date(a.fullDate!) - +new Date(b.fullDate!));
+                        .sort((a, b) => {
+                             // Sort by date ascending, but only future dates
+                             return new Date(a.fullDate! + 'T' + (a.time || '00:00')).getTime() - new Date(b.fullDate! + 'T' + (b.time || '00:00')).getTime();
+                        })
+                        .filter(f => new Date(f.fullDate! + 'T' + (f.time || '00:00')).getTime() > now.getTime());
                     
                     if (upcoming.length > 0) {
                         setNextMatch(upcoming[0]);
@@ -51,8 +54,9 @@ const Hero: React.FC = () => {
     const teamADirectory = findInMap(nextMatch?.teamA || '', directoryMap);
     const teamBDirectory = findInMap(nextMatch?.teamB || '', directoryMap);
 
-    const crestA = teamADirectory?.crestUrl || teamA?.crestUrl;
-    const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
+    // Use directory crests if available, otherwise fallbacks for the demo match
+    const crestA = teamADirectory?.crestUrl || teamA?.crestUrl || (nextMatch?.teamA.includes('Swallows') ? 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS' : undefined);
+    const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl || (nextMatch?.teamB.includes('Leopards') ? 'https://via.placeholder.com/128/00008B/FFFFFF?text=RL' : undefined);
 
     const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();
@@ -64,6 +68,11 @@ const Hero: React.FC = () => {
             }
         }
     };
+    
+    // Construct a full timestamp string for the countdown
+    const targetDateStr = nextMatch?.fullDate 
+        ? `${nextMatch.fullDate}T${nextMatch.time || '15:00'}:00` 
+        : new Date().toISOString();
 
   return (
     <section 
@@ -91,7 +100,8 @@ const Hero: React.FC = () => {
                              <h2 className="text-xl md:text-3xl font-bold font-display">{nextMatch.teamB}</h2>
                         </div>
                     </div>
-                    {nextMatch.fullDate && <CountdownTimer targetDate={nextMatch.fullDate} />}
+                    <CountdownTimer targetDate={targetDateStr} />
+                    {nextMatch.venue && <p className="mt-4 text-sm text-gray-300 font-medium uppercase tracking-widest">{nextMatch.venue}</p>}
                 </div>
             ) : (
                 <>

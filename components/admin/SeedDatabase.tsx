@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -5,7 +6,7 @@ import Spinner from '../ui/Spinner';
 
 // Imports from run.js
 import { db } from '../../services/firebase';
-import { doc, getDoc, setDoc, collection, getDocs, writeBatch } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, writeBatch, serverTimestamp } from "firebase/firestore";
 import { sponsors } from '../../data/sponsors';
 import { newsData } from '../../data/news';
 import { videoData } from '../../data/videos';
@@ -19,6 +20,19 @@ import { products } from '../../data/shop';
 import { refereeData } from '../../data/referees';
 // Note: calculateStandings is not used in the seeding script itself.
 import { calculateStandings } from '../../services/utils';
+import { LiveUpdate } from '../../services/api';
+
+// --- DYNAMIC DATES ---
+const today = new Date();
+const tomorrow = new Date(today);
+tomorrow.setDate(today.getDate() + 1);
+
+// Format YYYY-MM-DD
+const todayStr = today.toISOString().split('T')[0];
+const tomorrowStr = tomorrow.toISOString().split('T')[0];
+// Format Day Name (e.g., SAT)
+const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+const tomorrowDay = tomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 
 // --- MOCK DATA & DEFAULTS ---
 const initialAds = {
@@ -56,7 +70,46 @@ const initialCategories = [
 const photoGalleries = [ { id: 1, title: "Derby Day: Swallows vs Highlanders", date: "October 28, 2023", coverUrl: "https://picsum.photos/seed/gallery1/600/400", imageUrls: ["https://picsum.photos/seed/g1p1/1200/800", "https://picsum.photos/seed/g1p2/1200/800", "https://picsum.photos/seed/g1p3/1200/800", "https://picsum.photos/seed/g1p4/1200/800", "https://picsum.photos/seed/g1p5/1200/800"] }, { id: 2, title: "Green Mamba Crowned Champions", date: "October 15, 2023", coverUrl: "https://picsum.photos/seed/gallery2/600/400", imageUrls: ["https://picsum.photos/seed/g2p1/1200/800", "https://picsum.photos/seed/g2p2/1200/800", "https://picsum.photos/seed/g2p3/1200/800"] }, { id: 3, title: "Action from Ingwenyama Cup Final", date: "September 30, 2023", coverUrl: "https://picsum.photos/seed/gallery3/600/400", imageUrls: ["https://picsum.photos/seed/g3p1/1200/800", "https://picsum.photos/seed/g3p2/1200/800", "https://picsum.photos/seed/g3p3/1200/800", "https://picsum.photos/seed/g3p4/1200/800"] }];
 const behindTheScenesData = [ { id: 1, type: 'photo', title: "Locker Room Pre-Match Talk", description: "A quiet moment of focus as the coach delivers the final instructions before a crucial match.", thumbnailUrl: "https://picsum.photos/seed/bts1/600/400", contentUrl: "https://picsum.photos/seed/bts1-full/1200/800" }, { id: 2, type: 'video', title: "Tunnel Cam: Derby Day", description: "Exclusive footage from the tunnel at Somhlolo National Stadium as the teams make their way onto the pitch for the Mbabane derby.", thumbnailUrl: "https://picsum.photos/seed/bts2/600/400", contentUrl: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4" } ];
 const premierLeagueId = 'mtn-premier-league';
-const premierLeagueData = { name: "MTN Premier League", logoUrl: "https://via.placeholder.com/150/FF8C00/000000?text=MTN", categoryId: "premier-leagues", externalApiId: "4733", fixtures: [], results: [], teams: [ { id: 1, name: 'Green Mamba FC', crestUrl: 'https://via.placeholder.com/128/1E4620/FFFFFF?text=GM', players: [], fixtures: [], results: [], staff: [] }, { id: 2, name: 'Mbabane Swallows FC', crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS', players: [], fixtures: [], results: [], staff: [] }, { id: 3, name: 'Young Buffaloes FC', crestUrl: 'https://via.placeholder.com/128/A52A2A/FFFFFF?text=YB', players: [], fixtures: [], results: [], staff: [] }, { id: 4, name: 'Royal Leopards FC', crestUrl: 'https://via.placeholder.com/128/00008B/FFFFFF?text=RL', players: [], fixtures: [], results: [], staff: [] }, { id: 5, name: 'Mbabane Highlanders FC', crestUrl: 'https://via.placeholder.com/128/000000/FFFFFF?text=MH', players: [], fixtures: [], results: [], staff: [] }, { id: 6, name: 'Manzini Wanderers FC', crestUrl: 'https://via.placeholder.com/128/800080/FFFFFF?text=MW', players: [], fixtures: [], results: [], staff: [] }, { id: 7, name: 'Moneni Pirates FC', crestUrl: 'https://via.placeholder.com/128/FF4500/000000?text=MP', players: [], fixtures: [], results: [], staff: [] }, { id: 8, name: 'Nsingizini Hotspurs FC', crestUrl: 'https://via.placeholder.com/128/FFFF00/000000?text=NH', players: [], fixtures: [], results: [], staff: [] }, { id: 9, name: 'Manzini Sea Birds FC', crestUrl: 'https://via.placeholder.com/128/87CEEB/000000?text=MSB', players: [], fixtures: [], results: [], staff: [] }, { id: 10, name: 'Denver Sundowns FC', crestUrl: 'https://via.placeholder.com/128/F0E68C/000000?text=DS', players: [], fixtures: [], results: [], staff: [] }, { id: 11, name: 'Madlenya FC', crestUrl: 'https://via.placeholder.com/128/483D8B/FFFFFF?text=MFC', players: [], fixtures: [], results: [], staff: [] }, { id: 12, name: 'Ezulwini United FC', crestUrl: 'https://via.placeholder.com/128/008080/FFFFFF?text=EU', players: [], fixtures: [], results: [], staff: [] }, { id: 13, name: 'Mhlume Peacemakers FC', crestUrl: 'https://via.placeholder.com/128/6B8E23/FFFFFF?text=MPF', players: [], fixtures: [], results: [], staff: [] } ], };
+
+// NOTE: Updated premierLeagueData with a live match (Today) and a future match (Tomorrow)
+const premierLeagueData = { 
+    name: "MTN Premier League", 
+    logoUrl: "https://via.placeholder.com/150/FF8C00/000000?text=MTN", 
+    categoryId: "premier-leagues", 
+    externalApiId: "4733", 
+    fixtures: [
+        {
+            id: 9001,
+            matchday: 12,
+            date: tomorrow.getDate().toString(),
+            day: tomorrowDay,
+            fullDate: tomorrowStr,
+            teamA: 'Mbabane Swallows FC',
+            teamB: 'Royal Leopards FC',
+            time: '15:30',
+            status: 'scheduled',
+            venue: 'Somhlolo National Stadium'
+        },
+        {
+            id: 9002,
+            matchday: 12,
+            date: today.getDate().toString(),
+            day: todayDay,
+            fullDate: todayStr,
+            teamA: 'Green Mamba FC',
+            teamB: 'Young Buffaloes FC',
+            time: '14:00',
+            status: 'live',
+            scoreA: 2,
+            scoreB: 1,
+            liveMinute: 74,
+            venue: 'King Sobhuza II Memorial Stadium'
+        }
+    ], 
+    results: [], 
+    teams: [ { id: 1, name: 'Green Mamba FC', crestUrl: 'https://via.placeholder.com/128/1E4620/FFFFFF?text=GM', players: [], fixtures: [], results: [], staff: [] }, { id: 2, name: 'Mbabane Swallows FC', crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS', players: [], fixtures: [], results: [], staff: [] }, { id: 3, name: 'Young Buffaloes FC', crestUrl: 'https://via.placeholder.com/128/A52A2A/FFFFFF?text=YB', players: [], fixtures: [], results: [], staff: [] }, { id: 4, name: 'Royal Leopards FC', crestUrl: 'https://via.placeholder.com/128/00008B/FFFFFF?text=RL', players: [], fixtures: [], results: [], staff: [] }, { id: 5, name: 'Mbabane Highlanders FC', crestUrl: 'https://via.placeholder.com/128/000000/FFFFFF?text=MH', players: [], fixtures: [], results: [], staff: [] }, { id: 6, name: 'Manzini Wanderers FC', crestUrl: 'https://via.placeholder.com/128/800080/FFFFFF?text=MW', players: [], fixtures: [], results: [], staff: [] }, { id: 7, name: 'Moneni Pirates FC', crestUrl: 'https://via.placeholder.com/128/FF4500/000000?text=MP', players: [], fixtures: [], results: [], staff: [] }, { id: 8, name: 'Nsingizini Hotspurs FC', crestUrl: 'https://via.placeholder.com/128/FFFF00/000000?text=NH', players: [], fixtures: [], results: [], staff: [] }, { id: 9, name: 'Manzini Sea Birds FC', crestUrl: 'https://via.placeholder.com/128/87CEEB/000000?text=MSB', players: [], fixtures: [], results: [], staff: [] }, { id: 10, name: 'Denver Sundowns FC', crestUrl: 'https://via.placeholder.com/128/F0E68C/000000?text=DS', players: [], fixtures: [], results: [], staff: [] }, { id: 11, name: 'Madlenya FC', crestUrl: 'https://via.placeholder.com/128/483D8B/FFFFFF?text=MFC', players: [], fixtures: [], results: [], staff: [] }, { id: 12, name: 'Ezulwini United FC', crestUrl: 'https://via.placeholder.com/128/008080/FFFFFF?text=EU', players: [], fixtures: [], results: [], staff: [] }, { id: 13, name: 'Mhlume Peacemakers FC', crestUrl: 'https://via.placeholder.com/128/6B8E23/FFFFFF?text=MPF', players: [], fixtures: [], results: [], staff: [] } ]
+};
+
 const womensLeagueData = { name: "Eswatini Women Football League", categoryId: "womens-leagues", fixtures: [], results: [], teams: [ { id: 501, name: 'Young Buffaloes Ladies', crestUrl: 'https://via.placeholder.com/128/A52A2A/FFFFFF?text=YBL', players: [], fixtures: [], results: [], staff: [] }, { id: 502, name: 'Manzini Wanderers Ladies', crestUrl: 'https://via.placeholder.com/128/800080/FFFFFF?text=MWL', players: [], fixtures: [], results: [], staff: [] }, { id: 503, name: 'Royal Leopards Ladies', crestUrl: 'https://via.placeholder.com/128/00008B/FFFFFF?text=RLL', players: [], fixtures: [], results: [], staff: [] }, { id: 504, name: 'Mbabane Swallows Ladies', crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MSL', players: [], fixtures: [], results: [], staff: [] }, { id: 505, name: 'Green Mamba Ladies', crestUrl: 'https://via.placeholder.com/128/1E4620/FFFFFF?text=GML', players: [], fixtures: [], results: [], staff: [] }, { id: 506, name: 'AS Interladies FC', crestUrl: 'https://via.placeholder.com/128/00BFFF/000000?text=ASL', players: [], fixtures: [], results: [], staff: [] } ] };
 const firstDivisionData = { name: "National First Division", categoryId: "national-divisions", fixtures: [], results: [], teams: [ { id: 101, name: 'Hlatikulu Tycoons', crestUrl: 'https://via.placeholder.com/128/FF8C00/FFFFFF?text=HT', players: [], fixtures: [], results: [], staff: [] }, { id: 102, name: 'Illovo FC', crestUrl: 'https://via.placeholder.com/128/228B22/FFFFFF?text=IFC', players: [], fixtures: [], results: [], staff: [] }, { id: 103, name: 'Louis XIV FC', crestUrl: 'https://via.placeholder.com/128/4682B4/FFFFFF?text=LFC', players: [], fixtures: [], results: [], staff: [] }, { id: 104, name: 'Milling Hotspurs', crestUrl: 'https://via.placeholder.com/128/B22222/FFFFFF?text=MH', players: [], fixtures: [], results: [], staff: [] }, { id: 105, name: 'Seven Dreams FC', crestUrl: 'https://via.placeholder.com/128/778899/FFFFFF?text=SD', players: [], fixtures: [], results: [], staff: [] }, { id: 106, name: 'Tambankulu Celtics', crestUrl: 'https://via.placeholder.com/128/006400/FFFFFF?text=TC', players: [], fixtures: [], results: [], staff: [] } ] };
 const hhohhoNorthLeagueData = { name: "Hhohho Super League (North)", categoryId: "regional-leagues", fixtures: [], results: [], teams: [ { id: 201, name: 'Ngwenya Glass', crestUrl: 'https://via.placeholder.com/128/1C1C1C/FFFFFF?text=NG', players: [], fixtures: [], results: [], staff: [] }, { id: 202, name: 'Pigg\'s Peak Black Swallows', crestUrl: 'https://via.placeholder.com/128/DAA520/000000?text=PPBS', players: [], fixtures: [], results: [], staff: [] }, { id: 203, name: 'Mayiwane', crestUrl: 'https://via.placeholder.com/128/4169E1/FFFFFF?text=MYW', players: [], fixtures: [], results: [], staff: [] }, { id: 204, name: 'Mhlume Hotspurs', crestUrl: 'https://via.placeholder.com/128/CD5C5C/FFFFFF?text=MH', players: [], fixtures: [], results: [], staff: [] } ] };
@@ -68,6 +121,58 @@ const shiselweniSouthLeagueData = { name: "Shiselweni Super League (South)", cat
 const cafChampionsLeagueData = { name: "CAF Champions League", categoryId: "cup-competitions", fixtures: [], results: [], teams: [ { id: 701, name: 'Al Ahly SC', crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=AA', players: [], fixtures: [], results: [], staff: [] }, { id: 702, name: 'Mamelodi Sundowns', crestUrl: 'https://via.placeholder.com/128/FFFF00/000000?text=MSD', players: [], fixtures: [], results: [], staff: [] }, { id: 703, name: 'Wydad Casablanca', crestUrl: 'https://via.placeholder.com/128/DC143C/FFFFFF?text=WAC', players: [], fixtures: [], results: [], staff: [] }, { id: 704, name: 'Espérance de Tunis', crestUrl: 'https://via.placeholder.com/128/FFDB58/FF0000?text=EST', players: [], fixtures: [], results: [], staff: [] } ] };
 const cafConfederationCupData = { name: "CAF Confederation Cup", categoryId: "cup-competitions", fixtures: [], results: [], teams: [ { id: 711, name: 'Zamalek SC', crestUrl: 'https://via.placeholder.com/128/FFFFFF/FF0000?text=ZSC', players: [], fixtures: [], results: [], staff: [] }, { id: 712, name: 'USM Alger', crestUrl: 'https://via.placeholder.com/128/000000/FF0000?text=USMA', players: [], fixtures: [], results: [], staff: [] }, { id: 713, name: 'RS Berkane', crestUrl: 'https://via.placeholder.com/128/FFA500/000000?text=RSB', players: [], fixtures: [], results: [], staff: [] }, { id: 714, name: 'Orlando Pirates', crestUrl: 'https://via.placeholder.com/128/000000/FFFFFF?text=OP', players: [], fixtures: [], results: [], staff: [] } ] };
 const englishPremierLeagueData = { name: "English Premier League", categoryId: "international-leagues", externalApiId: 'PL', fixtures: [], results: [], teams: [ { id: 801, name: 'Manchester City', crestUrl: 'https://via.placeholder.com/128/6CABDD/FFFFFF?text=MCFC', players: [], fixtures: [], results: [], staff: [] }, { id: 802, name: 'Arsenal', crestUrl: 'https://via.placeholder.com/128/EF0107/FFFFFF?text=AFC', players: [], fixtures: [], results: [], staff: [] }, { id: 803, name: 'Liverpool', crestUrl: 'https://via.placeholder.com/128/C8102E/FFFFFF?text=LFC', players: [], fixtures: [], results: [], staff: [] }, { id: 804, name: 'Manchester United', crestUrl: 'https://via.placeholder.com/128/DA291C/FFFFFF?text=MUFC', players: [], fixtures: [], results: [], staff: [] }, { id: 805, name: 'Chelsea', crestUrl: 'https://via.placeholder.com/128/034694/FFFFFF?text=CFC', players: [], fixtures: [], results: [], staff: [] }, { id: 806, name: 'Tottenham Hotspur', crestUrl: 'https://via.placeholder.com/128/FFFFFF/132257?text=THFC', players: [], fixtures: [], results: [], staff: [] } ] };
+
+// MOCK LIVE UPDATES for the seed
+const liveUpdatesData: Omit<LiveUpdate, 'id' | 'timestamp'>[] = [
+    {
+        fixture_id: '9002', // ID matches the live fixture above
+        competition: 'MTN Premier League',
+        home_team: 'Green Mamba FC',
+        away_team: 'Young Buffaloes FC',
+        minute: 74,
+        type: 'goal',
+        player: 'Sabelo Ndzinisa',
+        description: 'GOAL! Sabelo Ndzinisa puts Green Mamba ahead with a clinical finish inside the box.',
+        score_home: 2,
+        score_away: 1,
+    },
+    {
+        fixture_id: '9002',
+        competition: 'MTN Premier League',
+        home_team: 'Green Mamba FC',
+        away_team: 'Young Buffaloes FC',
+        minute: 56,
+        type: 'goal',
+        player: 'Sandile Gamedze',
+        description: 'GOAL! Young Buffaloes equalize! Sandile Gamedze converts from the penalty spot.',
+        score_home: 1,
+        score_away: 1,
+    },
+    {
+        fixture_id: '9002',
+        competition: 'MTN Premier League',
+        home_team: 'Green Mamba FC',
+        away_team: 'Young Buffaloes FC',
+        minute: 34,
+        type: 'yellow_card',
+        player: 'Mthunzi Mkhontfo',
+        description: 'Yellow card for Mkhontfo after a late challenge in midfield.',
+        score_home: 1,
+        score_away: 0,
+    },
+    {
+        fixture_id: '9002',
+        competition: 'MTN Premier League',
+        home_team: 'Green Mamba FC',
+        away_team: 'Young Buffaloes FC',
+        minute: 12,
+        type: 'goal',
+        player: 'Njabulo Tfwala',
+        description: 'GOAL! Green Mamba take the early lead! Njabulo Tfwala heads home from a corner.',
+        score_home: 1,
+        score_away: 0,
+    }
+];
 
 const SeedDatabase: React.FC = () => {
     const [isSeeding, setIsSeeding] = useState(false);
@@ -93,15 +198,6 @@ const SeedDatabase: React.FC = () => {
             let docSnap = await getDoc(docRef);
 
             const batch = writeBatch(db);
-            const teamIds = (data.teams || []).map((t: any) => t.id);
-
-            // This part is now deprecated as teams are no longer stored in a top-level `teams` collection
-            // for (const team of data.teams || []) {
-            //     const teamWithCompetitionId = { ...team, competitionId: competitionId };
-            //     const teamDocRef = doc(db, 'teams', String(team.id));
-            //     batch.set(teamDocRef, teamWithCompetitionId);
-            // }
-
             // The 'teams' array is now embedded directly in the competition document.
             // The `teamIds` field is deprecated and no longer needed.
             const { teamIds: _, ...competitionData } = data;
@@ -137,6 +233,30 @@ const SeedDatabase: React.FC = () => {
                 appendLog(`'${collectionName}' collection already contains data. Skipping seed.`);
             }
         };
+        
+        // Special seeder for live updates since they need server timestamps
+        const seedLiveUpdates = async (data: any[]) => {
+             appendLog(`Seeding 'live_updates'...`);
+             const collectionRef = collection(db, 'live_updates');
+             const snapshot = await getDocs(collectionRef);
+             
+             if(snapshot.empty) {
+                 const batch = writeBatch(db);
+                 data.forEach(item => {
+                    const docRef = doc(collectionRef); // Auto-ID
+                    batch.set(docRef, {
+                        ...item,
+                        timestamp: serverTimestamp(), // Use server timestamp
+                        verified: true,
+                        confidence: 0.99
+                    });
+                 });
+                 await batch.commit();
+                 appendLog(`'live_updates' seeded with mock live match events.`);
+             } else {
+                 appendLog(`'live_updates' already contains data. Skipping seed.`);
+             }
+        }
 
         const seedSingleDoc = async (collectionName: string, docId: string, data: any) => {
             appendLog(`Seeding single doc '${collectionName}/${docId}'...`);
@@ -169,6 +289,9 @@ const SeedDatabase: React.FC = () => {
             await seedSingleDoc('referees', 'main', refereeData);
             await seedCollection('photoGalleries', photoGalleries);
             await seedCollection('behindTheScenes', behindTheScenesData);
+            
+            // Seed live updates
+            await seedLiveUpdates(liveUpdatesData);
 
             await seedOrRepairCompetition(premierLeagueId, premierLeagueData);
             await seedOrRepairCompetition('eswatini-women-football-league', womensLeagueData);

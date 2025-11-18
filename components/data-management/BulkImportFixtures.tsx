@@ -4,7 +4,6 @@ import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import { fetchAllCompetitions, fetchCompetition } from '../../services/api';
-import { Competition, CompetitionFixture, Team } from '../../data/teams';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { calculateStandings, normalizeTeamName, removeUndefinedProps } from '../../services/utils';
@@ -13,6 +12,7 @@ import CheckCircleIcon from '../icons/CheckCircleIcon';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import XCircleIcon from '../icons/XCircleIcon';
 import PencilIcon from '../icons/PencilIcon';
+import { Competition, CompetitionFixture, Team } from '../../data/teams';
 
 interface ParsedFixture extends Partial<CompetitionFixture> {
     tempId: number;
@@ -309,16 +309,16 @@ Text to parse:\n\n${pastedText}`;
         const officialTeamNames = (currentCompetitionData.teams || []).map(t => t.name);
     
         // Combine original fixture with any edits made in the form
-        const updatedData = {
+        const updatedData: Partial<ParsedFixture> = {
             ...fixtureToUpdate,
             ...editedData,
-            scoreA: editedData.scoreA ? Number(editedData.scoreA) : undefined,
-            scoreB: editedData.scoreB ? Number(editedData.scoreB) : undefined,
+            scoreA: (editedData.scoreA !== '' && editedData.scoreA != null) ? Number(editedData.scoreA) : undefined,
+            scoreB: (editedData.scoreB !== '' && editedData.scoreB != null) ? Number(editedData.scoreB) : undefined,
         };
     
         // Re-normalize based on the final data (original or edited)
-        const normalizedTeamA = normalizeTeamName(updatedData.teamA, officialTeamNames);
-        const normalizedTeamB = normalizeTeamName(updatedData.teamB, officialTeamNames);
+        const normalizedTeamA = normalizeTeamName(updatedData.teamA!, officialTeamNames);
+        const normalizedTeamB = normalizeTeamName(updatedData.teamB!, officialTeamNames);
     
         let finalFixture: ParsedFixture;
     
@@ -330,7 +330,7 @@ Text to parse:\n\n${pastedText}`;
             if (!normalizedTeamB) warnings.push(`Invalid Away Team: "${updatedData.teamB}". Please select a valid team.`);
             
             finalFixture = {
-                ...updatedData,
+                ...updatedData as ParsedFixture,
                 normalizedTeamA,
                 normalizedTeamB,
                 warnings,
@@ -341,7 +341,7 @@ Text to parse:\n\n${pastedText}`;
             // If team names are valid, the save action is a manual override.
             // We bypass all previous checks (duplicate, confidence) and force approval.
             finalFixture = {
-                ...updatedData,
+                ...updatedData as ParsedFixture,
                 normalizedTeamA,
                 normalizedTeamB,
                 warnings: ['Manually approved by user.'], // Clear old warnings and add an approval note

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AdminLoginPrompt from './admin/AdminLoginPrompt';
 import ApprovalQueue from './admin/ApprovalQueue';
 import MergeTeams from './admin/MergeTeams';
-import RecalculateLogs from './admin/ManualStandings'; // Kept filename for simplicity, but it's the new component
+import RecalculateLogs from './admin/RecalculateLogs';
 import CreateEntities from './admin/CreateEntities';
 import TournamentBracket from './admin/TournamentBracket';
 import NewsManagement from './admin/NewsManagement';
@@ -28,15 +28,11 @@ import LayersIcon from './icons/LayersIcon';
 import AlertTriangleIcon from './icons/AlertTriangleIcon';
 import UsersIcon from './icons/UsersIcon';
 import MegaphoneIcon from './icons/MegaphoneIcon';
-import RadioIcon from './icons/RadioIcon';
-import UploadCloudIcon from './icons/UploadCloudIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
-const LiveUpdatesEntry = lazy(() => import('./admin/LiveUpdatesEntry'));
-const SeedDatabase = lazy(() => import('./admin/SeedDatabase'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'live-entry' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'seed';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -61,7 +57,6 @@ const AdminPanelPage: React.FC = () => {
       case 'directory': return <DirectoryManagement />;
       case 'videos': return <VideoManagement />;
       case 'ads': return <AdManagement />;
-      case 'live-entry': return <LiveUpdatesEntry />;
       case 'create': return <CreateEntities />;
       case 'categories': return <CategoryManagement />;
       case 'teams': return <ManageTeams />;
@@ -69,7 +64,6 @@ const AdminPanelPage: React.FC = () => {
       case 'standings': return <RecalculateLogs />;
       case 'tournament': return <TournamentBracket />;
       case 'reset': return <ResetAllData />;
-      case 'seed': return <SeedDatabase />;
       default: return null;
     }
   };
@@ -115,8 +109,6 @@ const AdminPanelPage: React.FC = () => {
 
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
                         <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
-                        <TabButton tabName="live-entry" label="Live Updates Entry" Icon={RadioIcon} />
-                        <TabButton tabName="seed" label="Seed Database" Icon={UploadCloudIcon} />
                         <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
                         <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
                         <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />
