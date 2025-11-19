@@ -1,9 +1,10 @@
+
 import React, { useState, lazy } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import AdminLoginPrompt from './admin/AdminLoginPrompt';
 import ApprovalQueue from './admin/ApprovalQueue';
 import MergeTeams from './admin/MergeTeams';
-import RecalculateLogs from './admin/ManualStandings'; // Kept filename for simplicity, but it's the new component
+import RecalculateLogs from './admin/RecalculateLogs';
 import CreateEntities from './admin/CreateEntities';
 import TournamentBracket from './admin/TournamentBracket';
 import NewsManagement from './admin/NewsManagement';
@@ -12,6 +13,8 @@ import ScoutingManagement from './admin/ScoutingManagement';
 import DirectoryManagement from './admin/DirectoryManagement';
 import VideoManagement from './admin/VideoManagement';
 import ResetAllData from './admin/ResetAllData';
+import LiveUpdatesEntry from './admin/LiveUpdatesEntry';
+import ManageMatches from './admin/ManageMatches';
 
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import GitMergeIcon from '../icons/GitMergeIcon';
@@ -28,11 +31,13 @@ import LayersIcon from '../icons/LayersIcon';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import UsersIcon from '../icons/UsersIcon';
 import MegaphoneIcon from '../icons/MegaphoneIcon';
+import RadioIcon from '../icons/RadioIcon';
+import CalendarIcon from '../icons/CalendarIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -57,6 +62,8 @@ const AdminPanelPage: React.FC = () => {
       case 'directory': return <DirectoryManagement />;
       case 'videos': return <VideoManagement />;
       case 'ads': return <AdManagement />;
+      case 'live': return <LiveUpdatesEntry />;
+      case 'matches': return <ManageMatches />;
       case 'create': return <CreateEntities />;
       case 'categories': return <CategoryManagement />;
       case 'teams': return <ManageTeams />;
@@ -109,6 +116,8 @@ const AdminPanelPage: React.FC = () => {
 
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
                         <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
+                        <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
+                        <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
                         <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
                         <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
                         <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />

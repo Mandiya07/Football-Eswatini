@@ -26,7 +26,7 @@ interface FixtureItemProps {
     isExpanded: boolean;
     onToggleDetails: () => void;
     teams: Team[];
-    onDeleteFixture: (id: number) => void;
+    onDeleteFixture: (fixture: CompetitionFixture) => void;
     isDeleting: boolean;
     directoryMap: Map<string, DirectoryEntity>;
     competitionId: string;
@@ -46,11 +46,11 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
 
     const getLinkProps = (teamObj: Team | undefined, teamName: string) => {
-        // 1. Prioritize direct ID from competition data (restores old functionality)
+        // 1. Prioritize direct ID from competition data
         if (teamObj?.id) {
             return { isLinkable: true, competitionId, teamId: teamObj.id };
         }
-        // 2. Fallback to directory for inconsistent data (fixes MTN Premier League)
+        // 2. Fallback to directory for inconsistent data
         const entity = findInMap(teamName || '', directoryMap);
         if (entity?.teamId && entity.competitionId) {
             return { isLinkable: true, competitionId: entity.competitionId, teamId: entity.teamId };
@@ -62,7 +62,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const teamBLink = getLinkProps(teamB, fixture.teamB);
 
     const handleShare = async (e: React.MouseEvent) => {
-        e.stopPropagation(); // Stop the click from bubbling up to the main button
+        e.stopPropagation();
 
         let title = `⚽ Match: ${fixture.teamA} vs ${fixture.teamB}`;
         let text = `Check out this Football Eswatini match!\n\n${fixture.teamA} vs ${fixture.teamB}`;
@@ -87,12 +87,11 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
         const shareData = {
           title: title,
           text: text,
-          url: window.location.href, // Direct link to the current page
+          url: window.location.href,
         };
     
         if (navigator.share) {
           try {
-            // The url property is automatically appended by many apps, so text can be cleaner
             await navigator.share(shareData);
           } catch (err) {
             if ((err as Error).name !== 'AbortError') {
@@ -101,7 +100,6 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
           }
         } else {
           try {
-            // For clipboard, we explicitly add the URL
             await navigator.clipboard.writeText(`${text}\n\nView here: ${window.location.href}`);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
@@ -159,7 +157,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const isScoreVisible = fixture.status === 'live' || fixture.status === 'finished' || (fixture.status === 'abandoned' && fixture.scoreA !== undefined);
 
     return (
-        <div className="flex items-center hover:bg-gray-50/50 transition-colors duration-200">
+        <div className="flex items-center hover:bg-gray-50/50 transition-colors duration-200 border-l-4 border-transparent hover:border-accent">
             <button
                 onClick={onToggleDetails}
                 className="flex-grow w-full text-left"
@@ -168,10 +166,13 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
             >
                 <div className="relative flex items-center space-x-4 p-4 min-h-[100px]">
                     {getStatusBadge()}
-                    <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary' : 'bg-primary'} text-white w-16 h-16 rounded-full flex-shrink-0 transition-colors duration-300`}>
-                        <span className="font-bold text-2xl">{fixture.date}</span>
-                        <span className="text-xs uppercase">{fixture.day}</span>
+                    
+                    {/* Date Box: Uses Primary Blue with a Yellow Accent Border */}
+                    <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white animate-pulse' : 'bg-primary text-white'} w-16 h-16 rounded-lg shadow-sm flex-shrink-0 transition-colors duration-300 border-b-4 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
+                        <span className="font-bold text-xl">{fixture.date}</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider">{fixture.day}</span>
                     </div>
+
                     <div className="flex-grow grid grid-cols-3 items-center text-center">
                         <div className="flex justify-end items-center gap-3 pr-2">
                             {teamALink.isLinkable ? (
@@ -222,12 +223,12 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                             </button>
                             {user?.role === 'super_admin' && (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); onDeleteFixture(fixture.id); }}
+                                    onClick={(e) => { e.stopPropagation(); onDeleteFixture(fixture); }}
                                     className="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-red-50 transition-colors"
                                     disabled={isDeleting}
                                     aria-label="Delete fixture"
                                 >
-                                    <TrashIcon className="w-5 h-5" />
+                                    {isDeleting ? <Spinner className="w-4 h-4 border-red-600 border-2" /> : <TrashIcon className="w-5 h-5" />}
                                 </button>
                             )}
                         </div>
@@ -257,7 +258,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
     const [expandedFixtureId, setExpandedFixtureId] = useState<number | null>(null);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     const [compOptions, setCompOptions] = useState<{ label: string, options: { value: string; name: string; }[] }[]>([]);
-    const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [deletingId, setDeletingId] = useState<number | string | null>(null);
 
     useEffect(() => {
         const loadMetadata = async () => {
@@ -307,7 +308,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     }
                     setCompOptions(finalOptions);
                     
-                    // If defaultCompetition isn't in options and we have options, select first
                     if (finalOptions.length > 0 && !allCompetitions.some(c => c.id === defaultCompetition)) {
                         const firstOpt = finalOptions[0].options[0];
                         if (firstOpt) setSelectedComp(firstOpt.value);
@@ -334,26 +334,56 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
         return () => unsubscribe();
     }, [selectedComp]);
 
-    const handleDeleteFixture = async (id: number) => {
-         if (!window.confirm("Are you sure you want to delete this fixture?")) return;
-         setDeletingId(id);
+    const handleDeleteFixture = async (fixture: CompetitionFixture) => {
+         if (!window.confirm("Are you sure you want to delete this match?")) return;
+         
+         setDeletingId(fixture.id);
          try {
             const docRef = doc(db, 'competitions', selectedComp);
             await runTransaction(db, async (transaction) => {
                 const docSnap = await transaction.get(docRef);
                 if(!docSnap.exists()) throw new Error("Competition not found");
                 const compData = docSnap.data() as Competition;
-                const updatedFixtures = (compData.fixtures || []).filter(f => f.id !== id);
-                const updatedResults = (compData.results || []).filter(f => f.id !== id);
                 
-                let teams = compData.teams || [];
-                if (compData.results?.some(r => r.id === id)) {
-                     teams = calculateStandings(teams, updatedResults, updatedFixtures);
-                }
+                const targetId = String(fixture.id).trim();
 
-                transaction.update(docRef, removeUndefinedProps({ fixtures: updatedFixtures, results: updatedResults, teams }));
+                // Fallback Deletion Strategy:
+                // 1. Try to delete by ID (robust string comparison).
+                // 2. If nothing removed, try to delete by content (Teams + Date).
+                const filterList = (list: CompetitionFixture[]) => {
+                    const initialLen = list.length;
+                    // 1. ID Match
+                    let filtered = list.filter(f => String(f.id).trim() !== targetId);
+                    
+                    // 2. Content Fallback
+                    if (filtered.length === initialLen) {
+                        filtered = list.filter(f => 
+                            !((f.teamA === fixture.teamA) && 
+                              (f.teamB === fixture.teamB) && 
+                              (f.fullDate === fixture.fullDate))
+                        );
+                    }
+                    return filtered;
+                };
+
+                const updatedFixtures = filterList(compData.fixtures || []);
+                const updatedResults = filterList(compData.results || []);
+                
+                // Check if anything was removed
+                const deletedCount = ((compData.fixtures?.length || 0) - updatedFixtures.length) + ((compData.results?.length || 0) - updatedResults.length);
+                
+                if (deletedCount === 0) {
+                    throw new Error(`Could not find match to delete. It might have already been removed.`);
+                }
+                
+                // Always recalculate standings to ensure consistency
+                const updatedTeams = calculateStandings(compData.teams || [], updatedResults, updatedFixtures);
+
+                transaction.update(docRef, removeUndefinedProps({ fixtures: updatedFixtures, results: updatedResults, teams: updatedTeams }));
             });
          } catch(error) {
+             console.error("Failed to delete fixture:", error);
+             alert("Failed to delete fixture. " + (error as Error).message);
              handleFirestoreError(error, 'delete fixture');
          } finally {
              setDeletingId(null);
@@ -366,7 +396,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
         const isResults = activeTab === 'results';
         const sourceData = isResults ? (competition.results || []) : (competition.fixtures || []);
         
-        // Group items by Matchday
         const groups: Record<string, CompetitionFixture[]> = {};
         sourceData.forEach(fixture => {
             const key = fixture.matchday ? `Matchday ${fixture.matchday}` : 'Unscheduled / Other';
@@ -374,9 +403,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
             groups[key].push(fixture);
         });
 
-        // Sort Items within groups based on tab
-        // Results: Date Descending (Newest first)
-        // Fixtures: Date Ascending (Soonest first)
         Object.values(groups).forEach(group => {
             group.sort((a, b) => {
                  const dateA = new Date((a.fullDate || '1970-01-01') + 'T' + (a.time || '00:00')).getTime();
@@ -385,9 +411,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
             });
         });
 
-        // Sort Groups
-        // Results: Matchday 12, Matchday 11... (Descending)
-        // Fixtures: Matchday 13, Matchday 14... (Ascending)
         const sortedKeys = Object.keys(groups).sort((a, b) => {
             const isMatchdayA = a.startsWith('Matchday');
             const isMatchdayB = b.startsWith('Matchday');
@@ -398,7 +421,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 return isResults ? numB - numA : numA - numB;
             }
             
-            // Always put 'Unscheduled' or 'Other' at the bottom, regardless of sort order
             if (isMatchdayA) return -1;
             if (isMatchdayB) return 1;
             return a.localeCompare(b);
@@ -433,23 +455,24 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 )}
             </div>
 
-            <div className="flex justify-center sm:justify-start space-x-1 bg-gray-100 p-1 rounded-lg w-fit mb-6 mx-auto sm:mx-0">
+            {/* Color-coded Tabs for Fixtures (Blue) vs Results (Red) */}
+            <div className="flex justify-center sm:justify-start space-x-2 bg-gray-100 p-1.5 rounded-lg w-fit mb-6 mx-auto sm:mx-0 shadow-inner">
                 <button
                     onClick={() => setActiveTab('fixtures')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-6 py-2 text-sm font-bold rounded-md transition-all duration-300 ${
                         activeTab === 'fixtures' 
-                        ? 'bg-white text-primary shadow-sm' 
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-primary text-white shadow-md ring-1 ring-black/5' 
+                        : 'text-gray-600 hover:text-primary hover:bg-white'
                     }`}
                 >
                     Fixtures
                 </button>
                 <button
                     onClick={() => setActiveTab('results')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-6 py-2 text-sm font-bold rounded-md transition-all duration-300 ${
                         activeTab === 'results' 
-                        ? 'bg-white text-primary shadow-sm' 
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-secondary text-white shadow-md ring-1 ring-black/5' 
+                        : 'text-gray-600 hover:text-secondary hover:bg-white'
                     }`}
                 >
                     Results
@@ -465,9 +488,10 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     {groupedData.map((group, groupIndex) => (
                         <div key={group.title} className="animate-content-fade-in">
                             <div className="flex items-center mb-4">
-                                <h3 className="text-lg font-bold bg-primary text-white px-4 py-1 rounded-r-full shadow-md inline-block uppercase tracking-wider">
-                                    {group.title}
-                                </h3>
+                                {/* Group Header with Blue Background and Yellow Accent Border */}
+                                <div className="bg-primary text-white px-4 py-1.5 rounded-r-full shadow-md inline-flex items-center gap-2 border-l-4 border-accent">
+                                    <span className="text-sm font-bold uppercase tracking-widest">{group.title}</span>
+                                </div>
                                 <div className="flex-grow h-px bg-gray-200 ml-4"></div>
                             </div>
                             
@@ -481,14 +505,13 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                                             onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === fixture.id ? null : fixture.id)}
                                             teams={competition?.teams || []}
                                             onDeleteFixture={handleDeleteFixture}
-                                            isDeleting={deletingId === fixture.id}
+                                            isDeleting={String(deletingId).trim() === String(fixture.id).trim()}
                                             directoryMap={directoryMap}
                                             competitionId={selectedComp}
                                         />
                                     ))}
                                 </div>
                             </Card>
-                            {/* Ad Banner after the first group only */}
                             {groupIndex === 0 && <AdBanner placement="fixtures-banner" className="mb-8" />}
                         </div>
                     ))}

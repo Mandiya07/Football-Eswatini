@@ -14,6 +14,7 @@ import DirectoryManagement from './admin/DirectoryManagement';
 import VideoManagement from './admin/VideoManagement';
 import ResetAllData from './admin/ResetAllData';
 import LiveUpdatesEntry from './admin/LiveUpdatesEntry';
+import ManageMatches from './admin/ManageMatches';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -31,11 +32,12 @@ import AlertTriangleIcon from './icons/AlertTriangleIcon';
 import UsersIcon from './icons/UsersIcon';
 import MegaphoneIcon from './icons/MegaphoneIcon';
 import RadioIcon from './icons/RadioIcon';
+import CalendarIcon from './icons/CalendarIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -61,6 +63,7 @@ const AdminPanelPage: React.FC = () => {
       case 'videos': return <VideoManagement />;
       case 'ads': return <AdManagement />;
       case 'live': return <LiveUpdatesEntry />;
+      case 'matches': return <ManageMatches />;
       case 'create': return <CreateEntities />;
       case 'categories': return <CategoryManagement />;
       case 'teams': return <ManageTeams />;
@@ -114,6 +117,7 @@ const AdminPanelPage: React.FC = () => {
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
                         <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
+                        <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
                         <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
                         <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
                         <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />

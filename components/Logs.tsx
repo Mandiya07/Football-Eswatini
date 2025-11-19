@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -201,8 +202,9 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     <div className="flex justify-center items-center h-64"><Spinner /></div>
                  ) : leagueData.length > 0 ? (
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-100 text-left text-gray-600 font-semibold uppercase text-xs sticky top-0">
-                            <tr>
+                        {/* Enhanced Header with Eswatini Colors */}
+                        <thead className="text-left font-bold uppercase text-xs sticky top-0 z-10">
+                            <tr className="bg-primary text-white shadow-md border-b-4 border-secondary">
                                 <th className="px-4 py-3 w-8">#</th>
                                 <th className="px-4 py-3">Team</th>
                                 <th className="px-4 py-3 text-center w-12" title="Played">P</th>

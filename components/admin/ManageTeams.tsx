@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
@@ -31,7 +32,6 @@ const ManageTeams: React.FC = () => {
             if (selectedCompId && allComps[selectedCompId]) {
                 setTeams((allComps[selectedCompId].teams || []).sort((a,b) => a.name.localeCompare(b.name)));
             } else if (compList.length > 0) {
-                // Fallback if initial selectedCompId is not found
                 const firstCompId = compList[0].id;
                 setSelectedCompId(firstCompId);
                 setTeams((allComps[firstCompId].teams || []).sort((a,b) => a.name.localeCompare(b.name)));
@@ -87,17 +87,29 @@ const ManageTeams: React.FC = () => {
                 if (!compDocSnap.exists()) throw new Error("Competition not found");
                 const competition = compDocSnap.data() as Competition;
 
-                const teamToDelete = competition.teams?.find(t => t.id === teamId);
-                if (!teamToDelete) throw new Error("Team not found in competition");
+                const targetId = String(teamId).trim();
                 
-                // 1. Filter team out of competition's team list
-                const updatedCompTeams = (competition.teams || []).filter(t => t.id !== teamId);
+                const teamIndex = (competition.teams || []).findIndex(t => String(t.id).trim() === targetId);
+                
+                if (teamIndex === -1) throw new Error("Team not found in competition");
+                
+                const teamToDelete = competition.teams![teamIndex];
+                const targetName = teamToDelete.name.trim();
+                
+                // 1. Remove team from list
+                const updatedCompTeams = [...(competition.teams || [])];
+                updatedCompTeams.splice(teamIndex, 1);
 
                 // 2. Filter out fixtures and results involving the deleted team
-                const updatedFixtures = (competition.fixtures || []).filter(f => f.teamA !== teamToDelete.name && f.teamB !== teamToDelete.name);
-                const updatedResults = (competition.results || []).filter(r => r.teamA !== teamToDelete.name && r.teamB !== teamToDelete.name);
+                // Robustly check names with trim() to avoid ghost matches staying behind
+                const updatedFixtures = (competition.fixtures || []).filter(f => 
+                    f.teamA.trim() !== targetName && f.teamB.trim() !== targetName
+                );
+                const updatedResults = (competition.results || []).filter(r => 
+                    r.teamA.trim() !== targetName && r.teamB.trim() !== targetName
+                );
                 
-                // 3. Recalculate standings with the remaining teams and results
+                // 3. Recalculate standings
                 const recalculatedTeams = calculateStandings(updatedCompTeams, updatedResults);
 
                 transaction.update(compDocRef, removeUndefinedProps({ teams: recalculatedTeams, fixtures: updatedFixtures, results: updatedResults }));
@@ -107,7 +119,7 @@ const ManageTeams: React.FC = () => {
 
         } catch (error) {
             console.error("Error deleting team:", error);
-            alert("Failed to delete team.");
+            alert("Failed to delete team. " + (error as Error).message);
         } finally {
             setDeletingId(null);
         }
@@ -126,17 +138,20 @@ const ManageTeams: React.FC = () => {
                     if (!compDocSnap.exists()) throw new Error("Competition not found");
                     const competition = compDocSnap.data() as Competition;
                     
-                    const oldTeam = competition.teams?.find(t => t.id === id);
+                    const targetId = String(id).trim();
+                    const oldTeam = competition.teams?.find(t => String(t.id).trim() === targetId);
                     if (!oldTeam) throw new Error("Original team not found in competition for update");
     
                     const updatedCompTeams = (competition.teams || []).map(t => 
-                        t.id === id ? { ...t, ...data } : t
+                        String(t.id).trim() === targetId ? { ...t, ...data } : t
                     );
     
                     if (oldTeam.name !== data.name) {
+                        const oldName = oldTeam.name.trim();
+                        const newName = data.name.trim();
                         const renameInMatches = (matches: any[]) => (matches || []).map(f => {
-                            if (f.teamA === oldTeam.name) return { ...f, teamA: data.name };
-                            if (f.teamB === oldTeam.name) return { ...f, teamB: data.name };
+                            if (f.teamA.trim() === oldName) return { ...f, teamA: newName };
+                            if (f.teamB.trim() === oldName) return { ...f, teamB: newName };
                             return f;
                         });
                         const updatedFixtures = renameInMatches(competition.fixtures);
@@ -147,11 +162,10 @@ const ManageTeams: React.FC = () => {
                     }
                 });
             } else { // --- ADDING ---
-                // Fetch all competitions to calculate the next available team ID.
                 const allComps = await fetchAllCompetitions();
                 const allTeams = Object.values(allComps).flatMap(comp => comp.teams || []);
                 const maxId = allTeams.reduce((max, team) => Math.max(max, team.id), 0);
-                const newTeamId = maxId > 0 ? maxId + 1 : 1; // Start from 1 if no teams exist
+                const newTeamId = maxId > 0 ? maxId + 1 : 1;
     
                 await runTransaction(db, async (transaction) => {
                     const compDocSnap = await transaction.get(compDocRef);
@@ -173,7 +187,7 @@ const ManageTeams: React.FC = () => {
             await loadData();
         } catch (error) {
             console.error("Error saving team:", error);
-            alert("Failed to save team.");
+            alert("Failed to save team. " + (error as Error).message);
             setLoading(false);
         }
     };
