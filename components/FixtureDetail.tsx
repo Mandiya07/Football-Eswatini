@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CompetitionFixture, MatchEvent } from '../data/teams';
 import MapPinIcon from './icons/MapPinIcon';
@@ -202,7 +203,11 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                            <div className="flex justify-between"><span>Corners</span> <span>6 - 3</span></div>
                         </div>
                      ) : (
-                        <p className="text-sm text-gray-500 italic">Statistics will be available when the match starts.</p>
+                         <p className="text-sm text-gray-500 italic">
+                            {['postponed', 'cancelled', 'abandoned', 'suspended'].includes(fixture.status || '') 
+                                ? `Match ${fixture.status}. Statistics unavailable.`
+                                : "Statistics will be available when the match starts."}
+                        </p>
                      )}
                 </div>
             </div>

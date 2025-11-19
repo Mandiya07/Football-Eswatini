@@ -8,7 +8,6 @@ import ChevronDownIcon from './icons/ChevronDownIcon';
 import FixtureDetail from './FixtureDetail';
 import ShareIcon from './icons/ShareIcon';
 import AdBanner from './AdBanner';
-// FIX: Import 'fetchCategories' and 'fetchDirectoryEntries' which are now correctly exported from the API service.
 import { fetchAllCompetitions, listenToCompetition, fetchCategories, fetchDirectoryEntries, handleFirestoreError, Category } from '../services/api';
 import Spinner from './ui/Spinner';
 import { useAuth } from '../contexts/AuthContext';
@@ -75,6 +74,8 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
             } else if (fixture.status === 'finished') {
                 text += ' (Full Time)';
             }
+        } else if (['postponed', 'cancelled', 'abandoned'].includes(fixture.status || '')) {
+            text += `\nStatus: ${fixture.status?.toUpperCase()}`;
         } else {
             text += `\n📅 On ${fixture.day}, ${fixture.date} at ${fixture.time}`;
         }
@@ -111,6 +112,52 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
         }
     };
     
+    const getStatusBadge = () => {
+        switch (fixture.status) {
+            case 'live':
+                return (
+                    <div className="absolute top-2 right-2 flex items-center space-x-1.5 text-secondary font-bold text-xs animate-pulse">
+                        <span className="w-2 h-2 bg-secondary rounded-full"></span>
+                        <span>LIVE</span>
+                    </div>
+                );
+            case 'finished':
+                return (
+                    <div className="absolute top-2 right-2 text-gray-500 font-bold text-xs">
+                        <span>FT</span>
+                    </div>
+                );
+            case 'postponed':
+                return (
+                    <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider">
+                        Postponed
+                    </div>
+                );
+            case 'cancelled':
+                return (
+                    <div className="absolute top-2 right-2 bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider">
+                        Cancelled
+                    </div>
+                );
+            case 'abandoned':
+                return (
+                    <div className="absolute top-2 right-2 bg-gray-800 text-white px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider">
+                        Abandoned
+                    </div>
+                );
+             case 'suspended':
+                return (
+                    <div className="absolute top-2 right-2 bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider">
+                        Suspended
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
+    const isScoreVisible = fixture.status === 'live' || fixture.status === 'finished' || (fixture.status === 'abandoned' && fixture.scoreA !== undefined);
+
     return (
         <div className="flex items-center hover:bg-gray-50/50 transition-colors duration-200">
             <button
@@ -120,17 +167,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                 aria-controls={`fixture-details-${fixture.id}`}
             >
                 <div className="relative flex items-center space-x-4 p-4 min-h-[100px]">
-                    {fixture.status === 'live' &&
-                        <div className="absolute top-2 right-2 flex items-center space-x-1.5 text-secondary font-bold text-xs animate-pulse">
-                            <span className="w-2 h-2 bg-secondary rounded-full"></span>
-                            <span>LIVE</span>
-                        </div>
-                    }
-                     {fixture.status === 'finished' &&
-                        <div className="absolute top-2 right-2 text-gray-500 font-bold text-xs">
-                            <span>FT</span>
-                        </div>
-                    }
+                    {getStatusBadge()}
                     <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary' : 'bg-primary'} text-white w-16 h-16 rounded-full flex-shrink-0 transition-colors duration-300`}>
                         <span className="font-bold text-2xl">{fixture.date}</span>
                         <span className="text-xs uppercase">{fixture.day}</span>
@@ -144,7 +181,8 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                             )}
                             {crestA && <img src={crestA} alt={`${fixture.teamA} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
                         </div>
-                        {fixture.status === 'live' || fixture.status === 'finished' ?
+                        
+                        {isScoreVisible ? (
                             <div className="text-center">
                                 <p 
                                     key={`score-${fixture.id}-${fixture.scoreA}-${fixture.scoreB}`}
@@ -154,11 +192,18 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                                 </p>
                                 {fixture.status === 'live' && <p className="text-xs font-bold text-secondary mt-0.5">{fixture.liveMinute}'</p>}
                             </div>
-                            :
-                            <p className="text-sm text-gray-500 font-bold">vs</p>
-                        }
+                        ) : (
+                            <div className="flex flex-col items-center justify-center">
+                                <p className="text-sm text-gray-500 font-bold">vs</p>
+                                {['postponed', 'cancelled', 'suspended'].includes(fixture.status || '') && (
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100 px-1 rounded">{fixture.status}</span>
+                                )}
+                                <p className="text-xs text-gray-400 mt-1">{fixture.time}</p>
+                            </div>
+                        )}
+
                         <div className="flex justify-start items-center gap-3 pl-2">
-                             {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
+                            {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
                             {teamBLink.isLinkable ? (
                                 <Link to={`/competitions/${teamBLink.competitionId}/teams/${teamBLink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-left truncate hover:underline">{fixture.teamB}</Link>
                             ) : (
@@ -166,91 +211,63 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                             )}
                         </div>
                     </div>
-                    <div className="text-center flex-shrink-0 w-28">
-                         <p className="font-bold text-lg text-gray-700 h-7 flex items-center justify-center">{fixture.status === 'scheduled' && fixture.time}</p>
-                         <div className={`mt-1 py-1.5 text-center text-sm font-semibold rounded-md transition-colors duration-300 ${isExpanded ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700'}`}>
-                             {isExpanded ? 'Hide Details' : 'View Details'}
-                         </div>
+                    <div className="flex-shrink-0 ml-4 flex flex-col items-center gap-2">
+                         <div className="flex gap-2">
+                            <button
+                                onClick={handleShare}
+                                className="text-gray-400 hover:text-blue-600 p-1.5 rounded-full hover:bg-blue-50 transition-colors"
+                                aria-label="Share match"
+                            >
+                                <ShareIcon className="w-5 h-5" />
+                            </button>
+                            {user?.role === 'super_admin' && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onDeleteFixture(fixture.id); }}
+                                    className="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-red-50 transition-colors"
+                                    disabled={isDeleting}
+                                    aria-label="Delete fixture"
+                                >
+                                    <TrashIcon className="w-5 h-5" />
+                                </button>
+                            )}
+                        </div>
+                         <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isExpanded ? 'transform rotate-180' : ''}`} />
                     </div>
-                    <div className="pl-2">
-                        <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-                    </div>
-                </div>
-            </button>
-             <div className="relative flex-shrink-0 pr-4 flex items-center gap-1">
-                {user?.role === 'super_admin' && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onDeleteFixture(fixture.id); }}
-                        className="text-gray-400 hover:text-red-600 p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50"
-                        aria-label={`Delete match: ${fixture.teamA} vs ${fixture.teamB}`}
-                        disabled={isDeleting}
-                    >
-                        {isDeleting ? <Spinner className="w-5 h-5 border-2" /> : <TrashIcon className="w-5 h-5" />}
-                    </button>
-                )}
-                <div className="relative">
-                    <button
-                        onClick={handleShare}
-                        className="text-gray-400 hover:text-primary p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-offset-2"
-                        aria-label={`Share match: ${fixture.teamA} vs ${fixture.teamB}`}
-                    >
-                        <ShareIcon className="w-5 h-5" />
-                    </button>
-                    {copied && (
-                        <span className="absolute bottom-full mb-2 right-0 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10 animate-fade-in-tooltip">
+                     {copied && (
+                        <span className="absolute top-2 right-12 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10 animate-fade-in-tooltip">
                             Link Copied!
-                            <div className="absolute top-full right-3 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-800"></div>
                         </span>
                     )}
                 </div>
-            </div>
+            </button>
+            {isExpanded && (
+                <div id={`fixture-details-${fixture.id}`} className="border-t border-gray-100 bg-gray-50/50 p-4">
+                    <FixtureDetail fixture={fixture} competitionId={competitionId} />
+                </div>
+            )}
         </div>
     );
 });
 
-const MatchdaySelector: React.FC<{ matchdays: number[], active: number, onSelect: (day: number) => void }> = ({ matchdays, active, onSelect }) => (
-    <div className="py-2 overflow-x-auto scrollbar-hide">
-        <div className="flex items-center space-x-2 px-4">
-            {matchdays.map(day => (
-                <button
-                    key={day}
-                    onClick={() => onSelect(day)}
-                    className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors duration-200 whitespace-nowrap ${
-                        active === day ? 'bg-primary text-white shadow' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                >
-                    Matchday {day}
-                </button>
-            ))}
-        </div>
-    </div>
-);
-
-
 const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompetition = 'mtn-premier-league' }) => {
+    const [selectedComp, setSelectedComp] = useState(defaultCompetition);
     const [activeTab, setActiveTab] = useState<'fixtures' | 'results'>('fixtures');
-    const [selectedCompetition, setSelectedCompetition] = useState<string>(defaultCompetition);
-    const [expandedFixtureId, setExpandedFixtureId] = useState<number | null>(null);
-    const [expandedResultId, setExpandedResultId] = useState<number | null>(null);
     const [competition, setCompetition] = useState<Competition | null>(null);
     const [loading, setLoading] = useState(true);
-    const [competitionOptions, setCompetitionOptions] = useState<{ label: string, options: { value: string; name: string }[] }[]>([]);
-    const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [expandedFixtureId, setExpandedFixtureId] = useState<number | null>(null);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
+    const [compOptions, setCompOptions] = useState<{ label: string, options: { value: string; name: string; }[] }[]>([]);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
 
-    const [activeFixtureMatchday, setActiveFixtureMatchday] = useState<number | null>(null);
-    const [activeResultMatchday, setActiveResultMatchday] = useState<number | null>(null);
-
-
-     useEffect(() => {
-        const loadInitialData = async () => {
-            try {
+    useEffect(() => {
+        const loadMetadata = async () => {
+             try {
                 const [entries, allCompetitionsData, categoriesData] = await Promise.all([
                     fetchDirectoryEntries(),
                     fetchAllCompetitions(),
                     fetchCategories()
                 ]);
-
+                
                 const map = new Map<string, DirectoryEntity>();
                 entries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
                 setDirectoryMap(map);
@@ -259,315 +276,230 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     const allCompetitions = Object.entries(allCompetitionsData)
                         .map(([id, comp]) => ({ id, ...(comp as Competition) }))
                         .filter(comp => comp.name);
-    
-                    let finalOptions: { label: string, options: { value: string; name: string }[] }[] = [];
 
-                    if (categoriesData && categoriesData.length > 0) {
-                        const categoryGroups = new Map<string, { name: string; order: number; competitions: { value: string; name: string }[] }>();
-                        categoriesData.forEach(cat => categoryGroups.set(cat.id, { name: cat.name, order: cat.order, competitions: [] }));
+                    const categoryGroups = new Map<string, { name: string; order: number; competitions: { value: string; name: string }[] }>();
+                    categoriesData.forEach(cat => categoryGroups.set(cat.id, { name: cat.name, order: cat.order, competitions: [] }));
+                    const uncategorizedCompetitions: { value: string; name: string }[] = [];
 
-                        const uncategorizedCompetitions: { value: string; name: string }[] = [];
-
-                        allCompetitions.forEach(comp => {
-                            const item = { value: comp.id, name: comp.name };
-                            const catId = comp.categoryId;
-                            if (catId && categoryGroups.has(catId)) {
-                                categoryGroups.get(catId)!.competitions.push(item);
-                            } else {
-                                uncategorizedCompetitions.push(item);
-                            }
-                        });
-
-                        finalOptions = Array.from(categoryGroups.values())
-                            .filter(group => group.competitions.length > 0)
-                            .sort((a, b) => a.order - b.order)
-                            .map(group => ({
-                                label: group.name,
-                                options: group.competitions.sort((a, b) => a.name.localeCompare(b.name))
-                            }));
-                        
-                        if (uncategorizedCompetitions.length > 0) {
-                            finalOptions.push({
-                                label: "Other",
-                                options: uncategorizedCompetitions.sort((a, b) => a.name.localeCompare(b.name))
-                            });
+                    allCompetitions.forEach(comp => {
+                        const item = { value: comp.id, name: comp.name };
+                        const catId = comp.categoryId;
+                        if (catId && categoryGroups.has(catId)) {
+                            categoryGroups.get(catId)!.competitions.push(item);
+                        } else {
+                            uncategorizedCompetitions.push(item);
                         }
-                    }
-    
-                    // Fallback if categorization fails but competitions exist
-                    if (finalOptions.length === 0 && allCompetitions.length > 0) {
-                        console.warn("Category grouping failed. Falling back to a flat list.");
-                        const flatOptions = allCompetitions
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .map(comp => ({ value: comp.id, name: comp.name }));
-                        if (flatOptions.length > 0) {
-                            finalOptions = [{ label: "All Competitions", options: flatOptions }];
-                        }
-                    }
+                    });
+
+                    const finalOptions = Array.from(categoryGroups.values())
+                        .filter(group => group.competitions.length > 0)
+                        .sort((a, b) => a.order - b.order)
+                        .map(group => ({
+                            label: group.name,
+                            options: group.competitions.sort((a, b) => a.name.localeCompare(b.name))
+                        }));
                     
-                    setCompetitionOptions(finalOptions);
+                    if (uncategorizedCompetitions.length > 0) {
+                        finalOptions.push({
+                            label: "Other Leagues",
+                            options: uncategorizedCompetitions.sort((a, b) => a.name.localeCompare(b.name))
+                        });
+                    }
+                    setCompOptions(finalOptions);
+                    
+                    // If defaultCompetition isn't in options and we have options, select first
+                    if (finalOptions.length > 0 && !allCompetitions.some(c => c.id === defaultCompetition)) {
+                        const firstOpt = finalOptions[0].options[0];
+                        if (firstOpt) setSelectedComp(firstOpt.value);
+                    }
                 }
-            } catch (error) {
-                console.error("Failed to load initial data for Fixtures page:", error);
-                setCompetitionOptions([]); // Clear options on error
-            }
+             } catch (error) {
+                 console.error("Error loading fixture metadata", error);
+             }
         };
-
-        loadInitialData();
-    }, [showSelector]);
+        loadMetadata();
+    }, [showSelector, defaultCompetition]);
 
 
     useEffect(() => {
         setLoading(true);
-        setExpandedFixtureId(null);
-        setExpandedResultId(null);
-        
-        // A robust key to identify a unique match, ignoring home/away designation.
-        const getMatchKey = (fixture: CompetitionFixture) => {
-            if (!fixture.teamA || !fixture.teamB) return null;
-            const teams = [fixture.teamA.trim(), fixture.teamB.trim()].sort();
-            return `${teams[0]}-${teams[1]}-${fixture.fullDate}`;
-        };
-
-        const unsubscribe = listenToCompetition(selectedCompetition, (data) => {
+        const unsubscribe = listenToCompetition(selectedComp, (data) => {
             if (data) {
-                const fixtureMap = new Map<string, CompetitionFixture>();
-                const now = new Date();
-                now.setHours(0, 0, 0, 0); // Set to start of today for date-only comparison
-
-                (data.fixtures || []).forEach(f => {
-                    // A fixture is a match that is not finished AND is scheduled for today or a future date.
-                    if (f.status !== 'finished' && f.fullDate) {
-                       const matchDate = new Date(f.fullDate + 'T00:00:00'); // Normalize to avoid timezone issues
-                       if (matchDate >= now) {
-                            const key = getMatchKey(f);
-                            if (key) fixtureMap.set(key, f);
-                       }
-                    }
-                });
-
-                const resultMap = new Map<string, CompetitionFixture>();
-                (data.results || []).forEach(r => {
-                    const key = getMatchKey(r);
-                    if (key) resultMap.set(key, r);
-                });
-                
-                // If a match exists as a result, remove it from the fixtures list
-                // to prevent it from ever showing in both tabs. This is a critical UI safeguard.
-                resultMap.forEach((_, key) => {
-                    if (fixtureMap.has(key)) {
-                        fixtureMap.delete(key);
-                    }
-                });
-
-                const dedupedData = {
-                    ...data,
-                    fixtures: Array.from(fixtureMap.values()),
-                    results: Array.from(resultMap.values()),
-                };
-                setCompetition(dedupedData);
+                setCompetition(data);
             } else {
                 setCompetition(null);
             }
             setLoading(false);
         });
+        return () => unsubscribe();
+    }, [selectedComp]);
 
-        return () => {
-            unsubscribe(); // Cleanup listener
-        };
-    }, [selectedCompetition]);
-
-    const groupItemsByMatchday = (items: CompetitionFixture[]) => {
-        return items
-            .sort((a,b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime())
-            .reduce((acc, fixture) => {
-                const matchday = fixture.matchday || 1; // Default to matchday 1 if not specified
-                if (!acc[matchday]) {
-                    acc[matchday] = [];
-                }
-                acc[matchday].push(fixture);
-                return acc;
-            }, {} as Record<number, CompetitionFixture[]>);
-    };
-
-    const groupedFixtures = useMemo(() => groupItemsByMatchday(competition?.fixtures || []), [competition?.fixtures]);
-    const groupedResults = useMemo(() => groupItemsByMatchday(competition?.results || []), [competition?.results]);
-
-    const fixtureMatchdays = useMemo(() => Object.keys(groupedFixtures).map(Number).sort((a,b) => a - b), [groupedFixtures]);
-    const resultMatchdays = useMemo(() => Object.keys(groupedResults).map(Number).sort((a,b) => a - b), [groupedResults]);
-
-    useEffect(() => {
-        if (fixtureMatchdays.length > 0) setActiveFixtureMatchday(fixtureMatchdays[0]);
-        else setActiveFixtureMatchday(null);
-    }, [fixtureMatchdays]);
-
-    useEffect(() => {
-        if (resultMatchdays.length > 0) setActiveResultMatchday(resultMatchdays[resultMatchdays.length - 1]);
-        else setActiveResultMatchday(null);
-    }, [resultMatchdays]);
-    
-    const handleDeleteFixture = async (fixtureId: number) => {
-        if (!window.confirm("Are you sure you want to delete this match? This action cannot be undone and will recalculate standings.")) {
-            return;
-        }
-        setDeletingId(fixtureId);
-        try {
-            const docRef = doc(db, 'competitions', selectedCompetition);
-            
+    const handleDeleteFixture = async (id: number) => {
+         if (!window.confirm("Are you sure you want to delete this fixture?")) return;
+         setDeletingId(id);
+         try {
+            const docRef = doc(db, 'competitions', selectedComp);
             await runTransaction(db, async (transaction) => {
                 const docSnap = await transaction.get(docRef);
-                if (!docSnap.exists()) throw new Error("Competition not found");
+                if(!docSnap.exists()) throw new Error("Competition not found");
+                const compData = docSnap.data() as Competition;
+                const updatedFixtures = (compData.fixtures || []).filter(f => f.id !== id);
+                const updatedResults = (compData.results || []).filter(f => f.id !== id);
                 
-                const competitionData = docSnap.data() as Competition;
-                
-                const currentFixtures = competitionData.fixtures || [];
-                const currentResults = competitionData.results || [];
-                
-                const fixtureExists = currentFixtures.some(f => f.id === fixtureId) || currentResults.some(r => r.id === fixtureId);
-                
-                if (!fixtureExists) {
-                    throw new Error("Could not find the match to delete. It may have already been removed.");
+                let teams = compData.teams || [];
+                if (compData.results?.some(r => r.id === id)) {
+                     teams = calculateStandings(teams, updatedResults, updatedFixtures);
                 }
 
-                const updatedFixtures = currentFixtures.filter(f => f.id !== fixtureId);
-                const updatedResults = currentResults.filter(r => r.id !== fixtureId);
-                const updatedTeams = calculateStandings(competitionData.teams || [], updatedResults, updatedFixtures);
-
-                // CRITICAL: Sanitize the entire payload before updating.
-                transaction.update(docRef, removeUndefinedProps({ 
-                    fixtures: updatedFixtures, 
-                    results: updatedResults, 
-                    teams: updatedTeams 
-                }));
+                transaction.update(docRef, removeUndefinedProps({ fixtures: updatedFixtures, results: updatedResults, teams }));
             });
-            // Listener will handle UI update
-        } catch(error) {
-            handleFirestoreError(error, 'delete fixture');
-        } finally {
-            setDeletingId(null);
-        }
+         } catch(error) {
+             handleFirestoreError(error, 'delete fixture');
+         } finally {
+             setDeletingId(null);
+         }
     };
 
+    const groupedData = useMemo(() => {
+        if (!competition) return [];
 
-    const handleToggleDetails = (fixtureId: number) => {
-        setExpandedFixtureId(prevId => (prevId === fixtureId ? null : fixtureId));
-    };
+        const isResults = activeTab === 'results';
+        const sourceData = isResults ? (competition.results || []) : (competition.fixtures || []);
+        
+        // Group items by Matchday
+        const groups: Record<string, CompetitionFixture[]> = {};
+        sourceData.forEach(fixture => {
+            const key = fixture.matchday ? `Matchday ${fixture.matchday}` : 'Unscheduled / Other';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(fixture);
+        });
 
-    const handleToggleResultDetails = (fixtureId: number) => {
-        setExpandedResultId(prevId => (prevId === fixtureId ? null : fixtureId));
-    };
-    
-    const handleTabChange = (tabName: 'fixtures' | 'results') => {
-        setActiveTab(tabName);
-        setExpandedFixtureId(null);
-        setExpandedResultId(null);
-    };
-    
-    const TabButton: React.FC<{ tabName: 'fixtures' | 'results'; children: React.ReactNode }> = ({ tabName, children }) => (
-        <button
-            onClick={() => handleTabChange(tabName)}
-            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light ${
-                activeTab === tabName 
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-gray-500 hover:text-gray-800'
-            }`}
-            role="tab"
-            aria-selected={activeTab === tabName}
-        >
-            {children}
-        </button>
-    );
+        // Sort Items within groups based on tab
+        // Results: Date Descending (Newest first)
+        // Fixtures: Date Ascending (Soonest first)
+        Object.values(groups).forEach(group => {
+            group.sort((a, b) => {
+                 const dateA = new Date((a.fullDate || '1970-01-01') + 'T' + (a.time || '00:00')).getTime();
+                 const dateB = new Date((b.fullDate || '1970-01-01') + 'T' + (b.time || '00:00')).getTime();
+                 return isResults ? dateB - dateA : dateA - dateB;
+            });
+        });
 
-    const renderFixtureList = (
-        items: CompetitionFixture[],
-        expandedId: number | null,
-        onToggle: (id: number) => void
-    ) => (
-        <div className="divide-y divide-gray-100">
-            {items.map(fixture => (
-                <div key={fixture.id}>
-                    <FixtureItem
-                        fixture={fixture}
-                        isExpanded={expandedId === fixture.id}
-                        onToggleDetails={() => onToggle(fixture.id)}
-                        teams={competition?.teams || []}
-                        onDeleteFixture={handleDeleteFixture}
-                        isDeleting={deletingId === fixture.id}
-                        directoryMap={directoryMap}
-                        competitionId={selectedCompetition}
-                    />
-                    {expandedId === fixture.id && (
-                        <FixtureDetail fixture={fixture} competitionId={selectedCompetition} />
-                    )}
-                </div>
-            ))}
-        </div>
-    );
+        // Sort Groups
+        // Results: Matchday 12, Matchday 11... (Descending)
+        // Fixtures: Matchday 13, Matchday 14... (Ascending)
+        const sortedKeys = Object.keys(groups).sort((a, b) => {
+            const isMatchdayA = a.startsWith('Matchday');
+            const isMatchdayB = b.startsWith('Matchday');
 
+            if (isMatchdayA && isMatchdayB) {
+                const numA = parseInt(a.replace('Matchday ', ''), 10);
+                const numB = parseInt(b.replace('Matchday ', ''), 10);
+                return isResults ? numB - numA : numA - numB;
+            }
+            
+            // Always put 'Unscheduled' or 'Other' at the bottom, regardless of sort order
+            if (isMatchdayA) return -1;
+            if (isMatchdayB) return 1;
+            return a.localeCompare(b);
+        });
+
+        return sortedKeys.map(key => ({ title: key, fixtures: groups[key] }));
+    }, [competition, activeTab]);
 
     return (
         <section>
-            <Card className="shadow-lg animate-content-fade-in" key={selectedCompetition}>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center p-4 gap-4">
-                    <div className="flex items-center gap-4">
-                        {competition?.logoUrl && <img src={competition.logoUrl} alt={`${competition.name} logo`} className="h-10 object-contain" />}
-                        <h2 className="text-xl font-display font-bold text-center lg:text-left">{competition?.displayName || competition?.name}</h2>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+                 <div className="flex items-center gap-4">
+                    {competition?.logoUrl && <img src={competition.logoUrl} alt={`${competition.name} logo`} className="h-10 object-contain" />}
+                    <h2 className="text-3xl font-display font-bold text-center lg:text-left">Fixtures & Results</h2>
+                </div>
+                {showSelector && (
+                    <div className="min-w-[200px]">
+                         <select
+                            value={selectedComp}
+                            onChange={(e) => setSelectedComp(e.target.value)}
+                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-light focus:border-primary-light sm:text-sm rounded-md shadow-sm"
+                        >
+                            {compOptions.map(group => (
+                                <optgroup key={group.label} label={group.label}>
+                                    {group.options.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.name}</option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                        </select>
                     </div>
-                    {showSelector && (
-                        <div className="min-w-[200px] w-full sm:w-auto">
-                            <label htmlFor="competition-select" className="sr-only">Select Competition</label>
-                            <select
-                                id="competition-select"
-                                value={selectedCompetition}
-                                onChange={(e) => setSelectedCompetition(e.target.value)}
-                                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-light focus:border-primary-light sm:text-sm rounded-md shadow-sm"
-                                disabled={competitionOptions.length === 0}
-                            >
-                                {competitionOptions.map(group => (
-                                    <optgroup key={group.label} label={group.label}>
-                                        {group.options.map(comp => (
-                                            <option key={comp.value} value={comp.value}>{comp.name}</option>
-                                        ))}
-                                    </optgroup>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                </div>
-                
-                <div className="border-b border-gray-200">
-                    <div className="px-4 flex space-x-4" role="tablist" aria-label="Fixtures and Results">
-                        <TabButton tabName="fixtures">Fixtures</TabButton>
-                        <TabButton tabName="results">Results</TabButton>
-                    </div>
-                </div>
-
-                <div role="tabpanel" hidden={activeTab !== 'fixtures'}>
-                    {activeFixtureMatchday !== null && fixtureMatchdays.length > 1 && (
-                        <MatchdaySelector matchdays={fixtureMatchdays} active={activeFixtureMatchday} onSelect={setActiveFixtureMatchday} />
-                    )}
-                    {loading ? <div className="flex justify-center p-8"><Spinner /></div> :
-                    activeFixtureMatchday !== null && groupedFixtures[activeFixtureMatchday] ?
-                        renderFixtureList(groupedFixtures[activeFixtureMatchday], expandedFixtureId, handleToggleDetails)
-                    : <p className="p-6 text-center text-gray-500">No upcoming fixtures for this competition.</p>
-                    }
-                </div>
-
-                <div role="tabpanel" hidden={activeTab !== 'results'}>
-                    {activeResultMatchday !== null && resultMatchdays.length > 1 && (
-                         <MatchdaySelector matchdays={resultMatchdays} active={activeResultMatchday} onSelect={setActiveResultMatchday} />
-                    )}
-                    {loading ? <div className="flex justify-center p-8"><Spinner /></div> :
-                     activeResultMatchday !== null && groupedResults[activeResultMatchday] ?
-                        renderFixtureList(groupedResults[activeResultMatchday], expandedResultId, handleToggleResultDetails)
-                     : <p className="p-6 text-center text-gray-500">No results available for this competition yet.</p>
-                    }
-                </div>
-
-            </Card>
-            <div className="mt-8">
-                 <AdBanner placement="fixtures-banner" />
+                )}
             </div>
+
+            <div className="flex justify-center sm:justify-start space-x-1 bg-gray-100 p-1 rounded-lg w-fit mb-6 mx-auto sm:mx-0">
+                <button
+                    onClick={() => setActiveTab('fixtures')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        activeTab === 'fixtures' 
+                        ? 'bg-white text-primary shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    Fixtures
+                </button>
+                <button
+                    onClick={() => setActiveTab('results')}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        activeTab === 'results' 
+                        ? 'bg-white text-primary shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    Results
+                </button>
+            </div>
+
+            {loading ? (
+                <Card className="shadow-lg">
+                    <div className="flex justify-center items-center h-64"><Spinner /></div>
+                </Card>
+            ) : groupedData.length > 0 ? (
+                <div className="space-y-8">
+                    {groupedData.map((group, groupIndex) => (
+                        <div key={group.title} className="animate-content-fade-in">
+                            <div className="flex items-center mb-4">
+                                <h3 className="text-lg font-bold bg-primary text-white px-4 py-1 rounded-r-full shadow-md inline-block uppercase tracking-wider">
+                                    {group.title}
+                                </h3>
+                                <div className="flex-grow h-px bg-gray-200 ml-4"></div>
+                            </div>
+                            
+                            <Card className="shadow-lg mb-6">
+                                <div className="divide-y divide-gray-100">
+                                    {group.fixtures.map((fixture) => (
+                                        <FixtureItem 
+                                            key={fixture.id}
+                                            fixture={fixture} 
+                                            isExpanded={expandedFixtureId === fixture.id} 
+                                            onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === fixture.id ? null : fixture.id)}
+                                            teams={competition?.teams || []}
+                                            onDeleteFixture={handleDeleteFixture}
+                                            isDeleting={deletingId === fixture.id}
+                                            directoryMap={directoryMap}
+                                            competitionId={selectedComp}
+                                        />
+                                    ))}
+                                </div>
+                            </Card>
+                            {/* Ad Banner after the first group only */}
+                            {groupIndex === 0 && <AdBanner placement="fixtures-banner" className="mb-8" />}
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <Card className="shadow-lg">
+                    <p className="p-6 text-center text-gray-500">
+                        {activeTab === 'fixtures' ? 'No upcoming fixtures scheduled.' : 'No results found for this competition.'}
+                    </p>
+                </Card>
+            )}
         </section>
     );
 };

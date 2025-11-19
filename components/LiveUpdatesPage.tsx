@@ -11,6 +11,8 @@ import ClockIcon from './icons/ClockIcon';
 import RadioIcon from './icons/RadioIcon';
 import CalendarIcon from './icons/CalendarIcon';
 import { FixtureItem } from './Fixtures';
+import AlertTriangleIcon from './icons/AlertTriangleIcon';
+import XCircleIcon from './icons/XCircleIcon';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
     switch (type) {
@@ -18,6 +20,9 @@ const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
         case 'yellow_card': return <CardIcon className="w-5 h-5 text-yellow-500 flex-shrink-0" />;
         case 'red_card': return <CardIcon className="w-5 h-5 text-red-600 flex-shrink-0" />;
         case 'substitution': return <SubstitutionIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />;
+        case 'match_postponed': return <ClockIcon className="w-5 h-5 text-yellow-600 flex-shrink-0" />;
+        case 'match_abandoned': return <XCircleIcon className="w-5 h-5 text-red-600 flex-shrink-0" />;
+        case 'match_suspended': return <AlertTriangleIcon className="w-5 h-5 text-orange-600 flex-shrink-0" />;
         default: return <ClockIcon className="w-5 h-5 text-gray-500 flex-shrink-0" />;
     }
 };

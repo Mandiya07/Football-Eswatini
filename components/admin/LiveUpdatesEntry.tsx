@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -35,7 +34,7 @@ const LiveUpdatesEntry: React.FC = () => {
         setIsParsing(true);
         setError('');
         
-        const prompt = `Analyze the following football match update. Extract the event details and populate the form fields. The 'type' must be one of: 'goal', 'yellow_card', 'red_card', 'substitution', 'half_time', 'full_time'. If you cannot determine a field, leave it as an empty string. Provide a concise 'description' summarizing the event.
+        const prompt = `Analyze the following football match update. Extract the event details and populate the form fields. The 'type' must be one of: 'goal', 'yellow_card', 'red_card', 'substitution', 'half_time', 'full_time', 'match_postponed', 'match_abandoned', 'match_suspended'. If you cannot determine a field, leave it as an empty string. Provide a concise 'description' summarizing the event.
         
         Text: "${pastedText}"`;
 
@@ -47,7 +46,7 @@ const LiveUpdatesEntry: React.FC = () => {
                 score_home: { type: Type.STRING },
                 score_away: { type: Type.STRING },
                 minute: { type: Type.STRING },
-                type: { type: Type.STRING, enum: ['goal', 'yellow_card', 'red_card', 'substitution', 'half_time', 'full_time'] },
+                type: { type: Type.STRING, enum: ['goal', 'yellow_card', 'red_card', 'substitution', 'half_time', 'full_time', 'match_postponed', 'match_abandoned', 'match_suspended'] },
                 player: { type: Type.STRING },
                 description: { type: Type.STRING },
             }
@@ -144,8 +143,15 @@ const LiveUpdatesEntry: React.FC = () => {
                             <div><label htmlFor="minute" className={labelClass}>Minute</label><input id="minute" name="minute" type="number" value={formData.minute} onChange={handleChange} required className={inputClass} /></div>
                             <div><label htmlFor="type" className={labelClass}>Event Type</label>
                                 <select id="type" name="type" value={formData.type} onChange={handleChange} required className={inputClass}>
-                                    <option value="goal">Goal</option><option value="yellow_card">Yellow Card</option><option value="red_card">Red Card</option>
-                                    <option value="substitution">Substitution</option><option value="half_time">Half Time</option><option value="full_time">Full Time</option>
+                                    <option value="goal">Goal</option>
+                                    <option value="yellow_card">Yellow Card</option>
+                                    <option value="red_card">Red Card</option>
+                                    <option value="substitution">Substitution</option>
+                                    <option value="half_time">Half Time</option>
+                                    <option value="full_time">Full Time</option>
+                                    <option value="match_postponed">Match Postponed</option>
+                                    <option value="match_abandoned">Match Abandoned</option>
+                                    <option value="match_suspended">Match Suspended</option>
                                 </select>
                             </div>
                             <div><label htmlFor="player" className={labelClass}>Player Involved</label><input id="player" name="player" value={formData.player} onChange={handleChange} className={inputClass} /></div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { Card, CardContent } from '../ui/Card';
@@ -108,8 +109,8 @@ const BulkImportFixtures: React.FC = () => {
         const existingMatches = [...(currentCompetitionData.fixtures || []), ...(currentCompetitionData.results || [])];
 
         const prompt = `You are an expert sports data parser. Analyze the following text containing football ${isResultsImport ? '**result**' : '**fixture**'} information. Extract the details for each match and return it as a JSON array that conforms to the provided schema. For each extracted field, provide a confidence score between 0 and 1 representing your certainty in the accuracy of the extracted data. Include these scores in a 'confidenceScores' object for each match.
-- The 'status' MUST be '${isResultsImport ? 'finished' : 'scheduled'}'.
-- ${isResultsImport ? "'scoreA' and 'scoreB' are REQUIRED." : "'scoreA' and 'scoreB' MUST be null or omitted."}
+- The 'status' should be '${isResultsImport ? 'finished' : 'scheduled'}', but can also be 'postponed', 'cancelled', 'abandoned', or 'suspended' if indicated in the text.
+- ${isResultsImport ? "'scoreA' and 'scoreB' are REQUIRED for finished matches." : "'scoreA' and 'scoreB' MUST be null or omitted."}
 - If a venue/stadium is mentioned, extract it into the 'venue' field; otherwise, omit the field.
 - 'fullDate' must be in 'YYYY-MM-DD' format. Assume the current year (${new Date().getFullYear()}) if not specified.
 - 'time' should be in 'HH:MM' 24-hour format.
@@ -127,14 +128,14 @@ Text to parse:\n\n${pastedText}`;
                     time: { type: Type.STRING, description: 'Format: HH:MM' },
                     scoreA: { type: Type.NUMBER },
                     scoreB: { type: Type.NUMBER },
-                    status: { type: Type.STRING, enum: ['scheduled', 'finished'] },
+                    status: { type: Type.STRING, enum: ['scheduled', 'finished', 'postponed', 'cancelled', 'abandoned', 'suspended'] },
                     venue: { type: Type.STRING, description: 'Optional venue name.' },
                     confidenceScores: {
                         type: Type.OBJECT,
                         properties: {
                             teamA: { type: Type.NUMBER }, teamB: { type: Type.NUMBER }, fullDate: { type: Type.NUMBER },
                             time: { type: Type.NUMBER }, scoreA: { type: Type.NUMBER }, scoreB: { type: Type.NUMBER },
-                            venue: { type: Type.NUMBER }
+                            venue: { type: Type.NUMBER }, status: { type: Type.NUMBER }
                         }
                     }
                 },
@@ -168,11 +169,17 @@ Text to parse:\n\n${pastedText}`;
 
                 if (overallConfidence < 0.85) warnings.unshift(`Low AI confidence (${(overallConfidence * 100).toFixed(0)}%)`);
 
+                // Default status if not parsed correctly
+                let finalStatus = item.status;
+                if (!finalStatus) {
+                     finalStatus = isResultsImport ? 'finished' : 'scheduled';
+                }
+
                 return {
                     ...item,
                     tempId: index,
                     selected: reviewStatus !== 'reject',
-                    status: isResultsImport ? 'finished' : 'scheduled',
+                    status: finalStatus,
                     overallConfidence,
                     reviewStatus,
                     normalizedTeamA,
@@ -222,12 +229,12 @@ Text to parse:\n\n${pastedText}`;
                         date: date.getDate().toString(),
                         day: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
                         time: pf.time!,
-                        status: pf.status as ('scheduled' | 'finished'),
+                        status: pf.status as any, // Using 'any' to bypass strict check for newly added statuses in this context
                         venue: pf.venue,
                     };
-                    if (pf.status === 'finished') {
-                        fixtureData.scoreA = pf.scoreA;
-                        fixtureData.scoreB = pf.scoreB;
+                    if (pf.status === 'finished' || pf.status === 'abandoned') {
+                         if (pf.scoreA !== undefined) fixtureData.scoreA = pf.scoreA;
+                         if (pf.scoreB !== undefined) fixtureData.scoreB = pf.scoreB;
                     }
                     return fixtureData as CompetitionFixture;
                 });
@@ -390,7 +397,7 @@ Text to parse:\n\n${pastedText}`;
 
                         <div>
                             <label htmlFor="paste-area" className="block text-sm font-medium text-gray-700 mb-1">2. Paste Data Here</label>
-                            <textarea id="paste-area" rows={6} value={pastedText} onChange={e => setPastedText(e.target.value)} className="block w-full text-sm p-3 border border-gray-300 rounded-md shadow-sm font-mono" placeholder="Example: Mbabane Highlanders vs. Manzini Wanderers - Nov 4, 3pm at Mavuso Sports Centre"/>
+                            <textarea id="paste-area" rows={6} value={pastedText} onChange={e => setPastedText(e.target.value)} className="block w-full text-sm p-3 border border-gray-300 rounded-md shadow-sm font-mono" placeholder="Example: Mbabane Highlanders vs. Manzini Wanderers - Nov 4, 3pm at Mavuso Sports Centre (Postponed)"/>
                         </div>
                         
                         <div className="text-center">
@@ -402,7 +409,7 @@ Text to parse:\n\n${pastedText}`;
                                 <h3 className="text-xl font-bold font-display">4. Review and Save</h3>
                                 <div className="overflow-x-auto border rounded-lg">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-gray-100 text-left"><tr><th className="p-2 w-12 text-center">Status</th><th className="p-2 w-12"></th><th className="p-2">Home</th><th className="p-2">Away</th><th className="p-2">Date & Time</th><th className="p-2">Venue</th><th className="p-2">Score</th><th className="p-2 w-24 text-center">Actions</th></tr></thead>
+                                    <thead className="bg-gray-100 text-left"><tr><th className="p-2 w-12 text-center">Status</th><th className="p-2 w-12"></th><th className="p-2">Home</th><th className="p-2">Away</th><th className="p-2">Date & Time</th><th className="p-2">Venue</th><th className="p-2">Score / Status</th><th className="p-2 w-24 text-center">Actions</th></tr></thead>
                                     <tbody className="divide-y">
                                         {parsedFixtures.map(f => (
                                             f.tempId === editingFixtureId ? (
@@ -422,6 +429,17 @@ Text to parse:\n\n${pastedText}`;
                                                                 <div><label className="text-xs font-bold">Home Score</label><input type="number" name="scoreA" value={editedData.scoreA} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md"/></div>
                                                                 <div><label className="text-xs font-bold">Away Score</label><input type="number" name="scoreB" value={editedData.scoreB} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md"/></div>
                                                             </>}
+                                                            <div>
+                                                                <label className="text-xs font-bold">Status</label>
+                                                                <select name="status" value={editedData.status} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md">
+                                                                    <option value="scheduled">Scheduled</option>
+                                                                    <option value="finished">Finished</option>
+                                                                    <option value="postponed">Postponed</option>
+                                                                    <option value="cancelled">Cancelled</option>
+                                                                    <option value="abandoned">Abandoned</option>
+                                                                    <option value="suspended">Suspended</option>
+                                                                </select>
+                                                            </div>
                                                             <div><label className="text-xs font-bold">Date</label><input type="date" name="fullDate" value={editedData.fullDate} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md"/></div>
                                                             <div><label className="text-xs font-bold">Time</label><input type="time" name="time" value={editedData.time} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md"/></div>
                                                         </div>
@@ -439,7 +457,9 @@ Text to parse:\n\n${pastedText}`;
                                                     <td className="p-2">{f.normalizedTeamB ? <>{f.normalizedTeamB}{f.normalizedTeamB !== f.teamB && <span className="text-xs text-gray-500 ml-1">(from: "{f.teamB}")</span>}</> : <span className="text-red-500">{f.teamB} ?</span>}</td>
                                                     <td className="p-2">{f.fullDate} @ {f.time}</td>
                                                     <td className="p-2">{f.venue || <i className="text-gray-400">Not specified</i>}</td>
-                                                    <td className="p-2 font-bold">{f.status === 'finished' ? `${f.scoreA} - ${f.scoreB}` : 'TBD'}</td>
+                                                    <td className="p-2 font-bold">
+                                                        {f.status === 'finished' ? `${f.scoreA} - ${f.scoreB}` : f.status === 'scheduled' ? 'TBD' : <span className="text-xs uppercase bg-gray-200 px-1 rounded">{f.status}</span>}
+                                                    </td>
                                                     <td className="p-2 text-center">
                                                         <div className="flex justify-center gap-1">
                                                             <Button onClick={() => handleEditClick(f)} className="bg-gray-200 text-gray-700 h-7 w-7 p-0 flex items-center justify-center" title="Edit"><PencilIcon className="w-4 h-4"/></Button>

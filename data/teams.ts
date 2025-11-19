@@ -1,3 +1,4 @@
+
 export interface LogEntry {
   p: number;
   w: number;
@@ -71,7 +72,7 @@ export interface Team {
 
 export interface MatchEvent {
     minute: number;
-    type: 'goal' | 'yellow-card' | 'red-card' | 'substitution' | 'info';
+    type: 'goal' | 'yellow-card' | 'red-card' | 'substitution' | 'info' | 'match_status';
     description: string;
 }
 
@@ -84,7 +85,7 @@ export interface CompetitionFixture {
     teamA: string;
     teamB: string;
     time: string;
-    status?: 'scheduled' | 'live' | 'finished';
+    status?: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' | 'abandoned' | 'suspended';
     scoreA?: number;
     scoreB?: number;
     liveMinute?: number;

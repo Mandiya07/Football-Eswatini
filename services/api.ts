@@ -96,7 +96,7 @@ export interface LiveUpdate {
     home_team: string;
     away_team: string;
     minute: number;
-    type: 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'full_time' | 'half_time';
+    type: 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'full_time' | 'half_time' | 'match_postponed' | 'match_abandoned' | 'match_suspended';
     player: string;
     description: string;
     score_home: number;

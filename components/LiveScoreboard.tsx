@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchCompetition, fetchDirectoryEntries } from '../services/api';
@@ -52,9 +53,9 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
         <div className="bg-white rounded-lg shadow-md p-3 snap-center h-full flex flex-col justify-center">
             <div className="flex justify-between items-center mb-2">
                 <p className="text-xs text-gray-500">{match.venue || 'Premier League'}</p>
-                <div className="flex items-center space-x-1.5 text-secondary font-bold text-xs animate-pulse">
-                    <span className="w-2 h-2 bg-secondary rounded-full"></span>
-                    <span>LIVE</span>
+                <div className={`flex items-center space-x-1.5 ${match.status === 'suspended' ? 'text-orange-600' : 'text-secondary'} font-bold text-xs animate-pulse`}>
+                    <span className={`w-2 h-2 ${match.status === 'suspended' ? 'bg-orange-600' : 'bg-secondary'} rounded-full`}></span>
+                    <span>{match.status === 'suspended' ? 'SUSP' : 'LIVE'}</span>
                     <span className="font-mono">{match.liveMinute}'</span>
                 </div>
             </div>
@@ -85,7 +86,7 @@ const LiveScoreboard: React.FC = () => {
             setDirectoryMap(map);
 
             if (data) {
-                const live = data.fixtures?.filter(f => f.status === 'live') || [];
+                const live = data.fixtures?.filter(f => f.status === 'live' || f.status === 'suspended') || [];
                 const allTeams = data.teams || [];
                 
                 const matchesWithCrests = live.map(match => {
@@ -106,6 +107,8 @@ const LiveScoreboard: React.FC = () => {
 
         const interval = setInterval(() => {
             setLiveMatches(prev => prev.map(match => {
+                if (match.status === 'suspended') return match; // Don't update time/score for suspended games
+
                 const newMinute = (match.liveMinute ?? 0) + 1;
                 if (newMinute > 90) return { ...match, status: 'finished' as const, liveMinute: 90 };
 
@@ -119,7 +122,7 @@ const LiveScoreboard: React.FC = () => {
                     }
                 }
                 return newMatch;
-            }).filter(m => m.status === 'live')); // Remove finished matches
+            }).filter(m => m.status === 'live' || m.status === 'suspended')); // Remove finished matches
         }, 8000); // update every 8 seconds
 
         return () => clearInterval(interval);
