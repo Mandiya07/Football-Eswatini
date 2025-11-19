@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Team, Player, Competition, CompetitionFixture } from '../data/teams';
@@ -24,6 +25,7 @@ const TeamProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [team, setTeam] = useState<Team | null>(null);
+  const [allTeams, setAllTeams] = useState<Team[]>([]); // Store all teams to help finding opponents
   const [teamFixtures, setTeamFixtures] = useState<CompetitionFixture[]>([]);
   const [teamResults, setTeamResults] = useState<CompetitionFixture[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,10 @@ const TeamProfilePage: React.FC = () => {
         ]);
         
         if (competitionData) {
-            const currentTeam = competitionData.teams?.find(t => t.id === parseInt(teamId, 10));
+            const currentTeams = competitionData.teams || [];
+            setAllTeams(currentTeams);
+            
+            const currentTeam = currentTeams.find(t => t.id === parseInt(teamId, 10));
             setTeam(currentTeam || null);
 
             if (currentTeam) {
@@ -62,6 +67,7 @@ const TeamProfilePage: React.FC = () => {
             }
         } else {
              setTeam(null);
+             setAllTeams([]);
              setTeamFixtures([]);
              setTeamResults([]);
         }
@@ -143,8 +149,8 @@ const TeamProfilePage: React.FC = () => {
     switch(activeTab) {
         case 'overview': return <OverviewTab team={team} />;
         case 'squad': return <SquadTab players={team.players} />;
-        case 'fixtures': return <FixturesTab fixtures={teamFixtures} teamName={team.name} directoryMap={directoryMap} />;
-        case 'results': return <ResultsTab results={teamResults} teamName={team.name} directoryMap={directoryMap} />;
+        case 'fixtures': return <FixturesTab fixtures={teamFixtures} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} />;
+        case 'results': return <ResultsTab results={teamResults} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} />;
         default: return <SquadTab players={team.players} />;
     }
   }
@@ -303,7 +309,7 @@ const SquadTab: React.FC<{players: Player[]}> = ({players}) => (
     </div>
 );
 
-const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, directoryMap: Map<string, DirectoryEntity> }> = ({ fixtures, teamName, directoryMap }) => {
+const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, allTeams: Team[], competitionId: string }> = ({ fixtures, teamName, allTeams, competitionId }) => {
     if (fixtures.length === 0) return <p className="text-gray-500">No upcoming fixtures scheduled.</p>;
 
     return (
@@ -311,11 +317,11 @@ const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, 
             {fixtures.map((fixture) => {
                 const isHome = fixture.teamA === teamName;
                 const opponentName = isHome ? fixture.teamB : fixture.teamA;
-                const opponentEntity = findInMap(opponentName, directoryMap);
-                const isLinkable = !!(opponentEntity?.teamId && opponentEntity.competitionId);
-
-                const opponentContent = isLinkable ? (
-                    <Link to={`/competitions/${opponentEntity!.competitionId}/teams/${opponentEntity!.teamId}`} className="font-semibold hover:underline text-primary text-left">
+                // Find opponent ID from the competition's team list for robust linking
+                const opponentTeam = allTeams.find(t => t.name === opponentName);
+                
+                const opponentContent = opponentTeam ? (
+                    <Link to={`/competitions/${competitionId}/teams/${opponentTeam.id}`} className="font-semibold hover:underline text-primary text-left">
                         {opponentName}
                     </Link>
                 ) : (
@@ -339,7 +345,7 @@ const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, 
     );
 };
 
-const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, directoryMap: Map<string, DirectoryEntity> }> = ({ results, teamName, directoryMap }) => {
+const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, allTeams: Team[], competitionId: string }> = ({ results, teamName, allTeams, competitionId }) => {
     if (results.length === 0) return <p className="text-gray-500">No recent results found.</p>;
 
     return (
@@ -364,11 +370,11 @@ const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, di
                     colors = 'bg-yellow-100 text-yellow-800';
                 }
 
-                const opponentEntity = findInMap(opponentName, directoryMap);
-                const isLinkable = !!(opponentEntity?.teamId && opponentEntity.competitionId);
+                // Find opponent ID from the competition's team list for robust linking
+                const opponentTeam = allTeams.find(t => t.name === opponentName);
                 
-                const opponentContent = isLinkable ? (
-                    <Link to={`/competitions/${opponentEntity!.competitionId}/teams/${opponentEntity!.teamId}`} className="font-semibold hover:underline text-primary text-left">
+                const opponentContent = opponentTeam ? (
+                    <Link to={`/competitions/${competitionId}/teams/${opponentTeam.id}`} className="font-semibold hover:underline text-primary text-left">
                         {opponentName}
                     </Link>
                 ) : (

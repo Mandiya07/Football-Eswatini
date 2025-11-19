@@ -83,6 +83,13 @@ const PlayerProfilePage: React.FC = () => {
     }
   };
 
+  // Mock calculation for career stats based on season stats for demonstration
+  const careerStats = {
+      appearances: Math.floor(player.stats.appearances * (1 + Math.random() * 5) + 20),
+      goals: Math.floor(player.stats.goals * (1 + Math.random() * 5) + 5),
+      assists: Math.floor(player.stats.assists * (1 + Math.random() * 5) + 5),
+  };
+
   return (
     <div className="py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -141,6 +148,8 @@ const PlayerProfilePage: React.FC = () => {
                         </div>
                     </CardContent>
                 </Card>
+                 
+                 {/* Season Stats */}
                  <Card className="shadow-lg animate-fade-in" style={{animationDelay: '200ms'}}>
                     <CardContent className="p-6">
                         <h2 className="text-xl font-bold font-display mb-4">Season Stats</h2>
@@ -151,6 +160,19 @@ const PlayerProfilePage: React.FC = () => {
                         </div>
                     </CardContent>
                 </Card>
+
+                 {/* Career Stats - New Section */}
+                 <Card className="shadow-lg animate-fade-in" style={{animationDelay: '250ms'}}>
+                    <CardContent className="p-6">
+                        <h2 className="text-xl font-bold font-display mb-4">Career Stats (All Competitions)</h2>
+                         <div className="grid grid-cols-3 gap-4 text-center">
+                            <div><p className="text-3xl font-bold text-primary">{careerStats.appearances}</p><p className="text-sm text-gray-600">Appearances</p></div>
+                            <div><p className="text-3xl font-bold text-primary">{careerStats.goals}</p><p className="text-sm text-gray-600">Goals</p></div>
+                            <div><p className="text-3xl font-bold text-primary">{careerStats.assists}</p><p className="text-sm text-gray-600">Assists</p></div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                  <Card className="shadow-lg animate-fade-in" style={{animationDelay: '300ms'}}>
                     <CardContent className="p-6">
                         <h2 className="text-xl font-bold font-display mb-4">Transfer History</h2>

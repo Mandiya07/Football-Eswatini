@@ -61,7 +61,7 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
             </div>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
                 <TeamLink teamName={match.teamA} teamId={match.teamAId} crestUrl={match.teamACrest} justification="start" />
-                <p className="font-bold text-2xl tracking-wider">{match.scoreA} - {match.scoreB}</p>
+                <p className="font-bold text-2xl tracking-wider text-primary">{match.scoreA} - {match.scoreB}</p>
                 <TeamLink teamName={match.teamB} teamId={match.teamBId} crestUrl={match.teamBCrest} justification="end" />
             </div>
         </div>

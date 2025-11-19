@@ -220,20 +220,15 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {leagueData.map((team, index) => {
-                                // HYBRID LINKING LOGIC
-                                let linkProps = {
+                                // CRITICAL FIX: Prioritize the ID from the actual database record (`team.id`).
+                                // This ID is guaranteed to exist in the competition's team list because `leagueData` comes from it.
+                                // Do NOT override this with `directoryEntity.teamId` because the directory might point to an old ID
+                                // if the database was reset or re-seeded.
+                                const linkProps = {
                                     isLinkable: !!team.id,
                                     competitionId: selectedLeague,
                                     teamId: team.id
                                 };
-                                const teamEntity = findInMap(team.name, directoryMap);
-                                if (teamEntity && teamEntity.teamId && teamEntity.competitionId) {
-                                    linkProps = {
-                                        isLinkable: true,
-                                        competitionId: teamEntity.competitionId,
-                                        teamId: teamEntity.teamId
-                                    };
-                                }
 
                                 const directoryEntry = findInMap(team.name, directoryMap);
                                 const crestUrl = directoryEntry?.crestUrl || team.crestUrl;
@@ -255,7 +250,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                     </td>
                                     <td className="px-4 py-2">
                                         {linkProps.isLinkable ? (
-                                            <Link to={`/competitions/${linkProps.competitionId}/teams/${linkProps.teamId}`}>
+                                            <Link to={`/competitions/${linkProps.competitionId}/teams/${linkProps.teamId}`} className="block w-full">
                                                 {teamRowContent}
                                             </Link>
                                         ) : (

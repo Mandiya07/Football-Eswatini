@@ -92,7 +92,7 @@ const Hero: React.FC = () => {
                             </div>
                             <h2 className="text-xl md:text-3xl font-bold font-display">{nextMatch.teamA}</h2>
                         </div>
-                        <span className="text-4xl md:text-5xl font-light text-gray-300">vs</span>
+                        <span className="text-4xl md:text-5xl font-bold font-display italic text-yellow-400">VS</span>
                         <div className="text-left">
                             <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 bg-white/20 backdrop-blur-sm rounded-full p-2 flex items-center justify-center">
                                 {crestB && <img src={crestB} alt={nextMatch.teamB} className="max-w-full max-h-full object-contain"/>}

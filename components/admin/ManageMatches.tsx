@@ -74,13 +74,23 @@ const ManageMatches: React.FC = () => {
                     let filtered = list.filter(item => String(item.id).trim() !== targetId);
                     
                     // Attempt 2: Content Match Fallback
+                    // If nothing was removed by ID, try removing by matching content (Teams + Date)
+                    // This handles cases where IDs might be different types (number vs string) or mismatched.
                     if (filtered.length === initialLen) {
                         console.warn(`ID delete failed for ${matchLabel}. Attempting content fallback deletion.`);
-                        filtered = list.filter(item => 
-                            !((item.teamA === match.teamA) && 
-                              (item.teamB === match.teamB) && 
-                              (item.fullDate === match.fullDate))
-                        );
+                        filtered = list.filter(item => {
+                             const itemA = item.teamA.trim();
+                             const itemB = item.teamB.trim();
+                             const matchA = match.teamA.trim();
+                             const matchB = match.teamB.trim();
+                             const dateMatch = item.fullDate === match.fullDate;
+                             
+                             // Check for exact match OR swapped teams (just in case of data entry error, though less likely for delete)
+                             const teamsMatch = (itemA === matchA && itemB === matchB);
+                             
+                             // We want to keep items that DO NOT match.
+                             return !(teamsMatch && dateMatch);
+                        });
                     }
                     return filtered;
                 };
@@ -88,8 +98,10 @@ const ManageMatches: React.FC = () => {
                 const updatedFixtures = filterList(currentFixtures);
                 const updatedResults = filterList(currentResults);
                 
-                if ((currentFixtures.length - updatedFixtures.length) + (currentResults.length - updatedResults.length) === 0) {
-                     throw new Error(`Could not find match "${matchLabel}" to delete.`);
+                const itemsRemovedCount = (currentFixtures.length - updatedFixtures.length) + (currentResults.length - updatedResults.length);
+
+                if (itemsRemovedCount === 0) {
+                     throw new Error(`Could not find match "${matchLabel}" to delete. It may have already been removed.`);
                 }
 
                 const updatedTeams = calculateStandings(currentTeams, updatedResults, updatedFixtures);

@@ -1,12 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 // FIX: Import 'fetchAllCompetitions' which is now correctly exported from the API service.
-import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
-import { Team, Competition, CompetitionFixture } from '../../data/teams';
+import { fetchAllCompetitions, handleFirestoreError } from '../../services/api';
+import { Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import RefreshIcon from '../icons/RefreshIcon';
-import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { db } from '../../services/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { calculateStandings } from '../../services/utils';
@@ -46,13 +46,20 @@ const RecalculateLogs: React.FC = () => {
 
             const competitionData = docSnap.data() as Competition;
             
-            // The core logic: use the robust calculateStandings function
-            const recalculatedTeams = calculateStandings(competitionData.teams || [], competitionData.results || [], competitionData.fixtures || []);
-
             // Clean up the fixtures and results arrays for data hygiene
+            // Move any 'finished' match to results, and any non-finished to fixtures.
             const allMatches = [...(competitionData.fixtures || []), ...(competitionData.results || [])];
-            const cleanedResults = allMatches.filter(m => m.status === 'finished' && m.scoreA != null && m.scoreB != null);
-            const cleanedFixtures = allMatches.filter(m => m.status !== 'finished' || m.scoreA == null || m.scoreB == null);
+            
+            const cleanedResults = allMatches.filter(m => 
+                m.status === 'finished' && m.scoreA != null && m.scoreB != null
+            );
+            
+            const cleanedFixtures = allMatches.filter(m => 
+                m.status !== 'finished' || m.scoreA == null || m.scoreB == null
+            );
+            
+            // The core logic: use the robust calculateStandings function
+            const recalculatedTeams = calculateStandings(competitionData.teams || [], cleanedResults, cleanedFixtures);
             
             await updateDoc(docRef, { 
                 teams: recalculatedTeams,
@@ -60,7 +67,7 @@ const RecalculateLogs: React.FC = () => {
                 results: cleanedResults,
             });
 
-            setStatusMessage({ type: 'success', text: `Standings for "${competitionData.name}" have been successfully recalculated and updated.` });
+            setStatusMessage({ type: 'success', text: `Successfully repaired data and recalculated logs for "${competitionData.name}". Missing finished matches have been moved to the results list.` });
         
         } catch (error) {
             handleFirestoreError(error, 'recalculate standings');
@@ -73,15 +80,15 @@ const RecalculateLogs: React.FC = () => {
     return (
         <Card className="shadow-lg animate-fade-in">
             <CardContent className="p-6">
-                <h3 className="text-2xl font-bold font-display mb-1">Recalculate League Logs</h3>
+                <h3 className="text-2xl font-bold font-display mb-1">Repair Data & Recalculate Logs</h3>
                 <p className="text-sm text-gray-600 mb-6">
-                    If standings appear incorrect, this tool will force a full recalculation based on all finished matches in the database for a selected league.
+                    Use this tool if a finished match is missing from the Results page or if the league table standings seem incorrect. This will sort all matches into their correct lists (Fixtures/Results) and force a full recalculation of points.
                 </p>
 
                 {loading ? <Spinner /> : (
                     <div className="space-y-4">
                         <div>
-                            <label htmlFor="league-select" className="block text-sm font-medium text-gray-700 mb-1">Select League to Recalculate</label>
+                            <label htmlFor="league-select" className="block text-sm font-medium text-gray-700 mb-1">Select League</label>
                             <select 
                                 id="league-select" 
                                 value={selectedLeague} 
@@ -93,7 +100,7 @@ const RecalculateLogs: React.FC = () => {
                         </div>
 
                         <Button onClick={handleRecalculate} disabled={submitting} className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 h-11 w-auto flex justify-center items-center gap-2 px-6">
-                            {submitting ? <Spinner className="w-5 h-5 border-2"/> : <><RefreshIcon className="w-5 h-5" /> Force Recalculation</>}
+                            {submitting ? <Spinner className="w-5 h-5 border-2"/> : <><RefreshIcon className="w-5 h-5" /> Force Repair & Recalculate</>}
                         </Button>
                     </div>
                 )}

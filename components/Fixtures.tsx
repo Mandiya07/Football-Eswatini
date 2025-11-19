@@ -154,10 +154,21 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
         }
     };
 
+    const getStatusBorder = () => {
+        switch (fixture.status) {
+            case 'live': return 'border-secondary';
+            case 'postponed': return 'border-yellow-500';
+            case 'cancelled': return 'border-red-600';
+            case 'abandoned': return 'border-gray-600';
+            case 'suspended': return 'border-orange-500';
+            default: return 'border-transparent hover:border-accent';
+        }
+    };
+
     const isScoreVisible = fixture.status === 'live' || fixture.status === 'finished' || (fixture.status === 'abandoned' && fixture.scoreA !== undefined);
 
     return (
-        <div className="flex items-center hover:bg-gray-50/50 transition-colors duration-200 border-l-4 border-transparent hover:border-accent">
+        <div className={`flex items-center hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${getStatusBorder()}`}>
             <button
                 onClick={onToggleDetails}
                 className="flex-grow w-full text-left"
@@ -187,18 +198,21 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                             <div className="text-center">
                                 <p 
                                     key={`score-${fixture.id}-${fixture.scoreA}-${fixture.scoreB}`}
-                                    className={`font-bold text-2xl ${fixture.status === 'live' ? 'text-secondary animate-score-update' : 'text-gray-900'} tracking-wider`}
+                                    className={`font-bold text-2xl ${fixture.status === 'live' ? 'text-secondary animate-score-update' : 'text-primary'} tracking-wider`}
                                 >
                                     {fixture.scoreA} - {fixture.scoreB}
                                 </p>
                                 {fixture.status === 'live' && <p className="text-xs font-bold text-secondary mt-0.5">{fixture.liveMinute}'</p>}
+                                {fixture.status === 'abandoned' && <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-gray-600 px-2 py-0.5 rounded mt-1 inline-block">Abandoned</span>}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center">
-                                <p className="text-sm text-gray-500 font-bold">vs</p>
-                                {['postponed', 'cancelled', 'suspended'].includes(fixture.status || '') && (
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100 px-1 rounded">{fixture.status}</span>
-                                )}
+                                <p className="text-sm text-red-500 font-black font-display italic tracking-widest">VS</p>
+                                {fixture.status === 'postponed' && <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-900 bg-yellow-200 px-2 py-0.5 rounded mt-1">Postponed</span>}
+                                {fixture.status === 'cancelled' && <span className="text-[10px] font-bold uppercase tracking-wider text-red-900 bg-red-200 px-2 py-0.5 rounded mt-1">Cancelled</span>}
+                                {fixture.status === 'suspended' && <span className="text-[10px] font-bold uppercase tracking-wider text-orange-900 bg-orange-200 px-2 py-0.5 rounded mt-1">Suspended</span>}
+                                {fixture.status === 'abandoned' && <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-gray-700 px-2 py-0.5 rounded mt-1">Abandoned</span>}
+                                
                                 <p className="text-xs text-gray-400 mt-1">{fixture.time}</p>
                             </div>
                         )}
@@ -346,10 +360,13 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 const compData = docSnap.data() as Competition;
                 
                 const targetId = String(fixture.id).trim();
+                const matchA = fixture.teamA.trim();
+                const matchB = fixture.teamB.trim();
+                const matchDate = fixture.fullDate;
 
-                // Fallback Deletion Strategy:
-                // 1. Try to delete by ID (robust string comparison).
-                // 2. If nothing removed, try to delete by content (Teams + Date).
+                // Robust Deletion Strategy:
+                // 1. Try to delete by ID.
+                // 2. If nothing removed, try to delete by content (Team A + Team B + Date).
                 const filterList = (list: CompetitionFixture[]) => {
                     const initialLen = list.length;
                     // 1. ID Match
@@ -357,11 +374,14 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     
                     // 2. Content Fallback
                     if (filtered.length === initialLen) {
-                        filtered = list.filter(f => 
-                            !((f.teamA === fixture.teamA) && 
-                              (f.teamB === fixture.teamB) && 
-                              (f.fullDate === fixture.fullDate))
-                        );
+                        filtered = list.filter(f => {
+                             const fTeamA = f.teamA.trim();
+                             const fTeamB = f.teamB.trim();
+                             // Check exact match or swapped teams (unlikely for scheduled but possible for manual entry error)
+                             const teamsMatch = (fTeamA === matchA && fTeamB === matchB) || (fTeamA === matchB && fTeamB === matchA);
+                             const dateMatches = f.fullDate === matchDate;
+                             return !(teamsMatch && dateMatches);
+                        });
                     }
                     return filtered;
                 };
