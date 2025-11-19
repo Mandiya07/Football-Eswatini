@@ -54,9 +54,9 @@ const Hero: React.FC = () => {
     const teamADirectory = findInMap(nextMatch?.teamA || '', directoryMap);
     const teamBDirectory = findInMap(nextMatch?.teamB || '', directoryMap);
 
-    // Use directory crests if available, otherwise fallbacks for the demo match
-    const crestA = teamADirectory?.crestUrl || teamA?.crestUrl || (nextMatch?.teamA.includes('Swallows') ? 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS' : undefined);
-    const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl || (nextMatch?.teamB.includes('Leopards') ? 'https://via.placeholder.com/128/00008B/FFFFFF?text=RL' : undefined);
+    // Use directory crests if available, otherwise team crests
+    const crestA = teamADirectory?.crestUrl || teamA?.crestUrl;
+    const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
 
     const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault();

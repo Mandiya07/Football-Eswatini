@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { listenToLiveUpdates, LiveUpdate } from '../services/api';
+import { listenToLiveUpdates, LiveUpdate, fetchAllCompetitions } from '../services/api';
+import { CompetitionFixture } from '../data/teams';
 import { Card, CardContent } from './ui/Card';
 import Spinner from './ui/Spinner';
 import GoalIcon from './icons/GoalIcon';
@@ -8,6 +9,8 @@ import CardIcon from './icons/CardIcon';
 import SubstitutionIcon from './icons/SubstitutionIcon';
 import ClockIcon from './icons/ClockIcon';
 import RadioIcon from './icons/RadioIcon';
+import CalendarIcon from './icons/CalendarIcon';
+import { FixtureItem } from './Fixtures';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
     switch (type) {
@@ -21,12 +24,53 @@ const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
 
 const LiveUpdatesPage: React.FC = () => {
     const [updates, setUpdates] = useState<LiveUpdate[]>([]);
+    const [upcomingMatches, setUpcomingMatches] = useState<{ fixture: CompetitionFixture, competitionId: string }[]>([]);
     const [loading, setLoading] = useState(true);
+    // Fake empty directory map for FixtureItem since we don't need full linking functionality here
+    const emptyMap = useMemo(() => new Map(), []);
 
     useEffect(() => {
         const unsubscribe = listenToLiveUpdates((newUpdates) => {
             setUpdates(newUpdates);
-            setLoading(false);
+            
+            // If no live updates, fetch upcoming matches
+            if (newUpdates.length === 0) {
+                const loadUpcoming = async () => {
+                    try {
+                        const allCompetitions = await fetchAllCompetitions();
+                        const allFixtures: { fixture: CompetitionFixture, competitionId: string }[] = [];
+                        const now = new Date();
+
+                        Object.entries(allCompetitions).forEach(([compId, comp]) => {
+                            if (comp.fixtures) {
+                                comp.fixtures.forEach(f => {
+                                    if (f.status === 'scheduled' && f.fullDate) {
+                                        const matchDate = new Date(f.fullDate + 'T' + (f.time || '00:00'));
+                                        if (matchDate > now) {
+                                            allFixtures.push({ fixture: f, competitionId: compId });
+                                        }
+                                    }
+                                });
+                            }
+                        });
+
+                        // Sort by date ascending and take top 5
+                        allFixtures.sort((a, b) => 
+                            new Date(a.fixture.fullDate + 'T' + a.fixture.time).getTime() - 
+                            new Date(b.fixture.fullDate + 'T' + b.fixture.time).getTime()
+                        );
+                        
+                        setUpcomingMatches(allFixtures.slice(0, 5));
+                    } catch (err) {
+                        console.error("Error fetching upcoming matches for live page fallback", err);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                loadUpcoming();
+            } else {
+                setLoading(false);
+            }
         });
 
         return () => unsubscribe();
@@ -85,26 +129,57 @@ const LiveUpdatesPage: React.FC = () => {
                                             <p className="font-bold text-xl truncate text-left">{match.away_team}</p>
                                         </div>
                                     </header>
-                                    <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
-                                        {match.events.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).map((event) => (
-                                            <div key={event.id} className="flex items-start gap-3 text-sm p-2 rounded-md bg-white hover:bg-gray-50 animate-fade-in">
-                                                <span className="font-bold text-gray-600 w-10 text-right">{event.minute}'</span>
-                                                <EventIcon type={event.type} />
-                                                <span className="flex-1 text-gray-800">
-                                                    {event.description}
-                                                    {event.player && <span className="font-semibold"> ({event.player})</span>}
-                                                </span>
-                                            </div>
-                                        ))}
+                                    <div className="p-4">
+                                        <h4 className="text-sm font-bold text-gray-700 mb-3">Match Events</h4>
+                                        <ul className="space-y-3">
+                                            {match.events.map(event => (
+                                                <li key={event.id} className="flex items-start gap-3 text-sm border-l-2 border-gray-200 pl-3">
+                                                    <span className="font-mono font-bold text-gray-500 w-8">{event.minute}'</span>
+                                                    <EventIcon type={event.type} />
+                                                    <div>
+                                                        <p className="font-semibold text-gray-900">{event.description}</p>
+                                                        {event.player && <p className="text-xs text-gray-500">{event.player}</p>}
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
                                 </CardContent>
                             </Card>
                         ))}
                     </div>
-                 ) : (
-                    <p className="text-center text-gray-500 py-12">No live matches currently in progress. Please check back later.</p>
-                 )
-                }
+                ) : (
+                    <div className="max-w-3xl mx-auto">
+                        <Card className="mb-8 text-center p-8 bg-blue-50 border border-blue-100">
+                            <ClockIcon className="w-12 h-12 mx-auto text-blue-300 mb-4" />
+                            <h3 className="text-xl font-bold text-blue-800">No Live Matches Currently</h3>
+                            <p className="text-blue-600 mt-2">There are no games being played right now. Check out the upcoming schedule below.</p>
+                        </Card>
+                        
+                        <h3 className="text-2xl font-bold font-display mb-6 flex items-center gap-2">
+                            <CalendarIcon className="w-6 h-6 text-gray-600" /> Upcoming Matches
+                        </h3>
+                        
+                        <div className="space-y-4">
+                            {upcomingMatches.length > 0 ? upcomingMatches.map(({ fixture, competitionId }) => (
+                                <Card key={fixture.id} className="overflow-hidden">
+                                     <FixtureItem
+                                        fixture={fixture}
+                                        isExpanded={false}
+                                        onToggleDetails={() => {}} // No-op for simple list
+                                        teams={[]} // Teams not needed for simple display
+                                        onDeleteFixture={() => {}} // No-op
+                                        isDeleting={false}
+                                        directoryMap={emptyMap}
+                                        competitionId={competitionId}
+                                    />
+                                </Card>
+                            )) : (
+                                <p className="text-center text-gray-500">No upcoming matches found.</p>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -26,13 +26,18 @@ import { LiveUpdate } from '../../services/api';
 const today = new Date();
 const tomorrow = new Date(today);
 tomorrow.setDate(today.getDate() + 1);
+const dayAfterTomorrow = new Date(today);
+dayAfterTomorrow.setDate(today.getDate() + 2);
 
 // Format YYYY-MM-DD
 const todayStr = today.toISOString().split('T')[0];
 const tomorrowStr = tomorrow.toISOString().split('T')[0];
+const dayAfterTomorrowStr = dayAfterTomorrow.toISOString().split('T')[0];
+
 // Format Day Name (e.g., SAT)
 const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 const tomorrowDay = tomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+const dayAfterTomorrowDay = dayAfterTomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 
 // --- MOCK DATA & DEFAULTS ---
 const initialAds = {
@@ -71,7 +76,7 @@ const photoGalleries = [ { id: 1, title: "Derby Day: Swallows vs Highlanders", d
 const behindTheScenesData = [ { id: 1, type: 'photo', title: "Locker Room Pre-Match Talk", description: "A quiet moment of focus as the coach delivers the final instructions before a crucial match.", thumbnailUrl: "https://picsum.photos/seed/bts1/600/400", contentUrl: "https://picsum.photos/seed/bts1-full/1200/800" }, { id: 2, type: 'video', title: "Tunnel Cam: Derby Day", description: "Exclusive footage from the tunnel at Somhlolo National Stadium as the teams make their way onto the pitch for the Mbabane derby.", thumbnailUrl: "https://picsum.photos/seed/bts2/600/400", contentUrl: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4" } ];
 const premierLeagueId = 'mtn-premier-league';
 
-// NOTE: Updated premierLeagueData with a live match (Today) and a future match (Tomorrow)
+// NOTE: All matches are now scheduled in the future to avoid "fake live" data.
 const premierLeagueData = { 
     name: "MTN Premier League", 
     logoUrl: "https://via.placeholder.com/150/FF8C00/000000?text=MTN", 
@@ -81,9 +86,9 @@ const premierLeagueData = {
         {
             id: 9001,
             matchday: 12,
-            date: tomorrow.getDate().toString(),
-            day: tomorrowDay,
-            fullDate: tomorrowStr,
+            date: today.getDate().toString(),
+            day: todayDay,
+            fullDate: todayStr,
             teamA: 'Mbabane Swallows FC',
             teamB: 'Royal Leopards FC',
             time: '15:30',
@@ -93,17 +98,26 @@ const premierLeagueData = {
         {
             id: 9002,
             matchday: 12,
-            date: today.getDate().toString(),
-            day: todayDay,
-            fullDate: todayStr,
+            date: tomorrow.getDate().toString(),
+            day: tomorrowDay,
+            fullDate: tomorrowStr,
             teamA: 'Green Mamba FC',
             teamB: 'Young Buffaloes FC',
             time: '14:00',
-            status: 'live',
-            scoreA: 2,
-            scoreB: 1,
-            liveMinute: 74,
+            status: 'scheduled',
             venue: 'King Sobhuza II Memorial Stadium'
+        },
+        {
+            id: 9003,
+            matchday: 12,
+            date: dayAfterTomorrow.getDate().toString(),
+            day: dayAfterTomorrowDay,
+            fullDate: dayAfterTomorrowStr,
+            teamA: 'Mbabane Highlanders FC',
+            teamB: 'Manzini Wanderers FC',
+            time: '15:00',
+            status: 'scheduled',
+            venue: 'Mavuso Sports Centre'
         }
     ], 
     results: [], 
@@ -122,57 +136,8 @@ const cafChampionsLeagueData = { name: "CAF Champions League", categoryId: "cup-
 const cafConfederationCupData = { name: "CAF Confederation Cup", categoryId: "cup-competitions", fixtures: [], results: [], teams: [ { id: 711, name: 'Zamalek SC', crestUrl: 'https://via.placeholder.com/128/FFFFFF/FF0000?text=ZSC', players: [], fixtures: [], results: [], staff: [] }, { id: 712, name: 'USM Alger', crestUrl: 'https://via.placeholder.com/128/000000/FF0000?text=USMA', players: [], fixtures: [], results: [], staff: [] }, { id: 713, name: 'RS Berkane', crestUrl: 'https://via.placeholder.com/128/FFA500/000000?text=RSB', players: [], fixtures: [], results: [], staff: [] }, { id: 714, name: 'Orlando Pirates', crestUrl: 'https://via.placeholder.com/128/000000/FFFFFF?text=OP', players: [], fixtures: [], results: [], staff: [] } ] };
 const englishPremierLeagueData = { name: "English Premier League", categoryId: "international-leagues", externalApiId: 'PL', fixtures: [], results: [], teams: [ { id: 801, name: 'Manchester City', crestUrl: 'https://via.placeholder.com/128/6CABDD/FFFFFF?text=MCFC', players: [], fixtures: [], results: [], staff: [] }, { id: 802, name: 'Arsenal', crestUrl: 'https://via.placeholder.com/128/EF0107/FFFFFF?text=AFC', players: [], fixtures: [], results: [], staff: [] }, { id: 803, name: 'Liverpool', crestUrl: 'https://via.placeholder.com/128/C8102E/FFFFFF?text=LFC', players: [], fixtures: [], results: [], staff: [] }, { id: 804, name: 'Manchester United', crestUrl: 'https://via.placeholder.com/128/DA291C/FFFFFF?text=MUFC', players: [], fixtures: [], results: [], staff: [] }, { id: 805, name: 'Chelsea', crestUrl: 'https://via.placeholder.com/128/034694/FFFFFF?text=CFC', players: [], fixtures: [], results: [], staff: [] }, { id: 806, name: 'Tottenham Hotspur', crestUrl: 'https://via.placeholder.com/128/FFFFFF/132257?text=THFC', players: [], fixtures: [], results: [], staff: [] } ] };
 
-// MOCK LIVE UPDATES for the seed
-const liveUpdatesData: Omit<LiveUpdate, 'id' | 'timestamp'>[] = [
-    {
-        fixture_id: '9002', // ID matches the live fixture above
-        competition: 'MTN Premier League',
-        home_team: 'Green Mamba FC',
-        away_team: 'Young Buffaloes FC',
-        minute: 74,
-        type: 'goal',
-        player: 'Sabelo Ndzinisa',
-        description: 'GOAL! Sabelo Ndzinisa puts Green Mamba ahead with a clinical finish inside the box.',
-        score_home: 2,
-        score_away: 1,
-    },
-    {
-        fixture_id: '9002',
-        competition: 'MTN Premier League',
-        home_team: 'Green Mamba FC',
-        away_team: 'Young Buffaloes FC',
-        minute: 56,
-        type: 'goal',
-        player: 'Sandile Gamedze',
-        description: 'GOAL! Young Buffaloes equalize! Sandile Gamedze converts from the penalty spot.',
-        score_home: 1,
-        score_away: 1,
-    },
-    {
-        fixture_id: '9002',
-        competition: 'MTN Premier League',
-        home_team: 'Green Mamba FC',
-        away_team: 'Young Buffaloes FC',
-        minute: 34,
-        type: 'yellow_card',
-        player: 'Mthunzi Mkhontfo',
-        description: 'Yellow card for Mkhontfo after a late challenge in midfield.',
-        score_home: 1,
-        score_away: 0,
-    },
-    {
-        fixture_id: '9002',
-        competition: 'MTN Premier League',
-        home_team: 'Green Mamba FC',
-        away_team: 'Young Buffaloes FC',
-        minute: 12,
-        type: 'goal',
-        player: 'Njabulo Tfwala',
-        description: 'GOAL! Green Mamba take the early lead! Njabulo Tfwala heads home from a corner.',
-        score_home: 1,
-        score_away: 0,
-    }
-];
+// MOCK LIVE UPDATES - Empty to ensure no fake live data is shown
+const liveUpdatesData: Omit<LiveUpdate, 'id' | 'timestamp'>[] = [];
 
 const SeedDatabase: React.FC = () => {
     const [isSeeding, setIsSeeding] = useState(false);
@@ -290,7 +255,7 @@ const SeedDatabase: React.FC = () => {
             await seedCollection('photoGalleries', photoGalleries);
             await seedCollection('behindTheScenes', behindTheScenesData);
             
-            // Seed live updates
+            // Seed live updates - Empty in this case
             await seedLiveUpdates(liveUpdatesData);
 
             await seedOrRepairCompetition(premierLeagueId, premierLeagueData);
