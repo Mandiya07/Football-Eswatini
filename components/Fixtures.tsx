@@ -47,11 +47,9 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
 
     const getLinkProps = (teamObj: Team | undefined, teamName: string) => {
-        // 1. Prioritize direct ID from competition data
         if (teamObj?.id) {
             return { isLinkable: true, competitionId, teamId: teamObj.id };
         }
-        // 2. Fallback to directory for inconsistent data
         const entity = findInMap(teamName || '', directoryMap);
         if (entity?.teamId && entity.competitionId) {
             return { isLinkable: true, competitionId: entity.competitionId, teamId: entity.teamId };
@@ -115,38 +113,38 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
         switch (fixture.status) {
             case 'live':
                 return (
-                    <div className="absolute top-2 right-2 flex items-center space-x-1.5 text-secondary font-bold text-xs animate-pulse">
-                        <span className="w-2 h-2 bg-secondary rounded-full"></span>
+                    <div className="absolute top-2 right-2 flex items-center space-x-1 text-secondary font-bold text-[10px] animate-pulse">
+                        <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
                         <span>LIVE</span>
                     </div>
                 );
             case 'finished':
                 return (
-                    <div className="absolute top-2 right-2 text-gray-500 font-bold text-xs">
+                    <div className="absolute top-2 right-2 text-gray-500 font-bold text-[10px]">
                         <span>FT</span>
                     </div>
                 );
             case 'postponed':
                 return (
-                    <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider">
+                    <div className="absolute top-2 right-2 bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider">
                         Postponed
                     </div>
                 );
             case 'cancelled':
                 return (
-                    <div className="absolute top-2 right-2 bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider">
+                    <div className="absolute top-2 right-2 bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider">
                         Cancelled
                     </div>
                 );
             case 'abandoned':
                 return (
-                    <div className="absolute top-2 right-2 bg-gray-800 text-white px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider">
+                    <div className="absolute top-2 right-2 bg-gray-800 text-white px-1.5 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider">
                         Abandoned
                     </div>
                 );
              case 'suspended':
                 return (
-                    <div className="absolute top-2 right-2 bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider">
+                    <div className="absolute top-2 right-2 bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider">
                         Suspended
                     </div>
                 );
@@ -176,88 +174,84 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                 aria-expanded={isExpanded}
                 aria-controls={`fixture-details-${fixture.id}`}
             >
-                <div className="relative flex items-center space-x-4 p-4 min-h-[100px]">
+                <div className="relative flex items-center space-x-3 p-3 min-h-[80px]">
                     {getStatusBadge()}
                     
-                    {/* Date Box: Uses Primary Blue with a Yellow Accent Border */}
-                    <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white animate-pulse' : 'bg-primary text-white'} w-16 h-16 rounded-lg shadow-sm flex-shrink-0 transition-colors duration-300 border-b-4 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
-                        <span className="font-bold text-xl">{fixture.date}</span>
-                        <span className="text-[10px] uppercase font-bold tracking-wider">{fixture.day}</span>
+                    {/* Date Box - Compact */}
+                    <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white animate-pulse' : 'bg-primary text-white'} w-12 h-12 rounded-lg shadow-sm flex-shrink-0 transition-colors duration-300 border-b-4 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
+                        <span className="font-bold text-lg leading-tight">{fixture.date}</span>
+                        <span className="text-[9px] uppercase font-bold tracking-wider">{fixture.day}</span>
                     </div>
 
                     <div className="flex-grow grid grid-cols-3 items-center text-center">
-                        <div className="flex justify-end items-center gap-3 pr-2">
+                        <div className="flex justify-end items-center gap-2 pr-1">
                             {teamALink.isLinkable ? (
-                                <Link to={`/competitions/${teamALink.competitionId}/teams/${teamALink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-right truncate hover:underline">{fixture.teamA}</Link>
+                                <Link to={`/competitions/${teamALink.competitionId}/teams/${teamALink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-right truncate hover:underline text-sm">{fixture.teamA}</Link>
                             ) : (
-                                <p className="font-semibold text-gray-800 text-right truncate">{fixture.teamA}</p>
+                                <p className="font-semibold text-gray-800 text-right truncate text-sm">{fixture.teamA}</p>
                             )}
-                            {crestA && <img src={crestA} alt={`${fixture.teamA} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
+                            {crestA && <img src={crestA} alt={`${fixture.teamA} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
                         </div>
                         
                         {isScoreVisible ? (
                             <div className="text-center">
                                 <p 
                                     key={`score-${fixture.id}-${fixture.scoreA}-${fixture.scoreB}`}
-                                    className={`font-bold text-2xl ${fixture.status === 'live' ? 'text-secondary animate-score-update' : 'text-primary'} tracking-wider`}
+                                    className={`font-bold text-xl ${fixture.status === 'live' ? 'text-secondary animate-score-update' : 'text-primary'} tracking-wider`}
                                 >
                                     {fixture.scoreA} - {fixture.scoreB}
                                 </p>
-                                {fixture.status === 'live' && <p className="text-xs font-bold text-secondary mt-0.5">{fixture.liveMinute}'</p>}
-                                {fixture.status === 'abandoned' && <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-gray-600 px-2 py-0.5 rounded mt-1 inline-block">Abandoned</span>}
+                                {fixture.status === 'live' && <p className="text-[10px] font-bold text-secondary mt-0.5">{fixture.liveMinute}'</p>}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center">
-                                <p className="text-sm text-red-500 font-black font-display italic tracking-widest">VS</p>
-                                {fixture.status === 'postponed' && <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-900 bg-yellow-200 px-2 py-0.5 rounded mt-1">Postponed</span>}
-                                {fixture.status === 'cancelled' && <span className="text-[10px] font-bold uppercase tracking-wider text-red-900 bg-red-200 px-2 py-0.5 rounded mt-1">Cancelled</span>}
-                                {fixture.status === 'suspended' && <span className="text-[10px] font-bold uppercase tracking-wider text-orange-900 bg-orange-200 px-2 py-0.5 rounded mt-1">Suspended</span>}
-                                {fixture.status === 'abandoned' && <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-gray-700 px-2 py-0.5 rounded mt-1">Abandoned</span>}
-                                
-                                <p className="text-xs text-gray-400 mt-1">{fixture.time}</p>
+                                <p className="text-xs text-red-500 font-black font-display italic tracking-widest">VS</p>
+                                {fixture.status === 'postponed' && <span className="text-[9px] font-bold uppercase tracking-wider text-yellow-900 bg-yellow-200 px-1.5 py-0.5 rounded mt-0.5">Postponed</span>}
+                                {fixture.status === 'cancelled' && <span className="text-[9px] font-bold uppercase tracking-wider text-red-900 bg-red-200 px-1.5 py-0.5 rounded mt-0.5">Cancelled</span>}
+                                <p className="text-[10px] text-gray-400 mt-0.5">{fixture.time}</p>
                             </div>
                         )}
 
-                        <div className="flex justify-start items-center gap-3 pl-2">
-                            {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
+                        <div className="flex justify-start items-center gap-2 pl-1">
+                            {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
                             {teamBLink.isLinkable ? (
-                                <Link to={`/competitions/${teamBLink.competitionId}/teams/${teamBLink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-left truncate hover:underline">{fixture.teamB}</Link>
+                                <Link to={`/competitions/${teamBLink.competitionId}/teams/${teamBLink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-left truncate hover:underline text-sm">{fixture.teamB}</Link>
                             ) : (
-                                <p className="font-semibold text-gray-800 text-left truncate">{fixture.teamB}</p>
+                                <p className="font-semibold text-gray-800 text-left truncate text-sm">{fixture.teamB}</p>
                             )}
                         </div>
                     </div>
-                    <div className="flex-shrink-0 ml-4 flex flex-col items-center gap-2">
-                         <div className="flex gap-2">
+                    <div className="flex-shrink-0 ml-2 flex flex-col items-center gap-1">
+                         <div className="flex gap-1">
                             <button
                                 onClick={handleShare}
-                                className="text-gray-400 hover:text-blue-600 p-1.5 rounded-full hover:bg-blue-50 transition-colors"
+                                className="text-gray-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 transition-colors"
                                 aria-label="Share match"
                             >
-                                <ShareIcon className="w-5 h-5" />
+                                <ShareIcon className="w-4 h-4" />
                             </button>
                             {user?.role === 'super_admin' && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onDeleteFixture(fixture); }}
-                                    className="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-red-50 transition-colors"
+                                    className="text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-colors"
                                     disabled={isDeleting}
                                     aria-label="Delete fixture"
                                 >
-                                    {isDeleting ? <Spinner className="w-4 h-4 border-red-600 border-2" /> : <TrashIcon className="w-5 h-5" />}
+                                    {isDeleting ? <Spinner className="w-3 h-3 border-red-600 border-2" /> : <TrashIcon className="w-4 h-4" />}
                                 </button>
                             )}
                         </div>
-                         <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isExpanded ? 'transform rotate-180' : ''}`} />
+                         <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isExpanded ? 'transform rotate-180' : ''}`} />
                     </div>
                      {copied && (
-                        <span className="absolute top-2 right-12 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10 animate-fade-in-tooltip">
+                        <span className="absolute top-2 right-12 bg-gray-800 text-white text-[10px] rounded py-1 px-2 whitespace-nowrap z-10 animate-fade-in-tooltip">
                             Link Copied!
                         </span>
                     )}
                 </div>
             </button>
             {isExpanded && (
-                <div id={`fixture-details-${fixture.id}`} className="border-t border-gray-100 bg-gray-50/50 p-4">
+                <div id={`fixture-details-${fixture.id}`} className="border-t border-gray-100 bg-gray-50/50 p-3">
                     <FixtureDetail fixture={fixture} competitionId={competitionId} />
                 </div>
             )}
@@ -274,6 +268,13 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     const [compOptions, setCompOptions] = useState<{ label: string, options: { value: string; name: string; }[] }[]>([]);
     const [deletingId, setDeletingId] = useState<number | string | null>(null);
+
+    // Sync selectedComp with prop changes
+    useEffect(() => {
+        if (defaultCompetition) {
+            setSelectedComp(defaultCompetition);
+        }
+    }, [defaultCompetition]);
 
     useEffect(() => {
         const loadMetadata = async () => {
@@ -323,9 +324,10 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     }
                     setCompOptions(finalOptions);
                     
-                    if (finalOptions.length > 0 && !allCompetitions.some(c => c.id === defaultCompetition)) {
-                        const firstOpt = finalOptions[0].options[0];
-                        if (firstOpt) setSelectedComp(firstOpt.value);
+                    // Only set if selector is shown and current value is default (not prop controlled)
+                    if (showSelector && finalOptions.length > 0 && !allCompetitions.some(c => c.id === selectedComp)) {
+                         const firstOpt = finalOptions[0].options[0];
+                         if (firstOpt) setSelectedComp(firstOpt.value);
                     }
                 }
              } catch (error) {
@@ -333,7 +335,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
              }
         };
         loadMetadata();
-    }, [showSelector, defaultCompetition]);
+    }, [showSelector]); // Removed defaultCompetition dep to avoid conflict with sync effect
 
 
     useEffect(() => {
@@ -365,20 +367,13 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 const matchB = fixture.teamB.trim();
                 const matchDate = fixture.fullDate;
 
-                // Robust Deletion Strategy:
-                // 1. Try to delete by ID.
-                // 2. If nothing removed, try to delete by content (Team A + Team B + Date).
                 const filterList = (list: CompetitionFixture[]) => {
                     const initialLen = list.length;
-                    // 1. ID Match
                     let filtered = list.filter(f => String(f.id).trim() !== targetId);
-                    
-                    // 2. Content Fallback
                     if (filtered.length === initialLen) {
                         filtered = list.filter(f => {
                              const fTeamA = f.teamA.trim();
                              const fTeamB = f.teamB.trim();
-                             // Check exact match or swapped teams (unlikely for scheduled but possible for manual entry error)
                              const teamsMatch = (fTeamA === matchA && fTeamB === matchB) || (fTeamA === matchB && fTeamB === matchA);
                              const dateMatches = f.fullDate === matchDate;
                              return !(teamsMatch && dateMatches);
@@ -390,16 +385,13 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 const updatedFixtures = filterList(compData.fixtures || []);
                 const updatedResults = filterList(compData.results || []);
                 
-                // Check if anything was removed
                 const deletedCount = ((compData.fixtures?.length || 0) - updatedFixtures.length) + ((compData.results?.length || 0) - updatedResults.length);
                 
                 if (deletedCount === 0) {
-                    throw new Error(`Could not find match to delete. It might have already been removed.`);
+                    throw new Error(`Could not find match to delete.`);
                 }
                 
-                // Always recalculate standings to ensure consistency
                 const updatedTeams = calculateStandings(compData.teams || [], updatedResults, updatedFixtures);
-
                 transaction.update(docRef, removeUndefinedProps({ fixtures: updatedFixtures, results: updatedResults, teams: updatedTeams }));
             });
          } catch(error) {
@@ -452,11 +444,13 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
 
     return (
         <section>
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
-                 <div className="flex items-center gap-4">
-                    {competition?.logoUrl && <img src={competition.logoUrl} alt={`${competition.name} logo`} className="h-10 object-contain" />}
-                    <h2 className="text-3xl font-display font-bold text-center lg:text-left">Fixtures & Results</h2>
-                </div>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
+                {showSelector && (
+                     <div className="flex items-center gap-4">
+                        {competition?.logoUrl && <img src={competition.logoUrl} alt={`${competition.name} logo`} className="h-10 object-contain" />}
+                        <h2 className="text-3xl font-display font-bold text-center lg:text-left">Fixtures & Results</h2>
+                    </div>
+                )}
                 {showSelector && (
                     <div className="min-w-[200px]">
                          <select
@@ -476,11 +470,11 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 )}
             </div>
 
-            {/* Color-coded Tabs for Fixtures (Blue) vs Results (Red) */}
-            <div className="flex justify-center sm:justify-start space-x-2 bg-gray-100 p-1.5 rounded-lg w-fit mb-6 mx-auto sm:mx-0 shadow-inner">
+            {/* Tabs */}
+            <div className="flex justify-center sm:justify-start space-x-2 bg-gray-100 p-1 rounded-lg w-fit mb-4 mx-auto sm:mx-0 shadow-inner">
                 <button
                     onClick={() => setActiveTab('fixtures')}
-                    className={`px-6 py-2 text-sm font-bold rounded-md transition-all duration-300 ${
+                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all duration-300 ${
                         activeTab === 'fixtures' 
                         ? 'bg-primary text-white shadow-md ring-1 ring-black/5' 
                         : 'text-gray-600 hover:text-primary hover:bg-white'
@@ -490,7 +484,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 </button>
                 <button
                     onClick={() => setActiveTab('results')}
-                    className={`px-6 py-2 text-sm font-bold rounded-md transition-all duration-300 ${
+                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all duration-300 ${
                         activeTab === 'results' 
                         ? 'bg-secondary text-white shadow-md ring-1 ring-black/5' 
                         : 'text-gray-600 hover:text-secondary hover:bg-white'
@@ -506,18 +500,17 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 </Card>
             ) : groupedData.length > 0 ? (
                 <div className={maxHeight ? `overflow-y-auto ${maxHeight} pr-1` : ''}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         {groupedData.map((group, groupIndex) => (
                             <div key={group.title} className="animate-content-fade-in">
-                                <div className="flex items-center mb-4 sticky top-0 z-10 bg-gray-50/95 py-2 backdrop-blur-sm">
-                                    {/* Group Header with Blue Background and Yellow Accent Border */}
-                                    <div className="bg-primary text-white px-4 py-1.5 rounded-r-full shadow-md inline-flex items-center gap-2 border-l-4 border-accent">
-                                        <span className="text-sm font-bold uppercase tracking-widest">{group.title}</span>
+                                <div className="flex items-center mb-2 sticky top-0 z-10 bg-gray-50/95 py-1 backdrop-blur-sm">
+                                    <div className="bg-primary text-white px-3 py-1 rounded-r-full shadow-md inline-flex items-center gap-2 border-l-4 border-accent">
+                                        <span className="text-xs font-bold uppercase tracking-widest">{group.title}</span>
                                     </div>
-                                    <div className="flex-grow h-px bg-gray-200 ml-4"></div>
+                                    <div className="flex-grow h-px bg-gray-200 ml-2"></div>
                                 </div>
                                 
-                                <Card className="shadow-lg mb-6">
+                                <Card className="shadow-md mb-4">
                                     <div className="divide-y divide-gray-100">
                                         {group.fixtures.map((fixture) => (
                                             <FixtureItem 
@@ -534,7 +527,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                                         ))}
                                     </div>
                                 </Card>
-                                {groupIndex === 0 && <AdBanner placement="fixtures-banner" className="mb-8" />}
+                                {groupIndex === 0 && <AdBanner placement="fixtures-banner" className="mb-6" />}
                             </div>
                         ))}
                     </div>

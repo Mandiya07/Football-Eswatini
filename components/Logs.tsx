@@ -39,6 +39,13 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
   const prevPositionsRef = useRef<Map<number, number>>(new Map());
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
   
+  // Sync selectedLeague with defaultLeague prop when it changes
+  useEffect(() => {
+    if (defaultLeague) {
+        setSelectedLeague(defaultLeague);
+    }
+  }, [defaultLeague]);
+
   useEffect(() => {
     const loadInitialData = async () => {
         try {
@@ -107,7 +114,8 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                 
                 if (finalOptions.length > 0) {
                     const allLeagueOptions = finalOptions.flatMap(g => g.options);
-                    if (allLeagueOptions.length > 0 && !allLeagueOptions.some(opt => opt.value === selectedLeague)) {
+                    // Only override default if it's not in the list or if selector is active
+                    if (allLeagueOptions.length > 0 && showSelector && !allLeagueOptions.some(opt => opt.value === selectedLeague)) {
                         setSelectedLeague(allLeagueOptions[0].value);
                     }
                 }
@@ -119,7 +127,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
     };
 
     loadInitialData();
-  }, [showSelector, defaultLeague]);
+  }, [showSelector]); // Removed defaultLeague dep here to avoid conflict with the sync effect
 
   useEffect(() => {
     setLoading(true);
@@ -170,11 +178,13 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
 
   return (
     <section>
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
-            <div className="flex items-center gap-4">
-                {competition?.logoUrl && <img src={competition.logoUrl} alt={`${competition.name} logo`} className="h-10 object-contain" />}
-                <h2 className="text-3xl font-display font-bold text-center lg:text-left">League Standings</h2>
-            </div>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
+            {showSelector && (
+                 <div className="flex items-center gap-4">
+                    {competition?.logoUrl && <img src={competition.logoUrl} alt={`${competition.name} logo`} className="h-10 object-contain" />}
+                    <h2 className="text-3xl font-display font-bold text-center lg:text-left">League Standings</h2>
+                </div>
+            )}
             {showSelector && (
                  <div className="min-w-[200px]">
                     <label htmlFor="league-select" className="sr-only">Select League</label>
@@ -201,29 +211,26 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                  {loading ? (
                     <div className="flex justify-center items-center h-64"><Spinner /></div>
                  ) : leagueData.length > 0 ? (
-                    <table className="w-full text-sm">
+                    <table className="w-full text-xs sm:text-sm">
                         {/* Enhanced Header with Eswatini Colors */}
                         <thead className="text-left font-bold uppercase text-xs sticky top-0 z-10">
                             <tr className="bg-primary text-white shadow-md border-b-4 border-secondary">
-                                <th className="px-4 py-3 w-8">#</th>
-                                <th className="px-4 py-3">Team</th>
-                                <th className="px-4 py-3 text-center w-12" title="Played">P</th>
-                                <th className="px-4 py-3 text-center w-12" title="Won">W</th>
-                                <th className="px-4 py-3 text-center w-12" title="Drawn">D</th>
-                                <th className="px-4 py-3 text-center w-12" title="Lost">L</th>
-                                <th className="px-4 py-3 text-center w-12" title="Goals Scored">GS</th>
-                                <th className="px-4 py-3 text-center w-12" title="Goals Conceded">GC</th>
-                                <th className="px-4 py-3 text-center w-12 font-bold" title="Goal Difference">GD</th>
-                                <th className="px-4 py-3 text-center w-12 font-bold" title="Points">Pts</th>
-                                <th className="px-4 py-3 w-32">Form</th>
+                                <th className="px-2 py-2 w-8">#</th>
+                                <th className="px-2 py-2">Team</th>
+                                <th className="px-1 py-2 text-center w-8" title="Played">P</th>
+                                <th className="px-1 py-2 text-center w-8" title="Won">W</th>
+                                <th className="px-1 py-2 text-center w-8" title="Drawn">D</th>
+                                <th className="px-1 py-2 text-center w-8" title="Lost">L</th>
+                                <th className="px-1 py-2 text-center w-8" title="Goals Scored">GS</th>
+                                <th className="px-1 py-2 text-center w-8" title="Goals Conceded">GC</th>
+                                <th className="px-1 py-2 text-center w-8 font-bold" title="Goal Difference">GD</th>
+                                <th className="px-1 py-2 text-center w-8 font-bold" title="Points">Pts</th>
+                                <th className="px-2 py-2 w-24">Form</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {leagueData.map((team, index) => {
                                 // CRITICAL FIX: Prioritize the ID from the actual database record (`team.id`).
-                                // This ID is guaranteed to exist in the competition's team list because `leagueData` comes from it.
-                                // Do NOT override this with `directoryEntity.teamId` because the directory might point to an old ID
-                                // if the database was reset or re-seeded.
                                 const linkProps = {
                                     isLinkable: !!team.id,
                                     competitionId: selectedLeague,
@@ -234,21 +241,21 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                 const crestUrl = directoryEntry?.crestUrl || team.crestUrl;
 
                                 const teamRowContent = (
-                                    <div className="flex items-center space-x-3 group">
-                                        {crestUrl && <img src={crestUrl} alt={`${team.name} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
-                                        <span className={`font-semibold text-gray-800 ${linkProps.isLinkable ? 'group-hover:underline' : ''} truncate`}>{team.name}</span>
+                                    <div className="flex items-center space-x-2 group">
+                                        {crestUrl && <img src={crestUrl} alt={`${team.name} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white p-0.5 rounded-md shadow-sm" />}
+                                        <span className={`font-semibold text-gray-800 ${linkProps.isLinkable ? 'group-hover:underline' : ''} truncate max-w-[120px] sm:max-w-xs`}>{team.name}</span>
                                     </div>
                                 );
 
                                 return (
                                 <tr key={team.id || team.name} className="hover:bg-gray-50/50">
-                                    <td className="px-4 py-2 font-bold text-gray-700">
-                                        <div className="flex items-center gap-2">
+                                    <td className="px-2 py-2 font-bold text-gray-700">
+                                        <div className="flex items-center gap-1">
                                             <span>{index + 1}</span>
                                             <PositionIndicator change={positionChanges[team.id]} />
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2">
+                                    <td className="px-2 py-2">
                                         {linkProps.isLinkable ? (
                                             <Link to={`/competitions/${linkProps.competitionId}/teams/${linkProps.teamId}`} className="block w-full">
                                                 {teamRowContent}
@@ -257,15 +264,15 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                             teamRowContent
                                         )}
                                     </td>
-                                    <td className="px-4 py-2 text-center">{team.stats.p}</td>
-                                    <td className="px-4 py-2 text-center">{team.stats.w}</td>
-                                    <td className="px-4 py-2 text-center">{team.stats.d}</td>
-                                    <td className="px-4 py-2 text-center">{team.stats.l}</td>
-                                    <td className="px-4 py-2 text-center">{team.stats.gs}</td>
-                                    <td className="px-4 py-2 text-center">{team.stats.gc}</td>
-                                    <td className="px-4 py-2 text-center font-bold">{team.stats.gd}</td>
-                                    <td className="px-4 py-2 text-center font-bold">{team.stats.pts}</td>
-                                    <td className="px-4 py-2">
+                                    <td className="px-1 py-2 text-center">{team.stats.p}</td>
+                                    <td className="px-1 py-2 text-center">{team.stats.w}</td>
+                                    <td className="px-1 py-2 text-center">{team.stats.d}</td>
+                                    <td className="px-1 py-2 text-center">{team.stats.l}</td>
+                                    <td className="px-1 py-2 text-center">{team.stats.gs}</td>
+                                    <td className="px-1 py-2 text-center">{team.stats.gc}</td>
+                                    <td className="px-1 py-2 text-center font-bold">{team.stats.gd}</td>
+                                    <td className="px-1 py-2 text-center font-bold">{team.stats.pts}</td>
+                                    <td className="px-2 py-2">
                                         <FormGuide form={team.stats.form} />
                                     </td>
                                 </tr>

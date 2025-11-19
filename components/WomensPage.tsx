@@ -1,3 +1,4 @@
+
 import React from 'react';
 import NewsSection from './News';
 import Logs from './Logs';
@@ -22,8 +23,17 @@ const WomensPage: React.FC = () => {
 
         <div className="space-y-16">
           <NewsSection category="Womens" />
-          <Fixtures showSelector={false} defaultCompetition={WOMENS_LEAGUE_ID} />
-          <Logs showSelector={false} defaultLeague={WOMENS_LEAGUE_ID} />
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div className="w-full">
+                 <h2 className="text-2xl font-display font-bold mb-4 text-center lg:text-left">Fixtures & Results</h2>
+                 <Fixtures showSelector={false} defaultCompetition={WOMENS_LEAGUE_ID} maxHeight="max-h-[800px]" />
+            </div>
+            <div className="w-full">
+                 <h2 className="text-2xl font-display font-bold mb-4 text-center lg:text-left">League Standings</h2>
+                 <Logs showSelector={false} defaultLeague={WOMENS_LEAGUE_ID} maxHeight="max-h-[800px]" />
+            </div>
+          </div>
         </div>
       </div>
     </div>

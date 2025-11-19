@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Fixtures from './Fixtures';
@@ -54,9 +55,14 @@ const RegionDetailPage: React.FC = () => {
                 </>
             )}
         </div>
-        <div className="space-y-16">
-            <Fixtures showSelector={false} defaultCompetition={regionId} />
-            <Logs showSelector={false} defaultLeague={regionId} />
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div className="w-full">
+                <Fixtures showSelector={false} defaultCompetition={regionId} maxHeight="max-h-[800px]" />
+            </div>
+            <div className="w-full">
+                <Logs showSelector={false} defaultLeague={regionId} maxHeight="max-h-[800px]" />
+            </div>
         </div>
       </div>
     </div>
