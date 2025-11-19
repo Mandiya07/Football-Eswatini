@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Hero from './Hero';
 import QuickAccess from './QuickAccess';
@@ -50,7 +48,7 @@ const Home: React.FC = () => {
         </Suspense>
         <div id="matches">
           <Suspense fallback={<SectionLoader />}>
-            <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" />
+            <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="max-h-96" />
           </Suspense>
         </div>
         <Suspense fallback={<SectionLoader />}>

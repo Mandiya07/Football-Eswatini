@@ -19,6 +19,7 @@ import { calculateStandings, removeUndefinedProps, findInMap } from '../services
 interface FixturesProps {
     showSelector?: boolean;
     defaultCompetition?: string;
+    maxHeight?: string;
 }
 
 interface FixtureItemProps {
@@ -264,7 +265,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     );
 });
 
-const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompetition = 'mtn-premier-league' }) => {
+const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompetition = 'mtn-premier-league', maxHeight }) => {
     const [selectedComp, setSelectedComp] = useState(defaultCompetition);
     const [activeTab, setActiveTab] = useState<'fixtures' | 'results'>('fixtures');
     const [competition, setCompetition] = useState<Competition | null>(null);
@@ -504,37 +505,39 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     <div className="flex justify-center items-center h-64"><Spinner /></div>
                 </Card>
             ) : groupedData.length > 0 ? (
-                <div className="space-y-8">
-                    {groupedData.map((group, groupIndex) => (
-                        <div key={group.title} className="animate-content-fade-in">
-                            <div className="flex items-center mb-4">
-                                {/* Group Header with Blue Background and Yellow Accent Border */}
-                                <div className="bg-primary text-white px-4 py-1.5 rounded-r-full shadow-md inline-flex items-center gap-2 border-l-4 border-accent">
-                                    <span className="text-sm font-bold uppercase tracking-widest">{group.title}</span>
+                <div className={maxHeight ? `overflow-y-auto ${maxHeight} pr-1` : ''}>
+                    <div className="space-y-8">
+                        {groupedData.map((group, groupIndex) => (
+                            <div key={group.title} className="animate-content-fade-in">
+                                <div className="flex items-center mb-4 sticky top-0 z-10 bg-gray-50/95 py-2 backdrop-blur-sm">
+                                    {/* Group Header with Blue Background and Yellow Accent Border */}
+                                    <div className="bg-primary text-white px-4 py-1.5 rounded-r-full shadow-md inline-flex items-center gap-2 border-l-4 border-accent">
+                                        <span className="text-sm font-bold uppercase tracking-widest">{group.title}</span>
+                                    </div>
+                                    <div className="flex-grow h-px bg-gray-200 ml-4"></div>
                                 </div>
-                                <div className="flex-grow h-px bg-gray-200 ml-4"></div>
+                                
+                                <Card className="shadow-lg mb-6">
+                                    <div className="divide-y divide-gray-100">
+                                        {group.fixtures.map((fixture) => (
+                                            <FixtureItem 
+                                                key={fixture.id}
+                                                fixture={fixture} 
+                                                isExpanded={expandedFixtureId === fixture.id} 
+                                                onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === fixture.id ? null : fixture.id)}
+                                                teams={competition?.teams || []}
+                                                onDeleteFixture={handleDeleteFixture}
+                                                isDeleting={String(deletingId).trim() === String(fixture.id).trim()}
+                                                directoryMap={directoryMap}
+                                                competitionId={selectedComp}
+                                            />
+                                        ))}
+                                    </div>
+                                </Card>
+                                {groupIndex === 0 && <AdBanner placement="fixtures-banner" className="mb-8" />}
                             </div>
-                            
-                            <Card className="shadow-lg mb-6">
-                                <div className="divide-y divide-gray-100">
-                                    {group.fixtures.map((fixture) => (
-                                        <FixtureItem 
-                                            key={fixture.id}
-                                            fixture={fixture} 
-                                            isExpanded={expandedFixtureId === fixture.id} 
-                                            onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === fixture.id ? null : fixture.id)}
-                                            teams={competition?.teams || []}
-                                            onDeleteFixture={handleDeleteFixture}
-                                            isDeleting={String(deletingId).trim() === String(fixture.id).trim()}
-                                            directoryMap={directoryMap}
-                                            competitionId={selectedComp}
-                                        />
-                                    ))}
-                                </div>
-                            </Card>
-                            {groupIndex === 0 && <AdBanner placement="fixtures-banner" className="mb-8" />}
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             ) : (
                 <Card className="shadow-lg">
