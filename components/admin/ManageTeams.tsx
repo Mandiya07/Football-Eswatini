@@ -10,7 +10,9 @@ import Spinner from '../ui/Spinner';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
+import UsersIcon from '../icons/UsersIcon';
 import TeamFormModal from './TeamFormModal';
+import TeamRosterModal from './TeamRosterModal';
 import { calculateStandings, removeUndefinedProps } from '../../services/utils';
 
 const ManageTeams: React.FC = () => {
@@ -18,8 +20,13 @@ const ManageTeams: React.FC = () => {
     const [selectedCompId, setSelectedCompId] = useState('mtn-premier-league');
     const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // Modals state
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
+    
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+    const [rosterTeam, setRosterTeam] = useState<Team | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const loadData = async () => {
@@ -66,12 +73,17 @@ const ManageTeams: React.FC = () => {
 
     const handleAddNew = () => {
         setEditingTeam(null);
-        setIsModalOpen(true);
+        setIsFormModalOpen(true);
     };
 
     const handleEdit = (team: Team) => {
         setEditingTeam(team);
-        setIsModalOpen(true);
+        setIsFormModalOpen(true);
+    };
+
+    const handleManageRoster = (team: Team) => {
+        setRosterTeam(team);
+        setIsRosterModalOpen(true);
     };
 
     const handleDelete = async (teamId: number) => {
@@ -125,9 +137,9 @@ const ManageTeams: React.FC = () => {
         }
     };
 
-    const handleSave = async (data: Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>, id?: number) => {
+    const handleSaveTeam = async (data: Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>, id?: number) => {
         setLoading(true);
-        setIsModalOpen(false);
+        setIsFormModalOpen(false);
         
         try {
             const compDocRef = doc(db, 'competitions', selectedCompId);
@@ -139,24 +151,47 @@ const ManageTeams: React.FC = () => {
                     const competition = compDocSnap.data() as Competition;
                     
                     const targetId = String(id).trim();
-                    const oldTeam = competition.teams?.find(t => String(t.id).trim() === targetId);
-                    if (!oldTeam) throw new Error("Original team not found in competition for update");
+                    const oldTeamIndex = (competition.teams || []).findIndex(t => String(t.id).trim() === targetId);
+                    
+                    if (oldTeamIndex === -1) throw new Error("Original team not found in competition for update");
     
-                    const updatedCompTeams = (competition.teams || []).map(t => 
-                        String(t.id).trim() === targetId ? { ...t, ...data } : t
-                    );
+                    const oldTeam = competition.teams![oldTeamIndex];
+                    const updatedCompTeams = [...(competition.teams || [])];
+                    
+                    // Update the team object in the array
+                    updatedCompTeams[oldTeamIndex] = { ...oldTeam, ...data };
     
-                    if (oldTeam.name !== data.name) {
-                        const oldName = oldTeam.name.trim();
+                    // If the name changed, we MUST update all fixtures and results
+                    if (oldTeam.name.trim() !== data.name.trim()) {
+                        const oldNameLower = oldTeam.name.trim().toLowerCase();
                         const newName = data.name.trim();
+                        
                         const renameInMatches = (matches: any[]) => (matches || []).map(f => {
-                            if (f.teamA.trim() === oldName) return { ...f, teamA: newName };
-                            if (f.teamB.trim() === oldName) return { ...f, teamB: newName };
-                            return f;
+                            let updatedFixture = { ...f };
+                            let changed = false;
+
+                            // Case-insensitive comparison to ensure we catch mismatches
+                            if (f.teamA.trim().toLowerCase() === oldNameLower) {
+                                updatedFixture.teamA = newName;
+                                changed = true;
+                            }
+                            if (f.teamB.trim().toLowerCase() === oldNameLower) {
+                                updatedFixture.teamB = newName;
+                                changed = true;
+                            }
+                            return changed ? updatedFixture : f;
                         });
+
                         const updatedFixtures = renameInMatches(competition.fixtures);
                         const updatedResults = renameInMatches(competition.results);
-                        transaction.update(compDocRef, removeUndefinedProps({ teams: updatedCompTeams, fixtures: updatedFixtures, results: updatedResults }));
+                        
+                        const finalTeams = calculateStandings(updatedCompTeams, updatedResults, updatedFixtures);
+
+                        transaction.update(compDocRef, removeUndefinedProps({ 
+                            teams: finalTeams, 
+                            fixtures: updatedFixtures, 
+                            results: updatedResults 
+                        }));
                     } else {
                         transaction.update(compDocRef, removeUndefinedProps({ teams: updatedCompTeams }));
                     }
@@ -174,7 +209,7 @@ const ManageTeams: React.FC = () => {
                     
                     const newTeam: Team = {
                         id: newTeamId,
-                        name: data.name,
+                        name: data.name.trim(),
                         crestUrl: data.crestUrl,
                         players: [], fixtures: [], results: [], staff: [],
                         stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' }
@@ -191,6 +226,12 @@ const ManageTeams: React.FC = () => {
             setLoading(false);
         }
     };
+
+    const handleSaveRoster = async () => {
+        setIsRosterModalOpen(false);
+        setRosterTeam(null);
+        await loadData(); // Reload to get updated players
+    }
 
 
     return (
@@ -222,15 +263,24 @@ const ManageTeams: React.FC = () => {
                                 <div key={team.id} className="p-3 bg-white border rounded-lg flex items-center justify-between gap-3">
                                     <div className="flex items-center gap-4">
                                         <img src={team.crestUrl} alt={team.name} className="w-10 h-10 object-contain rounded-full bg-gray-100 p-1" />
-                                        <p className="font-semibold">{team.name}</p>
+                                        <div>
+                                            <p className="font-semibold">{team.name}</p>
+                                            <p className="text-xs text-gray-500">ID: {team.id} &bull; Players: {team.players?.length || 0}</p>
+                                        </div>
                                     </div>
                                     <div className="flex-shrink-0 flex items-center gap-2">
-                                        <Button onClick={() => handleEdit(team)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center"><PencilIcon className="w-4 h-4" /></Button>
+                                        <Button onClick={() => handleManageRoster(team)} className="bg-green-100 text-green-700 h-8 w-8 p-0 flex items-center justify-center" title="Manage Roster/Players">
+                                            <UsersIcon className="w-4 h-4" />
+                                        </Button>
+                                        <Button onClick={() => handleEdit(team)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center" title="Edit Team Details">
+                                            <PencilIcon className="w-4 h-4" />
+                                        </Button>
                                         <Button 
                                             onClick={() => handleDelete(team.id)} 
                                             className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center"
                                             disabled={deletingId === team.id}
                                             aria-label={`Delete ${team.name}`}
+                                            title="Delete Team"
                                         >
                                             {deletingId === team.id ? <Spinner className="w-4 h-4 border-2" /> : <TrashIcon className="w-4 h-4" />}
                                         </Button>
@@ -241,7 +291,27 @@ const ManageTeams: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
-            {isModalOpen && <TeamFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSave} team={editingTeam} />}
+            
+            {/* Team Details Modal */}
+            {isFormModalOpen && (
+                <TeamFormModal 
+                    isOpen={isFormModalOpen} 
+                    onClose={() => setIsFormModalOpen(false)} 
+                    onSave={handleSaveTeam} 
+                    team={editingTeam} 
+                />
+            )}
+            
+            {/* Player Roster Modal */}
+            {isRosterModalOpen && rosterTeam && (
+                <TeamRosterModal
+                    isOpen={isRosterModalOpen}
+                    onClose={() => setIsRosterModalOpen(false)}
+                    onSave={handleSaveRoster}
+                    team={rosterTeam}
+                    competitionId={selectedCompId}
+                />
+            )}
         </>
     );
 };

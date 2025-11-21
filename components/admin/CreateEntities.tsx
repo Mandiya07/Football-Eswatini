@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -10,6 +11,7 @@ import { fetchCategories, Category, handleFirestoreError } from '../../services/
 
 const CreateEntities: React.FC = () => {
     const [leagueName, setLeagueName] = useState('');
+    const [externalApiId, setExternalApiId] = useState('');
     const [seasonYear, setSeasonYear] = useState('');
     const [fixture, setFixture] = useState({ home: '', away: '', date: '' });
     const [submitting, setSubmitting] = useState<string | null>(null);
@@ -41,8 +43,10 @@ const CreateEntities: React.FC = () => {
                         fixtures: [],
                         results: [],
                         categoryId: data.categoryId,
+                        externalApiId: data.externalApiId || null,
                     });
                     setLeagueName('');
+                    setExternalApiId('');
                     break;
                 case 'fixture':
                     // For simplicity, this adds to premier-league. A real app would need a league selector.
@@ -89,7 +93,7 @@ const CreateEntities: React.FC = () => {
                 <CardContent className="p-6">
                     <h3 className="text-2xl font-bold font-display mb-1">Create New League</h3>
                     <p className="text-sm text-gray-600 mb-4">Add a new competition to the system.</p>
-                    <form onSubmit={handleSubmit('league', { leagueName, categoryId: selectedCategory })} className="space-y-4">
+                    <form onSubmit={handleSubmit('league', { leagueName, externalApiId, categoryId: selectedCategory })} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="leagueName" className={labelClass}>League Name</label>
@@ -101,6 +105,11 @@ const CreateEntities: React.FC = () => {
                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
+                        </div>
+                        <div>
+                            <label htmlFor="externalApiId" className={labelClass}>External API ID (Optional)</label>
+                            <input type="text" id="externalApiId" value={externalApiId} onChange={e => setExternalApiId(e.target.value)} className={inputClass} placeholder="e.g., 2021 (football-data.org)" />
+                            <p className="text-xs text-gray-500 mt-1">Link competition data from external APIs like TheSportsDB or Football-Data.org for automatic fixture updates.</p>
                         </div>
                         <div className="text-right">
                              <Button type="submit" className="bg-primary text-white hover:bg-primary-dark h-11 w-36 flex justify-center items-center" disabled={submitting === 'league'}>

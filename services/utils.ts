@@ -69,7 +69,7 @@ export const findInMap = (name: string, map: Map<string, DirectoryEntity>): Dire
 
 
 // Levenshtein distance function to calculate similarity between two strings.
-const levenshtein = (s1: string, s2: string): number => {
+export const levenshtein = (s1: string, s2: string): number => {
     s1 = s1.toLowerCase();
     s2 = s2.toLowerCase();
   
@@ -96,6 +96,16 @@ const levenshtein = (s1: string, s2: string): number => {
     }
     return costs[s2.length];
 };
+
+// Helper normalize function for consistent key usage
+export const normalize = (name: string) => 
+    (name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.|fc/g, '') // remove all dots and 'fc'
+    .replace(/\s+/g, ' ') // collapse multiple spaces
+    .trim();
+
   
 // Normalizes a given team name against a list of official names using fuzzy matching.
 export const normalizeTeamName = (inputName: string, officialNames: string[]): string | null => {
@@ -105,30 +115,37 @@ export const normalizeTeamName = (inputName: string, officialNames: string[]): s
 
     const trimmedInput = inputName.trim();
     
+    // 1. Try exact match (case-insensitive)
     for (const officialName of officialNames) {
         if (officialName.toLowerCase() === trimmedInput.toLowerCase()) {
             return officialName;
         }
     }
 
+    // 2. Fuzzy Match
     let bestMatch: string | null = null;
     let minDistance = Infinity;
+    const normalizedInput = normalize(trimmedInput);
 
     for (const officialName of officialNames) {
-        const distance = levenshtein(trimmedInput, officialName);
+        const normalizedOfficial = normalize(officialName);
+        const distance = levenshtein(normalizedInput, normalizedOfficial);
+        
         if (distance < minDistance) {
             minDistance = distance;
             bestMatch = officialName;
         }
     }
 
-    const threshold = Math.min(5, Math.floor(trimmedInput.length / 3)); 
+    // Threshold: allow small typos (e.g. 1-2 chars diff)
+    // "Royal Leopard" vs "Royal Leopards" (dist 1) -> Pass
+    // "Mbabane" vs "Manzini" (dist large) -> Fail
+    const threshold = Math.max(2, Math.floor(trimmedInput.length / 4));
 
     if (bestMatch && minDistance <= threshold) {
         return bestMatch;
     }
 
-    console.warn(`[normalizeTeamName] Could not confidently match "${trimmedInput}" to any official team name.`)
     return null;
 };
 
@@ -136,6 +153,10 @@ export const normalizeTeamName = (inputName: string, officialNames: string[]): s
  * Calculates league standings from a list of teams and finished matches.
  * It resets all stats, processes all finished matches to calculate new stats,
  * and then sorts the teams based on standard football league rules.
+ * 
+ * IMPROVED: Uses fuzzy matching to map fixture team names to the official team list,
+ * preventing creation of duplicate "Ghost" teams for minor spelling variations.
+ * 
  * @param baseTeams The original list of teams.
  * @param allResults The list of all finished matches for the competition.
  * @param allFixtures The list of all scheduled matches, to check for any misplaced finished matches.
@@ -144,15 +165,6 @@ export const normalizeTeamName = (inputName: string, officialNames: string[]): s
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
     const teamsMap: Map<string, Team> = new Map();
     
-    // Normalization function to handle minor name variations (e.g., "Team" vs "Team FC", "Team F.C.")
-    const normalize = (name: string) => 
-        (name || '')
-        .trim()
-        .toLowerCase()
-        .replace(/\.|fc/g, '') // remove all dots and 'fc'
-        .replace(/\s+/g, ' ') // collapse multiple spaces
-        .trim();
-
     // 1. Initialize map with baseTeams, ensuring stats are reset
     baseTeams.forEach(team => {
         const teamCopy = { ...team };
@@ -162,54 +174,81 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     
     const allMatches = [...(allResults || []), ...(allFixtures || [])];
 
-    // 2. Discover teams from all matches that might not be in baseTeams to make the function resilient
+    // 2. Helper to resolve a name to an existing key in the map using fuzzy logic
+    const resolveKey = (name: string): string | null => {
+        const normName = normalize(name);
+        if (teamsMap.has(normName)) return normName;
+
+        // Fuzzy search existing keys
+        let bestKey: string | null = null;
+        let minDist = Infinity;
+        
+        for (const key of teamsMap.keys()) {
+            const dist = levenshtein(normName, key);
+            if (dist < minDist) {
+                minDist = dist;
+                bestKey = key;
+            }
+        }
+        
+        // Strict threshold: only match if very close (e.g. plural 's' missing)
+        if (bestKey && minDist <= 2) {
+            return bestKey;
+        }
+        return null;
+    };
+
+    // 3. Discover completely NEW teams that don't match anything in baseTeams
     allMatches.forEach(match => {
         [match.teamA, match.teamB].forEach(teamName => {
             if (teamName) {
-                const normalizedName = normalize(teamName);
-                if (!teamsMap.has(normalizedName)) {
-                    // This is a new team discovered from match data.
-                    // Create a placeholder team object for it.
-                    console.log(`Discovered new team "${teamName}" from match data. Adding to standings calculation.`);
-                    const newTeam: Team = {
-                        id: Date.now() + Math.random(), // Temporary, non-persistent ID
-                        name: teamName.trim(),
-                        crestUrl: '', // Will be looked up by UI via directory anyway
-                        stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
-                        players: [],
-                        fixtures: [],
-                        results: [],
-                        staff: [],
-                    };
-                    teamsMap.set(normalizedName, newTeam);
+                const resolvedKey = resolveKey(teamName);
+                
+                // If we couldn't resolve it to ANY existing team (even fuzzy), it's a true ghost/new team.
+                if (!resolvedKey) {
+                    const normalizedName = normalize(teamName);
+                    if (!teamsMap.has(normalizedName)) {
+                        console.log(`Discovered completely new team "${teamName}" from match data.`);
+                        const newTeam: Team = {
+                            id: Date.now() + Math.random(), // Temporary ID
+                            name: teamName.trim(),
+                            crestUrl: '',
+                            stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+                            players: [],
+                            fixtures: [],
+                            results: [],
+                            staff: [],
+                        };
+                        teamsMap.set(normalizedName, newTeam);
+                    }
                 }
             }
         });
     });
     
-    // 3. Combine results with any fixtures that are mistakenly marked as 'finished'
+    // 4. Combine results with any fixtures that are mistakenly marked as 'finished'
     const allFinishedMatches = allMatches
         .filter(r => r.status === 'finished' && r.scoreA != null && r.scoreB != null);
     
-    // Create a composite key to ensure logical uniqueness, not just by ID.
-    // A match is unique by its participants and date, regardless of home/away.
     const getMatchKey = (match: CompetitionFixture) => {
         const teams = [match.teamA.trim(), match.teamB.trim()].sort();
         return `${teams[0]}-${teams[1]}-${match.fullDate}`;
     };
     const uniqueFinishedMatches = Array.from(new Map(allFinishedMatches.map(m => [getMatchKey(m), m])).values());
 
-
     const sortedFinishedMatches = uniqueFinishedMatches
-        .filter(fixture => fixture.fullDate) // Ensure fullDate exists before sorting
+        .filter(fixture => fixture.fullDate)
         .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
 
     for (const fixture of sortedFinishedMatches) {
-        const teamA = teamsMap.get(normalize(fixture.teamA));
-        const teamB = teamsMap.get(normalize(fixture.teamB));
+        // Resolve names to keys (handling typos)
+        const keyA = resolveKey(fixture.teamA) || normalize(fixture.teamA);
+        const keyB = resolveKey(fixture.teamB) || normalize(fixture.teamB);
+        
+        const teamA = teamsMap.get(keyA);
+        const teamB = teamsMap.get(keyB);
         
         if (!teamA || !teamB) {
-            console.warn(`Could not find one or both teams for fixture: ${fixture.teamA} vs ${fixture.teamB}`);
             continue;
         }
 
@@ -266,4 +305,3 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
 
     return updatedTeams;
 };
-    

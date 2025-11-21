@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ScoutedPlayer, PlayerPosition } from '../../data/scouting';
 import { Card, CardContent } from '../ui/Card';
@@ -15,9 +16,7 @@ interface ScoutingFormModalProps {
 const ScoutingFormModal: React.FC<ScoutingFormModalProps> = ({ isOpen, onClose, onSave, player }) => {
     const [formData, setFormData] = useState({
         name: '', age: 0, 
-        // FIX: Cast initial value to the broader PlayerPosition type to prevent type errors on change.
         position: 'Forward' as PlayerPosition, 
-        // FIX: Cast initial value to the broader Region type to prevent type errors on change.
         region: 'Hhohho' as Region, 
         photoUrl: '', videoUrl: '',
         strengths: '', bio: '', stats: '', contactEmail: ''
@@ -25,9 +24,6 @@ const ScoutingFormModal: React.FC<ScoutingFormModalProps> = ({ isOpen, onClose, 
 
     useEffect(() => {
         if (player) {
-            // Sanitize the stats array before stringifying to prevent circular reference errors.
-            // The `player` object from Firestore can contain complex, non-serializable structures.
-            // By creating a new plain array, we ensure JSON.stringify works safely.
             const plainStats = player.stats.map(stat => ({ label: stat.label, value: stat.value }));
 
             setFormData({
@@ -36,7 +32,7 @@ const ScoutingFormModal: React.FC<ScoutingFormModalProps> = ({ isOpen, onClose, 
                 position: player.position,
                 region: player.region,
                 photoUrl: player.photoUrl,
-                videoUrl: player.videoUrl,
+                videoUrl: player.videoUrl || '',
                 strengths: player.strengths.join(', '),
                 bio: player.bio,
                 stats: JSON.stringify(plainStats, null, 2),
@@ -78,11 +74,14 @@ const ScoutingFormModal: React.FC<ScoutingFormModalProps> = ({ isOpen, onClose, 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const dataToSave = {
+            const dataToSave: any = {
                 ...formData,
                 strengths: formData.strengths.split(',').map(s => s.trim()),
                 stats: JSON.parse(formData.stats)
             };
+            // Handle optional video URL
+            if (!dataToSave.videoUrl) delete dataToSave.videoUrl;
+
             onSave(dataToSave, player?.id);
         } catch (error) {
             alert("Error parsing stats JSON. Please ensure it's a valid JSON array.");
@@ -114,8 +113,8 @@ const ScoutingFormModal: React.FC<ScoutingFormModalProps> = ({ isOpen, onClose, 
                                 {formData.photoUrl && <img src={formData.photoUrl} alt="Photo preview" className="mt-2 h-24 object-contain border rounded" />}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Video URL or Upload</label>
-                                <input name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder="Video URL" required className={inputClass} />
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Video URL or Upload (Optional)</label>
+                                <input name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder="Video URL" className={inputClass} />
                                 <input name="videoUpload" type="file" onChange={handleFileChange} accept="video/*" className={`${inputClass} mt-2 p-1.5`} />
                                 {formData.videoUrl && <video src={formData.videoUrl} controls className="mt-2 h-24 rounded w-full object-contain border bg-gray-100"></video>}
                             </div>

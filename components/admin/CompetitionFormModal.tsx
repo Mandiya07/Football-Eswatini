@@ -76,8 +76,8 @@ const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({ isOpen, onC
                         </div>
                         <div>
                             <label htmlFor="externalApiId" className="block text-sm font-medium text-gray-700 mb-1">External API ID (Optional)</label>
-                            <input type="text" id="externalApiId" name="externalApiId" value={formData.externalApiId} onChange={handleChange} className={inputClass} placeholder="e.g., 4328 (from TheSportsDB)" />
-                            <p className="text-xs text-gray-500 mt-1">This ID is required for the Live Fixture Import feature.</p>
+                            <input type="text" id="externalApiId" name="externalApiId" value={formData.externalApiId} onChange={handleChange} className={inputClass} placeholder="e.g., 2021 (football-data.org)" />
+                            <p className="text-xs text-gray-500 mt-1">Link competition data from external APIs like TheSportsDB or Football-Data.org for automatic fixture updates.</p>
                         </div>
                         <div className="flex justify-end gap-2 pt-4">
                             <Button type="button" onClick={onClose} className="bg-gray-200 text-gray-800">Cancel</Button>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Team, Player, Competition, CompetitionFixture } from '../data/teams';
 import { fetchCompetition, handleFirestoreError, fetchDirectoryEntries } from '../services/api';
@@ -15,7 +15,9 @@ import FormGuide from './ui/FormGuide';
 import Skeleton from './ui/Skeleton';
 import { useAuth } from '../contexts/AuthContext';
 import PencilIcon from './icons/PencilIcon';
+import PlusCircleIcon from './icons/PlusCircleIcon';
 import TeamFormModal from './admin/TeamFormModal';
+import TeamRosterModal from './admin/TeamRosterModal';
 import { db } from '../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps, findInMap } from '../services/utils';
@@ -31,55 +33,61 @@ const TeamProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
 
-  useEffect(() => {
-    const loadData = async () => {
-        if (!teamId || !competitionId) {
-            setLoading(false);
-            return;
-        }
-        setLoading(true);
-        const [competitionData, directoryEntries] = await Promise.all([
-            fetchCompetition(competitionId),
-            fetchDirectoryEntries()
-        ]);
-        
-        if (competitionData) {
-            const currentTeams = competitionData.teams || [];
-            setAllTeams(currentTeams);
-            
-            const currentTeam = currentTeams.find(t => t.id === parseInt(teamId, 10));
-            setTeam(currentTeam || null);
+  const loadData = useCallback(async () => {
+      if (!teamId || !competitionId) {
+          setLoading(false);
+          return;
+      }
+      // Only set loading on first load or major refresh, not silent updates if we wanted optimization, 
+      // but here we want to ensure data consistency so we show spinner or just update state.
+      // We'll keep it simple and show spinner if team is null, otherwise just update.
+      if (!team) setLoading(true);
+      
+      const [competitionData, directoryEntries] = await Promise.all([
+          fetchCompetition(competitionId),
+          fetchDirectoryEntries()
+      ]);
+      
+      if (competitionData) {
+          const currentTeams = competitionData.teams || [];
+          setAllTeams(currentTeams);
+          
+          const currentTeam = currentTeams.find(t => t.id === parseInt(teamId, 10));
+          setTeam(currentTeam || null);
 
-            if (currentTeam) {
-                // Filter fixtures for this team
-                const upcoming = (competitionData.fixtures || [])
-                    .filter(f => f.teamA === currentTeam.name || f.teamB === currentTeam.name)
-                    .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
-                setTeamFixtures(upcoming);
+          if (currentTeam) {
+              // Filter fixtures for this team
+              const upcoming = (competitionData.fixtures || [])
+                  .filter(f => f.teamA === currentTeam.name || f.teamB === currentTeam.name)
+                  .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
+              setTeamFixtures(upcoming);
 
-                // Filter results for this team
-                const finished = (competitionData.results || [])
-                    .filter(r => r.teamA === currentTeam.name || r.teamB === currentTeam.name)
-                    .sort((a, b) => new Date(b.fullDate!).getTime() - new Date(a.fullDate!).getTime());
-                setTeamResults(finished);
-            }
-        } else {
-             setTeam(null);
-             setAllTeams([]);
-             setTeamFixtures([]);
-             setTeamResults([]);
-        }
-        
-        const map = new Map<string, DirectoryEntity>();
-        directoryEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
-        setDirectoryMap(map);
+              // Filter results for this team
+              const finished = (competitionData.results || [])
+                  .filter(r => r.teamA === currentTeam.name || r.teamB === currentTeam.name)
+                  .sort((a, b) => new Date(b.fullDate!).getTime() - new Date(a.fullDate!).getTime());
+              setTeamResults(finished);
+          }
+      } else {
+           setTeam(null);
+           setAllTeams([]);
+           setTeamFixtures([]);
+           setTeamResults([]);
+      }
+      
+      const map = new Map<string, DirectoryEntity>();
+      directoryEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
+      setDirectoryMap(map);
 
-        setLoading(false);
-    };
-    loadData();
+      setLoading(false);
   }, [competitionId, teamId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSave = async (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number) => {
     if (!id || !team || !competitionId) return;
@@ -121,8 +129,12 @@ const TeamProfilePage: React.FC = () => {
     }
   };
 
+  const handleRosterSave = async () => {
+      await loadData();
+      setIsRosterModalOpen(false);
+  };
 
-  if (loading) {
+  if (loading && !team) {
     return (
         <div className="flex justify-center items-center h-screen">
             <Spinner />
@@ -144,14 +156,16 @@ const TeamProfilePage: React.FC = () => {
 
   const directoryEntry = findInMap(team.name, directoryMap);
   const crestUrl = directoryEntry?.crestUrl || team.crestUrl;
+  
+  const canManage = user?.role === 'super_admin' || (user?.role === 'club_admin' && user?.club === team.name);
 
   const renderContent = () => {
     switch(activeTab) {
         case 'overview': return <OverviewTab team={team} />;
-        case 'squad': return <SquadTab players={team.players} />;
+        case 'squad': return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} />;
         case 'fixtures': return <FixturesTab fixtures={teamFixtures} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} />;
         case 'results': return <ResultsTab results={teamResults} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} />;
-        default: return <SquadTab players={team.players} />;
+        default: return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} />;
     }
   }
 
@@ -205,6 +219,15 @@ const TeamProfilePage: React.FC = () => {
             onClose={() => setIsEditModalOpen(false)}
             onSave={handleSave}
             team={team}
+        />
+      )}
+      {isRosterModalOpen && team && competitionId && (
+        <TeamRosterModal
+            isOpen={isRosterModalOpen}
+            onClose={() => setIsRosterModalOpen(false)}
+            onSave={handleRosterSave}
+            team={team}
+            competitionId={competitionId}
         />
       )}
     </div>
@@ -290,22 +313,42 @@ const OverviewTab: React.FC<{team: Team}> = ({team}) => {
 };
 
 
-const SquadTab: React.FC<{players: Player[]}> = ({players}) => (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {players.map(player => (
-            <Link key={player.id} to={`/players/${player.id}`} className="group block text-center">
-                <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
-                    <div className="relative">
-                        <img src={player.photoUrl} alt={player.name} className="w-full h-auto aspect-square object-cover" />
-                        <div className="absolute top-2 right-2 bg-black/50 text-white font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full">{player.number}</div>
-                    </div>
-                    <CardContent className="p-3">
-                        <p className="font-semibold text-sm truncate group-hover:text-blue-600">{player.name}</p>
-                        <p className="text-xs text-gray-500">{player.position}</p>
-                    </CardContent>
-                </Card>
-            </Link>
-        ))}
+const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () => void}> = ({players, canManage, onManage}) => (
+    <div>
+        {canManage && (
+            <div className="flex justify-end mb-6">
+                <button 
+                    onClick={onManage}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                    <PlusCircleIcon className="w-4 h-4" />
+                    Manage Squad
+                </button>
+            </div>
+        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {players.map(player => (
+                <Link key={player.id} to={`/players/${player.id}`} className="group block text-center">
+                    <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
+                        <div className="relative">
+                            <div className="h-24 bg-gradient-to-br from-primary to-primary-dark relative overflow-hidden">
+                                {/* Profile Image as Circle intersecting header */}
+                                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
+                                    <img src={player.photoUrl} alt={player.name} className="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover bg-white" />
+                                </div>
+                                <div className="absolute top-2 right-2 text-white/30 font-display font-bold text-4xl opacity-50 select-none pointer-events-none">
+                                    {player.number}
+                                </div>
+                            </div>
+                        </div>
+                        <CardContent className="p-4 pt-10 text-center">
+                            <p className="font-bold text-gray-900 truncate group-hover:text-primary transition-colors mb-1">{player.name}</p>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{player.position}</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+            ))}
+        </div>
     </div>
 );
 

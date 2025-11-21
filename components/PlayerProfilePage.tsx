@@ -8,6 +8,9 @@ import { Card, CardContent } from './ui/Card';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import ShareIcon from './icons/ShareIcon';
 import Spinner from './ui/Spinner';
+import BarChartIcon from './icons/BarChartIcon';
+import HistoryIcon from './icons/HistoryIcon';
+import ArrowRightIcon from './icons/ArrowRightIcon';
 
 const PlayerProfilePage: React.FC = () => {
   const { playerId } = useParams<{ playerId: string }>();
@@ -83,13 +86,6 @@ const PlayerProfilePage: React.FC = () => {
     }
   };
 
-  // Mock calculation for career stats based on season stats for demonstration
-  const careerStats = {
-      appearances: Math.floor(player.stats.appearances * (1 + Math.random() * 5) + 20),
-      goals: Math.floor(player.stats.goals * (1 + Math.random() * 5) + 5),
-      assists: Math.floor(player.stats.assists * (1 + Math.random() * 5) + 5),
-  };
-
   return (
     <div className="py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -107,90 +103,131 @@ const PlayerProfilePage: React.FC = () => {
             <div className="md:col-span-1">
                 <Card className="shadow-lg animate-fade-in sticky top-20">
                      <div className="relative">
-                        <img src={player.photoUrl} alt={player.name} className="w-full h-auto aspect-square object-cover rounded-t-2xl" />
-                         <div className="absolute top-3 right-3">
-                            <div className="relative">
-                                <button
-                                    onClick={handleShare}
-                                    className="bg-white/70 backdrop-blur-sm text-gray-700 hover:text-blue-600 p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-md"
-                                    aria-label={`Share ${player.name}'s profile`}
-                                >
-                                    <ShareIcon className="w-5 h-5" />
-                                </button>
-                                {copied && (
-                                    <span className="absolute bottom-full mb-2 -right-2 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10 animate-fade-in-tooltip">
-                                        Link Copied!
-                                        <div className="absolute top-full right-3 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-800"></div>
-                                    </span>
-                                )}
+                        <div className="h-32 bg-gradient-to-br from-primary to-primary-dark rounded-t-2xl relative overflow-hidden">
+                            <div className="absolute inset-0 bg-black/10"></div>
+                             <div className="absolute top-3 right-3 z-10">
+                                <div className="relative">
+                                    <button
+                                        onClick={handleShare}
+                                        className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/40 p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+                                        aria-label={`Share ${player.name}'s profile`}
+                                    >
+                                        <ShareIcon className="w-5 h-5" />
+                                    </button>
+                                    {copied && (
+                                        <span className="absolute bottom-full mb-2 -right-2 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10 animate-fade-in-tooltip">
+                                            Link Copied!
+                                            <div className="absolute top-full right-3 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-800"></div>
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
+                        <div className="flex justify-center -mt-16 relative z-10">
+                            <img src={player.photoUrl} alt={player.name} className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover bg-white" />
+                        </div>
                      </div>
-                     <CardContent className="p-4 text-center">
-                         <p className="text-gray-500 text-sm">{player.position}</p>
-                         <h1 className="text-2xl font-bold font-display">{player.name}</h1>
-                         <p className="text-6xl font-extrabold font-display text-gray-200 -mt-2">{player.number}</p>
-                         <Link to={`/competitions/${competitionId}/teams/${team.id}`} className="inline-flex items-center gap-2 mt-2 group">
+                     <CardContent className="p-6 text-center pt-2">
+                         <p className="text-gray-500 text-sm font-medium uppercase tracking-wider mt-2">{player.position}</p>
+                         <h1 className="text-2xl font-bold font-display text-gray-900 mb-1">{player.name}</h1>
+                         <div className="flex justify-center items-baseline gap-1 mb-4">
+                            <span className="text-4xl font-extrabold font-display text-gray-200 select-none">#{player.number}</span>
+                         </div>
+                         
+                         <Link to={`/competitions/${competitionId}/teams/${team.id}`} className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors group">
                             <img src={team.crestUrl} alt={team.name} className="w-6 h-6 object-contain" />
-                            <span className="font-semibold group-hover:underline">{team.name}</span>
+                            <span className="font-semibold text-sm text-gray-700 group-hover:text-primary">{team.name}</span>
                          </Link>
                      </CardContent>
                 </Card>
             </div>
+            
             <div className="md:col-span-2 space-y-8">
+                 {/* Biography */}
                  <Card className="shadow-lg animate-fade-in" style={{animationDelay: '100ms'}}>
                     <CardContent className="p-6">
-                        <h2 className="text-xl font-bold font-display mb-4">Biography</h2>
+                        <h2 className="text-xl font-bold font-display mb-4 text-gray-800">Biography</h2>
                         <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="font-semibold text-gray-600">Nationality</div><div>{player.bio.nationality}</div>
-                            <div className="font-semibold text-gray-600">Age</div><div>{player.bio.age}</div>
-                            <div className="font-semibold text-gray-600">Height</div><div>{player.bio.height}</div>
+                            <div className="flex flex-col">
+                                <span className="text-gray-500 text-xs uppercase tracking-wide font-semibold">Nationality</span>
+                                <span className="font-medium text-gray-900">{player.bio.nationality}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-gray-500 text-xs uppercase tracking-wide font-semibold">Age</span>
+                                <span className="font-medium text-gray-900">{player.bio.age} years</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-gray-500 text-xs uppercase tracking-wide font-semibold">Height</span>
+                                <span className="font-medium text-gray-900">{player.bio.height}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-gray-500 text-xs uppercase tracking-wide font-semibold">Club</span>
+                                <span className="font-medium text-gray-900">{player.club || team.name}</span>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
                  
-                 {/* Season Stats */}
+                 {/* Player Statistics */}
                  <Card className="shadow-lg animate-fade-in" style={{animationDelay: '200ms'}}>
                     <CardContent className="p-6">
-                        <h2 className="text-xl font-bold font-display mb-4">Season Stats</h2>
-                         <div className="grid grid-cols-3 gap-4 text-center">
-                            <div><p className="text-3xl font-bold">{player.stats.appearances}</p><p className="text-sm text-gray-600">Appearances</p></div>
-                            <div><p className="text-3xl font-bold">{player.stats.goals}</p><p className="text-sm text-gray-600">Goals</p></div>
-                            <div><p className="text-3xl font-bold">{player.stats.assists}</p><p className="text-sm text-gray-600">Assists</p></div>
+                        <h2 className="text-xl font-bold font-display mb-6 flex items-center gap-2 text-gray-800">
+                            <BarChartIcon className="w-6 h-6 text-primary" />
+                            Player Statistics
+                        </h2>
+                         <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-gray-50 p-5 rounded-xl text-center border border-gray-100 transition-all hover:border-primary/30">
+                                <span className="block text-4xl font-extrabold text-gray-900 mb-1">{player.stats.appearances}</span>
+                                <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Appearances</span>
+                            </div>
+                            <div className="bg-gray-50 p-5 rounded-xl text-center border border-gray-100 transition-all hover:border-primary/30">
+                                <span className="block text-4xl font-extrabold text-primary mb-1">{player.stats.goals}</span>
+                                <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Goals</span>
+                            </div>
+                            <div className="bg-gray-50 p-5 rounded-xl text-center border border-gray-100 transition-all hover:border-primary/30">
+                                <span className="block text-4xl font-extrabold text-accent mb-1">{player.stats.assists}</span>
+                                <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Assists</span>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                 {/* Career Stats - New Section */}
-                 <Card className="shadow-lg animate-fade-in" style={{animationDelay: '250ms'}}>
-                    <CardContent className="p-6">
-                        <h2 className="text-xl font-bold font-display mb-4">Career Stats (All Competitions)</h2>
-                         <div className="grid grid-cols-3 gap-4 text-center">
-                            <div><p className="text-3xl font-bold text-primary">{careerStats.appearances}</p><p className="text-sm text-gray-600">Appearances</p></div>
-                            <div><p className="text-3xl font-bold text-primary">{careerStats.goals}</p><p className="text-sm text-gray-600">Goals</p></div>
-                            <div><p className="text-3xl font-bold text-primary">{careerStats.assists}</p><p className="text-sm text-gray-600">Assists</p></div>
-                        </div>
-                    </CardContent>
-                </Card>
-
+                 {/* Transfer History */}
                  <Card className="shadow-lg animate-fade-in" style={{animationDelay: '300ms'}}>
                     <CardContent className="p-6">
-                        <h2 className="text-xl font-bold font-display mb-4">Transfer History</h2>
-                        <div className="overflow-x-auto">
+                        <h2 className="text-xl font-bold font-display mb-4 flex items-center gap-2 text-gray-800">
+                            <HistoryIcon className="w-6 h-6 text-primary" />
+                            Transfer History
+                        </h2>
+                        <div className="overflow-hidden rounded-lg border border-gray-200">
                             {player.transferHistory.length > 0 ? (
                                 <table className="w-full text-sm">
-                                    <thead className="text-left text-gray-500"><tr><th className="p-2">Year</th><th className="p-2">From</th><th className="p-2">To</th></tr></thead>
-                                    <tbody>
+                                    <thead className="bg-gray-100 text-gray-600 font-semibold uppercase text-xs tracking-wide">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left">Season/Year</th>
+                                            <th className="px-4 py-3 text-left">From</th>
+                                            <th className="px-4 py-3 text-center w-10"></th>
+                                            <th className="px-4 py-3 text-left">To</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 bg-white">
                                         {player.transferHistory.map((transfer, idx) => (
-                                            <tr key={idx} className="border-t">
-                                                <td className="p-2 font-semibold">{transfer.year}</td>
-                                                <td className="p-2">{transfer.from}</td>
-                                                <td className="p-2">{transfer.to}</td>
+                                            <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-4 py-3 font-mono text-gray-600 font-medium">{transfer.year}</td>
+                                                <td className="px-4 py-3 font-medium text-gray-800">{transfer.from}</td>
+                                                <td className="px-4 py-3 text-center text-gray-400">
+                                                    <ArrowRightIcon className="w-4 h-4 mx-auto" />
+                                                </td>
+                                                <td className="px-4 py-3 font-medium text-primary">{transfer.to}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                            ) : <p className="text-sm text-gray-500">No transfer history available.</p>}
+                            ) : (
+                                <div className="p-8 text-center text-gray-500 bg-gray-50">
+                                    <p className="italic">No transfer history records available for this player.</p>
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

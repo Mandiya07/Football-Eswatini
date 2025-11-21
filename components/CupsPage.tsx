@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import TournamentBracketDisplay from './TournamentBracketDisplay';
-import { Tournament } from '../data/cups';
+import { Tournament, cupData as localCupData } from '../data/cups';
 import { fetchCups } from '../services/api';
 import SectionLoader from './SectionLoader';
 
@@ -11,9 +12,22 @@ const CupsPage: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      const data = await fetchCups();
-      setCups(data);
-      setLoading(false);
+      try {
+          // Try fetching from API
+          const data = await fetchCups();
+          if (data.length > 0) {
+              setCups(data);
+          } else {
+              // Fallback to local static data if API returns empty (so the UI is never empty for the user)
+              console.log("No API data found, using local fallback for Cups.");
+              setCups(localCupData);
+          }
+      } catch (e) {
+          console.error("Failed to load cups, using fallback.", e);
+          setCups(localCupData);
+      } finally {
+          setLoading(false);
+      }
     };
     loadData();
   }, []);
@@ -35,10 +49,20 @@ const CupsPage: React.FC = () => {
         
         {loading ? <SectionLoader /> : (
             <div className="space-y-12">
-                {ingwenyamaCup && <TournamentBracketDisplay tournament={ingwenyamaCup} />}
-                {tradeFairCup && <TournamentBracketDisplay tournament={tradeFairCup} />}
+                {ingwenyamaCup && (
+                    <div className="animate-slide-up">
+                        <TournamentBracketDisplay tournament={ingwenyamaCup} />
+                    </div>
+                )}
+                
+                {tradeFairCup && (
+                    <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                        <TournamentBracketDisplay tournament={tradeFairCup} />
+                    </div>
+                )}
+
                 {!ingwenyamaCup && !tradeFairCup && !loading && (
-                    <p className="text-center text-gray-500">No cup data available at the moment.</p>
+                    <p className="text-center text-gray-500">No cup competitions are currently active.</p>
                 )}
             </div>
         )}

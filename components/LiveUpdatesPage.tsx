@@ -13,6 +13,7 @@ import CalendarIcon from './icons/CalendarIcon';
 import { FixtureItem } from './Fixtures';
 import AlertTriangleIcon from './icons/AlertTriangleIcon';
 import XCircleIcon from './icons/XCircleIcon';
+import WhistleIcon from './icons/WhistleIcon';
 import { DirectoryEntity } from '../data/directory';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
@@ -24,6 +25,8 @@ const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
         case 'match_postponed': return <ClockIcon className="w-5 h-5 text-yellow-600 flex-shrink-0" />;
         case 'match_abandoned': return <XCircleIcon className="w-5 h-5 text-red-600 flex-shrink-0" />;
         case 'match_suspended': return <AlertTriangleIcon className="w-5 h-5 text-orange-600 flex-shrink-0" />;
+        case 'half_time': return <WhistleIcon className="w-5 h-5 text-blue-600 flex-shrink-0" />;
+        case 'full_time': return <WhistleIcon className="w-5 h-5 text-gray-800 flex-shrink-0" />;
         default: return <ClockIcon className="w-5 h-5 text-gray-500 flex-shrink-0" />;
     }
 };
@@ -57,7 +60,6 @@ const LiveUpdatesPage: React.FC = () => {
             const active: { fixture: CompetitionFixture, competitionName: string, competitionId: string }[] = [];
             const upcoming: { fixture: CompetitionFixture, competitionId: string }[] = [];
             const now = new Date();
-            const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
             Object.entries(allCompetitions).forEach(([compId, comp]) => {
                 if (comp.fixtures) {
@@ -127,7 +129,7 @@ const LiveUpdatesPage: React.FC = () => {
                 teamB: fixture.teamB,
                 scoreA: fixture.scoreA,
                 scoreB: fixture.scoreB,
-                liveMinute: fixture.liveMinute || fixture.status === 'live' ? 'Live' : undefined,
+                liveMinute: fixture.liveMinute || (fixture.status === 'live' ? 'Live' : undefined),
                 status: fixture.status,
                 events: []
             });
@@ -152,6 +154,13 @@ const LiveUpdatesPage: React.FC = () => {
             if (matchKey && matchesMap.has(matchKey)) {
                 // Match found, attach event
                 matchesMap.get(matchKey)!.events.push(u);
+                // Update scores from most recent event if needed (though polling handles this mostly)
+                if (u.score_home !== undefined && u.score_away !== undefined) {
+                     const match = matchesMap.get(matchKey)!;
+                     match.scoreA = u.score_home;
+                     match.scoreB = u.score_away;
+                     match.liveMinute = u.minute;
+                }
             } else {
                 // Orphaned event: Create a new entry for it so it displays, but mark it clearly
                 const newKey = u.fixture_id || `${u.home_team}-${u.away_team}`;
@@ -186,7 +195,7 @@ const LiveUpdatesPage: React.FC = () => {
                         Live Match Center
                     </h1>
                     <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                        Real-time updates from matches as they happen across the leagues.
+                        Real-time updates from matches as they happen across all leagues.
                     </p>
                 </div>
 
@@ -224,7 +233,7 @@ const LiveUpdatesPage: React.FC = () => {
                                             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Match Timeline</h4>
                                             <ul className="space-y-3 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
                                                 {match.events.sort((a,b) => b.minute - a.minute).map((event) => (
-                                                    <li key={event.id} className="flex items-start gap-3 text-sm relative pl-8">
+                                                    <li key={event.id} className="flex items-start gap-3 text-sm relative pl-8 animate-fade-in">
                                                         <div className="absolute left-0 top-1 bg-white border-2 border-gray-200 rounded-full w-2.5 h-2.5 z-10"></div>
                                                         <span className="font-mono font-bold text-gray-500 min-w-[2rem]">{event.minute}'</span>
                                                         <EventIcon type={event.type} />

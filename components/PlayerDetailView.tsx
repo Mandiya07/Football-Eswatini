@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ScoutedPlayer } from '../data/scouting';
 import { Card, CardContent } from './ui/Card';
@@ -36,8 +37,16 @@ const PlayerDetailView: React.FC<{ player: ScoutedPlayer }> = ({ player }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div>
-                    <h4 className="text-xl font-bold font-display mb-2">Highlight Reel</h4>
-                    <VideoPlayer src={player.videoUrl} title={`${player.name}'s Highlights`} />
+                    {player.videoUrl ? (
+                        <>
+                            <h4 className="text-xl font-bold font-display mb-2">Highlight Reel</h4>
+                            <VideoPlayer src={player.videoUrl} title={`${player.name}'s Highlights`} />
+                        </>
+                    ) : (
+                        <div className="bg-gray-50 h-full rounded-lg flex items-center justify-center p-8 border border-dashed border-gray-300">
+                             <p className="text-gray-400 text-sm">No highlight video available.</p>
+                        </div>
+                    )}
                 </div>
                  <div>
                     <h4 className="text-xl font-bold font-display mb-2">Performance Stats</h4>

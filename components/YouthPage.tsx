@@ -1,8 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { YouthLeague } from '../data/youth';
 import { fetchYouthData } from '../services/api';
 import YouthSection from './YouthSection';
 import SectionLoader from './SectionLoader';
+import { Link } from 'react-router-dom';
+import { Card, CardContent } from './ui/Card';
+import TrophyIcon from './icons/TrophyIcon';
+import SchoolIcon from './icons/SchoolIcon';
+import ArrowRightIcon from './icons/ArrowRightIcon';
 
 const YouthPage: React.FC = () => {
   const [youthData, setYouthData] = useState<YouthLeague[]>([]);
@@ -11,11 +17,16 @@ const YouthPage: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      const data = await fetchYouthData();
-      const order = ['u20', 'u17', 'schools', 'u13'];
-      const sortedData = [...data].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-      setYouthData(sortedData);
-      setLoading(false);
+      try {
+          const data = await fetchYouthData();
+          const order = ['u17', 'u13']; // Only show U17 and U13 as generic sections now
+          const sortedData = [...data].filter(l => order.includes(l.id)).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+          setYouthData(sortedData);
+      } catch (e) {
+          console.error("Error loading youth data", e);
+      } finally {
+          setLoading(false);
+      }
     };
     loadData();
   }, []);
@@ -28,20 +39,67 @@ const YouthPage: React.FC = () => {
             Youth Football Spotlight
           </h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            The future is now. Our updated Youth Spotlight features top talent from the U-20, U-17, Schools, and U-13 leagues, complete with our "Rising Stars" player profiles.
+            Developing the next generation of Eswatini talent. Explore our youth leagues and development programs.
           </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+            {/* U-20 ELITE LEAGUE LINK */}
+            <Link to="/youth/u20" className="group block">
+                <Card className="h-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-blue-900 to-blue-700 text-white">
+                    <CardContent className="p-8 flex flex-col h-full justify-between">
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
+                                    <TrophyIcon className="w-8 h-8 text-yellow-400" />
+                                </div>
+                                <h2 className="text-3xl font-bold font-display">U-20 Elite League</h2>
+                            </div>
+                            <p className="text-blue-100 mb-6">
+                                The premier development league featuring the U-20 squads of all MTN Premier League clubs. Follow the future stars in a full competitive season.
+                            </p>
+                        </div>
+                        <div className="flex items-center text-yellow-400 font-bold group-hover:gap-2 transition-all">
+                            View League Hub <ArrowRightIcon className="w-5 h-5 ml-2" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </Link>
+
+            {/* SCHOOLS FOOTBALL SPOTLIGHT */}
+             <Card className="h-full shadow-lg bg-white border-l-8 border-orange-500">
+                <CardContent className="p-8 flex flex-col h-full justify-between">
+                    <div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-3 bg-orange-100 rounded-full">
+                                <SchoolIcon className="w-8 h-8 text-orange-600" />
+                            </div>
+                            <h2 className="text-3xl font-bold font-display text-gray-800">Schools Championship</h2>
+                        </div>
+                        <p className="text-gray-600 mb-6">
+                            Spotlight on the nationwide Schools Football Championship. Tracking top performing schools from regional qualifiers to the national finals.
+                        </p>
+                        <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                            <h4 className="font-bold text-orange-800 text-sm uppercase mb-2">Latest Highlights</h4>
+                            <ul className="space-y-2 text-sm text-gray-700">
+                                <li>• St. Marks High crowned Hhohho regional champions</li>
+                                <li>• Salesian High vs Manzini Nazarene: The rivalry continues</li>
+                                <li>• National Finals set for Somhlolo Stadium next month</li>
+                            </ul>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
 
         {loading ? (
           <SectionLoader />
-        ) : youthData.length > 0 ? (
+        ) : (
           <div className="space-y-16">
             {youthData.map(league => (
               <YouthSection key={league.id} league={league} />
             ))}
           </div>
-        ) : (
-          <p className="text-center text-gray-500 py-8">Could not load youth league data.</p>
         )}
       </div>
     </div>

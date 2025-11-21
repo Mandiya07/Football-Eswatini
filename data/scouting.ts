@@ -1,3 +1,4 @@
+
 import { Region } from './directory';
 
 export type PlayerPosition = 'Goalkeeper' | 'Defender' | 'Midfielder' | 'Forward';
@@ -9,7 +10,7 @@ export interface ScoutedPlayer {
   position: PlayerPosition;
   region: Region;
   photoUrl: string;
-  videoUrl: string;
+  videoUrl?: string; // Optional
   strengths: string[];
   bio: string;
   stats: { label: string; value: string | number }[];

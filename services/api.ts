@@ -104,6 +104,31 @@ export interface LiveUpdate {
     timestamp: { seconds: number, nanoseconds: number };
 }
 
+// New Interface for Exclusive Content
+export interface ExclusiveItem {
+    id: string;
+    title: string;
+    summary: string;
+    content: string; // Full text or link
+    imageUrl: string;
+    author: string;
+    role: string; // e.g., "FIFA Representative", "PLE CEO"
+    date: string;
+}
+
+// New Interface for Team Yam
+export interface TeamYamVideo {
+    id: string;
+    title: string;
+    description: string;
+    videoUrl: string;
+    thumbnailUrl: string;
+    teamName: string;
+    uploadedBy: string;
+    date: string;
+    likes: number;
+}
+
 export const addLiveUpdate = async (data: Omit<LiveUpdate, 'id' | 'timestamp'>) => {
     try {
         await addDoc(collection(db, 'live_updates'), {
@@ -440,6 +465,7 @@ export const fetchPhotoGalleries = async (): Promise<PhotoAlbum[]> => {
     return items;
 };
 
+// --- BEHIND THE SCENES ---
 export const fetchBehindTheScenesData = async (): Promise<BehindTheScenesContent[]> => {
     const items: BehindTheScenesContent[] = [];
     try {
@@ -452,6 +478,10 @@ export const fetchBehindTheScenesData = async (): Promise<BehindTheScenesContent
     }
     return items;
 };
+export const addBehindTheScenesContent = (data: Omit<BehindTheScenesContent, 'id'>) => addDoc(collection(db, 'behindTheScenes'), data);
+export const updateBehindTheScenesContent = (id: string, data: Partial<BehindTheScenesContent>) => updateDoc(doc(db, 'behindTheScenes', id), data);
+export const deleteBehindTheScenesContent = (id: string) => deleteDoc(doc(db, 'behindTheScenes', id));
+
 
 export const fetchSponsors = async (): Promise<{ spotlight: Sponsor; kitPartner: KitPartner; }> => {
     try {
@@ -598,6 +628,12 @@ export const fetchCoachingContent = async (): Promise<CoachingContent[]> => {
     return items;
 };
 
+// Generic Content Management for Features (Coaching, etc.)
+export const addCoachingContent = (data: Omit<CoachingContent, 'id'>) => addDoc(collection(db, 'coaching'), data);
+export const updateCoachingContent = (id: string, data: Partial<CoachingContent>) => updateDoc(doc(db, 'coaching', id), data);
+export const deleteCoachingContent = (id: string) => deleteDoc(doc(db, 'coaching', id));
+
+
 export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
     const items: OnThisDayEvent[] = [];
     try {
@@ -610,6 +646,9 @@ export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
     }
     return items;
 };
+export const addOnThisDayEvent = (data: Omit<OnThisDayEvent, 'id'>) => addDoc(collection(db, 'onThisDay'), data);
+export const updateOnThisDayEvent = (id: string, data: Partial<OnThisDayEvent>) => updateDoc(doc(db, 'onThisDay', id), data);
+export const deleteOnThisDayEvent = (id: string) => deleteDoc(doc(db, 'onThisDay', id));
 
 export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
     const items: ArchiveItem[] = [];
@@ -623,6 +662,44 @@ export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
     }
     return items;
 };
+export const addArchiveItem = (data: Omit<ArchiveItem, 'id'>) => addDoc(collection(db, 'archive'), data);
+export const updateArchiveItem = (id: string, data: Partial<ArchiveItem>) => updateDoc(doc(db, 'archive', id), data);
+export const deleteArchiveItem = (id: string) => deleteDoc(doc(db, 'archive', id));
+
+// --- EXCLUSIVE CONTENT ---
+export const fetchExclusiveContent = async (): Promise<ExclusiveItem[]> => {
+    const items: ExclusiveItem[] = [];
+    try {
+        const querySnapshot = await getDocs(collection(db, "exclusiveContent"));
+        querySnapshot.forEach((doc) => {
+            items.push({ id: doc.id, ...doc.data() } as ExclusiveItem);
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'fetch exclusive content');
+    }
+    return items;
+};
+export const addExclusiveContent = (data: Omit<ExclusiveItem, 'id'>) => addDoc(collection(db, 'exclusiveContent'), data);
+export const updateExclusiveContent = (id: string, data: Partial<ExclusiveItem>) => updateDoc(doc(db, 'exclusiveContent', id), data);
+export const deleteExclusiveContent = (id: string) => deleteDoc(doc(db, 'exclusiveContent', id));
+
+// --- TEAM YAM VIDEOS ---
+export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
+    const items: TeamYamVideo[] = [];
+    try {
+        const querySnapshot = await getDocs(collection(db, "teamYamVideos"));
+        querySnapshot.forEach((doc) => {
+            items.push({ id: doc.id, ...doc.data() } as TeamYamVideo);
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'fetch team yam videos');
+    }
+    return items;
+};
+export const addTeamYamVideo = (data: Omit<TeamYamVideo, 'id'>) => addDoc(collection(db, 'teamYamVideos'), data);
+export const updateTeamYamVideo = (id: string, data: Partial<TeamYamVideo>) => updateDoc(doc(db, 'teamYamVideos', id), data);
+export const deleteTeamYamVideo = (id: string) => deleteDoc(doc(db, 'teamYamVideos', id));
+
 
 export const fetchCups = async (): Promise<Tournament[]> => {
     const items: Tournament[] = [];
@@ -654,41 +731,44 @@ export const deleteCategory = (id: string) => deleteDoc(doc(db, 'categories', id
 
 export const resetAllCompetitionData = async () => {
     try {
-        const batch = writeBatch(db);
+        // We process deletion in chunks to avoid the 500 writes/batch limit
+        const collectionsToReset = ['competitions', 'cups', 'live_updates', 'fixture_comments'];
+        const CHUNK_SIZE = 400;
+        
+        for (const colName of collectionsToReset) {
+            const snapshot = await getDocs(collection(db, colName));
+            const docs = snapshot.docs;
+            
+            // Process chunks
+            for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
+                const batch = writeBatch(db);
+                const chunk = docs.slice(i, i + CHUNK_SIZE);
+                
+                chunk.forEach(doc => {
+                    if (colName === 'competitions') {
+                        // For competitions, we just empty the arrays instead of deleting the doc
+                        // to preserve the ID and config
+                        batch.update(doc.ref, {
+                            teams: [],
+                            fixtures: [],
+                            results: []
+                        });
+                    } else if (colName === 'cups') {
+                        // Similar logic for cups
+                         batch.update(doc.ref, {
+                            rounds: []
+                        });
+                    } else {
+                        // For other collections, delete the document entirely
+                        batch.delete(doc.ref);
+                    }
+                });
+                
+                // Commit this chunk
+                await batch.commit();
+            }
+        }
 
-        // 1. Reset documents in the 'competitions' collection
-        const competitionsSnapshot = await getDocs(collection(db, "competitions"));
-        competitionsSnapshot.forEach(doc => {
-            batch.update(doc.ref, {
-                teams: [],
-                fixtures: [],
-                results: []
-            });
-        });
-
-        // 2. Reset documents in the 'cups' collection
-        const cupsSnapshot = await getDocs(collection(db, "cups"));
-        cupsSnapshot.forEach(doc => {
-            // Cups have a different structure, they have 'rounds'
-            batch.update(doc.ref, {
-                rounds: []
-            });
-        });
-
-        // 3. Delete all documents in 'live_updates' collection
-        const liveUpdatesSnapshot = await getDocs(collection(db, "live_updates"));
-        liveUpdatesSnapshot.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-
-        // 4. Delete all documents in 'fixture_comments' collection
-        const commentsSnapshot = await getDocs(collection(db, "fixture_comments"));
-        commentsSnapshot.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-
-        // 5. Commit all batched writes at once
-        await batch.commit();
     } catch (error) {
         handleFirestoreError(error, 'reset all competition data');
         throw error;

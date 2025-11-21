@@ -38,13 +38,15 @@ export const featuresData: Feature[] = [
     title: 'Exclusive',
     description: 'Read one-on-one conversations with players, managers, and key figures in the sport.',
     Icon: FileTextIcon,
-    iconBgColor: 'bg-yellow-100 text-yellow-600'
+    iconBgColor: 'bg-yellow-100 text-yellow-600',
+    href: '/exclusive'
   },
   {
     title: 'Team Yam',
     description: 'Celebrate the fan culture, chants, and behind-the-scenes stories of the supporters.',
     Icon: ShirtIcon,
-    iconBgColor: 'bg-green-100 text-green-600'
+    iconBgColor: 'bg-green-100 text-green-600',
+    href: '/team-yam'
   },
 ];
 

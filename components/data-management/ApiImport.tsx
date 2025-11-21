@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -96,6 +97,10 @@ const ApiImportPage: React.FC = () => {
     const [loadingComps, setLoadingComps] = useState(true);
     const [selectedCompId, setSelectedCompId] = useState<string>('');
     const [currentCompetition, setCurrentCompetition] = useState<Competition | null>(null);
+    
+    // API Configuration State
+    const [apiKey, setApiKey] = useState('');
+    const [useProxy, setUseProxy] = useState(true);
 
     useEffect(() => {
         const loadAppCompetitions = async () => {
@@ -196,8 +201,6 @@ const ApiImportPage: React.FC = () => {
     
     const handleFetch = async () => {
         const selectedCompetition = competitions.find(c => c.id === selectedCompId);
-        // NOTE: The free tier of football-data.org only works for a few competitions like 'PL', 'BL1', etc.
-        // Using other IDs will likely result in a 403/404, which correctly triggers the fallback.
         const externalApiId = selectedCompetition?.externalApiId;
 
         setIsFetching(true);
@@ -215,11 +218,23 @@ const ApiImportPage: React.FC = () => {
         }
 
         try {
-            const response = await fetch(`https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=SCHEDULED`);
+            let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=SCHEDULED`;
+            
+            // If using a proxy (essential for frontend-only requests to avoid CORS)
+            if (useProxy) {
+                url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            }
+
+            const headers: HeadersInit = {};
+            if (apiKey) {
+                headers['X-Auth-Token'] = apiKey;
+            }
+
+            const response = await fetch(url, { headers });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`API Error (${response.status}): ${errorData.message || 'Failed to fetch data'}`);
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`API Error (${response.status}): ${errorData.message || 'Failed to fetch data. Check your API Key or Proxy settings.'}`);
             }
 
             const data = await response.json();
@@ -227,6 +242,7 @@ const ApiImportPage: React.FC = () => {
 
             if (fetchedEvents.length === 0) {
                 setSuccessMessage('No new upcoming fixtures found from the live API.');
+                setIsFetching(false);
                 return;
             }
             
@@ -261,9 +277,8 @@ const ApiImportPage: React.FC = () => {
             processAndReviewFixtures(fixturesToReview, "Live API");
 
         } catch (err) {
-            console.warn("Live API fetch failed (this is expected due to CORS on the free plan). Activating fallback mode.", err);
-            setError('');
-            setSuccessMessage('');
+            console.warn("Live API fetch failed. Activating fallback mode.", err);
+            setError(`Error: ${(err as Error).message}. Switching to mock data.`);
             setIsFallback(true);
             const mockData = getMockUpcomingFixtures();
             processAndReviewFixtures(mockData, "Fallback Data");
@@ -325,7 +340,7 @@ const ApiImportPage: React.FC = () => {
                             <CloudDownloadIcon className="w-12 h-12 mx-auto text-purple-600 mb-2" />
                             <h1 className="text-3xl font-display font-bold">Live Fixture Import</h1>
                             <p className="text-gray-600 max-w-3xl mx-auto mt-2">
-                                Attempt to fetch upcoming fixtures from a live data feed for international leagues. If the connection fails, the tool will provide mock data as a fallback.
+                                Fetch upcoming fixtures from <strong>football-data.org</strong>. 
                             </p>
                         </div>
 
@@ -333,7 +348,7 @@ const ApiImportPage: React.FC = () => {
                             <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 animate-fade-in">
                                 <p className="font-bold flex items-center gap-2"><AlertTriangleIcon className="w-5 h-5"/>Live API Unreachable</p>
                                 <p className="text-sm mt-1">
-                                    The request to the live API was blocked or failed. This is likely a CORS policy issue on their free tier or an invalid API ID. As a demonstration, the application has loaded mock data instead.
+                                    {error || "The request to the live API was blocked or failed. This is likely a CORS policy issue or an invalid API ID. As a demonstration, the application has loaded mock data instead."}
                                 </p>
                             </div>
                         )}
@@ -342,7 +357,35 @@ const ApiImportPage: React.FC = () => {
                         {error && !isFallback && <div className="p-3 bg-red-100 text-red-800 rounded-md animate-fade-in">{error}</div>}
 
                         <div className="space-y-4 pt-4 border-t">
-                            <h2 className="text-xl font-bold font-display">Step 1: Select Destination & Fetch</h2>
+                            <h2 className="text-xl font-bold font-display">Step 1: Configure & Fetch</h2>
+                            
+                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="api-key" className="block text-xs font-bold text-blue-800 uppercase mb-1">API Key (football-data.org)</label>
+                                    <input 
+                                        id="api-key" 
+                                        type="password" 
+                                        value={apiKey} 
+                                        onChange={e => setApiKey(e.target.value)} 
+                                        placeholder="Enter your API Key" 
+                                        className={inputClass}
+                                    />
+                                    <p className="text-xs text-blue-600 mt-1">Optional for some free tiers, but recommended to avoid 403 errors.</p>
+                                </div>
+                                <div className="flex items-center">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={useProxy} 
+                                            onChange={e => setUseProxy(e.target.checked)} 
+                                            className="h-4 w-4 text-blue-600 rounded"
+                                        />
+                                        <span className="text-sm font-semibold text-blue-800">Use CORS Proxy</span>
+                                    </label>
+                                    <p className="text-xs text-blue-600 ml-2">(Required for browser-based requests)</p>
+                                </div>
+                            </div>
+
                             {loadingComps ? <Spinner /> : (
                                 <div className="space-y-4">
                                     {competitions.length > 0 ? (

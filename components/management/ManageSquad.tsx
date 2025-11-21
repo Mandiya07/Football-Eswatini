@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 // FIX: Import 'fetchCompetition' which is now correctly exported from the API service.
 import { fetchCompetition, handleFirestoreError } from '../../services/api';
@@ -16,7 +17,7 @@ const ManageSquad: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
-    const [newPlayer, setNewPlayer] = useState({ name: '', position: 'Forward', number: '' });
+    const [newPlayer, setNewPlayer] = useState({ name: '', position: 'Forward', number: '', photoUrl: '' });
 
     // Hardcoded for demonstration. In a real app, this might come from the user's profile or a selector.
     const COMPETITION_ID = 'mtn-premier-league';
@@ -46,6 +47,19 @@ const ManageSquad: React.FC<{ clubName: string }> = ({ clubName }) => {
     
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setNewPlayer({ ...newPlayer, [e.target.name]: e.target.value });
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setNewPlayer(prev => ({ ...prev, photoUrl: reader.result as string }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const updateFirestoreSquad = async (updatedSquad: Player[]) => {
@@ -82,7 +96,7 @@ const ManageSquad: React.FC<{ clubName: string }> = ({ clubName }) => {
             name: newPlayer.name,
             position: newPlayer.position as any,
             number: parseInt(newPlayer.number, 10),
-            photoUrl: `https://i.pravatar.cc/150?u=${Date.now()}`,
+            photoUrl: newPlayer.photoUrl || `https://i.pravatar.cc/150?u=${Date.now()}`,
             bio: { nationality: 'Eswatini', age: 21, height: '1.80m' },
             stats: { appearances: 0, goals: 0, assists: 0 },
             transferHistory: [],
@@ -90,7 +104,7 @@ const ManageSquad: React.FC<{ clubName: string }> = ({ clubName }) => {
         
         await updateFirestoreSquad([...squad, playerToAdd]);
 
-        setNewPlayer({ name: '', position: 'Forward', number: '' });
+        setNewPlayer({ name: '', position: 'Forward', number: '', photoUrl: '' });
         setShowAddForm(false);
     };
     
@@ -116,12 +130,28 @@ const ManageSquad: React.FC<{ clubName: string }> = ({ clubName }) => {
                 {showAddForm && (
                     <form onSubmit={handleAddPlayer} className="p-4 bg-gray-50 border rounded-lg mb-4 space-y-4 animate-fade-in">
                         <h4 className="font-bold">New Player Details</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <input type="text" name="name" value={newPlayer.name} onChange={handleInputChange} placeholder="Player Name" required className={inputClass} />
-                            <input type="number" name="number" value={newPlayer.number} onChange={handleInputChange} placeholder="Jersey Number" required className={inputClass} min="1" max="99" />
-                            <select name="position" value={newPlayer.position} onChange={handleInputChange} required className={inputClass}>
-                                <option>Forward</option><option>Midfielder</option><option>Defender</option><option>Goalkeeper</option>
-                            </select>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                <input type="text" name="name" value={newPlayer.name} onChange={handleInputChange} placeholder="Player Name" required className={inputClass} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Jersey Number</label>
+                                <input type="number" name="number" value={newPlayer.number} onChange={handleInputChange} placeholder="Jersey Number" required className={inputClass} min="1" max="99" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                                <select name="position" value={newPlayer.position} onChange={handleInputChange} required className={inputClass}>
+                                    <option>Forward</option><option>Midfielder</option><option>Defender</option><option>Goalkeeper</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Photo</label>
+                                <div className="flex items-center gap-2">
+                                    <input type="file" accept="image/*" onChange={handleFileChange} className="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                                    {newPlayer.photoUrl && <img src={newPlayer.photoUrl} alt="Preview" className="h-9 w-9 rounded-full object-cover border"/>}
+                                </div>
+                            </div>
                         </div>
                         <div className="text-right">
                             <Button type="submit" className="bg-green-600 text-white hover:bg-green-700" disabled={isSubmitting}>
@@ -138,7 +168,7 @@ const ManageSquad: React.FC<{ clubName: string }> = ({ clubName }) => {
                         {squad.map(player => (
                             <div key={player.id} className="flex items-center justify-between p-2 bg-white border rounded-md hover:bg-gray-50">
                                 <div className="flex items-center gap-3">
-                                    <img src={player.photoUrl} alt={player.name} className="w-10 h-10 rounded-full" />
+                                    <img src={player.photoUrl} alt={player.name} className="w-10 h-10 rounded-full object-cover" />
                                     <div>
                                         <p className="font-semibold">{player.name}</p>
                                         <p className="text-xs text-gray-500">#{player.number} &bull; {player.position}</p>

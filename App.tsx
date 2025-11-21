@@ -1,3 +1,4 @@
+
 import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation';
@@ -24,6 +25,7 @@ const NewsArticlePage = lazy(() => import('./components/NewsArticlePage'));
 const AdminPanelPage = lazy(() => import('./components/AdminPanelPage'));
 const ShopPage = lazy(() => import('./components/ShopPage'));
 const YouthPage = lazy(() => import('./components/YouthPage'));
+const U20Page = lazy(() => import('./components/U20Page'));
 const WomensPage = lazy(() => import('./components/WomensPage'));
 const CupsPage = lazy(() => import('./components/CupsPage'));
 const DirectoryPage = lazy(() => import('./components/DirectoryPage'));
@@ -42,6 +44,8 @@ const NationalTeamDetailPage = lazy(() => import('./components/NationalTeamDetai
 const RegionalPage = lazy(() => import('./components/RegionalPage'));
 const RegionDetailPage = lazy(() => import('./components/RegionDetailPage'));
 const LiveUpdatesPage = lazy(() => import('./components/LiveUpdatesPage'));
+const TeamYamPage = lazy(() => import('./components/TeamYamPage'));
+const ExclusivePage = lazy(() => import('./components/ExclusivePage'));
 
 
 const App: React.FC = () => {
@@ -67,6 +71,7 @@ const App: React.FC = () => {
               <Route path="/interactive" element={<InteractivePage />} />
               <Route path="/media" element={<MediaPage />} />
               <Route path="/youth" element={<YouthPage />} />
+              <Route path="/youth/u20" element={<U20Page />} />
               <Route path="/womens" element={<WomensPage />} />
               <Route path="/national-team" element={<NationalTeamLandingPage />} />
               <Route path="/national-team/:teamId" element={<NationalTeamDetailPage />} />
@@ -84,6 +89,8 @@ const App: React.FC = () => {
               <Route path="/club-management" element={<ClubManagementPage />} />
               <Route path="/coachs-corner" element={<CoachsCornerPage />} />
               <Route path="/memory-lane" element={<MemoryLanePage />} />
+              <Route path="/team-yam" element={<TeamYamPage />} />
+              <Route path="/exclusive" element={<ExclusivePage />} />
               <Route path="/data-management" element={<DataManagementPage />} />
               <Route path="/data-management/bulk-import" element={<BulkImportPage />} />
               <Route path="/data-management/api-import" element={<ApiImportPage />} />

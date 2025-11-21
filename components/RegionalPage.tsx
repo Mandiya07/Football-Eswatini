@@ -1,12 +1,14 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import GlobeIcon from './icons/GlobeIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
+import { fetchAllCompetitions } from '../services/api';
 
 interface RegionStream {
   name: string;
-  leagueId: string;
+  leagueId: string; // Default ID/Fallback
 }
 
 interface Region {
@@ -24,8 +26,8 @@ const regions: Region[] = [
     name: 'Hhohho Region', 
     color: 'from-blue-500 to-blue-700',
     streams: [
-      { name: 'Northern Zone', leagueId: 'hhohho-super-league-north' },
-      { name: 'Southern Zone', leagueId: 'hhohho-super-league-south' }
+      { name: 'Hhohho Super League (Northern Zone)', leagueId: 'hhohho-super-league-northern-zone' },
+      { name: 'Hhohho Super League (Southern Zone)', leagueId: 'hhohho-super-league-southern-zone' }
     ]
   },
   { 
@@ -47,13 +49,44 @@ const regions: Region[] = [
     name: 'Shiselweni Region', 
     color: 'from-red-500 to-red-700',
     streams: [
-        { name: 'Northern Zone', leagueId: 'shiselweni-super-league-north' },
-        { name: 'Southern Zone', leagueId: 'shiselweni-super-league-south' }
+        { name: 'Shiselweni Super League (Northern Zone)', leagueId: 'shiselweni-super-league-northern-zone' },
+        { name: 'Shiselweni Super League (Southern Zone)', leagueId: 'shiselweni-super-league-southern-zone' }
     ]
   },
 ];
 
 const RegionalPage: React.FC = () => {
+  const [compMap, setCompMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadCompetitions = async () => {
+      try {
+        const allComps = await fetchAllCompetitions();
+        const map: Record<string, string> = {};
+        Object.entries(allComps).forEach(([id, comp]) => {
+          // normalize name for looser matching
+          const cleanName = comp.name.trim().toLowerCase();
+          map[cleanName] = id;
+          // Also map exact name
+          map[comp.name.trim()] = id;
+        });
+        setCompMap(map);
+      } catch (error) {
+        console.error("Failed to load competitions for linking", error);
+      }
+    };
+    loadCompetitions();
+  }, []);
+
+  const getLinkTarget = (name: string, defaultId: string) => {
+    // 1. Try exact name match
+    if (compMap[name.trim()]) return compMap[name.trim()];
+    // 2. Try lowercase match
+    if (compMap[name.trim().toLowerCase()]) return compMap[name.trim().toLowerCase()];
+    // 3. Fallback to default ID
+    return defaultId;
+  };
+
   return (
     <div className="bg-gray-50 py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
@@ -75,24 +108,31 @@ const RegionalPage: React.FC = () => {
                 <CardContent className="p-6">
                   <h2 className="text-2xl font-bold font-display mb-4">{region.name}</h2>
                   <div className="space-y-3">
-                    {region.streams.map(stream => (
-                      <Link
-                        key={stream.leagueId}
-                        to={`/region/${stream.leagueId}`}
-                        className="group block bg-white/20 backdrop-blur-sm p-3 rounded-lg hover:bg-white/30 transition-colors"
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold">{stream.name}</span>
-                          <ArrowRightIcon className="w-5 h-5 transform transition-transform duration-300 group-hover:translate-x-1" />
-                        </div>
-                      </Link>
-                    ))}
+                    {region.streams.map(stream => {
+                      const targetId = getLinkTarget(stream.name, stream.leagueId);
+                      return (
+                        <Link
+                          key={stream.leagueId}
+                          to={`/region/${targetId}`}
+                          className="group block bg-white/20 backdrop-blur-sm p-3 rounded-lg hover:bg-white/30 transition-colors"
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-sm md:text-base">{stream.name}</span>
+                            <ArrowRightIcon className="w-5 h-5 transform transition-transform duration-300 group-hover:translate-x-1" />
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
             ) : (
               // Card for regions with a single league (Manzini, Lubombo)
-              <Link key={region.id} to={`/region/${region.leagueId}`} className="group block">
+              <Link 
+                key={region.id} 
+                to={`/region/${getLinkTarget(region.leagueName || '', region.leagueId || '')}`} 
+                className="group block"
+              >
                 <Card className={`shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-2 text-white bg-gradient-to-br ${region.color}`}>
                   <CardContent className="p-6 flex justify-between items-center">
                     <div>
