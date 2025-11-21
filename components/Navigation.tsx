@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -47,7 +48,6 @@ const Navigation: React.FC = () => {
     { name: 'Youth', to: '/youth' },
     { name: 'National Team', to: '/national-team' },
     { name: 'Shop', to: '/shop'},
-    { name: 'AI Assistant', to: '/ai-assistant' },
   ];
 
   useEffect(() => {
@@ -82,7 +82,7 @@ const Navigation: React.FC = () => {
                 <LogoSVG className="h-12 w-auto" />
               </NavLink>
             </div>
-            <div className="hidden md:block">
+            <div className="hidden xl:block">
               <div className="ml-10 flex items-center space-x-4">
                 {navItems.map((item) => (
                   <NavLink key={item.name} to={item.to} className={getNavLinkClass}>
@@ -144,7 +144,7 @@ const Navigation: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="-mr-2 flex md:hidden items-center gap-2">
+            <div className="-mr-2 flex xl:hidden items-center gap-2">
               <button 
                   onClick={() => setIsCartOpen(true)}
                   className="relative text-white hover:text-accent transition-colors p-2 rounded-full"
@@ -180,7 +180,7 @@ const Navigation: React.FC = () => {
         </div>
 
         {isOpen && (
-          <div className="md:hidden" id="mobile-menu">
+          <div className="xl:hidden" id="mobile-menu">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               <div className="relative px-2 py-2">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-5 pointer-events-none">

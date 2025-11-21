@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -19,6 +20,8 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
         categoryColor = 'bg-pink-100 text-pink-800';
     } else if (item.category === 'International') {
         categoryColor = 'bg-purple-100 text-purple-800';
+    } else if (item.category === 'Schools') {
+        categoryColor = 'bg-orange-100 text-orange-800';
     }
 
     const isCompact = variant === 'compact';
@@ -131,7 +134,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     );
 });
 
-const NewsSection: React.FC<{ category?: 'Womens' | 'National' }> = ({ category }) => {
+const NewsSection: React.FC<{ category?: NewsItem['category'] }> = ({ category }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [allNews, setAllNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -184,7 +187,7 @@ const NewsSection: React.FC<{ category?: 'Womens' | 'National' }> = ({ category 
     return (
         <section>
             <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-display font-bold">{category ? `${category}'s News` : 'Latest News'}</h2>
+                <h2 className="text-3xl font-display font-bold">{category ? `${category === 'Schools' ? 'Schools Tournament' : category}'s News` : 'Latest News'}</h2>
                 <div className="hidden sm:flex items-center gap-2">
                     <button onClick={() => scroll('left')} className="p-2 rounded-full bg-white hover:bg-gray-100 transition-colors border border-gray-200" aria-label="Previous news item">
                         <ChevronLeftIcon className="w-5 h-5 text-gray-600" />

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { NewsItem } from '../../data/news';
 import { Card, CardContent } from '../ui/Card';
@@ -138,6 +139,7 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
                                     <option>National</option>
                                     <option>International</option>
                                     <option>Womens</option>
+                                    <option>Schools</option>
                                 </select>
                             </div>
                         </div>

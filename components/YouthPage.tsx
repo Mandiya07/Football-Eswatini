@@ -19,7 +19,8 @@ const YouthPage: React.FC = () => {
       setLoading(true);
       try {
           const data = await fetchYouthData();
-          const order = ['u17', 'u13']; // Only show U17 and U13 as generic sections now
+          // Only show U17 and U13 as generic sections now, as Schools has its own page
+          const order = ['u17', 'u13']; 
           const sortedData = [...data].filter(l => order.includes(l.id)).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
           setYouthData(sortedData);
       } catch (e) {
@@ -66,30 +67,35 @@ const YouthPage: React.FC = () => {
                 </Card>
             </Link>
 
-            {/* SCHOOLS FOOTBALL SPOTLIGHT */}
-             <Card className="h-full shadow-lg bg-white border-l-8 border-orange-500">
-                <CardContent className="p-8 flex flex-col h-full justify-between">
-                    <div>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-3 bg-orange-100 rounded-full">
-                                <SchoolIcon className="w-8 h-8 text-orange-600" />
+            {/* SCHOOLS FOOTBALL LINK */}
+            <Link to="/schools" className="group block">
+                 <Card className="h-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white border-l-8 border-orange-500">
+                    <CardContent className="p-8 flex flex-col h-full justify-between">
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 bg-orange-100 rounded-full">
+                                    <SchoolIcon className="w-8 h-8 text-orange-600" />
+                                </div>
+                                <h2 className="text-3xl font-bold font-display text-gray-800">Instacash Schools Tournament</h2>
                             </div>
-                            <h2 className="text-3xl font-bold font-display text-gray-800">Schools Championship</h2>
+                            <p className="text-gray-600 mb-6">
+                                The national school football competition developing young talent across all four regions. Featuring top schools like St. Marks and Salesian High.
+                            </p>
+                            <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 group-hover:bg-orange-100 transition-colors">
+                                <h4 className="font-bold text-orange-800 text-sm uppercase mb-2">Highlights</h4>
+                                <ul className="space-y-1 text-sm text-gray-700">
+                                    <li>• Regional Qualifiers & Top 16 Draw</li>
+                                    <li>• National Knockout Stages</li>
+                                    <li>• Full Kit Sponsorship & Prizes</li>
+                                </ul>
+                            </div>
                         </div>
-                        <p className="text-gray-600 mb-6">
-                            Spotlight on the nationwide Schools Football Championship. Tracking top performing schools from regional qualifiers to the national finals.
-                        </p>
-                        <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                            <h4 className="font-bold text-orange-800 text-sm uppercase mb-2">Latest Highlights</h4>
-                            <ul className="space-y-2 text-sm text-gray-700">
-                                <li>• St. Marks High crowned Hhohho regional champions</li>
-                                <li>• Salesian High vs Manzini Nazarene: The rivalry continues</li>
-                                <li>• National Finals set for Somhlolo Stadium next month</li>
-                            </ul>
+                        <div className="flex items-center text-orange-600 font-bold mt-6 group-hover:gap-2 transition-all">
+                            View Tournament <ArrowRightIcon className="w-5 h-5 ml-2" />
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            </Link>
         </div>
 
         {loading ? (

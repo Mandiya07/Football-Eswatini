@@ -1,11 +1,12 @@
 
+
 export interface NewsItem {
   id: string;
   image: string;
   title: string;
   date: string;
   url: string;
-  category: 'National' | 'International' | 'Womens';
+  category: 'National' | 'International' | 'Womens' | 'Schools';
   summary: string;
   content: string;
 }

@@ -67,5 +67,34 @@ export const cupData: Tournament[] = [
                 ]
             }
         ]
+    },
+    {
+        id: 'instacash-schools-tournament',
+        name: 'Instacash Schools Tournament',
+        logoUrl: 'https://via.placeholder.com/150/F59E0B/FFFFFF?text=Instacash',
+        rounds: [
+            {
+                title: 'Quarter-Finals',
+                matches: [
+                    { id: 1, team1: { name: 'Salesian High', score: 3, crestUrl: 'https://via.placeholder.com/64/6B7280/FFFFFF?text=SH' }, team2: { name: 'Evelyn Baring', score: 1, crestUrl: 'https://via.placeholder.com/64/34D399/000000?text=EBH' }, winner: 'team1', date: '2023-10-10' },
+                    { id: 2, team1: { name: 'St. Francis High', score: 0, crestUrl: 'https://via.placeholder.com/64/EF4444/FFFFFF?text=SFH' }, team2: { name: 'Manzini Nazarene', score: 1, crestUrl: 'https://via.placeholder.com/64/3B82F6/FFFFFF?text=MNH' }, winner: 'team2', date: '2023-10-10' },
+                    { id: 3, team1: { name: 'St. Marks High', score: 2, crestUrl: 'https://via.placeholder.com/64/14B8A6/FFFFFF?text=SMH' }, team2: { name: 'Sifundzani High', score: 2, crestUrl: 'https://via.placeholder.com/64/D63031/FFFFFF?text=SHS' }, winner: 'team1', date: '2023-10-11', time: 'Pen: 4-3' },
+                    { id: 4, team1: { name: 'Mbabane Central', score: 1, crestUrl: 'https://via.placeholder.com/64/FBBF24/000000?text=MCH' }, team2: { name: 'Waterford Kamhlaba', score: 0, crestUrl: 'https://via.placeholder.com/64/1E3A8A/FFFFFF?text=WK' }, winner: 'team1', date: '2023-10-11' },
+                ]
+            },
+            {
+                title: 'Semi-Finals',
+                matches: [
+                    { id: 5, team1: { name: 'Salesian High', score: 2, crestUrl: 'https://via.placeholder.com/64/6B7280/FFFFFF?text=SH' }, team2: { name: 'Manzini Nazarene', score: 0, crestUrl: 'https://via.placeholder.com/64/3B82F6/FFFFFF?text=MNH' }, winner: 'team1', date: '2023-10-24' },
+                    { id: 6, team1: { name: 'St. Marks High', score: 1, crestUrl: 'https://via.placeholder.com/64/14B8A6/FFFFFF?text=SMH' }, team2: { name: 'Mbabane Central', score: 3, crestUrl: 'https://via.placeholder.com/64/FBBF24/000000?text=MCH' }, winner: 'team2', date: '2023-10-24' },
+                ]
+            },
+            {
+                title: 'Final',
+                matches: [
+                    { id: 7, team1: { name: 'Salesian High', crestUrl: 'https://via.placeholder.com/64/6B7280/FFFFFF?text=SH' }, team2: { name: 'Mbabane Central', crestUrl: 'https://via.placeholder.com/64/FBBF24/000000?text=MCH' }, date: '2023-11-15', time: '14:00' },
+                ]
+            }
+        ]
     }
 ];
