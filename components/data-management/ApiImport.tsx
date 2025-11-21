@@ -10,7 +10,7 @@ import { CompetitionFixture } from '../../data/teams';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories } from '../../services/api';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { removeUndefinedProps, normalizeTeamName } from '../../services/utils';
+import { removeUndefinedProps, normalizeTeamName, calculateStandings } from '../../services/utils';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import InfoIcon from '../icons/InfoIcon';
 
@@ -18,8 +18,15 @@ import InfoIcon from '../icons/InfoIcon';
 interface FetchedFixture {
     id: number;
     utcDate: string;
+    status: string;
     homeTeam: { name: string; };
     awayTeam: { name: string; };
+    score?: {
+        fullTime: {
+            home: number | null;
+            away: number | null;
+        }
+    };
     venue?: string;
     matchday: number;
 }
@@ -36,12 +43,12 @@ interface ReviewedFixture {
     fixtureData: CompetitionFixture;
 }
 
-const getMockUpcomingFixtures = (): CompetitionFixture[] => {
+const getMockUpcomingFixtures = (type: 'fixtures' | 'results'): CompetitionFixture[] => {
     // Returns a static list of mock fixtures to be used as a fallback.
     const today = new Date();
-    const createDate = (daysToAdd: number) => {
+    const createDate = (daysOffset: number) => {
         const date = new Date(today);
-        date.setDate(date.getDate() + daysToAdd);
+        date.setDate(date.getDate() + daysOffset);
         return date;
     };
 
@@ -50,6 +57,35 @@ const getMockUpcomingFixtures = (): CompetitionFixture[] => {
         date: date.getDate().toString(),
         day: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
     });
+
+    if (type === 'results') {
+        return [
+            {
+                id: 8001,
+                ...formatDate(createDate(-2)),
+                time: '15:00',
+                teamA: 'Mbabane Highlanders FC',
+                teamB: 'Manzini Wanderers FC',
+                status: 'finished',
+                scoreA: 2,
+                scoreB: 1,
+                venue: 'Somhlolo National Stadium',
+                matchday: 4,
+            },
+            {
+                id: 8002,
+                ...formatDate(createDate(-3)),
+                time: '13:00',
+                teamA: 'Mbabane Swallows FC',
+                teamB: 'Green Mamba FC',
+                status: 'finished',
+                scoreA: 0,
+                scoreB: 0,
+                venue: 'King Sobhuza II Stadium',
+                matchday: 4,
+            },
+        ];
+    }
 
     return [
         {
@@ -92,6 +128,7 @@ const ApiImportPage: React.FC = () => {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [isFallback, setIsFallback] = useState(false);
+    const [importType, setImportType] = useState<'fixtures' | 'results'>('fixtures');
 
     const [competitions, setCompetitions] = useState<{ id: string, name: string, externalApiId?: string }[]>([]);
     const [loadingComps, setLoadingComps] = useState(true);
@@ -195,7 +232,7 @@ const ApiImportPage: React.FC = () => {
 
         setReviewedFixtures(processedFixtures);
         if (source === "Live API") {
-            setSuccessMessage(`Successfully processed ${processedFixtures.length} upcoming fixtures from ${source}.`);
+            setSuccessMessage(`Successfully processed ${processedFixtures.length} ${importType} from ${source}.`);
         }
     };
     
@@ -212,13 +249,14 @@ const ApiImportPage: React.FC = () => {
         if (!externalApiId) {
             console.warn(`No external API ID for ${selectedCompetition?.name}. Activating fallback mode.`);
             setIsFallback(true);
-            processAndReviewFixtures(getMockUpcomingFixtures(), "Fallback Data");
+            processAndReviewFixtures(getMockUpcomingFixtures(importType), "Fallback Data");
             setIsFetching(false);
             return;
         }
 
         try {
-            let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=SCHEDULED`;
+            const statusQuery = importType === 'fixtures' ? 'SCHEDULED' : 'FINISHED';
+            let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=${statusQuery}`;
             
             // If using a proxy (essential for frontend-only requests to avoid CORS)
             if (useProxy) {
@@ -241,7 +279,7 @@ const ApiImportPage: React.FC = () => {
             const fetchedEvents: FetchedFixture[] = data.matches;
 
             if (fetchedEvents.length === 0) {
-                setSuccessMessage('No new upcoming fixtures found from the live API.');
+                setSuccessMessage(`No ${importType} found from the live API.`);
                 setIsFetching(false);
                 return;
             }
@@ -269,7 +307,9 @@ const ApiImportPage: React.FC = () => {
                     time: eventDate.toTimeString().substring(0, 5),
                     venue: event.venue || undefined,
                     matchday: event.matchday,
-                    status: 'scheduled'
+                    status: importType === 'results' ? 'finished' : 'scheduled',
+                    scoreA: importType === 'results' ? (event.score?.fullTime.home ?? undefined) : undefined,
+                    scoreB: importType === 'results' ? (event.score?.fullTime.away ?? undefined) : undefined,
                 };
                 return fixture;
             }).filter((f): f is CompetitionFixture => f !== null);
@@ -280,7 +320,7 @@ const ApiImportPage: React.FC = () => {
             console.warn("Live API fetch failed. Activating fallback mode.", err);
             setError(`Error: ${(err as Error).message}. Switching to mock data.`);
             setIsFallback(true);
-            const mockData = getMockUpcomingFixtures();
+            const mockData = getMockUpcomingFixtures(importType);
             processAndReviewFixtures(mockData, "Fallback Data");
         } finally {
             setIsFetching(false);
@@ -295,7 +335,7 @@ const ApiImportPage: React.FC = () => {
     const handleImportSelected = async () => {
         const fixturesToImport = reviewedFixtures.filter(f => f.selected && f.status === 'new');
         if (fixturesToImport.length === 0) {
-            setError("No new fixtures selected for import.");
+            setError("No new items selected for import.");
             return;
         }
 
@@ -311,17 +351,28 @@ const ApiImportPage: React.FC = () => {
                 if (!docSnap.exists()) throw new Error("Competition not found");
 
                 const competitionData = docSnap.data() as Competition;
-                const existingFixtures = competitionData.fixtures || [];
-                const newFixtures = fixturesToImport.map(f => f.fixtureData);
+                const newItems = fixturesToImport.map(f => f.fixtureData);
 
-                const finalFixtures = [...existingFixtures, ...newFixtures];
-                transaction.update(docRef, { fixtures: removeUndefinedProps(finalFixtures) });
+                if (importType === 'results') {
+                    const existingResults = competitionData.results || [];
+                    const finalResults = [...existingResults, ...newItems];
+                    const updatedTeams = calculateStandings(competitionData.teams || [], finalResults, competitionData.fixtures || []);
+                    
+                    transaction.update(docRef, removeUndefinedProps({ 
+                        results: finalResults,
+                        teams: updatedTeams
+                    }));
+                } else {
+                    const existingFixtures = competitionData.fixtures || [];
+                    const finalFixtures = [...existingFixtures, ...newItems];
+                    transaction.update(docRef, { fixtures: removeUndefinedProps(finalFixtures) });
+                }
             });
 
             setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? {...f, status: 'imported', selected: false} : f));
-            setSuccessMessage(`Successfully imported ${fixturesToImport.length} fixtures!`);
+            setSuccessMessage(`Successfully imported ${fixturesToImport.length} ${importType}!`);
         } catch(err) {
-            handleFirestoreError(err, 'import fixtures');
+            handleFirestoreError(err, `import ${importType}`);
             setError('An error occurred during import. See alert for details.');
             setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? {...f, status: 'new'} : f));
         } finally {
@@ -338,9 +389,9 @@ const ApiImportPage: React.FC = () => {
                     <CardContent className="p-8 space-y-6">
                         <div className="text-center">
                             <CloudDownloadIcon className="w-12 h-12 mx-auto text-purple-600 mb-2" />
-                            <h1 className="text-3xl font-display font-bold">Live Fixture Import</h1>
+                            <h1 className="text-3xl font-display font-bold">Live Fixture & Result Import</h1>
                             <p className="text-gray-600 max-w-3xl mx-auto mt-2">
-                                Fetch upcoming fixtures from <strong>football-data.org</strong>. 
+                                Fetch upcoming fixtures or recent results directly from <strong>football-data.org</strong>. 
                             </p>
                         </div>
 
@@ -359,9 +410,23 @@ const ApiImportPage: React.FC = () => {
                         <div className="space-y-4 pt-4 border-t">
                             <h2 className="text-xl font-bold font-display">Step 1: Configure & Fetch</h2>
                             
-                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                <label className="block text-sm font-bold text-blue-800 mb-2">Import Type</label>
+                                <div className="flex gap-2 p-1 bg-white rounded-lg w-fit border border-blue-100">
+                                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-colors ${importType === 'fixtures' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-50'}`}>
+                                        <input type="radio" name="apiImportType" value="fixtures" checked={importType === 'fixtures'} onChange={() => setImportType('fixtures')} className="h-4 w-4 text-blue-600" />
+                                        <span className="text-sm font-semibold">Fixtures</span>
+                                    </label>
+                                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-colors ${importType === 'results' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-50'}`}>
+                                        <input type="radio" name="apiImportType" value="results" checked={importType === 'results'} onChange={() => setImportType('results')} className="h-4 w-4 text-blue-600" />
+                                        <span className="text-sm font-semibold">Results</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="api-key" className="block text-xs font-bold text-blue-800 uppercase mb-1">API Key (football-data.org)</label>
+                                    <label htmlFor="api-key" className="block text-xs font-bold text-gray-700 uppercase mb-1">API Key (football-data.org)</label>
                                     <input 
                                         id="api-key" 
                                         type="password" 
@@ -370,7 +435,7 @@ const ApiImportPage: React.FC = () => {
                                         placeholder="Enter your API Key" 
                                         className={inputClass}
                                     />
-                                    <p className="text-xs text-blue-600 mt-1">Optional for some free tiers, but recommended to avoid 403 errors.</p>
+                                    <p className="text-xs text-gray-500 mt-1">Optional for some free tiers, but recommended.</p>
                                 </div>
                                 <div className="flex items-center">
                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -380,9 +445,9 @@ const ApiImportPage: React.FC = () => {
                                             onChange={e => setUseProxy(e.target.checked)} 
                                             className="h-4 w-4 text-blue-600 rounded"
                                         />
-                                        <span className="text-sm font-semibold text-blue-800">Use CORS Proxy</span>
+                                        <span className="text-sm font-semibold text-gray-700">Use CORS Proxy</span>
                                     </label>
-                                    <p className="text-xs text-blue-600 ml-2">(Required for browser-based requests)</p>
+                                    <p className="text-xs text-gray-500 ml-2">(Required for browser-based requests)</p>
                                 </div>
                             </div>
 
@@ -400,8 +465,8 @@ const ApiImportPage: React.FC = () => {
                                                     ))}
                                                 </select>
                                             </div>
-                                            <Button onClick={handleFetch} disabled={isFetching || !selectedCompId} title={!selectedCompId ? "Please select a destination league" : "Fetch fixtures"} className="bg-purple-600 text-white w-full md:w-auto h-11 px-8 flex justify-center items-center">
-                                                {isFetching ? <Spinner className="w-5 h-5 border-2"/> : 'Fetch Fixtures'}
+                                            <Button onClick={handleFetch} disabled={isFetching || !selectedCompId} title={!selectedCompId ? "Please select a destination league" : `Fetch ${importType}`} className="bg-purple-600 text-white w-full md:w-auto h-11 px-8 flex justify-center items-center">
+                                                {isFetching ? <Spinner className="w-5 h-5 border-2"/> : `Fetch ${importType.charAt(0).toUpperCase() + importType.slice(1)}`}
                                             </Button>
                                         </div>
                                     ) : (
@@ -419,7 +484,16 @@ const ApiImportPage: React.FC = () => {
                                 <h2 className="text-xl font-bold font-display">Step 2: Review & Import</h2>
                                 <div className="overflow-x-auto border rounded-lg">
                                     <table className="w-full text-sm">
-                                        <thead className="bg-gray-100 text-left"><tr><th className="p-2 w-12"></th><th className="p-2">Match</th><th className="p-2">Date</th><th className="p-2">Matchday</th><th className="p-2">Status</th></tr></thead>
+                                        <thead className="bg-gray-100 text-left">
+                                            <tr>
+                                                <th className="p-2 w-12"></th>
+                                                <th className="p-2">Match</th>
+                                                <th className="p-2">Date</th>
+                                                <th className="p-2">Matchday</th>
+                                                {importType === 'results' && <th className="p-2">Score</th>}
+                                                <th className="p-2">Status</th>
+                                            </tr>
+                                        </thead>
                                         <tbody className="divide-y">
                                             {reviewedFixtures.map(f => (
                                                 <tr key={f.id} className={`${!f.selected ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}>
@@ -427,6 +501,11 @@ const ApiImportPage: React.FC = () => {
                                                     <td className="p-2 font-semibold">{f.fixtureData.teamA} vs {f.fixtureData.teamB}</td>
                                                     <td className="p-2">{f.date} @ {f.time}</td>
                                                     <td className="p-2 text-center">{f.matchday}</td>
+                                                    {importType === 'results' && (
+                                                        <td className="p-2 font-bold">
+                                                            {f.fixtureData.scoreA !== undefined ? f.fixtureData.scoreA : '-'} : {f.fixtureData.scoreB !== undefined ? f.fixtureData.scoreB : '-'}
+                                                        </td>
+                                                    )}
                                                     <td className="p-2">
                                                         {f.status === 'new' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">New</span>}
                                                         {f.status === 'duplicate' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 inline-flex items-center gap-1"><AlertTriangleIcon className="w-3 h-3"/>Duplicate</span>}
