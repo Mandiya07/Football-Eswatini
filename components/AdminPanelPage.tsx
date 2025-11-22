@@ -16,6 +16,7 @@ import ResetAllData from './admin/ResetAllData';
 import LiveUpdatesEntry from './admin/LiveUpdatesEntry';
 import ManageMatches from './admin/ManageMatches';
 import FeatureManagement from './admin/FeatureManagement';
+import RefereeManagement from './admin/RefereeManagement';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -36,13 +37,14 @@ import RadioIcon from './icons/RadioIcon';
 import CalendarIcon from './icons/CalendarIcon';
 import YouthIcon from './icons/YouthIcon';
 import SparklesIcon from './icons/SparklesIcon';
+import WhistleIcon from './icons/WhistleIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
 const SeedDatabase = lazy(() => import('./admin/SeedDatabase'));
 const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -68,6 +70,7 @@ const AdminPanelPage: React.FC = () => {
       case 'directory': return <DirectoryManagement />;
       case 'videos': return <VideoManagement />;
       case 'features': return <FeatureManagement />;
+      case 'referees': return <RefereeManagement />;
       case 'ads': return <AdManagement />;
       case 'live': return <LiveUpdatesEntry />;
       case 'matches': return <ManageMatches />;
@@ -120,6 +123,7 @@ const AdminPanelPage: React.FC = () => {
                         <TabButton tabName="features" label="Features Content" Icon={SparklesIcon} />
                         <TabButton tabName="scouting" label="Scouting" Icon={BinocularsIcon} />
                         <TabButton tabName="youth" label="Youth Page" Icon={YouthIcon} />
+                        <TabButton tabName="referees" label="Referees" Icon={WhistleIcon} />
                         <TabButton tabName="directory" label="Directory" Icon={BookIcon} />
                         <TabButton tabName="videos" label="Videos" Icon={FilmIcon} />
                         <TabButton tabName="ads" label="Ad Management" Icon={MegaphoneIcon} />

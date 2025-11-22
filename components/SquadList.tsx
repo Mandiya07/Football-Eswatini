@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Player } from '../data/teams';
 import { Card, CardContent } from './ui/Card';
+import UserIcon from './icons/UserIcon';
 
 interface SquadListProps {
     players: Player[];
@@ -23,7 +25,12 @@ const SquadList: React.FC<SquadListProps> = ({ players }) => {
         if (posA !== posB) {
             return posA - posB;
         }
-        return a.number - b.number;
+        
+        // Treat 0 as "no number" and put at end
+        const numA = a.number === 0 ? 999 : a.number;
+        const numB = b.number === 0 ? 999 : b.number;
+        
+        return numA - numB;
     });
     
     if (sortedPlayers.length === 0) {
@@ -42,8 +49,16 @@ const SquadList: React.FC<SquadListProps> = ({ players }) => {
                 <Link key={player.id} to={`/players/${player.id}`} className="group block text-center">
                     <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
                         <div className="relative bg-gray-100">
-                            <img src={player.photoUrl} alt={player.name} className="w-full h-auto aspect-square object-cover" />
-                            <div className="absolute top-2 right-2 bg-black/50 text-white font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full ring-2 ring-white/50">{player.number}</div>
+                            {player.photoUrl ? (
+                                <img src={player.photoUrl} alt={player.name} className="w-full h-auto aspect-square object-cover" />
+                            ) : (
+                                <div className="w-full h-auto aspect-square flex items-center justify-center bg-gray-200 text-gray-400">
+                                    <UserIcon className="w-16 h-16" />
+                                </div>
+                            )}
+                            {player.number > 0 && (
+                                <div className="absolute top-2 right-2 bg-black/50 text-white font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full ring-2 ring-white/50">{player.number}</div>
+                            )}
                         </div>
                         <CardContent className="p-3">
                             <p className="font-semibold text-sm truncate group-hover:text-blue-600">{player.name}</p>

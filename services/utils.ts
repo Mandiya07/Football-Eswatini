@@ -102,7 +102,8 @@ export const normalize = (name: string) =>
     (name || '')
     .trim()
     .toLowerCase()
-    .replace(/\.|fc/g, '') // remove all dots and 'fc'
+    .replace(/&/g, 'and') // Replace ampersand with 'and'
+    .replace(/\.|fc|football club/g, '') // remove all dots and 'fc' variants
     .replace(/\s+/g, ' ') // collapse multiple spaces
     .trim();
 

@@ -7,6 +7,7 @@ import { DirectoryEntity } from '../data/directory';
 import { Card, CardContent } from './ui/Card';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import UsersIcon from './icons/UsersIcon';
+import UserIcon from './icons/UserIcon';
 import BarChartIcon from './icons/BarChartIcon';
 import CalendarIcon from './icons/CalendarIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
@@ -327,18 +328,25 @@ const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () =>
             </div>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {players.map(player => (
+            {(players || []).map(player => (
                 <Link key={player.id} to={`/players/${player.id}`} className="group block text-center">
                     <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
                         <div className="relative">
-                            <div className="h-24 bg-gradient-to-br from-primary to-primary-dark relative overflow-hidden">
-                                {/* Profile Image as Circle intersecting header */}
-                                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
-                                    <img src={player.photoUrl} alt={player.name} className="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover bg-white" />
-                                </div>
-                                <div className="absolute top-2 right-2 text-white/30 font-display font-bold text-4xl opacity-50 select-none pointer-events-none">
-                                    {player.number}
-                                </div>
+                            <div className="h-24 bg-gradient-to-br from-primary to-primary-dark relative overflow-hidden flex justify-center items-end pb-2">
+                                {player.photoUrl ? (
+                                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+                                        <img src={player.photoUrl} alt={player.name} className="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover bg-white" />
+                                    </div>
+                                ) : (
+                                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 z-10 w-20 h-20 rounded-full border-4 border-white shadow-md bg-gray-200 flex items-center justify-center">
+                                        <UserIcon className="w-12 h-12 text-gray-400" />
+                                    </div>
+                                )}
+                                {player.number > 0 && (
+                                    <div className="absolute top-2 right-2 text-white/30 font-display font-bold text-4xl opacity-50 select-none pointer-events-none">
+                                        {player.number}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <CardContent className="p-4 pt-10 text-center">
@@ -348,6 +356,11 @@ const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () =>
                     </Card>
                 </Link>
             ))}
+            {(!players || players.length === 0) && (
+                <div className="col-span-full text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <p className="text-gray-500">No players listed in the squad yet.</p>
+                </div>
+            )}
         </div>
     </div>
 );
@@ -372,7 +385,7 @@ const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, 
                 );
 
                 return (
-                    <li key={fixture.id} className="text-sm bg-gray-50 p-3 rounded-md flex justify-between items-center">
+                    <li key={fixture.id} className="text-sm bg-gray-5 p-3 rounded-md flex justify-between items-center">
                         <div className="flex items-center gap-2">
                             <span className="font-mono text-xs bg-white px-1.5 py-0.5 rounded">{isHome ? 'H' : 'A'}</span>
                             {opponentContent}

@@ -5,7 +5,9 @@ import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import CloudDownloadIcon from '../icons/CloudDownloadIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
-// FIX: Changed imports to correct sources for Category, fetchCategories and Competition to resolve type errors.
+import PencilIcon from '../icons/PencilIcon';
+import XIcon from '../icons/XIcon';
+import SaveIcon from '../icons/SaveIcon';
 import { CompetitionFixture } from '../../data/teams';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories } from '../../services/api';
 import { db } from '../../services/firebase';
@@ -38,9 +40,10 @@ interface ReviewedFixture {
     time: string;
     venue: string;
     matchday: string;
-    status: 'new' | 'duplicate' | 'importing' | 'imported';
+    status: 'new' | 'duplicate' | 'importing' | 'imported' | 'error';
     selected: boolean;
     fixtureData: CompetitionFixture;
+    error?: string;
 }
 
 const getMockUpcomingFixtures = (type: 'fixtures' | 'results'): CompetitionFixture[] => {
@@ -139,6 +142,10 @@ const ApiImportPage: React.FC = () => {
     const [apiKey, setApiKey] = useState('');
     const [useProxy, setUseProxy] = useState(true);
 
+    // Edit State
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState<Partial<CompetitionFixture>>({});
+
     useEffect(() => {
         const loadAppCompetitions = async () => {
             setLoadingComps(true);
@@ -209,6 +216,7 @@ const ApiImportPage: React.FC = () => {
         }
 
         const existingMatches = [...(currentCompetition.fixtures || []), ...(currentCompetition.results || [])];
+        const officialTeamNames = (currentCompetition.teams || []).map(t => t.name);
 
         const processedFixtures: ReviewedFixture[] = fixturesToProcess.map((fixture) => {
             const isDuplicate = existingMatches.some(f => 
@@ -217,6 +225,16 @@ const ApiImportPage: React.FC = () => {
                 f.fullDate === fixture.fullDate
             );
 
+            // Validate team names
+            const isValidA = officialTeamNames.includes(fixture.teamA);
+            const isValidB = officialTeamNames.includes(fixture.teamB);
+            const hasError = !isValidA || !isValidB;
+            
+            let errorMsg = undefined;
+            if (!isValidA && !isValidB) errorMsg = "Both team names invalid";
+            else if (!isValidA) errorMsg = `Invalid: ${fixture.teamA}`;
+            else if (!isValidB) errorMsg = `Invalid: ${fixture.teamB}`;
+
             return {
                 id: String(fixture.id),
                 title: `${fixture.teamA} vs ${fixture.teamB}`,
@@ -224,15 +242,16 @@ const ApiImportPage: React.FC = () => {
                 time: fixture.time,
                 venue: fixture.venue || 'N/A',
                 matchday: String(fixture.matchday),
-                status: isDuplicate ? 'duplicate' : 'new',
-                selected: !isDuplicate,
-                fixtureData: fixture
+                status: hasError ? 'error' : (isDuplicate ? 'duplicate' : 'new'),
+                selected: !isDuplicate && !hasError,
+                fixtureData: fixture,
+                error: errorMsg
             };
         });
 
         setReviewedFixtures(processedFixtures);
         if (source === "Live API") {
-            setSuccessMessage(`Successfully processed ${processedFixtures.length} ${importType} from ${source}.`);
+            setSuccessMessage(`Successfully fetched ${processedFixtures.length} ${importType}. Please review for any name mismatches.`);
         }
     };
     
@@ -256,9 +275,9 @@ const ApiImportPage: React.FC = () => {
 
         try {
             const statusQuery = importType === 'fixtures' ? 'SCHEDULED' : 'FINISHED';
+            // Fetch more matches to ensure we capture missed ones if limits exist, though API usually pages well.
             let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=${statusQuery}`;
             
-            // If using a proxy (essential for frontend-only requests to avoid CORS)
             if (useProxy) {
                 url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
             }
@@ -289,18 +308,14 @@ const ApiImportPage: React.FC = () => {
             const fixturesToReview: CompetitionFixture[] = fetchedEvents.map(event => {
                 const eventDate = new Date(event.utcDate);
 
+                // Attempt normalization, but keep raw name if it fails so user can fix it manually
                 const normalizedTeamA = normalizeTeamName(event.homeTeam.name, officialTeamNames);
                 const normalizedTeamB = normalizeTeamName(event.awayTeam.name, officialTeamNames);
-
-                if (!normalizedTeamA || !normalizedTeamB) {
-                    console.warn(`Could not reliably match team names for fixture: "${event.homeTeam.name}" vs "${event.awayTeam.name}". Skipping import.`);
-                    return null;
-                }
                 
                 const fixture: CompetitionFixture = {
                     id: event.id,
-                    teamA: normalizedTeamA,
-                    teamB: normalizedTeamB,
+                    teamA: normalizedTeamA || event.homeTeam.name,
+                    teamB: normalizedTeamB || event.awayTeam.name,
                     fullDate: eventDate.toISOString().split('T')[0],
                     date: eventDate.getDate().toString(),
                     day: eventDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
@@ -312,7 +327,7 @@ const ApiImportPage: React.FC = () => {
                     scoreB: importType === 'results' ? (event.score?.fullTime.away ?? undefined) : undefined,
                 };
                 return fixture;
-            }).filter((f): f is CompetitionFixture => f !== null);
+            });
 
             processAndReviewFixtures(fixturesToReview, "Live API");
 
@@ -333,16 +348,24 @@ const ApiImportPage: React.FC = () => {
     };
 
     const handleImportSelected = async () => {
-        const fixturesToImport = reviewedFixtures.filter(f => f.selected && f.status === 'new');
+        const fixturesToImport = reviewedFixtures.filter(f => f.selected && (f.status === 'new' || f.status === 'error'));
+        
+        // Check for any remaining errors in selected items
+        const invalidSelections = fixturesToImport.filter(f => f.status === 'error');
+        if (invalidSelections.length > 0) {
+            setError(`Cannot import: ${invalidSelections.length} selected items have invalid team names. Please edit them first.`);
+            return;
+        }
+
         if (fixturesToImport.length === 0) {
-            setError("No new items selected for import.");
+            setError("No valid new items selected for import.");
             return;
         }
 
         setIsSaving(true);
         setError('');
 
-        setReviewedFixtures(prev => prev.map(f => f.selected && f.status === 'new' ? {...f, status: 'importing'} : f));
+        setReviewedFixtures(prev => prev.map(f => f.selected && f.status !== 'imported' && f.status !== 'duplicate' ? {...f, status: 'importing'} : f));
         
         try {
             const docRef = doc(db, 'competitions', selectedCompId);
@@ -378,6 +401,51 @@ const ApiImportPage: React.FC = () => {
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleEditClick = (fixture: ReviewedFixture) => {
+        setEditingId(fixture.id);
+        setEditFormData({ ...fixture.fixtureData });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setEditFormData({});
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingId) return;
+
+        setReviewedFixtures(prev => {
+            const newFixtures = prev.map(f => {
+                if (f.id === editingId) {
+                    const updatedFixtureData = { ...f.fixtureData, ...editFormData };
+                    
+                    // Re-validate
+                    const officialTeamNames = (currentCompetition?.teams || []).map(t => t.name);
+                    const isValidA = officialTeamNames.includes(updatedFixtureData.teamA);
+                    const isValidB = officialTeamNames.includes(updatedFixtureData.teamB);
+                    const hasError = !isValidA || !isValidB;
+                    
+                    let errorMsg = undefined;
+                    if (!isValidA && !isValidB) errorMsg = "Both team names invalid";
+                    else if (!isValidA) errorMsg = `Invalid: ${updatedFixtureData.teamA}`;
+                    else if (!isValidB) errorMsg = `Invalid: ${updatedFixtureData.teamB}`;
+
+                    return {
+                        ...f,
+                        fixtureData: updatedFixtureData,
+                        status: hasError ? 'error' : 'new', // Reset status to new (or keep error)
+                        error: errorMsg,
+                        selected: !hasError // Auto-select if fixed
+                    } as ReviewedFixture;
+                }
+                return f;
+            });
+            return newFixtures;
+        });
+        
+        handleCancelEdit();
     };
 
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
@@ -492,27 +560,98 @@ const ApiImportPage: React.FC = () => {
                                                 <th className="p-2">Matchday</th>
                                                 {importType === 'results' && <th className="p-2">Score</th>}
                                                 <th className="p-2">Status</th>
+                                                <th className="p-2 w-16">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
                                             {reviewedFixtures.map(f => (
-                                                <tr key={f.id} className={`${!f.selected ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}>
-                                                    <td className="p-2 text-center"><input type="checkbox" checked={f.selected} onChange={() => handleToggleSelection(f.id)} className="h-4 w-4 rounded" disabled={f.status === 'imported'} /></td>
-                                                    <td className="p-2 font-semibold">{f.fixtureData.teamA} vs {f.fixtureData.teamB}</td>
-                                                    <td className="p-2">{f.date} @ {f.time}</td>
-                                                    <td className="p-2 text-center">{f.matchday}</td>
-                                                    {importType === 'results' && (
-                                                        <td className="p-2 font-bold">
-                                                            {f.fixtureData.scoreA !== undefined ? f.fixtureData.scoreA : '-'} : {f.fixtureData.scoreB !== undefined ? f.fixtureData.scoreB : '-'}
+                                                editingId === f.id ? (
+                                                    <tr key={f.id} className="bg-blue-50">
+                                                        <td colSpan={7} className="p-3">
+                                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                                                <div className="col-span-2 grid grid-cols-2 gap-2">
+                                                                    <div>
+                                                                        <label className="text-xs font-bold text-gray-600">Home Team</label>
+                                                                        <select 
+                                                                            value={editFormData.teamA} 
+                                                                            onChange={e => setEditFormData({...editFormData, teamA: e.target.value})} 
+                                                                            className="block w-full text-sm p-1.5 border border-gray-300 rounded"
+                                                                        >
+                                                                            <option value="" disabled>Select Team</option>
+                                                                            {(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                                                        </select>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-xs font-bold text-gray-600">Away Team</label>
+                                                                        <select 
+                                                                            value={editFormData.teamB} 
+                                                                            onChange={e => setEditFormData({...editFormData, teamB: e.target.value})} 
+                                                                            className="block w-full text-sm p-1.5 border border-gray-300 rounded"
+                                                                        >
+                                                                            <option value="" disabled>Select Team</option>
+                                                                            {(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                                {importType === 'results' ? (
+                                                                    <div className="flex gap-2">
+                                                                        <div>
+                                                                            <label className="text-xs font-bold text-gray-600">Home</label>
+                                                                            <input type="number" value={editFormData.scoreA} onChange={e => setEditFormData({...editFormData, scoreA: parseInt(e.target.value)})} className="w-16 p-1.5 border border-gray-300 rounded text-sm" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="text-xs font-bold text-gray-600">Away</label>
+                                                                            <input type="number" value={editFormData.scoreB} onChange={e => setEditFormData({...editFormData, scoreB: parseInt(e.target.value)})} className="w-16 p-1.5 border border-gray-300 rounded text-sm" />
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div>
+                                                                        <label className="text-xs font-bold text-gray-600">Date</label>
+                                                                        <input type="date" value={editFormData.fullDate} onChange={e => setEditFormData({...editFormData, fullDate: e.target.value})} className="w-full p-1.5 border border-gray-300 rounded text-sm" />
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex gap-2">
+                                                                    <Button onClick={handleSaveEdit} className="bg-green-600 text-white h-8 px-3 text-xs flex items-center gap-1"><SaveIcon className="w-3 h-3"/> Save</Button>
+                                                                    <Button onClick={handleCancelEdit} className="bg-gray-300 text-gray-800 h-8 px-3 text-xs flex items-center gap-1"><XIcon className="w-3 h-3"/> Cancel</Button>
+                                                                </div>
+                                                            </div>
                                                         </td>
-                                                    )}
-                                                    <td className="p-2">
-                                                        {f.status === 'new' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">New</span>}
-                                                        {f.status === 'duplicate' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 inline-flex items-center gap-1"><AlertTriangleIcon className="w-3 h-3"/>Duplicate</span>}
-                                                        {f.status === 'importing' && <Spinner className="w-4 h-4 border-2"/>}
-                                                        {f.status === 'imported' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700 inline-flex items-center gap-1"><CheckCircleIcon className="w-3 h-3"/>Imported</span>}
-                                                    </td>
-                                                </tr>
+                                                    </tr>
+                                                ) : (
+                                                    <tr key={f.id} className={`${!f.selected ? 'bg-gray-50 text-gray-500' : 'bg-white'} ${f.status === 'error' ? 'bg-red-50' : ''}`}>
+                                                        <td className="p-2 text-center">
+                                                            <input type="checkbox" checked={f.selected} onChange={() => handleToggleSelection(f.id)} className="h-4 w-4 rounded" disabled={f.status === 'imported' || f.status === 'error'} />
+                                                        </td>
+                                                        <td className="p-2 font-semibold">
+                                                            {f.fixtureData.teamA} vs {f.fixtureData.teamB}
+                                                            {f.error && <div className="text-xs text-red-600 mt-1 font-normal flex items-center gap-1"><AlertTriangleIcon className="w-3 h-3"/> {f.error}</div>}
+                                                        </td>
+                                                        <td className="p-2">{f.date} @ {f.time}</td>
+                                                        <td className="p-2 text-center">{f.matchday}</td>
+                                                        {importType === 'results' && (
+                                                            <td className="p-2 font-bold">
+                                                                {f.fixtureData.scoreA !== undefined ? f.fixtureData.scoreA : '-'} : {f.fixtureData.scoreB !== undefined ? f.fixtureData.scoreB : '-'}
+                                                            </td>
+                                                        )}
+                                                        <td className="p-2">
+                                                            {f.status === 'new' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">New</span>}
+                                                            {f.status === 'duplicate' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 inline-flex items-center gap-1"><AlertTriangleIcon className="w-3 h-3"/>Duplicate</span>}
+                                                            {f.status === 'importing' && <Spinner className="w-4 h-4 border-2"/>}
+                                                            {f.status === 'imported' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700 inline-flex items-center gap-1"><CheckCircleIcon className="w-3 h-3"/>Imported</span>}
+                                                            {f.status === 'error' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800 font-bold">Action Req.</span>}
+                                                        </td>
+                                                        <td className="p-2 text-center">
+                                                            <button 
+                                                                onClick={() => handleEditClick(f)}
+                                                                disabled={f.status === 'imported'}
+                                                                className="p-1.5 bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 rounded transition-colors disabled:opacity-50"
+                                                                title="Edit Match"
+                                                            >
+                                                                <PencilIcon className="w-4 h-4" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                )
                                             ))}
                                         </tbody>
                                     </table>

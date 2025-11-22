@@ -789,3 +789,13 @@ export const fetchRefereesData = async (): Promise<{ referees: Referee[], ruleOf
     }
     return defaultRefereeData;
 };
+
+export const updateRefereesData = async (data: { referees: Referee[], ruleOfTheWeek: Rule }) => {
+    try {
+        const docRef = doc(db, "referees", "main");
+        await setDoc(docRef, data, { merge: true });
+    } catch (error) {
+        handleFirestoreError(error, 'update referees data');
+        throw error;
+    }
+};
