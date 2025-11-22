@@ -111,6 +111,8 @@ export interface ExclusiveItem {
     summary: string;
     content: string; // Full text or link
     imageUrl: string;
+    videoUrl?: string;
+    audioUrl?: string;
     author: string;
     role: string; // e.g., "FIFA Representative", "PLE CEO"
     date: string;

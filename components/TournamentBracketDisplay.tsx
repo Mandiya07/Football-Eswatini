@@ -67,7 +67,7 @@ const SplitBracketView: React.FC<{ tournament: Tournament }> = ({ tournament }) 
     }));
 
     return (
-        <div className="bg-gray-100 p-2 sm:p-4 rounded-xl overflow-x-auto border border-gray-200 shadow-inner">
+        <div className="bg-gray-100 p-2 sm:p-4 rounded-xl overflow-x-auto scrollbar-hide border border-gray-200 shadow-inner">
             <div className="min-w-fit flex justify-center items-center gap-6 py-4">
                 
                 {/* LEFT SIDE */}

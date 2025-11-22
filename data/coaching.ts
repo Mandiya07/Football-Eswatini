@@ -8,12 +8,13 @@ export interface Coach {
 
 export interface CoachingContent {
   id: string;
-  type: 'Tactic' | 'Drill' | 'Column' | 'Video';
+  type: 'Tactic' | 'Drill' | 'Column' | 'Video' | 'Audio';
   title: string;
   summary: string;
   imageUrl?: string; // for articles
   thumbnailUrl?: string; // for videos
   videoUrl?: string;
+  audioUrl?: string;
   duration?: string;
   author: Coach | string;
   isFeatured?: boolean;

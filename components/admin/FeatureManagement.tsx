@@ -110,8 +110,47 @@ const FeatureManagement: React.FC = () => {
         const { name, value } = e.target;
         setFormData((prev: any) => ({ ...prev, [name]: value }));
     };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setFormData((prev: any) => ({ ...prev, [fieldName]: reader.result as string }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
     
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+
+    const renderUploadField = (label: string, fieldName: string, accept: string) => (
+        <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+            <div className="flex items-center gap-2">
+                <input 
+                    name={fieldName} 
+                    value={formData[fieldName] || ''} 
+                    onChange={handleInputChange} 
+                    placeholder={`Paste URL or upload ${accept === 'audio/*' ? 'audio' : accept === 'video/*' ? 'video' : 'image'}...`} 
+                    className={inputClass} 
+                />
+                <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                    Upload
+                    <input type="file" onChange={(e) => handleFileChange(e, fieldName)} accept={accept} className="sr-only" />
+                </label>
+            </div>
+            {formData[fieldName] && (
+                <div className="mt-2 border p-1 rounded bg-gray-50">
+                    {accept.startsWith('image') && <img src={formData[fieldName]} alt="Preview" className="h-20 object-contain" />}
+                    {accept.startsWith('video') && <video src={formData[fieldName]} controls className="h-24 w-full object-contain" />}
+                    {accept.startsWith('audio') && <audio src={formData[fieldName]} controls className="w-full" />}
+                </div>
+            )}
+        </div>
+    );
 
 
     const renderFormFields = () => {
@@ -121,10 +160,12 @@ const FeatureManagement: React.FC = () => {
                     <>
                         <input name="title" value={formData.title || ''} onChange={handleInputChange} placeholder="Title" className={inputClass} required />
                         <select name="type" value={formData.type || 'Tactic'} onChange={handleInputChange} className={inputClass}>
-                            <option>Tactic</option><option>Drill</option><option>Column</option><option>Video</option>
+                            <option>Tactic</option><option>Drill</option><option>Column</option><option>Video</option><option>Audio</option>
                         </select>
                         <textarea name="summary" value={formData.summary || ''} onChange={handleInputChange} placeholder="Summary" className={inputClass} required />
-                        <input name="imageUrl" value={formData.imageUrl || ''} onChange={handleInputChange} placeholder="Image URL" className={inputClass} />
+                        {renderUploadField('Image', 'imageUrl', 'image/*')}
+                        {renderUploadField('Video', 'videoUrl', 'video/*')}
+                        {renderUploadField('Audio', 'audioUrl', 'audio/*')}
                         <input name="author" value={formData.author?.name || (typeof formData.author === 'string' ? formData.author : '')} onChange={(e) => setFormData({...formData, author: e.target.value})} placeholder="Author Name" className={inputClass} />
                     </>
                 );
@@ -135,7 +176,9 @@ const FeatureManagement: React.FC = () => {
                         <input name="author" value={formData.author || ''} onChange={handleInputChange} placeholder="Interviewee Name" className={inputClass} required />
                         <input name="role" value={formData.role || ''} onChange={handleInputChange} placeholder="Role (e.g. CEO)" className={inputClass} required />
                         <textarea name="summary" value={formData.summary || ''} onChange={handleInputChange} placeholder="Summary" className={inputClass} required />
-                        <input name="imageUrl" value={formData.imageUrl || ''} onChange={handleInputChange} placeholder="Image URL" className={inputClass} />
+                        {renderUploadField('Image', 'imageUrl', 'image/*')}
+                        {renderUploadField('Video', 'videoUrl', 'video/*')}
+                        {renderUploadField('Audio', 'audioUrl', 'audio/*')}
                         <input name="date" type="date" value={formData.date || ''} onChange={handleInputChange} className={inputClass} required />
                     </>
                 );
@@ -146,8 +189,8 @@ const FeatureManagement: React.FC = () => {
                         <input name="teamName" value={formData.teamName || ''} onChange={handleInputChange} placeholder="Team Name" className={inputClass} required />
                         <input name="uploadedBy" value={formData.uploadedBy || ''} onChange={handleInputChange} placeholder="Uploader Name" className={inputClass} required />
                         <textarea name="description" value={formData.description || ''} onChange={handleInputChange} placeholder="Description" className={inputClass} required />
-                        <input name="videoUrl" value={formData.videoUrl || ''} onChange={handleInputChange} placeholder="Video URL" className={inputClass} required />
-                        <input name="thumbnailUrl" value={formData.thumbnailUrl || ''} onChange={handleInputChange} placeholder="Thumbnail URL" className={inputClass} />
+                        {renderUploadField('Video', 'videoUrl', 'video/*')}
+                        {renderUploadField('Thumbnail', 'thumbnailUrl', 'image/*')}
                     </>
                 );
              case 'archive':
@@ -159,8 +202,11 @@ const FeatureManagement: React.FC = () => {
                             <option value="photo">Photo</option><option value="match">Match</option><option value="clip">Clip</option>
                         </select>
                         <textarea name="description" value={formData.description || ''} onChange={handleInputChange} placeholder="Description" className={inputClass} required />
-                        {/* Simplified handling for 'details' complex object for demo brevity */}
-                        <p className="text-xs text-gray-500">Note: Complex 'details' object editing is simplified here.</p>
+                        {formData.type === 'photo' && renderUploadField('Photo (Image)', 'imageUrl', 'image/*')}
+                        {formData.type === 'clip' && renderUploadField('Clip (Video)', 'videoUrl', 'video/*')}
+                        {/* Simplified handling: mapping flat form fields back to complex 'details' object happens implicitly or needs logic. 
+                            For this demo, we'll just save flat fields and let the display component handle fallbacks or direct access if key exists. 
+                            Ideally, handleSave would reconstruct the 'details' object. */}
                     </>
                 );
             case 'behind-the-scenes':
@@ -171,8 +217,8 @@ const FeatureManagement: React.FC = () => {
                             <option value="photo">Photo</option><option value="video">Video</option>
                         </select>
                         <textarea name="description" value={formData.description || ''} onChange={handleInputChange} placeholder="Description" className={inputClass} required />
-                        <input name="thumbnailUrl" value={formData.thumbnailUrl || ''} onChange={handleInputChange} placeholder="Thumbnail URL" className={inputClass} required />
-                        <input name="contentUrl" value={formData.contentUrl || ''} onChange={handleInputChange} placeholder="Content URL (Full Photo / Video)" className={inputClass} required />
+                        {renderUploadField('Thumbnail', 'thumbnailUrl', 'image/*')}
+                        {renderUploadField('Content (Full Photo/Video)', 'contentUrl', formData.type === 'video' ? 'video/*' : 'image/*')}
                     </>
                 );
         }
@@ -218,7 +264,7 @@ const FeatureManagement: React.FC = () => {
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-6">
+                    <div className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg shadow-xl p-6">
                         <h3 className="text-xl font-bold mb-4">{editingItem ? 'Edit Item' : 'Add Item'}</h3>
                         <form onSubmit={handleSave} className="space-y-4">
                             {renderFormFields()}
