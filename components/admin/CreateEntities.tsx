@@ -108,8 +108,10 @@ const CreateEntities: React.FC = () => {
                         </div>
                         <div>
                             <label htmlFor="externalApiId" className={labelClass}>External API ID (Optional)</label>
-                            <input type="text" id="externalApiId" value={externalApiId} onChange={e => setExternalApiId(e.target.value)} className={inputClass} placeholder="e.g., 2021 (football-data.org)" />
-                            <p className="text-xs text-gray-500 mt-1">Link competition data from external APIs like TheSportsDB or Football-Data.org for automatic fixture updates.</p>
+                            <input type="text" id="externalApiId" value={externalApiId} onChange={e => setExternalApiId(e.target.value)} className={inputClass} placeholder="e.g., 2021 (football-data) or 4328 (thesportsdb)" />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Link competition data from external APIs (Football-Data.org or TheSportsDB) to enable automatic imports.
+                            </p>
                         </div>
                         <div className="text-right">
                              <Button type="submit" className="bg-primary text-white hover:bg-primary-dark h-11 w-36 flex justify-center items-center" disabled={submitting === 'league'}>

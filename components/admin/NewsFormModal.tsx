@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { NewsItem } from '../../data/news';
 import { Card, CardContent } from '../ui/Card';
@@ -14,24 +13,28 @@ interface NewsFormModalProps {
 }
 
 const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, article }) => {
+    // State for categories must handle array
     const [formData, setFormData] = useState({
         title: '',
         summary: '',
         content: '',
         image: '',
-        category: 'National' as NewsItem['category'],
+        categories: [] as string[],
         date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
         url: '',
     });
 
+    const availableCategories = ['National', 'International', 'Womens', 'Schools', 'Football News'];
+
     useEffect(() => {
         if (article) {
+            const cats = Array.isArray(article.category) ? article.category : [article.category];
             setFormData({
                 title: article.title,
                 summary: article.summary,
                 content: article.content || '',
                 image: article.image,
-                category: article.category,
+                categories: cats,
                 date: new Date(article.date).toISOString().split('T')[0],
                 url: article.url,
             });
@@ -41,14 +44,14 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
                 summary: '',
                 content: '',
                 image: '',
-                category: 'National',
+                categories: ['National'],
                 date: new Date().toISOString().split('T')[0],
                 url: '',
             });
         }
     }, [article, isOpen]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
 
@@ -56,6 +59,17 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
             const slug = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             setFormData(prev => ({ ...prev, url: `/news/${slug}` }));
         }
+    };
+
+    const handleCategoryChange = (category: string) => {
+        setFormData(prev => {
+            const current = prev.categories;
+            if (current.includes(category)) {
+                return { ...prev, categories: current.filter(c => c !== category) };
+            } else {
+                return { ...prev, categories: [...current, category] };
+            }
+        });
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,11 +87,21 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (formData.categories.length === 0) {
+            alert("Please select at least one category.");
+            return;
+        }
+
         const dataToSave = {
-            ...formData,
+            title: formData.title,
+            summary: formData.summary,
+            content: formData.content,
+            image: formData.image,
+            url: formData.url,
+            category: formData.categories, // Save array
             date: new Date(formData.date).toDateString().slice(4) // e.g., "Oct 26 2023"
         };
-        onSave(dataToSave, article?.id);
+        onSave(dataToSave as any, article?.id);
     };
 
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
@@ -122,28 +146,36 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
                             <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-1">Full Article Content</label>
                             <textarea id="content" name="content" rows={8} value={formData.content} onChange={handleChange} required className={inputClass} placeholder="Write the full article content here. You can use newlines to create paragraphs."></textarea>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">Image URL or Upload</label>
-                                <div className="flex items-center gap-2">
-                                    <input type="text" id="image" name="image" value={formData.image} onChange={handleChange} required className={inputClass} placeholder="Paste URL..."/>
-                                    <label htmlFor="image-upload" className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
-                                        Upload
-                                        <input type="file" id="image-upload" name="image-upload" onChange={handleFileChange} accept="image/*" className="sr-only" />
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Categories (Select one or more)</label>
+                            <div className="flex flex-wrap gap-3">
+                                {availableCategories.map(cat => (
+                                    <label key={cat} className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer border ${formData.categories.includes(cat) ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-300 text-gray-700'}`}>
+                                        <input 
+                                            type="checkbox" 
+                                            value={cat} 
+                                            checked={formData.categories.includes(cat)}
+                                            onChange={() => handleCategoryChange(cat)}
+                                            className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm font-medium">{cat}</span>
                                     </label>
-                                </div>
-                            </div>
-                            <div>
-                                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                                <select id="category" name="category" value={formData.category} onChange={handleChange} required className={inputClass}>
-                                    <option>National</option>
-                                    <option>International</option>
-                                    <option>Womens</option>
-                                    <option>Schools</option>
-                                </select>
+                                ))}
                             </div>
                         </div>
-                         {formData.image && <img src={formData.image} alt="Preview" className="mt-2 h-32 w-auto rounded-md object-contain border p-1" />}
+
+                        <div>
+                            <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">Image URL or Upload</label>
+                            <div className="flex items-center gap-2">
+                                <input type="text" id="image" name="image" value={formData.image} onChange={handleChange} required className={inputClass} placeholder="Paste URL..."/>
+                                <label htmlFor="image-upload" className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                    Upload
+                                    <input type="file" id="image-upload" name="image-upload" onChange={handleFileChange} accept="image/*" className="sr-only" />
+                                </label>
+                            </div>
+                            {formData.image && <img src={formData.image} alt="Preview" className="mt-2 h-32 w-auto rounded-md object-contain border p-1" />}
+                        </div>
 
                         <div>
                             <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Publication Date</label>

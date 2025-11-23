@@ -13,6 +13,7 @@ import CheckCircleIcon from '../icons/CheckCircleIcon';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import XCircleIcon from '../icons/XCircleIcon';
 import PencilIcon from '../icons/PencilIcon';
+import TrashIcon from '../icons/TrashIcon';
 import { Competition, CompetitionFixture, Team } from '../../data/teams';
 
 interface ParsedFixture extends Partial<CompetitionFixture> {
@@ -201,6 +202,10 @@ Text to parse:\n\n${pastedText}`;
         setParsedFixtures(prev => prev.map(f => f.tempId === tempId ? { ...f, selected: !f.selected } : f));
     };
 
+    const handleRemoveFixture = (tempId: number) => {
+        setParsedFixtures(prev => prev.filter(f => f.tempId !== tempId));
+    };
+
     const handleSave = async () => {
         const itemsToSave = parsedFixtures.filter(f => f.selected);
         if (itemsToSave.length === 0) return setError("No items selected to save.");
@@ -365,6 +370,15 @@ Text to parse:\n\n${pastedText}`;
         handleCancelEdit();
     };
 
+    const handleClearAll = () => {
+        if(window.confirm("Are you sure you want to clear all items?")) {
+            setParsedFixtures([]);
+            setPastedText('');
+            setSuccessMessage('');
+            setError('');
+        }
+    };
+
 
     return (
         <div className="bg-gray-50 py-12">
@@ -406,7 +420,10 @@ Text to parse:\n\n${pastedText}`;
                         
                         {parsedFixtures.length > 0 && (
                             <div className="space-y-4 pt-4 border-t">
-                                <h3 className="text-xl font-bold font-display">4. Review and Save</h3>
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-xl font-bold font-display">4. Review and Save</h3>
+                                    <Button onClick={handleClearAll} className="bg-red-100 text-red-600 hover:bg-red-200 text-xs px-3 py-1">Clear All</Button>
+                                </div>
                                 <div className="overflow-x-auto border rounded-lg">
                                 <table className="w-full text-sm">
                                     <thead className="bg-gray-100 text-left"><tr><th className="p-2 w-12 text-center">Status</th><th className="p-2 w-12"></th><th className="p-2">Home</th><th className="p-2">Away</th><th className="p-2">Date & Time</th><th className="p-2">Venue</th><th className="p-2">Score / Status</th><th className="p-2 w-24 text-center">Actions</th></tr></thead>
@@ -462,10 +479,21 @@ Text to parse:\n\n${pastedText}`;
                                                     </td>
                                                     <td className="p-2 text-center">
                                                         <div className="flex justify-center gap-1">
-                                                            <Button onClick={() => handleEditClick(f)} className="bg-gray-200 text-gray-700 h-7 w-7 p-0 flex items-center justify-center" title="Edit"><PencilIcon className="w-4 h-4"/></Button>
+                                                            <Button onClick={() => handleEditClick(f)} className="bg-gray-200 text-gray-700 h-7 w-7 p-0 flex items-center justify-center" title="Edit" type="button"><PencilIcon className="w-4 h-4"/></Button>
                                                             {f.reviewStatus !== 'auto-publish' && (
-                                                                <Button onClick={() => handleApprove(f.tempId)} className="bg-green-100 text-green-700 hover:bg-green-200 h-7 w-7 p-0 flex items-center justify-center" title="Manually Approve"><CheckCircleIcon className="w-4 h-4" /></Button>
+                                                                <Button onClick={() => handleApprove(f.tempId)} className="bg-green-100 text-green-700 hover:bg-green-200 h-7 w-7 p-0 flex items-center justify-center" title="Manually Approve" type="button"><CheckCircleIcon className="w-4 h-4" /></Button>
                                                             )}
+                                                            <Button 
+                                                                onClick={(e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    handleRemoveFixture(f.tempId); 
+                                                                }} 
+                                                                className="bg-red-100 text-red-600 hover:bg-red-200 h-7 w-7 p-0 flex items-center justify-center" 
+                                                                title="Remove" 
+                                                                type="button"
+                                                            >
+                                                                <TrashIcon className="w-4 h-4" />
+                                                            </Button>
                                                         </div>
                                                     </td>
                                                 </tr>

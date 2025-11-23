@@ -13,14 +13,18 @@ import { fetchNews } from '../services/api';
 export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact' }> = React.memo(({ item, variant = 'default' }) => {
     const [copied, setCopied] = useState(false);
     
+    // Helper to get categories as array
+    const categories = Array.isArray(item.category) ? item.category : [item.category];
+    const mainCategory = categories[0];
+
     let categoryColor = 'bg-green-100 text-green-800';
-    if (item.category === 'National') {
+    if (mainCategory === 'National') {
         categoryColor = 'bg-blue-100 text-blue-800';
-    } else if (item.category === 'Womens') {
+    } else if (mainCategory === 'Womens') {
         categoryColor = 'bg-pink-100 text-pink-800';
-    } else if (item.category === 'International') {
+    } else if (mainCategory === 'International') {
         categoryColor = 'bg-purple-100 text-purple-800';
-    } else if (item.category === 'Schools') {
+    } else if (mainCategory === 'Schools') {
         categoryColor = 'bg-orange-100 text-orange-800';
     }
 
@@ -73,7 +77,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
                         </h3>
                         <div className="flex justify-between items-center mt-1">
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${categoryColor} w-fit`}>
-                                {item.category}
+                                {mainCategory}
                             </span>
                             <p className="text-gray-500 text-xs">{item.date}</p>
                         </div>
@@ -89,9 +93,17 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
             <Card className="transition-shadow duration-300 hover:shadow-xl flex flex-col relative h-full">
                 <div className="relative overflow-hidden">
                     <img src={item.image} alt={item.title} loading="lazy" className="w-full object-cover group-hover:scale-105 transition-transform duration-300 h-48" />
-                     <span className={`absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded-full ${categoryColor}`}>
-                        {item.category}
-                    </span>
+                     <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+                        {categories.map(cat => (
+                            <span key={cat} className={`text-xs font-bold px-2 py-1 rounded-full bg-opacity-90 ${
+                                cat === 'National' ? 'bg-blue-100 text-blue-800' : 
+                                cat === 'International' ? 'bg-purple-100 text-purple-800' : 
+                                'bg-green-100 text-green-800'
+                            }`}>
+                                {cat}
+                            </span>
+                        ))}
+                     </div>
                 </div>
                 <CardContent className="flex flex-col flex-grow p-4">
                     <div className="flex-grow">
@@ -134,7 +146,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     );
 });
 
-const NewsSection: React.FC<{ category?: NewsItem['category'] }> = ({ category }) => {
+const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [allNews, setAllNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -150,7 +162,10 @@ const NewsSection: React.FC<{ category?: NewsItem['category'] }> = ({ category }
     }, []);
 
     const newsItems = category 
-        ? allNews.filter(item => item.category === category)
+        ? allNews.filter(item => {
+            const cats = Array.isArray(item.category) ? item.category : [item.category];
+            return cats.includes(category);
+        })
         : allNews;
 
 

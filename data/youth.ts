@@ -1,3 +1,4 @@
+
 export interface RisingStarPlayer {
     id: number;
     name: string;
@@ -24,7 +25,7 @@ export interface YouthLeague {
 
 export const youthData: YouthLeague[] = [
     {
-        id: 'u20',
+        id: 'u20-elite-league',
         name: "U-20 Elite League",
         description: "The premier battleground for Eswatini's next generation. The U-20 Elite League showcases the youth squads of the nation's top clubs, serving as the final, crucial step before players transition into senior team football. Scouts frequently monitor these high-stakes matches for emerging talent.",
         teams: [
@@ -77,9 +78,9 @@ export const youthData: YouthLeague[] = [
         ],
     },
     {
-        id: 'u17',
-        name: "U-17 National Championship",
-        description: "A vibrant nationwide tournament where the brightest U-17 talents from all four regions of Eswatini compete for national glory. This championship is a primary scouting platform for the national youth teams and a showcase of the country's future stars.",
+        id: 'hub-hardware-u17',
+        name: "The Hub Hardware Under-17 Tournament",
+        description: "Also referred to as the Hub Utility Stores U-17 competition, this grassroots football event is organized under the Hhohho Regional Football Association. It identifies raw talent at the regional level.",
         teams: [
             { id: 1701, name: "Hhohho Eagles U-17", crestUrl: "https://via.placeholder.com/64/00008B/FFFFFF?text=HE" },
             { id: 1702, name: "Lubombo Leopards U-17", crestUrl: "https://via.placeholder.com/64/90EE90/000000?text=LL" },
@@ -125,7 +126,7 @@ export const youthData: YouthLeague[] = [
         teams: [
             { id: 9001, name: "Waterford Kamhlaba", crestUrl: "https://via.placeholder.com/64/1E3A8A/FFFFFF?text=WK" },
             { id: 9002, name: "Sifundzani High School", crestUrl: "https://via.placeholder.com/64/D63031/FFFFFF?text=SHS" },
-            { id: 9003, "name": "Mbabane Central High", crestUrl: "https://via.placeholder.com/64/FBBF24/000000?text=MCH" },
+            { id: 9003, name: "Mbabane Central High", crestUrl: "https://via.placeholder.com/64/FBBF24/000000?text=MCH" },
             { id: 9004, name: "Evelyn Baring High", crestUrl: "https://via.placeholder.com/64/34D399/000000?text=EBH" },
             { id: 9005, name: "Salesian High School", crestUrl: "https://via.placeholder.com/64/6B7280/FFFFFF?text=SH" },
             { id: 9006, name: "St. Francis High", crestUrl: "https://via.placeholder.com/64/EF4444/FFFFFF?text=SFH" },
@@ -145,9 +146,9 @@ export const youthData: YouthLeague[] = [
         ],
     },
     {
-        id: 'u13',
-        name: "U-13 Grassroots Festival",
-        description: "Where the love for football begins. The U-13 Grassroots Festival is a non-competitive event focused on fundamental skills, sportsmanship, and fun. It brings together teams from across the nation for a weekend of learning and small-sided games, nurturing the very foundation of Eswatini's football future.",
+        id: 'build-it-u13',
+        name: "Build It Under-13 National Final Competition",
+        description: "A national spectacle covering the whole country. The Build It U-13 competition is the ultimate test for the youngest talents, emphasizing fundamental skills, sportsmanship, and fun on a grand stage.",
         teams: [
             { id: 1301, name: "Mbabane Future Stars", crestUrl: "https://via.placeholder.com/64/1E3A8A/FFFFFF?text=FS" },
             { id: 1302, name: "Manzini Youngsters", crestUrl: "https://via.placeholder.com/64/D63031/FFFFFF?text=MY" },

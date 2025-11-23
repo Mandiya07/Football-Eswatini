@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
 import SchoolIcon from './icons/SchoolIcon';
+import GlobeIcon from './icons/GlobeIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 
 const YouthPage: React.FC = () => {
@@ -19,9 +20,10 @@ const YouthPage: React.FC = () => {
       setLoading(true);
       try {
           const data = await fetchYouthData();
-          // Only show U17 and U13 as generic sections now, as Schools has its own page
-          const order = ['u17', 'u13']; 
-          const sortedData = [...data].filter(l => order.includes(l.id)).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+          // Keep generic sections if any remain, but most are now pages.
+          // Sorting to ensure consistent render if we map them
+          const order = ['u20-elite-league', 'hub-hardware-u17', 'schools', 'build-it-u13']; 
+          const sortedData = [...data].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
           setYouthData(sortedData);
       } catch (e) {
           console.error("Error loading youth data", e);
@@ -76,19 +78,11 @@ const YouthPage: React.FC = () => {
                                 <div className="p-3 bg-orange-100 rounded-full">
                                     <SchoolIcon className="w-8 h-8 text-orange-600" />
                                 </div>
-                                <h2 className="text-3xl font-bold font-display text-gray-800">Instacash Schools Tournament</h2>
+                                <h2 className="text-3xl font-bold font-display text-gray-800">Instacash Schools</h2>
                             </div>
                             <p className="text-gray-600 mb-6">
                                 The national school football competition developing young talent across all four regions. Featuring top schools like St. Marks and Salesian High.
                             </p>
-                            <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 group-hover:bg-orange-100 transition-colors">
-                                <h4 className="font-bold text-orange-800 text-sm uppercase mb-2">Highlights</h4>
-                                <ul className="space-y-1 text-sm text-gray-700">
-                                    <li>• Regional Qualifiers & Top 16 Draw</li>
-                                    <li>• National Knockout Stages</li>
-                                    <li>• Full Kit Sponsorship & Prizes</li>
-                                </ul>
-                            </div>
                         </div>
                         <div className="flex items-center text-orange-600 font-bold mt-6 group-hover:gap-2 transition-all">
                             View Tournament <ArrowRightIcon className="w-5 h-5 ml-2" />
@@ -96,17 +90,51 @@ const YouthPage: React.FC = () => {
                     </CardContent>
                 </Card>
             </Link>
-        </div>
 
-        {loading ? (
-          <SectionLoader />
-        ) : (
-          <div className="space-y-16">
-            {youthData.map(league => (
-              <YouthSection key={league.id} league={league} />
-            ))}
-          </div>
-        )}
+            {/* HUB HARDWARE U17 LINK */}
+            <Link to="/youth/hub-u17" className="group block">
+                 <Card className="h-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white border-l-8 border-yellow-500">
+                    <CardContent className="p-8 flex flex-col h-full justify-between">
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 bg-yellow-100 rounded-full">
+                                    <TrophyIcon className="w-8 h-8 text-yellow-600" />
+                                </div>
+                                <h2 className="text-3xl font-bold font-display text-gray-800">Hub Hardware U-17</h2>
+                            </div>
+                            <p className="text-gray-600 mb-6">
+                                The Hub Utility Stores U-17 competition. A key grassroots event organized under the Hhohho Regional Football Association.
+                            </p>
+                        </div>
+                        <div className="flex items-center text-yellow-600 font-bold mt-6 group-hover:gap-2 transition-all">
+                            View Tournament <ArrowRightIcon className="w-5 h-5 ml-2" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </Link>
+
+            {/* BUILD IT U13 LINK */}
+            <Link to="/youth/build-it-u13" className="group block">
+                 <Card className="h-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white border-l-8 border-red-500">
+                    <CardContent className="p-8 flex flex-col h-full justify-between">
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-3 bg-red-100 rounded-full">
+                                    <GlobeIcon className="w-8 h-8 text-red-600" />
+                                </div>
+                                <h2 className="text-3xl font-bold font-display text-gray-800">Build It U-13 National</h2>
+                            </div>
+                            <p className="text-gray-600 mb-6">
+                                The Build It Under-13 National Final Competition. Covering the whole country to find the best young talent at the grassroots level.
+                            </p>
+                        </div>
+                        <div className="flex items-center text-red-600 font-bold mt-6 group-hover:gap-2 transition-all">
+                            View Competition <ArrowRightIcon className="w-5 h-5 ml-2" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </Link>
+        </div>
       </div>
     </div>
   );

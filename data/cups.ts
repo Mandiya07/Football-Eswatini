@@ -30,20 +30,49 @@ export interface Tournament {
 export const cupData: Tournament[] = [
     {
         id: 'ingwenyama-cup',
-        name: 'Ingwenyama Cup',
+        name: 'Ingwenyama Cup (Men)',
         logoUrl: 'https://via.placeholder.com/150/8B4513/FFFFFF?text=Ingwenyama',
         rounds: [
             {
+                title: 'Quarter-Finals',
+                matches: [
+                    { id: 'qf1', team1: { name: 'Mbabane Swallows', score: 3, crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS' }, team2: { name: 'Madlenya FC', score: 0, crestUrl: 'https://via.placeholder.com/128/483D8B/FFFFFF?text=MFC' }, winner: 'team1', date: '2024-02-10' },
+                    { id: 'qf2', team1: { name: 'Green Mamba', score: 1, crestUrl: 'https://via.placeholder.com/128/1E4620/FFFFFF?text=GM' }, team2: { name: 'Nsingizini Hotspurs', score: 0, crestUrl: 'https://via.placeholder.com/128/FFFF00/000000?text=NH' }, winner: 'team1', date: '2024-02-10' },
+                    { id: 'qf3', team1: { name: 'Royal Leopards', score: 2, crestUrl: 'https://via.placeholder.com/128/00008B/FFFFFF?text=RL' }, team2: { name: 'Ezulwini United', score: 1, crestUrl: 'https://via.placeholder.com/128/008080/FFFFFF?text=EU' }, winner: 'team1', date: '2024-02-11' },
+                    { id: 'qf4', team1: { name: 'Young Buffaloes', score: 4, crestUrl: 'https://via.placeholder.com/128/A52A2A/FFFFFF?text=YB' }, team2: { name: 'Illovo FC', score: 1, crestUrl: 'https://via.placeholder.com/128/228B22/FFFFFF?text=IFC' }, winner: 'team1', date: '2024-02-11' },
+                ]
+            },
+            {
                 title: 'Semi-Finals',
                 matches: [
-                    { id: 1, team1: { id: 1, name: 'Green Mamba', score: 1, crestUrl: 'https://via.placeholder.com/128/1E4620/FFFFFF?text=GM' }, team2: { id: 4, name: 'Royal Leopards', score: 0, crestUrl: 'https://via.placeholder.com/128/00008B/FFFFFF?text=RL' }, winner: 'team1', date: '2024-03-15', time: '15:00' },
-                    { id: 2, team1: { id: 2, name: 'Mbabane Swallows', score: 2, crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS' }, team2: { id: 3, name: 'Young Buffaloes', score: 1, crestUrl: 'https://via.placeholder.com/128/A52A2A/FFFFFF?text=YB' }, winner: 'team1', date: '2024-03-16', time: '15:00' },
+                    { id: 'sf1', team1: { name: 'Green Mamba', score: 1, crestUrl: 'https://via.placeholder.com/128/1E4620/FFFFFF?text=GM' }, team2: { name: 'Royal Leopards', score: 0, crestUrl: 'https://via.placeholder.com/128/00008B/FFFFFF?text=RL' }, winner: 'team1', date: '2024-03-15', time: '15:00' },
+                    { id: 'sf2', team1: { name: 'Mbabane Swallows', score: 2, crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS' }, team2: { name: 'Young Buffaloes', score: 1, crestUrl: 'https://via.placeholder.com/128/A52A2A/FFFFFF?text=YB' }, winner: 'team1', date: '2024-03-16', time: '15:00' },
                 ]
             },
             {
                 title: 'Final',
                 matches: [
-                    { id: 3, team1: { id: 1, name: 'Green Mamba', crestUrl: 'https://via.placeholder.com/128/1E4620/FFFFFF?text=GM' }, team2: { id: 2, name: 'Mbabane Swallows', crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS' }, date: '2024-04-01', time: '15:00' },
+                    { id: 'f1', team1: { name: 'Green Mamba', crestUrl: 'https://via.placeholder.com/128/1E4620/FFFFFF?text=GM' }, team2: { name: 'Mbabane Swallows', crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MS' }, date: '2024-04-01', time: '15:00' },
+                ]
+            }
+        ]
+    },
+    {
+        id: 'ingwenyama-cup-women',
+        name: 'Ingwenyama Cup (Women)',
+        logoUrl: 'https://via.placeholder.com/150/8B4513/FFFFFF?text=Ingwenyama+Ladies',
+        rounds: [
+            {
+                title: 'Semi-Finals',
+                matches: [
+                    { id: 'wsf1', team1: { name: 'Young Buffaloes Ladies', score: 5, crestUrl: 'https://via.placeholder.com/128/A52A2A/FFFFFF?text=YBL' }, team2: { name: 'Manzini Wanderers Ladies', score: 0, crestUrl: 'https://via.placeholder.com/128/800080/FFFFFF?text=MWL' }, winner: 'team1', date: '2024-03-10' },
+                    { id: 'wsf2', team1: { name: 'Royal Leopards Ladies', score: 2, crestUrl: 'https://via.placeholder.com/128/00008B/FFFFFF?text=RLL' }, team2: { name: 'Mbabane Swallows Ladies', score: 1, crestUrl: 'https://via.placeholder.com/128/FF0000/FFFFFF?text=MSL' }, winner: 'team1', date: '2024-03-10' },
+                ]
+            },
+            {
+                title: 'Final',
+                matches: [
+                    { id: 'wf1', team1: { name: 'Young Buffaloes Ladies', crestUrl: 'https://via.placeholder.com/128/A52A2A/FFFFFF?text=YBL' }, team2: { name: 'Royal Leopards Ladies', crestUrl: 'https://via.placeholder.com/128/00008B/FFFFFF?text=RLL' }, date: '2024-04-01', time: '11:00' },
                 ]
             }
         ]

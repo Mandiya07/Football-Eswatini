@@ -38,13 +38,15 @@ import CalendarIcon from './icons/CalendarIcon';
 import YouthIcon from './icons/YouthIcon';
 import SparklesIcon from './icons/SparklesIcon';
 import WhistleIcon from './icons/WhistleIcon';
+import ShareIcon from './icons/ShareIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
 const SeedDatabase = lazy(() => import('./admin/SeedDatabase'));
 const YouthManagement = lazy(() => import('./admin/YouthManagement'));
+const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -82,6 +84,7 @@ const AdminPanelPage: React.FC = () => {
       case 'tournament': return <TournamentBracket />;
       case 'seed': return <SeedDatabase />;
       case 'reset': return <ResetAllData />;
+      case 'social': return <SocialMediaGenerator />;
       default: return null;
     }
   };
@@ -119,6 +122,7 @@ const AdminPanelPage: React.FC = () => {
                     <div className="space-y-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Content</h4>
                         <TabButton tabName="news" label="News" Icon={NewspaperIcon} />
+                        <TabButton tabName="social" label="Social Gen" Icon={ShareIcon} className="bg-purple-50 text-purple-700 hover:bg-purple-100" />
                         <TabButton tabName="shop" label="Shop Items" Icon={TagIcon} />
                         <TabButton tabName="features" label="Features Content" Icon={SparklesIcon} />
                         <TabButton tabName="scouting" label="Scouting" Icon={BinocularsIcon} />

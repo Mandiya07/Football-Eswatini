@@ -8,6 +8,7 @@ import CheckCircleIcon from '../icons/CheckCircleIcon';
 import PencilIcon from '../icons/PencilIcon';
 import XIcon from '../icons/XIcon';
 import SaveIcon from '../icons/SaveIcon';
+import TrashIcon from '../icons/TrashIcon';
 import { CompetitionFixture } from '../../data/teams';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories } from '../../services/api';
 import { db } from '../../services/firebase';
@@ -15,9 +16,10 @@ import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps, normalizeTeamName, calculateStandings } from '../../services/utils';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import InfoIcon from '../icons/InfoIcon';
+import GlobeIcon from '../icons/GlobeIcon';
 
 // Fetched fixture from football-data.org
-interface FetchedFixture {
+interface FetchedFixtureFD {
     id: number;
     utcDate: string;
     status: string;
@@ -31,6 +33,21 @@ interface FetchedFixture {
     };
     venue?: string;
     matchday: number;
+}
+
+// Fetched event from TheSportsDB
+interface FetchedEventTSDB {
+    idEvent: string;
+    strEvent: string; // "Home vs Away"
+    strHomeTeam: string;
+    strAwayTeam: string;
+    dateEvent: string; // YYYY-MM-DD
+    strTime: string; // HH:MM:SS
+    intHomeScore: string | null;
+    intAwayScore: string | null;
+    strVenue?: string;
+    intRound?: string;
+    strStatus?: string; // "Match Finished", "Not Started", "Time to be defined"
 }
 
 interface ReviewedFixture {
@@ -124,6 +141,13 @@ const getMockUpcomingFixtures = (type: 'fixtures' | 'results'): CompetitionFixtu
     ];
 };
 
+// Helper to extract year for football-data from a potential range string
+const extractYear = (seasonStr: string) => {
+    if (!seasonStr) return '';
+    const parts = seasonStr.split('-');
+    return parts[0].trim(); // Returns '2024' from '2024-2025' or '2024'
+};
+
 const ApiImportPage: React.FC = () => {
     const [reviewedFixtures, setReviewedFixtures] = useState<ReviewedFixture[]>([]);
     const [isFetching, setIsFetching] = useState(false);
@@ -132,6 +156,7 @@ const ApiImportPage: React.FC = () => {
     const [successMessage, setSuccessMessage] = useState('');
     const [isFallback, setIsFallback] = useState(false);
     const [importType, setImportType] = useState<'fixtures' | 'results'>('fixtures');
+    const [apiProvider, setApiProvider] = useState<'football-data' | 'thesportsdb'>('football-data');
 
     const [competitions, setCompetitions] = useState<{ id: string, name: string, externalApiId?: string }[]>([]);
     const [loadingComps, setLoadingComps] = useState(true);
@@ -140,11 +165,53 @@ const ApiImportPage: React.FC = () => {
     
     // API Configuration State
     const [apiKey, setApiKey] = useState('');
+    const [season, setSeason] = useState('');
     const [useProxy, setUseProxy] = useState(true);
 
     // Edit State
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editFormData, setEditFormData] = useState<Partial<CompetitionFixture>>({});
+
+    useEffect(() => {
+        // Smart Season Defaulting
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth(); // 0-11
+        
+        // Standard European/Eswatini season is Aug-May.
+        // If we are in Jan-June (0-5), we are in the "2024-2025" season (where 2025 is current year).
+        // If we are in July-Dec (6-11), we are in the "2025-2026" season.
+        const seasonStr = month < 6 ? `${year - 1}-${year}` : `${year}-${year + 1}`;
+        setSeason(seasonStr);
+    }, []);
+
+    // Auto-detect season for TSDB when competition changes
+    useEffect(() => {
+        const autoDetectSeason = async () => {
+            if (apiProvider !== 'thesportsdb' || !selectedCompId || competitions.length === 0) return;
+            
+            const selectedComp = competitions.find(c => c.id === selectedCompId);
+            if (!selectedComp?.externalApiId) return;
+
+            const key = apiKey || '1'; 
+            let url = `https://www.thesportsdb.com/api/v1/json/${key}/lookupleague.php?id=${selectedComp.externalApiId}`;
+            if (useProxy) url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+
+            try {
+                // We fetch quietly without blocking UI
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.leagues && data.leagues[0]?.strCurrentSeason) {
+                    console.log("Auto-detected season for TSDB:", data.leagues[0].strCurrentSeason);
+                    setSeason(data.leagues[0].strCurrentSeason);
+                }
+            } catch (e) {
+                console.warn("Failed to lookup league season", e);
+            }
+        };
+        
+        autoDetectSeason();
+    }, [selectedCompId, apiProvider, apiKey, useProxy, competitions]);
 
     useEffect(() => {
         const loadAppCompetitions = async () => {
@@ -165,25 +232,12 @@ const ApiImportPage: React.FC = () => {
                         categoryId: comp.categoryId
                     }));
                 
-                const internationalCategory = allCategories.find(cat => 
-                    cat.name.toLowerCase().includes('international')
-                );
+                const importableCompetitions = allComps.filter(comp => comp.externalApiId);
     
-                if (!internationalCategory) {
-                    setCompetitions([]);
-                    setSelectedCompId('');
-                    setLoadingComps(false);
-                    return;
-                }
-    
-                const internationalCompetitions = allComps.filter(comp => 
-                    comp.categoryId === internationalCategory.id && comp.externalApiId
-                );
-    
-                setCompetitions(internationalCompetitions);
+                setCompetitions(importableCompetitions);
                 
-                if (internationalCompetitions.length > 0) {
-                    setSelectedCompId(internationalCompetitions[0].id);
+                if (importableCompetitions.length > 0) {
+                    setSelectedCompId(importableCompetitions[0].id);
                 } else {
                     setSelectedCompId('');
                 }
@@ -250,11 +304,186 @@ const ApiImportPage: React.FC = () => {
         });
 
         setReviewedFixtures(processedFixtures);
-        if (source === "Live API") {
-            setSuccessMessage(`Successfully fetched ${processedFixtures.length} ${importType}. Please review for any name mismatches.`);
+        if (source.includes("API") || source.includes("Fallback")) {
+            setSuccessMessage(`Successfully fetched ${processedFixtures.length} ${importType} from ${source}.`);
         }
     };
     
+    const fetchFootballDataOrg = async (externalApiId: string) => {
+        const statusQuery = importType === 'fixtures' ? 'SCHEDULED' : 'FINISHED';
+        let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=${statusQuery}`;
+        
+        // Use extracted year from season input
+        const year = extractYear(season);
+        if (year && year.length === 4 && !isNaN(Number(year))) {
+            url += `&season=${year}`;
+        }
+        
+        if (useProxy) {
+            url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        }
+
+        const headers: HeadersInit = {};
+        if (apiKey) {
+            headers['X-Auth-Token'] = apiKey;
+        }
+
+        const response = await fetch(url, { headers });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Football-Data API Error (${response.status}): ${errorData.message || 'Check API Key/Proxy.'}`);
+        }
+
+        const data = await response.json();
+        const fetchedEvents: FetchedFixtureFD[] = data.matches;
+
+        const officialTeamNames = (currentCompetition?.teams || []).map(t => t.name);
+
+        const fixturesToReview: CompetitionFixture[] = fetchedEvents.map(event => {
+            const eventDate = new Date(event.utcDate);
+            const normalizedTeamA = normalizeTeamName(event.homeTeam.name, officialTeamNames);
+            const normalizedTeamB = normalizeTeamName(event.awayTeam.name, officialTeamNames);
+            
+            return {
+                id: event.id,
+                teamA: normalizedTeamA || event.homeTeam.name,
+                teamB: normalizedTeamB || event.awayTeam.name,
+                fullDate: eventDate.toISOString().split('T')[0],
+                date: eventDate.getDate().toString(),
+                day: eventDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+                time: eventDate.toTimeString().substring(0, 5),
+                venue: event.venue || undefined,
+                matchday: event.matchday,
+                status: importType === 'results' ? 'finished' : 'scheduled',
+                scoreA: importType === 'results' ? (event.score?.fullTime.home ?? undefined) : undefined,
+                scoreB: importType === 'results' ? (event.score?.fullTime.away ?? undefined) : undefined,
+            };
+        });
+
+        return fixturesToReview;
+    };
+
+    const fetchTheSportsDB = async (externalApiId: string) => {
+        const key = apiKey || '1'; 
+        
+        // 1. Determine Season string
+        let effectiveSeason = season.trim();
+        if (!effectiveSeason) {
+             const now = new Date();
+             const year = now.getFullYear();
+             effectiveSeason = now.getMonth() < 6 ? `${year - 1}-${year}` : `${year}-${year + 1}`;
+             setSeason(effectiveSeason); 
+        }
+
+        // 2. Try eventsseason.php FIRST (Full Season)
+        let url = `https://www.thesportsdb.com/api/v1/json/${key}/eventsseason.php?id=${externalApiId}&s=${effectiveSeason}`;
+        if (useProxy) url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+
+        let fetchedEvents: FetchedEventTSDB[] = [];
+
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                const data = await response.json();
+                fetchedEvents = data.events || [];
+            }
+        } catch (e) {
+            console.warn("eventsseason.php failed or returned invalid JSON", e);
+        }
+
+        // 2b. RETRY Strategy: If eventsseason failed, try just the YEAR (YYYY) instead of range
+        if (fetchedEvents.length === 0 && effectiveSeason.includes('-')) {
+            const singleYear = effectiveSeason.split('-')[0]; // Try first part
+            console.log(`Retrying eventsseason with single year: ${singleYear}`);
+            let retryUrl = `https://www.thesportsdb.com/api/v1/json/${key}/eventsseason.php?id=${externalApiId}&s=${singleYear}`;
+            if (useProxy) retryUrl = `https://corsproxy.io/?${encodeURIComponent(retryUrl)}`;
+            try {
+                const response = await fetch(retryUrl);
+                if (response.ok) {
+                    const data = await response.json();
+                    fetchedEvents = data.events || [];
+                }
+            } catch (e) {}
+        }
+
+        // 3. FALLBACK: If full season is empty/null, fallback to "Next 15" or "Past 15"
+        if (fetchedEvents.length === 0) {
+             console.warn("TheSportsDB: Full season data unavailable. Falling back to limit-15 endpoints.");
+             const endpoint = importType === 'fixtures' ? 'eventsnextleague.php' : 'eventspastleague.php';
+             let fallbackUrl = `https://www.thesportsdb.com/api/v1/json/${key}/${endpoint}?id=${externalApiId}`;
+             if (useProxy) fallbackUrl = `https://corsproxy.io/?${encodeURIComponent(fallbackUrl)}`;
+             
+             try {
+                const fbResponse = await fetch(fallbackUrl);
+                if (fbResponse.ok) {
+                    const fbData = await fbResponse.json();
+                    if (fbData.events) {
+                        fetchedEvents = fbData.events;
+                        setSuccessMessage(`Note: Showing only 15 items because full season data was not available for ${effectiveSeason}.`);
+                    }
+                }
+             } catch (e) {
+                 console.error("Fallback fetch failed", e);
+             }
+        }
+
+        if (fetchedEvents.length === 0) return [];
+
+        const officialTeamNames = (currentCompetition?.teams || []).map(t => t.name);
+        const fixturesToReview: CompetitionFixture[] = [];
+        
+        fetchedEvents.forEach(event => {
+            const rawStatus = event.strStatus || '';
+            const statusLower = rawStatus.toLowerCase();
+            
+            const isFinished = statusLower.includes('finished') || statusLower === 'ft' || statusLower === 'aet' || statusLower.includes('pen') || statusLower.includes('full time');
+            
+            let include = false;
+            if (importType === 'fixtures') {
+                if (!isFinished) include = true;
+            } else {
+                if (isFinished || statusLower.includes('abandoned')) include = true;
+            }
+
+            if (include) {
+                const eventDate = new Date(event.dateEvent);
+                const normalizedTeamA = normalizeTeamName(event.strHomeTeam, officialTeamNames);
+                const normalizedTeamB = normalizeTeamName(event.strAwayTeam, officialTeamNames);
+                const timeStr = event.strTime ? event.strTime.substring(0, 5) : '00:00';
+
+                let derivedStatus: CompetitionFixture['status'] = 'scheduled';
+                
+                if (isFinished) derivedStatus = 'finished';
+                else if (statusLower.includes('postponed') || statusLower.includes('ppd')) derivedStatus = 'postponed';
+                else if (statusLower.includes('suspended')) derivedStatus = 'suspended';
+                else if (statusLower.includes('abandoned')) derivedStatus = 'abandoned';
+                else if (statusLower.includes('cancel')) derivedStatus = 'cancelled';
+                
+                if (importType === 'results' && derivedStatus === 'scheduled' && event.intHomeScore && event.intAwayScore) {
+                    derivedStatus = 'finished';
+                }
+
+                fixturesToReview.push({
+                    id: parseInt(event.idEvent, 10) || Date.now(),
+                    teamA: normalizedTeamA || event.strHomeTeam,
+                    teamB: normalizedTeamB || event.strAwayTeam,
+                    fullDate: event.dateEvent,
+                    date: eventDate.getDate().toString(),
+                    day: eventDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+                    time: timeStr,
+                    venue: event.strVenue || undefined,
+                    matchday: event.intRound ? parseInt(event.intRound, 10) : undefined,
+                    status: derivedStatus,
+                    scoreA: event.intHomeScore !== null && event.intHomeScore !== "" ? parseInt(event.intHomeScore, 10) : undefined,
+                    scoreB: event.intAwayScore !== null && event.intAwayScore !== "" ? parseInt(event.intAwayScore, 10) : undefined,
+                });
+            }
+        });
+
+        return fixturesToReview;
+    }
+
     const handleFetch = async () => {
         const selectedCompetition = competitions.find(c => c.id === selectedCompId);
         const externalApiId = selectedCompetition?.externalApiId;
@@ -266,74 +495,38 @@ const ApiImportPage: React.FC = () => {
         setIsFallback(false);
         
         if (!externalApiId) {
-            console.warn(`No external API ID for ${selectedCompetition?.name}. Activating fallback mode.`);
+            console.warn(`No external API ID for ${selectedCompetition?.name}. Activating mock fallback.`);
             setIsFallback(true);
-            processAndReviewFixtures(getMockUpcomingFixtures(importType), "Fallback Data");
+            processAndReviewFixtures(getMockUpcomingFixtures(importType), "Mock Data");
             setIsFetching(false);
             return;
         }
 
         try {
-            const statusQuery = importType === 'fixtures' ? 'SCHEDULED' : 'FINISHED';
-            // Fetch more matches to ensure we capture missed ones if limits exist, though API usually pages well.
-            let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=${statusQuery}`;
-            
-            if (useProxy) {
-                url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            let fixtures: CompetitionFixture[] = [];
+            let sourceLabel = "Live API";
+
+            if (apiProvider === 'thesportsdb') {
+                fixtures = await fetchTheSportsDB(externalApiId);
+                sourceLabel = "TheSportsDB";
+            } else {
+                fixtures = await fetchFootballDataOrg(externalApiId);
+                sourceLabel = "Football-Data.org";
             }
 
-            const headers: HeadersInit = {};
-            if (apiKey) {
-                headers['X-Auth-Token'] = apiKey;
+            if (fixtures.length === 0) {
+                let msg = `No ${importType} found from ${sourceLabel}.`;
+                if (apiProvider === 'thesportsdb' || apiProvider === 'football-data') {
+                    msg += ` Checked season "${season}"${apiProvider === 'thesportsdb' ? ' (and fallbacks)' : ''}.`;
+                }
+                setError(msg);
+            } else {
+                processAndReviewFixtures(fixtures, sourceLabel);
             }
-
-            const response = await fetch(url, { headers });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(`API Error (${response.status}): ${errorData.message || 'Failed to fetch data. Check your API Key or Proxy settings.'}`);
-            }
-
-            const data = await response.json();
-            const fetchedEvents: FetchedFixture[] = data.matches;
-
-            if (fetchedEvents.length === 0) {
-                setSuccessMessage(`No ${importType} found from the live API.`);
-                setIsFetching(false);
-                return;
-            }
-            
-            const officialTeamNames = (currentCompetition?.teams || []).map(t => t.name);
-
-            const fixturesToReview: CompetitionFixture[] = fetchedEvents.map(event => {
-                const eventDate = new Date(event.utcDate);
-
-                // Attempt normalization, but keep raw name if it fails so user can fix it manually
-                const normalizedTeamA = normalizeTeamName(event.homeTeam.name, officialTeamNames);
-                const normalizedTeamB = normalizeTeamName(event.awayTeam.name, officialTeamNames);
-                
-                const fixture: CompetitionFixture = {
-                    id: event.id,
-                    teamA: normalizedTeamA || event.homeTeam.name,
-                    teamB: normalizedTeamB || event.awayTeam.name,
-                    fullDate: eventDate.toISOString().split('T')[0],
-                    date: eventDate.getDate().toString(),
-                    day: eventDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-                    time: eventDate.toTimeString().substring(0, 5),
-                    venue: event.venue || undefined,
-                    matchday: event.matchday,
-                    status: importType === 'results' ? 'finished' : 'scheduled',
-                    scoreA: importType === 'results' ? (event.score?.fullTime.home ?? undefined) : undefined,
-                    scoreB: importType === 'results' ? (event.score?.fullTime.away ?? undefined) : undefined,
-                };
-                return fixture;
-            });
-
-            processAndReviewFixtures(fixturesToReview, "Live API");
 
         } catch (err) {
-            console.warn("Live API fetch failed. Activating fallback mode.", err);
-            setError(`Error: ${(err as Error).message}. Switching to mock data.`);
+            console.warn("Live API fetch failed. Activating fallback.", err);
+            setError(`Error: ${(err as Error).message}. Switching to mock data for demonstration.`);
             setIsFallback(true);
             const mockData = getMockUpcomingFixtures(importType);
             processAndReviewFixtures(mockData, "Fallback Data");
@@ -347,13 +540,16 @@ const ApiImportPage: React.FC = () => {
         setReviewedFixtures(prev => prev.map(f => f.id === id ? { ...f, selected: !f.selected } : f));
     };
 
+    const handleRemoveFixture = (id: string) => {
+        setReviewedFixtures(prev => prev.filter(f => f.id !== id));
+    };
+
     const handleImportSelected = async () => {
         const fixturesToImport = reviewedFixtures.filter(f => f.selected && (f.status === 'new' || f.status === 'error'));
         
-        // Check for any remaining errors in selected items
         const invalidSelections = fixturesToImport.filter(f => f.status === 'error');
         if (invalidSelections.length > 0) {
-            setError(`Cannot import: ${invalidSelections.length} selected items have invalid team names. Please edit them first.`);
+            setError(`Cannot import: ${invalidSelections.length} selected items have invalid team names. Please edit them manually.`);
             return;
         }
 
@@ -435,9 +631,9 @@ const ApiImportPage: React.FC = () => {
                     return {
                         ...f,
                         fixtureData: updatedFixtureData,
-                        status: hasError ? 'error' : 'new', // Reset status to new (or keep error)
+                        status: hasError ? 'error' : 'new', 
                         error: errorMsg,
-                        selected: !hasError // Auto-select if fixed
+                        selected: !hasError 
                     } as ReviewedFixture;
                 }
                 return f;
@@ -446,6 +642,19 @@ const ApiImportPage: React.FC = () => {
         });
         
         handleCancelEdit();
+    };
+
+    const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setEditFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleClearAll = () => {
+        if(window.confirm("Are you sure you want to clear all fetched items?")) {
+            setReviewedFixtures([]);
+            setSuccessMessage('');
+            setError('');
+        }
     };
 
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
@@ -459,7 +668,7 @@ const ApiImportPage: React.FC = () => {
                             <CloudDownloadIcon className="w-12 h-12 mx-auto text-purple-600 mb-2" />
                             <h1 className="text-3xl font-display font-bold">Live Fixture & Result Import</h1>
                             <p className="text-gray-600 max-w-3xl mx-auto mt-2">
-                                Fetch upcoming fixtures or recent results directly from <strong>football-data.org</strong>. 
+                                Fetch upcoming fixtures or recent results directly from external APIs.
                             </p>
                         </div>
 
@@ -467,7 +676,7 @@ const ApiImportPage: React.FC = () => {
                             <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 animate-fade-in">
                                 <p className="font-bold flex items-center gap-2"><AlertTriangleIcon className="w-5 h-5"/>Live API Unreachable</p>
                                 <p className="text-sm mt-1">
-                                    {error || "The request to the live API was blocked or failed. This is likely a CORS policy issue or an invalid API ID. As a demonstration, the application has loaded mock data instead."}
+                                    {error || "The request to the live API was blocked or failed. As a demonstration, the application has loaded mock data instead."}
                                 </p>
                             </div>
                         )}
@@ -475,37 +684,74 @@ const ApiImportPage: React.FC = () => {
                         {successMessage && !error && !isFallback && <div className="p-3 bg-green-100 text-green-800 rounded-md animate-fade-in">{successMessage}</div>}
                         {error && !isFallback && <div className="p-3 bg-red-100 text-red-800 rounded-md animate-fade-in">{error}</div>}
 
-                        <div className="space-y-4 pt-4 border-t">
-                            <h2 className="text-xl font-bold font-display">Step 1: Configure & Fetch</h2>
+                        <div className="space-y-6 pt-4 border-t">
+                            <h2 className="text-xl font-bold font-display">Step 1: Configure Source</h2>
                             
-                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                                <label className="block text-sm font-bold text-blue-800 mb-2">Import Type</label>
-                                <div className="flex gap-2 p-1 bg-white rounded-lg w-fit border border-blue-100">
-                                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-colors ${importType === 'fixtures' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-50'}`}>
-                                        <input type="radio" name="apiImportType" value="fixtures" checked={importType === 'fixtures'} onChange={() => setImportType('fixtures')} className="h-4 w-4 text-blue-600" />
-                                        <span className="text-sm font-semibold">Fixtures</span>
-                                    </label>
-                                    <label className={`flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-colors ${importType === 'results' ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-50'}`}>
-                                        <input type="radio" name="apiImportType" value="results" checked={importType === 'results'} onChange={() => setImportType('results')} className="h-4 w-4 text-blue-600" />
-                                        <span className="text-sm font-semibold">Results</span>
-                                    </label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                    <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><GlobeIcon className="w-4 h-4"/> API Provider</label>
+                                    <div className="flex flex-col gap-2">
+                                        <label className={`flex items-center gap-3 p-2 rounded-md cursor-pointer border transition-colors ${apiProvider === 'football-data' ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                            <input type="radio" name="apiProvider" value="football-data" checked={apiProvider === 'football-data'} onChange={() => setApiProvider('football-data')} className="h-4 w-4 text-blue-600" />
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-gray-800">football-data.org</span>
+                                                <span className="text-[10px] text-gray-500">Specializes in major European leagues. API Key required.</span>
+                                            </div>
+                                        </label>
+                                        <label className={`flex items-center gap-3 p-2 rounded-md cursor-pointer border transition-colors ${apiProvider === 'thesportsdb' ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                            <input type="radio" name="apiProvider" value="thesportsdb" checked={apiProvider === 'thesportsdb'} onChange={() => setApiProvider('thesportsdb')} className="h-4 w-4 text-blue-600" />
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-gray-800">thesportsdb.com</span>
+                                                <span className="text-[10px] text-gray-500">Crowdsourced database. Use '1' as test key or a private paid key.</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                    <label className="block text-sm font-bold text-gray-700 mb-3">Import Data Type</label>
+                                    <div className="flex gap-4 h-full items-start">
+                                        <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md cursor-pointer border transition-colors h-full ${importType === 'fixtures' ? 'bg-purple-50 border-purple-300 text-purple-800 font-semibold' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                            <input type="radio" name="apiImportType" value="fixtures" checked={importType === 'fixtures'} onChange={() => setImportType('fixtures')} className="h-4 w-4 text-purple-600" />
+                                            <span>Upcoming Fixtures</span>
+                                        </label>
+                                        <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md cursor-pointer border transition-colors h-full ${importType === 'results' ? 'bg-purple-50 border-purple-300 text-purple-800 font-semibold' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                            <input type="radio" name="apiImportType" value="results" checked={importType === 'results'} onChange={() => setImportType('results')} className="h-4 w-4 text-purple-600" />
+                                            <span>Past Results</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="api-key" className="block text-xs font-bold text-gray-700 uppercase mb-1">API Key (football-data.org)</label>
-                                    <input 
-                                        id="api-key" 
-                                        type="password" 
-                                        value={apiKey} 
-                                        onChange={e => setApiKey(e.target.value)} 
-                                        placeholder="Enter your API Key" 
-                                        className={inputClass}
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">Optional for some free tiers, but recommended.</p>
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor="api-key" className="block text-xs font-bold text-gray-700 uppercase mb-1">API Key</label>
+                                        <input 
+                                            id="api-key" 
+                                            type="password" 
+                                            value={apiKey} 
+                                            onChange={e => setApiKey(e.target.value)} 
+                                            placeholder={apiProvider === 'thesportsdb' ? "Enter Private Key or '1' for test" : "Enter your API Key"} 
+                                            className={inputClass}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="season" className="block text-xs font-bold text-gray-700 uppercase mb-1">Season / Year</label>
+                                        <input 
+                                            id="season" 
+                                            type="text" 
+                                            value={season} 
+                                            onChange={e => setSeason(e.target.value)} 
+                                            placeholder={apiProvider === 'thesportsdb' ? "YYYY-YYYY (e.g., 2024-2025)" : "YYYY (e.g., 2024)"} 
+                                            className={`${inputClass} ${!season ? 'border-blue-300 ring-1 ring-blue-200' : ''}`}
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {apiProvider === 'thesportsdb' ? 'Auto-detected from lookup or default.' : 'Year only for Football-Data (e.g. 2024).'}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex items-center">
+                                <div className="flex items-center mt-4">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input 
                                             type="checkbox" 
@@ -513,34 +759,33 @@ const ApiImportPage: React.FC = () => {
                                             onChange={e => setUseProxy(e.target.checked)} 
                                             className="h-4 w-4 text-blue-600 rounded"
                                         />
-                                        <span className="text-sm font-semibold text-gray-700">Use CORS Proxy</span>
+                                        <span className="text-sm font-semibold text-gray-700">Use CORS Proxy (Recommended for browsers)</span>
                                     </label>
-                                    <p className="text-xs text-gray-500 ml-2">(Required for browser-based requests)</p>
                                 </div>
                             </div>
 
                             {loadingComps ? <Spinner /> : (
                                 <div className="space-y-4">
                                     {competitions.length > 0 ? (
-                                        <div className="flex flex-col md:flex-row gap-4 items-end">
-                                            <div className="flex-grow">
-                                                <label htmlFor="league-select" className="block text-sm font-medium text-gray-700 mb-1">Destination League</label>
+                                        <div className="flex flex-col md:flex-row gap-4 items-end pt-4 border-t border-gray-100">
+                                            <div className="flex-grow w-full">
+                                                <label htmlFor="league-select" className="block text-sm font-bold text-gray-700 mb-1">Destination League</label>
                                                 <select id="league-select" value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)} className={inputClass}>
                                                     {competitions.map(comp => (
                                                         <option key={comp.id} value={comp.id}>
-                                                            {comp.name}
+                                                            {comp.name} (ID: {comp.externalApiId || 'N/A'})
                                                         </option>
                                                     ))}
                                                 </select>
                                             </div>
-                                            <Button onClick={handleFetch} disabled={isFetching || !selectedCompId} title={!selectedCompId ? "Please select a destination league" : `Fetch ${importType}`} className="bg-purple-600 text-white w-full md:w-auto h-11 px-8 flex justify-center items-center">
-                                                {isFetching ? <Spinner className="w-5 h-5 border-2"/> : `Fetch ${importType.charAt(0).toUpperCase() + importType.slice(1)}`}
+                                            <Button onClick={handleFetch} disabled={isFetching || !selectedCompId} className="bg-purple-600 text-white w-full md:w-auto h-11 px-8 flex justify-center items-center">
+                                                {isFetching ? <Spinner className="w-5 h-5 border-2"/> : `Fetch Data`}
                                             </Button>
                                         </div>
                                     ) : (
                                         <div className="p-4 bg-gray-100 text-gray-700 rounded-md text-sm">
-                                            <p className="font-semibold flex items-center gap-2"><InfoIcon className="w-5 h-5"/>No Importable International Leagues Found</p>
-                                            <p className="mt-1">To use this feature, ensure competitions are assigned to an 'International' category and have an 'External API ID' set in the Admin Panel.</p>
+                                            <p className="font-semibold flex items-center gap-2"><InfoIcon className="w-5 h-5"/>No Importable Leagues Found</p>
+                                            <p className="mt-1">Configure competitions with External API IDs in the Admin Panel to use this feature.</p>
                                         </div>
                                     )}
                                 </div>
@@ -549,7 +794,11 @@ const ApiImportPage: React.FC = () => {
 
                         {reviewedFixtures.length > 0 && (
                             <div className="space-y-4 pt-4 border-t animate-fade-in">
-                                <h2 className="text-xl font-bold font-display">Step 2: Review & Import</h2>
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-xl font-bold font-display">Step 2: Review & Import</h2>
+                                    <Button onClick={handleClearAll} className="bg-red-100 text-red-600 hover:bg-red-200 text-xs px-3 py-1">Clear All</Button>
+                                </div>
+                                
                                 <div className="overflow-x-auto border rounded-lg">
                                     <table className="w-full text-sm">
                                         <thead className="bg-gray-100 text-left">
@@ -557,98 +806,63 @@ const ApiImportPage: React.FC = () => {
                                                 <th className="p-2 w-12"></th>
                                                 <th className="p-2">Match</th>
                                                 <th className="p-2">Date</th>
-                                                <th className="p-2">Matchday</th>
                                                 {importType === 'results' && <th className="p-2">Score</th>}
                                                 <th className="p-2">Status</th>
-                                                <th className="p-2 w-16">Action</th>
+                                                <th className="p-2 w-24 text-center">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
                                             {reviewedFixtures.map(f => (
                                                 editingId === f.id ? (
                                                     <tr key={f.id} className="bg-blue-50">
-                                                        <td colSpan={7} className="p-3">
+                                                        <td colSpan={6} className="p-3">
                                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                                                                 <div className="col-span-2 grid grid-cols-2 gap-2">
-                                                                    <div>
-                                                                        <label className="text-xs font-bold text-gray-600">Home Team</label>
-                                                                        <select 
-                                                                            value={editFormData.teamA} 
-                                                                            onChange={e => setEditFormData({...editFormData, teamA: e.target.value})} 
-                                                                            className="block w-full text-sm p-1.5 border border-gray-300 rounded"
-                                                                        >
-                                                                            <option value="" disabled>Select Team</option>
-                                                                            {(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                                                                        </select>
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="text-xs font-bold text-gray-600">Away Team</label>
-                                                                        <select 
-                                                                            value={editFormData.teamB} 
-                                                                            onChange={e => setEditFormData({...editFormData, teamB: e.target.value})} 
-                                                                            className="block w-full text-sm p-1.5 border border-gray-300 rounded"
-                                                                        >
-                                                                            <option value="" disabled>Select Team</option>
-                                                                            {(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                                                                        </select>
-                                                                    </div>
+                                                                    <div><label className="text-xs font-bold text-gray-600">Home</label><select value={editFormData.teamA} onChange={e => setEditFormData({...editFormData, teamA: e.target.value})} className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>Select</option>{(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
+                                                                    <div><label className="text-xs font-bold text-gray-600">Away</label><select value={editFormData.teamB} onChange={e => setEditFormData({...editFormData, teamB: e.target.value})} className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>Select</option>{(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
                                                                 </div>
-                                                                {importType === 'results' ? (
-                                                                    <div className="flex gap-2">
-                                                                        <div>
-                                                                            <label className="text-xs font-bold text-gray-600">Home</label>
-                                                                            <input type="number" value={editFormData.scoreA} onChange={e => setEditFormData({...editFormData, scoreA: parseInt(e.target.value)})} className="w-16 p-1.5 border border-gray-300 rounded text-sm" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="text-xs font-bold text-gray-600">Away</label>
-                                                                            <input type="number" value={editFormData.scoreB} onChange={e => setEditFormData({...editFormData, scoreB: parseInt(e.target.value)})} className="w-16 p-1.5 border border-gray-300 rounded text-sm" />
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div>
-                                                                        <label className="text-xs font-bold text-gray-600">Date</label>
-                                                                        <input type="date" value={editFormData.fullDate} onChange={e => setEditFormData({...editFormData, fullDate: e.target.value})} className="w-full p-1.5 border border-gray-300 rounded text-sm" />
-                                                                    </div>
-                                                                )}
-                                                                <div className="flex gap-2">
-                                                                    <Button onClick={handleSaveEdit} className="bg-green-600 text-white h-8 px-3 text-xs flex items-center gap-1"><SaveIcon className="w-3 h-3"/> Save</Button>
-                                                                    <Button onClick={handleCancelEdit} className="bg-gray-300 text-gray-800 h-8 px-3 text-xs flex items-center gap-1"><XIcon className="w-3 h-3"/> Cancel</Button>
+                                                                <div className="flex gap-2 mt-2">
+                                                                    <Button onClick={handleSaveEdit} className="bg-green-600 text-white text-xs h-8">Save</Button>
+                                                                    <Button onClick={handleCancelEdit} className="bg-gray-300 text-gray-800 text-xs h-8">Cancel</Button>
                                                                 </div>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     <tr key={f.id} className={`${!f.selected ? 'bg-gray-50 text-gray-500' : 'bg-white'} ${f.status === 'error' ? 'bg-red-50' : ''}`}>
-                                                        <td className="p-2 text-center">
-                                                            <input type="checkbox" checked={f.selected} onChange={() => handleToggleSelection(f.id)} className="h-4 w-4 rounded" disabled={f.status === 'imported' || f.status === 'error'} />
-                                                        </td>
-                                                        <td className="p-2 font-semibold">
-                                                            {f.fixtureData.teamA} vs {f.fixtureData.teamB}
-                                                            {f.error && <div className="text-xs text-red-600 mt-1 font-normal flex items-center gap-1"><AlertTriangleIcon className="w-3 h-3"/> {f.error}</div>}
-                                                        </td>
+                                                        <td className="p-2 text-center"><input type="checkbox" checked={f.selected} onChange={() => handleToggleSelection(f.id)} className="h-4 w-4 rounded" disabled={f.status === 'imported' || f.status === 'error'} /></td>
+                                                        <td className="p-2 font-semibold">{f.fixtureData.teamA} vs {f.fixtureData.teamB} {f.error && <span className="text-xs text-red-600 block">{f.error}</span>}</td>
                                                         <td className="p-2">{f.date} @ {f.time}</td>
-                                                        <td className="p-2 text-center">{f.matchday}</td>
-                                                        {importType === 'results' && (
-                                                            <td className="p-2 font-bold">
-                                                                {f.fixtureData.scoreA !== undefined ? f.fixtureData.scoreA : '-'} : {f.fixtureData.scoreB !== undefined ? f.fixtureData.scoreB : '-'}
-                                                            </td>
-                                                        )}
+                                                        {importType === 'results' && <td className="p-2 font-bold">{f.fixtureData.scoreA ?? '-'} : {f.fixtureData.scoreB ?? '-'}</td>}
                                                         <td className="p-2">
                                                             {f.status === 'new' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">New</span>}
-                                                            {f.status === 'duplicate' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 inline-flex items-center gap-1"><AlertTriangleIcon className="w-3 h-3"/>Duplicate</span>}
-                                                            {f.status === 'importing' && <Spinner className="w-4 h-4 border-2"/>}
-                                                            {f.status === 'imported' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700 inline-flex items-center gap-1"><CheckCircleIcon className="w-3 h-3"/>Imported</span>}
-                                                            {f.status === 'error' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800 font-bold">Action Req.</span>}
+                                                            {f.status === 'duplicate' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Duplicate</span>}
+                                                            {f.status === 'imported' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">Imported</span>}
+                                                            {f.status === 'error' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Action Req</span>}
                                                         </td>
                                                         <td className="p-2 text-center">
-                                                            <button 
-                                                                onClick={() => handleEditClick(f)}
-                                                                disabled={f.status === 'imported'}
-                                                                className="p-1.5 bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 rounded transition-colors disabled:opacity-50"
-                                                                title="Edit Match"
-                                                            >
-                                                                <PencilIcon className="w-4 h-4" />
-                                                            </button>
+                                                            <div className="flex justify-center gap-1">
+                                                                <Button 
+                                                                    onClick={() => handleEditClick(f)} 
+                                                                    disabled={f.status === 'imported'} 
+                                                                    className="bg-gray-100 hover:bg-blue-100 text-gray-600 h-8 w-8 p-0 flex items-center justify-center" 
+                                                                    title="Edit"
+                                                                    type="button"
+                                                                >
+                                                                    <PencilIcon className="w-4 h-4" />
+                                                                </Button>
+                                                                <Button 
+                                                                    onClick={(e) => { 
+                                                                        e.stopPropagation(); 
+                                                                        handleRemoveFixture(f.id); 
+                                                                    }} 
+                                                                    className="bg-red-100 text-red-600 hover:bg-red-200 h-8 w-8 p-0 flex items-center justify-center" 
+                                                                    title="Remove"
+                                                                    type="button"
+                                                                >
+                                                                    <TrashIcon className="w-4 h-4" />
+                                                                </Button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 )
@@ -657,9 +871,7 @@ const ApiImportPage: React.FC = () => {
                                     </table>
                                 </div>
                                 <div className="text-right">
-                                    <Button onClick={handleImportSelected} disabled={isSaving || reviewedFixtures.filter(f => f.selected && f.status === 'new').length === 0} className="bg-green-600 text-white h-10 px-6 flex justify-center items-center">
-                                        {isSaving ? <Spinner className="w-5 h-5 border-2"/> : `Import Selected (${reviewedFixtures.filter(f => f.selected && f.status === 'new').length})`}
-                                    </Button>
+                                    <Button onClick={handleImportSelected} disabled={isSaving || reviewedFixtures.filter(f => f.selected && f.status === 'new').length === 0} className="bg-green-600 text-white h-10 px-6 flex justify-center items-center">{isSaving ? <Spinner className="w-5 h-5 border-2"/> : `Import Selected`}</Button>
                                 </div>
                             </div>
                         )}

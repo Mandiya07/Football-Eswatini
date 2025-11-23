@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -11,6 +11,9 @@ import { CompetitionFixture, Competition } from '../../data/teams';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps, calculateStandings } from '../../services/utils';
+import PlayIcon from '../icons/PlayIcon';
+import Edit3Icon from '../icons/Edit3Icon';
+import ClockIcon from '../icons/ClockIcon';
 
 const LiveUpdatesEntry: React.FC = () => {
     const [formData, setFormData] = useState({
@@ -36,57 +39,65 @@ const LiveUpdatesEntry: React.FC = () => {
     const [todaysMatches, setTodaysMatches] = useState<{ fixture: CompetitionFixture, compName: string, compId: string }[]>([]);
     const [loadingMatches, setLoadingMatches] = useState(true);
 
-    useEffect(() => {
-        const loadMatches = async () => {
-            setLoadingMatches(true);
-            try {
-                const allComps = await fetchAllCompetitions();
-                const matches: { fixture: CompetitionFixture, compName: string, compId: string }[] = [];
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
+    const loadMatches = useCallback(async () => {
+        setLoadingMatches(true);
+        try {
+            const allComps = await fetchAllCompetitions();
+            const matches: { fixture: CompetitionFixture, compName: string, compId: string }[] = [];
+            const today = new Date();
 
-                Object.entries(allComps).forEach(([compId, comp]) => {
-                    if (comp.fixtures) {
-                        comp.fixtures.forEach(f => {
-                            // Filter for matches that are scheduled for today, or are already live/suspended
-                            // We also include matches from "yesterday" just in case of timezone overlaps or late games
-                            const matchDate = new Date(f.fullDate + 'T' + (f.time || '00:00'));
-                            const diffHours = (today.getTime() - matchDate.getTime()) / (1000 * 60 * 60);
-                            
-                            // Show matches from today, or matches that started within last 24 hours (if not finished)
-                            if (f.fullDate === todayStr || f.status === 'live' || f.status === 'suspended' || (diffHours < 24 && diffHours > -24)) {
-                                matches.push({ fixture: f, compName: comp.name, compId: compId });
-                            }
-                        });
-                    }
-                });
-                setTodaysMatches(matches);
-            } catch (err) {
-                console.error("Error loading matches", err);
-            } finally {
-                setLoadingMatches(false);
-            }
-        };
-        loadMatches();
+            Object.entries(allComps).forEach(([compId, comp]) => {
+                if (comp.fixtures) {
+                    comp.fixtures.forEach(f => {
+                        // Filter for matches that are scheduled for today/soon, or are already live/suspended
+                        const matchDate = new Date(f.fullDate + 'T' + (f.time || '00:00'));
+                        const diffHours = (today.getTime() - matchDate.getTime()) / (1000 * 60 * 60);
+                        
+                        // WIDENED RANGE: Show matches +/- 72 hours (3 days) to capture yesterday's results or tomorrow's games
+                        if (f.status === 'live' || f.status === 'suspended' || (diffHours < 72 && diffHours > -72)) {
+                            matches.push({ fixture: f, compName: comp.name, compId: compId });
+                        }
+                    });
+                }
+            });
+            
+            // Sort matches: Live first, then by date
+            matches.sort((a, b) => {
+                if (a.fixture.status === 'live' && b.fixture.status !== 'live') return -1;
+                if (b.fixture.status === 'live' && a.fixture.status !== 'live') return 1;
+                return new Date(a.fixture.fullDate || '').getTime() - new Date(b.fixture.fullDate || '').getTime();
+            });
+
+            setTodaysMatches(matches);
+        } catch (err) {
+            console.error("Error loading matches", err);
+        } finally {
+            setLoadingMatches(false);
+        }
     }, []);
 
-    const handleMatchSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const fixtureId = e.target.value;
-        if (!fixtureId) return;
+    useEffect(() => {
+        loadMatches();
+    }, [loadMatches]);
 
-        const selected = todaysMatches.find(m => String(m.fixture.id) === fixtureId);
-        if (selected) {
-            setFormData(prev => ({
-                ...prev,
-                fixture_id: String(selected.fixture.id),
-                competition: selected.compName,
-                competitionId: selected.compId,
-                home_team: selected.fixture.teamA,
-                away_team: selected.fixture.teamB,
-                score_home: String(selected.fixture.scoreA || 0),
-                score_away: String(selected.fixture.scoreB || 0),
-            }));
-        }
+    const handleSelectMatch = (match: { fixture: CompetitionFixture, compName: string, compId: string }) => {
+        setFormData(prev => ({
+            ...prev,
+            fixture_id: String(match.fixture.id),
+            competition: match.compName,
+            competitionId: match.compId,
+            home_team: match.fixture.teamA,
+            away_team: match.fixture.teamB,
+            score_home: String(match.fixture.scoreA || 0),
+            score_away: String(match.fixture.scoreB || 0),
+        }));
+        // Clear previous messages when selecting a new match
+        setSuccessMessage('');
+        setError('');
+        // Scroll to form
+        setTimeout(() => {
+            document.getElementById('update-form')?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
     };
 
      const handleParse = async () => {
@@ -134,10 +145,74 @@ const LiveUpdatesEntry: React.FC = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleStatusChange = async (matchData: typeof todaysMatches[0], newStatus: string) => {
+        if (!newStatus || newStatus === matchData.fixture.status) return;
+        if (!window.confirm(`Change status of ${matchData.fixture.teamA} vs ${matchData.fixture.teamB} to ${newStatus.toUpperCase()}?`)) return;
+        
+        setIsSubmitting(true);
+        setError('');
+        setSuccessMessage('');
+
+        try {
+            const docRef = doc(db, 'competitions', matchData.compId);
+            await runTransaction(db, async (transaction) => {
+                const docSnap = await transaction.get(docRef);
+                if (!docSnap.exists()) throw new Error("Competition not found");
+                
+                const competition = docSnap.data() as Competition;
+                const fixtures = competition.fixtures || [];
+                const results = competition.results || [];
+                
+                const fixtureIndex = fixtures.findIndex(f => String(f.id) === String(matchData.fixture.id));
+                if (fixtureIndex === -1) throw new Error("Fixture not found in active list. It may have been moved to results.");
+
+                const fixture = fixtures[fixtureIndex];
+                const updatedFixture = { 
+                    ...fixture, 
+                    status: newStatus as any,
+                    // Automatically set liveMinute based on status if needed
+                    liveMinute: newStatus === 'live' ? (fixture.liveMinute || 1) : fixture.liveMinute
+                };
+                
+                const updatedFixtures = [...fixtures];
+                
+                if (newStatus === 'finished') {
+                    updatedFixtures.splice(fixtureIndex, 1);
+                    const updatedResults = [...results, updatedFixture];
+                    const updatedTeams = calculateStandings(competition.teams || [], updatedResults, updatedFixtures);
+                    
+                    transaction.update(docRef, removeUndefinedProps({
+                        fixtures: updatedFixtures,
+                        results: updatedResults,
+                        teams: updatedTeams
+                    }));
+                } else {
+                    updatedFixtures[fixtureIndex] = updatedFixture;
+                    transaction.update(docRef, { fixtures: removeUndefinedProps(updatedFixtures) });
+                }
+            });
+            
+            setSuccessMessage(`Match status updated to ${newStatus.toUpperCase()}.`);
+            loadMatches(); // Refresh the list
+        } catch (err) {
+            handleFirestoreError(err, 'update match status');
+            setError('Failed to update status.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleFormStatusChange = async (newStatus: string) => {
+        const match = todaysMatches.find(m => String(m.fixture.id) === formData.fixture_id);
+        if (match) {
+            await handleStatusChange(match, newStatus);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.fixture_id || !formData.competitionId) {
-            setError("Please select a match from the dropdown first.");
+            setError("Please select a match from the list above first.");
             return;
         }
 
@@ -220,10 +295,10 @@ const LiveUpdatesEntry: React.FC = () => {
 
             setSuccessMessage(`Update submitted! Match set to ${['full_time','match_abandoned'].includes(formData.type) ? 'Finished/Aban' : 'LIVE'}, scores updated.`);
             setFormData(prev => ({ ...prev, description: '', player: '', type: 'goal', minute: '' })); // Reset event fields only
-            
-            // Refresh match list if it was finished, as it will be moved out of fixtures
+            loadMatches(); // Refresh list to reflect new scores/status
+
             if (formData.type === 'full_time') {
-                setTodaysMatches(prev => prev.filter(m => String(m.fixture.id) !== formData.fixture_id));
+                // Clear form if match finished
                 setFormData(prev => ({ ...prev, fixture_id: '', home_team: '', away_team: '', score_home: '', score_away: '' }));
             }
 
@@ -236,18 +311,74 @@ const LiveUpdatesEntry: React.FC = () => {
         }
     };
 
+    const selectedMatch = todaysMatches.find(m => String(m.fixture.id) === formData.fixture_id);
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
 
     return (
         <Card className="shadow-lg animate-fade-in">
             <CardContent className="p-6">
-                <h3 className="text-2xl font-bold font-display mb-4">Live Updates Entry</h3>
+                <h3 className="text-2xl font-bold font-display mb-6">Live Match Manager</h3>
                 
+                {successMessage && (
+                    <div className="mb-4 p-3 bg-green-100 text-green-800 border border-green-200 rounded-md flex items-center gap-2 animate-fade-in">
+                        <CheckCircleIcon className="w-5 h-5" />
+                        <span className="text-sm font-semibold">{successMessage}</span>
+                    </div>
+                )}
+                {error && <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">{error}</div>}
+
+                {/* Match List Dashboard */}
+                <div className="space-y-4 mb-8">
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-bold text-gray-700">Active & Scheduled Matches</h4>
+                        <Button onClick={() => loadMatches()} disabled={loadingMatches} className="text-xs bg-gray-200 text-gray-700 hover:bg-gray-300 h-7 px-2">Refresh List</Button>
+                    </div>
+                    
+                    {loadingMatches ? <div className="flex justify-center py-4"><Spinner /></div> : 
+                     todaysMatches.length === 0 ? <p className="text-gray-500 text-sm text-center py-4 border rounded bg-gray-50">No active or scheduled matches found for today (±3 days).</p> :
+                     todaysMatches.map(m => (
+                        <div key={m.fixture.id} className={`border p-3 rounded-lg flex flex-col sm:flex-row items-center gap-4 transition-colors ${String(m.fixture.id) === formData.fixture_id ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white hover:bg-gray-50'}`}>
+                            <div className="flex-grow grid grid-cols-1 sm:grid-cols-3 gap-2 w-full text-center sm:text-left items-center">
+                                <div>
+                                    <p className="font-bold text-gray-900">{m.fixture.teamA} vs {m.fixture.teamB}</p>
+                                    <p className="text-xs text-gray-500">{m.fixture.date} &bull; {m.fixture.time}</p>
+                                </div>
+                                <div className="text-center">
+                                    <div className="inline-block px-3 py-1 bg-gray-100 rounded text-sm font-mono font-bold border">
+                                        {m.fixture.scoreA || 0} - {m.fixture.scoreB || 0}
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-center sm:justify-end gap-2">
+                                    <select 
+                                        value={m.fixture.status} 
+                                        onChange={(e) => handleStatusChange(m, e.target.value)}
+                                        className="text-xs border-gray-300 rounded shadow-sm py-1 bg-white"
+                                        disabled={isSubmitting}
+                                    >
+                                        <option value="scheduled">Scheduled</option>
+                                        <option value="live">Live</option>
+                                        <option value="suspended">Suspended</option>
+                                        <option value="postponed">Postponed</option>
+                                        <option value="finished">Finished</option>
+                                        <option value="abandoned">Abandoned</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <Button 
+                                onClick={() => handleSelectMatch(m)} 
+                                className={`text-xs h-8 px-3 whitespace-nowrap flex items-center gap-1 ${String(m.fixture.id) === formData.fixture_id ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                            >
+                                <Edit3Icon className="w-3 h-3" /> {String(m.fixture.id) === formData.fixture_id ? 'Selected' : 'Log Events'}
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+
                 {/* AI Parser Section */}
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
-                    <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2"><SparklesIcon className="w-4 h-4"/> Quick Parse from Social Media</h4>
+                    <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2 text-sm"><SparklesIcon className="w-4 h-4"/> Quick Parse from Social Media</h4>
                     <textarea 
-                        rows={3} 
+                        rows={2} 
                         value={pastedText} 
                         onChange={e => setPastedText(e.target.value)} 
                         placeholder="Paste tweet here (e.g., 'GOAL! 25 min. Highlanders score! 1-0 vs Swallows. Scorer: Moloto')"
@@ -258,101 +389,115 @@ const LiveUpdatesEntry: React.FC = () => {
                     </Button>
                 </div>
 
-                {successMessage && (
-                    <div className="mb-4 p-3 bg-green-100 text-green-800 border border-green-200 rounded-md flex items-center gap-2">
-                        <CheckCircleIcon className="w-5 h-5" />
-                        <span className="text-sm font-semibold">{successMessage}</span>
-                    </div>
-                )}
-                {error && <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-md">{error}</div>}
+                {/* Manual Form */}
+                <div id="update-form" className={`transition-opacity duration-300 ${!formData.fixture_id ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                    
+                    {selectedMatch && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
+                            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div>
+                                    <h5 className="font-bold text-yellow-900 flex items-center gap-2">
+                                        <ClockIcon className="w-4 h-4"/> Match Status: <span className="uppercase bg-yellow-200 px-2 py-0.5 rounded">{selectedMatch.fixture.status}</span>
+                                    </h5>
+                                    <p className="text-xs text-yellow-700 mt-1">
+                                        {selectedMatch.fixture.teamA} vs {selectedMatch.fixture.teamB}
+                                    </p>
+                                </div>
+                                <div className="flex gap-2 items-center flex-wrap justify-end">
+                                    {selectedMatch.fixture.status === 'scheduled' && (
+                                        <Button onClick={() => handleFormStatusChange('live')} className="bg-green-600 text-white text-xs h-8" disabled={isSubmitting}>Start Match (Live)</Button>
+                                    )}
+                                    {selectedMatch.fixture.status === 'live' && (
+                                        <>
+                                            <Button onClick={() => handleFormStatusChange('suspended')} className="bg-orange-500 text-white text-xs h-8" disabled={isSubmitting}>Suspend</Button>
+                                            <Button onClick={() => handleFormStatusChange('finished')} className="bg-gray-800 text-white text-xs h-8" disabled={isSubmitting}>Full Time</Button>
+                                        </>
+                                    )}
+                                    
+                                    <div className="border-l border-yellow-300 pl-2 ml-2">
+                                        <span className="text-[10px] text-yellow-800 mr-1 font-bold">Force:</span>
+                                        <select 
+                                            value={selectedMatch.fixture.status} 
+                                            onChange={(e) => handleFormStatusChange(e.target.value)}
+                                            className="text-xs border-yellow-300 rounded shadow-sm py-1 bg-white w-28"
+                                            disabled={isSubmitting}
+                                        >
+                                            <option value="scheduled">Scheduled</option>
+                                            <option value="live">Live</option>
+                                            <option value="suspended">Suspended</option>
+                                            <option value="postponed">Postponed</option>
+                                            <option value="finished">Finished</option>
+                                            <option value="abandoned">Abandoned</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Match Selection - Replaces Manual ID Entry */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Select Live/Today's Match</label>
-                        {loadingMatches ? <div className="text-sm text-gray-500">Loading active matches...</div> : (
-                            <select 
-                                className={inputClass} 
-                                onChange={handleMatchSelect}
-                                value={formData.fixture_id}
-                            >
-                                <option value="" disabled>-- Select Match --</option>
-                                {todaysMatches.length === 0 && <option disabled>No matches found for today.</option>}
-                                {todaysMatches.map(m => (
-                                    <option key={m.fixture.id} value={m.fixture.id}>
-                                        {m.fixture.teamA} vs {m.fixture.teamB} ({m.compName}) - {m.fixture.status === 'live' ? 'LIVE' : m.fixture.time}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">Selecting a match will auto-fill IDs and current scores.</p>
-                    </div>
+                    <h4 className="font-bold text-gray-800 mb-4 border-b pb-2">
+                        {formData.fixture_id ? `Log Event Details` : 'Select a match above to log events'}
+                    </h4>
+                    
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-3 rounded border">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Match ID</label>
+                                <input type="text" name="fixture_id" value={formData.fixture_id} readOnly className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-500 sm:text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Competition</label>
+                                <input type="text" name="competition" value={formData.competition} readOnly className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-500 sm:text-sm" />
+                            </div>
+                        </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-3 rounded border">
-                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase">Competition</label>
-                            <input type="text" name="competition" value={formData.competition} readOnly className={`${inputClass} bg-gray-100`} />
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
+                                <select name="type" value={formData.type} onChange={handleChange} className={inputClass}>
+                                    <option value="goal">Goal</option>
+                                    <option value="yellow_card">Yellow Card</option>
+                                    <option value="red_card">Red Card</option>
+                                    <option value="substitution">Substitution</option>
+                                    <option value="half_time">Half Time</option>
+                                    <option value="full_time">Full Time</option>
+                                    <option value="match_postponed">Postponed</option>
+                                    <option value="match_suspended">Suspended</option>
+                                    <option value="match_abandoned">Abandoned</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Minute</label>
+                                <input type="number" name="minute" value={formData.minute} onChange={handleChange} className={inputClass} placeholder="e.g. 45" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Home Score</label>
+                                <input type="number" name="score_home" value={formData.score_home} onChange={handleChange} className={inputClass} min="0" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Away Score</label>
+                                <input type="number" name="score_away" value={formData.score_away} onChange={handleChange} className={inputClass} min="0" />
+                            </div>
                         </div>
-                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase">Fixture ID</label>
-                            <input type="text" name="fixture_id" value={formData.fixture_id} readOnly className={`${inputClass} bg-gray-100`} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase">Home Team</label>
-                            <input type="text" name="home_team" value={formData.home_team} readOnly className={`${inputClass} bg-gray-100`} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase">Away Team</label>
-                            <input type="text" name="away_team" value={formData.away_team} readOnly className={`${inputClass} bg-gray-100`} />
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
-                            <select name="type" value={formData.type} onChange={handleChange} className={inputClass}>
-                                <option value="goal">Goal</option>
-                                <option value="yellow_card">Yellow Card</option>
-                                <option value="red_card">Red Card</option>
-                                <option value="substitution">Substitution</option>
-                                <option value="half_time">Half Time</option>
-                                <option value="full_time">Full Time</option>
-                                <option value="match_postponed">Postponed</option>
-                                <option value="match_suspended">Suspended</option>
-                                <option value="match_abandoned">Abandoned</option>
-                            </select>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Player Name (Optional)</label>
+                                <input type="text" name="player" value={formData.player} onChange={handleChange} className={inputClass} />
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <input type="text" name="description" value={formData.description} onChange={handleChange} className={inputClass} required />
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Minute</label>
-                            <input type="number" name="minute" value={formData.minute} onChange={handleChange} className={inputClass} placeholder="e.g. 45" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Home Score</label>
-                            <input type="number" name="score_home" value={formData.score_home} onChange={handleChange} className={inputClass} min="0" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Away Score</label>
-                            <input type="number" name="score_away" value={formData.score_away} onChange={handleChange} className={inputClass} min="0" />
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Player Name (Optional)</label>
-                            <input type="text" name="player" value={formData.player} onChange={handleChange} className={inputClass} />
+                        <div className="text-right">
+                            <Button type="submit" disabled={isSubmitting || !formData.fixture_id} className="bg-green-600 text-white hover:bg-green-700 w-full md:w-auto h-11 px-8">
+                                {isSubmitting ? <Spinner className="w-5 h-5 border-2"/> : 'Submit Event Log'}
+                            </Button>
                         </div>
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                            <input type="text" name="description" value={formData.description} onChange={handleChange} className={inputClass} required />
-                        </div>
-                    </div>
-
-                    <div className="text-right">
-                        <Button type="submit" disabled={isSubmitting} className="bg-green-600 text-white hover:bg-green-700 w-full md:w-auto h-11 px-8">
-                            {isSubmitting ? <Spinner className="w-5 h-5 border-2"/> : 'Submit Update'}
-                        </Button>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </CardContent>
         </Card>
     );

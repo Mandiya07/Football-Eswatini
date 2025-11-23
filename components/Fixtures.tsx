@@ -15,6 +15,7 @@ import TrashIcon from './icons/TrashIcon';
 import { db } from '../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { calculateStandings, removeUndefinedProps, findInMap } from '../services/utils';
+import Button from './ui/Button';
 
 interface FixturesProps {
     showSelector?: boolean;
@@ -62,6 +63,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 
     const handleShare = async (e: React.MouseEvent) => {
         e.stopPropagation();
+        e.preventDefault();
 
         let title = `⚽ Match: ${fixture.teamA} vs ${fixture.teamB}`;
         let text = `Check out this Football Eswatini match!\n\n${fixture.teamA} vs ${fixture.teamB}`;
@@ -167,91 +169,111 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const isScoreVisible = fixture.status === 'live' || fixture.status === 'finished' || (fixture.status === 'abandoned' && fixture.scoreA !== undefined);
 
     return (
-        <div className={`flex items-center hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${getStatusBorder()}`}>
-            <button
+        <div className={`flex items-stretch hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${getStatusBorder()}`}>
+            {/* Main Clickable Area - DIV, not button */}
+            <div 
+                className="flex-grow relative flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer"
                 onClick={onToggleDetails}
-                className="flex-grow w-full text-left"
+                role="button"
+                tabIndex={0}
                 aria-expanded={isExpanded}
                 aria-controls={`fixture-details-${fixture.id}`}
+                onKeyDown={(e) => { if(e.key === 'Enter' || e.key === ' ') onToggleDetails(); }}
             >
-                <div className="relative flex items-center space-x-2 p-3 min-h-[70px]">
-                    {getStatusBadge()}
-                    
-                    {/* Date Box - Compact */}
-                    <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white animate-pulse' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
-                        <span className="font-bold text-base leading-tight">{fixture.date}</span>
-                        <span className="text-[9px] uppercase font-bold tracking-wider">{fixture.day}</span>
-                    </div>
+                {getStatusBadge()}
+                
+                {/* Date Box - Compact */}
+                <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white animate-pulse' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
+                    <span className="font-bold text-base leading-tight">{fixture.date}</span>
+                    <span className="text-[9px] uppercase font-bold tracking-wider">{fixture.day}</span>
+                </div>
 
-                    <div className="flex-grow grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
-                        <div className="flex justify-end items-center gap-2 pr-1 overflow-hidden">
-                            {teamALink.isLinkable ? (
-                                <Link to={`/competitions/${teamALink.competitionId}/teams/${teamALink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-right truncate hover:underline text-sm sm:text-base">{fixture.teamA}</Link>
-                            ) : (
-                                <p className="font-semibold text-gray-800 text-right truncate text-sm sm:text-base">{fixture.teamA}</p>
-                            )}
-                            {crestA && <img src={crestA} alt={`${fixture.teamA} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
-                        </div>
-                        
-                        {isScoreVisible ? (
-                            <div className="text-center min-w-[4rem]">
-                                <p 
-                                    key={`score-${fixture.id}-${fixture.scoreA}-${fixture.scoreB}`}
-                                    className={`font-bold text-xl ${fixture.status === 'live' ? 'text-secondary animate-score-update' : 'text-primary'} tracking-wider leading-none`}
-                                >
-                                    {fixture.scoreA}-{fixture.scoreB}
-                                </p>
-                                {fixture.status === 'live' && <p className="text-[9px] font-bold text-secondary mt-0.5">{fixture.liveMinute}'</p>}
-                            </div>
+                <div className="flex-grow grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
+                    <div className="flex justify-end items-center gap-2 pr-1 overflow-hidden">
+                        {teamALink.isLinkable ? (
+                            <Link to={`/competitions/${teamALink.competitionId}/teams/${teamALink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-right truncate hover:underline text-sm sm:text-base">{fixture.teamA}</Link>
                         ) : (
-                            <div className="flex flex-col items-center justify-center min-w-[4rem]">
-                                <p className="text-[11px] text-red-500 font-black font-display italic tracking-widest">VS</p>
-                                {fixture.status === 'postponed' && <span className="text-[9px] font-bold uppercase text-yellow-900 bg-yellow-200 px-1 rounded mt-0.5">PP</span>}
-                                {fixture.status === 'cancelled' && <span className="text-[9px] font-bold uppercase text-red-900 bg-red-200 px-1 rounded mt-0.5">CANC</span>}
-                                <p className="text-[10px] text-gray-400 mt-0.5">{fixture.time}</p>
-                            </div>
+                            <p className="font-semibold text-gray-800 text-right truncate text-sm sm:text-base">{fixture.teamA}</p>
                         )}
-
-                        <div className="flex justify-start items-center gap-2 pl-1 overflow-hidden">
-                            {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
-                            {teamBLink.isLinkable ? (
-                                <Link to={`/competitions/${teamBLink.competitionId}/teams/${teamBLink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-left truncate hover:underline text-sm sm:text-base">{fixture.teamB}</Link>
-                            ) : (
-                                <p className="font-semibold text-gray-800 text-left truncate text-sm sm:text-base">{fixture.teamB}</p>
-                            )}
-                        </div>
+                        {crestA && <img src={crestA} alt={`${fixture.teamA} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
                     </div>
-                    <div className="flex-shrink-0 ml-1 flex flex-col items-center gap-0.5">
-                         <div className="flex gap-0.5">
-                            <button
-                                onClick={handleShare}
-                                className="text-gray-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 transition-colors"
-                                aria-label="Share match"
+                    
+                    {isScoreVisible ? (
+                        <div className="text-center min-w-[4rem]">
+                            <p 
+                                key={`score-${fixture.id}-${fixture.scoreA}-${fixture.scoreB}`}
+                                className={`font-bold text-xl ${fixture.status === 'live' ? 'text-secondary animate-score-update' : 'text-primary'} tracking-wider leading-none`}
                             >
-                                <ShareIcon className="w-4 h-4" />
-                            </button>
-                            {user?.role === 'super_admin' && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onDeleteFixture(fixture); }}
-                                    className="text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-colors"
-                                    disabled={isDeleting}
-                                    aria-label="Delete fixture"
-                                >
-                                    {isDeleting ? <Spinner className="w-3 h-3 border-red-600 border-2" /> : <TrashIcon className="w-4 h-4" />}
-                                </button>
-                            )}
+                                {fixture.scoreA}-{fixture.scoreB}
+                            </p>
+                            {fixture.status === 'live' && <p className="text-[9px] font-bold text-secondary mt-0.5">{fixture.liveMinute}'</p>}
                         </div>
-                         <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isExpanded ? 'transform rotate-180' : ''}`} />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center min-w-[4rem]">
+                            <p className="text-[11px] text-red-500 font-black font-display italic tracking-widest">VS</p>
+                            {fixture.status === 'postponed' && <span className="text-[9px] font-bold uppercase text-yellow-900 bg-yellow-200 px-1 rounded mt-0.5">PP</span>}
+                            {fixture.status === 'cancelled' && <span className="text-[9px] font-bold uppercase text-red-900 bg-red-200 px-1 rounded mt-0.5">CANC</span>}
+                            <p className="text-[10px] text-gray-400 mt-0.5">{fixture.time}</p>
+                        </div>
+                    )}
+
+                    <div className="flex justify-start items-center gap-2 pl-1 overflow-hidden">
+                        {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
+                        {teamBLink.isLinkable ? (
+                            <Link to={`/competitions/${teamBLink.competitionId}/teams/${teamBLink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-left truncate hover:underline text-sm sm:text-base">{fixture.teamB}</Link>
+                        ) : (
+                            <p className="font-semibold text-gray-800 text-left truncate text-sm sm:text-base">{fixture.teamB}</p>
+                        )}
                     </div>
-                     {copied && (
-                        <span className="absolute top-2 right-12 bg-gray-800 text-white text-[9px] rounded py-0.5 px-1.5 whitespace-nowrap z-10 animate-fade-in-tooltip">
-                            Copied!
-                        </span>
+                </div>
+            </div>
+
+            {/* Actions Column - Separate from main click target to avoid nesting buttons */}
+            <div className="flex flex-col items-center justify-center gap-1 px-2 border-l border-gray-100 bg-white/50">
+                <div className="flex flex-col gap-1">
+                    <button
+                        onClick={handleShare}
+                        className="text-gray-400 hover:text-blue-600 p-1.5 rounded-full hover:bg-blue-50 transition-colors flex items-center justify-center w-8 h-8"
+                        aria-label="Share match"
+                        type="button"
+                    >
+                        <ShareIcon className="w-4 h-4" />
+                    </button>
+                    {user?.role === 'super_admin' && (
+                        <button
+                            onClick={(e) => { 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                onDeleteFixture(fixture); 
+                            }}
+                            className="text-gray-400 hover:text-red-600 p-1.5 rounded-full hover:bg-red-50 transition-colors flex items-center justify-center w-8 h-8"
+                            disabled={isDeleting}
+                            aria-label="Delete fixture"
+                            type="button"
+                            title="Delete Fixture"
+                        >
+                            {isDeleting ? <Spinner className="w-3 h-3 border-red-600 border-2" /> : <TrashIcon className="w-4 h-4" />}
+                        </button>
                     )}
                 </div>
-            </button>
+                <button 
+                    onClick={onToggleDetails}
+                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center w-8 h-8"
+                    aria-label="Toggle details"
+                    type="button"
+                >
+                    <ChevronDownIcon className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'transform rotate-180' : ''}`} />
+                </button>
+                
+                {copied && (
+                    <span className="absolute top-2 right-12 bg-gray-800 text-white text-[9px] rounded py-0.5 px-1.5 whitespace-nowrap z-10 animate-fade-in-tooltip">
+                        Copied!
+                    </span>
+                )}
+            </div>
+
             {isExpanded && (
-                <div id={`fixture-details-${fixture.id}`} className="border-t border-gray-100 bg-gray-50/50 p-2">
+                <div id={`fixture-details-${fixture.id}`} className="w-full basis-full border-t border-gray-100 bg-gray-50/50 p-2">
                     <FixtureDetail fixture={fixture} competitionId={competitionId} />
                 </div>
             )}
@@ -510,20 +532,21 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                                     <div className="flex-grow h-px bg-gray-200 ml-2"></div>
                                 </div>
                                 
-                                <Card className="shadow-md mb-4">
+                                <Card className="shadow-md mb-4 overflow-hidden">
                                     <div className="divide-y divide-gray-100">
                                         {group.fixtures.map((fixture) => (
-                                            <FixtureItem 
-                                                key={fixture.id}
-                                                fixture={fixture} 
-                                                isExpanded={expandedFixtureId === fixture.id} 
-                                                onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === fixture.id ? null : fixture.id)}
-                                                teams={competition?.teams || []}
-                                                onDeleteFixture={handleDeleteFixture}
-                                                isDeleting={String(deletingId).trim() === String(fixture.id).trim()}
-                                                directoryMap={directoryMap}
-                                                competitionId={selectedComp}
-                                            />
+                                            <div key={fixture.id} className={expandedFixtureId === fixture.id ? 'flex flex-col' : ''}>
+                                                <FixtureItem 
+                                                    fixture={fixture} 
+                                                    isExpanded={expandedFixtureId === fixture.id} 
+                                                    onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === fixture.id ? null : fixture.id)}
+                                                    teams={competition?.teams || []}
+                                                    onDeleteFixture={handleDeleteFixture}
+                                                    isDeleting={String(deletingId).trim() === String(fixture.id).trim()}
+                                                    directoryMap={directoryMap}
+                                                    competitionId={selectedComp}
+                                                />
+                                            </div>
                                         ))}
                                     </div>
                                 </Card>
