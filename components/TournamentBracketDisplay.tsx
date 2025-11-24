@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Tournament, BracketMatch, BracketMatchTeam } from '../data/cups';
 import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
+import ShareIcon from './icons/ShareIcon';
 
 // Reusable Match Card Component
 const MatchCard: React.FC<{ match: BracketMatch }> = ({ match }) => {
@@ -33,10 +34,13 @@ const MatchCard: React.FC<{ match: BracketMatch }> = ({ match }) => {
 
     return (
         <div className={`rounded-lg w-40 transition-all duration-200 ${bgColor} ${shadow} p-2 flex flex-col justify-center gap-1 relative z-10`}>
-            {(match.date || match.time) && (
-                <div className="flex justify-center items-center gap-1 text-[9px] text-gray-500 mb-1 border-b border-gray-100 pb-1">
-                    {match.date && <span>{match.date}</span>}
-                    {match.time && <span>{match.time}</span>}
+            {(match.date || match.time || match.venue) && (
+                <div className="flex flex-col justify-center items-center text-[9px] text-gray-500 mb-1 border-b border-gray-100 pb-1">
+                    <div className="flex gap-1">
+                        {match.date && <span>{match.date}</span>}
+                        {match.time && <span>{match.time}</span>}
+                    </div>
+                    {match.venue && <span className="italic text-gray-400">{match.venue}</span>}
                 </div>
             )}
             <TeamDisplay team={match.team1} isWinner={match.winner === 'team1'} />
@@ -144,9 +148,32 @@ const SplitBracketView: React.FC<{ tournament: Tournament }> = ({ tournament }) 
 const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tournament }) => {
     // Check if structure supports tree view (at least 2 rounds, even number of matches in first round)
     const supportsTree = tournament.rounds.length > 1 && tournament.rounds[0].matches.length % 2 === 0;
-    
-    // Default to bracket view if supported
     const [view, setView] = useState<'list' | 'bracket'>(supportsTree ? 'bracket' : 'list');
+    const [copied, setCopied] = useState(false);
+
+    const handleShare = async () => {
+        const shareData = {
+            title: `${tournament.name} Bracket`,
+            text: `Check out the ${tournament.name} bracket on Football Eswatini!`,
+            url: window.location.href,
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+            } catch (err) {
+                console.error('Error sharing:', err);
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(shareData.url);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (err) {
+                console.error('Failed to copy to clipboard:', err);
+            }
+        }
+    };
 
     return (
         <Card className="shadow-lg animate-fade-in border-t-4 border-gray-800">
@@ -166,22 +193,32 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                         </div>
                     </div>
                     
-                    {supportsTree && (
-                        <div className="flex bg-gray-100 p-1.5 rounded-lg border border-gray-200">
-                            <button 
-                                onClick={() => setView('list')}
-                                className={`px-4 py-2 text-xs font-bold rounded-md transition-all duration-200 ${view === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                                List View
-                            </button>
-                            <button 
-                                onClick={() => setView('bracket')}
-                                className={`px-4 py-2 text-xs font-bold rounded-md transition-all duration-200 ${view === 'bracket' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                                Split Bracket
-                            </button>
-                        </div>
-                    )}
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleShare}
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors border border-blue-200"
+                        >
+                            <ShareIcon className="w-4 h-4" />
+                            {copied ? 'Link Copied!' : 'Share Bracket'}
+                        </button>
+
+                        {supportsTree && (
+                            <div className="flex bg-gray-100 p-1.5 rounded-lg border border-gray-200">
+                                <button 
+                                    onClick={() => setView('list')}
+                                    className={`px-4 py-2 text-xs font-bold rounded-md transition-all duration-200 ${view === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    List
+                                </button>
+                                <button 
+                                    onClick={() => setView('bracket')}
+                                    className={`px-4 py-2 text-xs font-bold rounded-md transition-all duration-200 ${view === 'bracket' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                >
+                                    Tree
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {view === 'bracket' && supportsTree ? (

@@ -27,6 +27,7 @@ interface BracketMatch {
   nextMatchId: string | null;
   date?: string;
   time?: string;
+  venue?: string;
 }
 
 // Local Tournament interface matching component logic
@@ -46,7 +47,7 @@ const MatchCard: React.FC<{
   assignedTeamIds: Set<number>;
   onTeamSelect: (matchId: string, teamSlot: 'team1Id' | 'team2Id', teamId: number) => void;
   onScoreChange: (matchId: string, scoreSlot: keyof BracketMatch, value: string) => void;
-  onDateTimeChange: (matchId: string, field: 'date' | 'time', value: string) => void;
+  onDateTimeChange: (matchId: string, field: 'date' | 'time' | 'venue', value: string) => void;
   onDeclareWinner: (matchId: string) => void;
 }> = ({ match, teams, assignedTeamIds, onTeamSelect, onScoreChange, onDateTimeChange, onDeclareWinner }) => {
     
@@ -81,23 +82,19 @@ const MatchCard: React.FC<{
     };
 
     // Determine if Extra Time inputs should be shown
-    // Show if normal time scores are equal and both entered
     const showET = (match.score1 !== '' && match.score2 !== '' && match.score1 === match.score2) || (match.score1ET && match.score1ET !== '') || (match.score2ET && match.score2ET !== '');
 
     // Determine if Penalty inputs should be shown
-    // Show if ET scores are equal and both entered
     const score1ET = match.score1ET || '';
     const score2ET = match.score2ET || '';
     const showPen = showET && (score1ET !== '' && score2ET !== '' && score1ET === score2ET) || (match.score1Pen && match.score1Pen !== '') || (match.score2Pen && match.score2Pen !== '');
 
-    const canDeclareWinner = team1 && team2 && !match.winnerId && 
-                             ((match.score1 !== '' && match.score2 !== '' && match.score1 !== match.score2) || 
-                              (score1ET !== '' && score2ET !== '' && score1ET !== score2ET) ||
-                              (match.score1Pen && match.score1Pen !== '' && match.score2Pen && match.score2Pen !== '' && match.score1Pen !== match.score2Pen));
+    // Allow declaring winner if scores are different or if manual override is needed (e.g. text score like "2 (4)")
+    const canDeclareWinner = team1 && team2 && !match.winnerId && (match.score1 !== '' || match.score2 !== '');
 
   return (
     <div className="bg-white border rounded-md p-2 w-52 text-xs shadow-sm">
-      <div className="flex gap-1 mb-2 pb-2 border-b border-gray-100">
+      <div className="flex gap-1 mb-1 pb-1 border-b border-gray-100">
         <input 
             type="date" 
             className="text-[9px] p-1 border rounded w-full text-gray-500" 
@@ -111,29 +108,36 @@ const MatchCard: React.FC<{
             onChange={e => onDateTimeChange(match.id, 'time', e.target.value)} 
         />
       </div>
+      <div className="mb-2 pb-2 border-b border-gray-100">
+        <input 
+            type="text" 
+            className="text-[9px] p-1 border rounded w-full text-gray-500" 
+            value={match.venue || ''} 
+            onChange={e => onDateTimeChange(match.id, 'venue', e.target.value)} 
+            placeholder="Venue"
+        />
+      </div>
 
       <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-100">
         <div className="flex-grow overflow-hidden mr-2"><TeamSlot team={team1} slot="team1Id" /></div>
         <input 
-            type="number" 
-            min="0"
+            type="text" 
             className="w-8 text-center font-bold border-none bg-gray-50 ml-1"
             value={match.score1}
             onChange={e => onScoreChange(match.id, 'score1', e.target.value)}
             disabled={!team1 || !team2 || !!match.winnerId}
-            placeholder="90"
+            placeholder="-"
         />
       </div>
        <div className="flex justify-between items-center">
         <div className="flex-grow overflow-hidden mr-2"><TeamSlot team={team2} slot="team2Id" /></div>
         <input 
-            type="number" 
-            min="0"
+            type="text" 
             className="w-8 text-center font-bold border-none bg-gray-50 ml-1"
             value={match.score2}
             onChange={e => onScoreChange(match.id, 'score2', e.target.value)}
             disabled={!team1 || !team2 || !!match.winnerId}
-            placeholder="90"
+            placeholder="-"
         />
       </div>
 
@@ -144,12 +148,12 @@ const MatchCard: React.FC<{
               </div>
               <div className="flex justify-end gap-2">
                 <input 
-                    type="number" min="0" className="w-8 text-center text-[10px] border rounded border-gray-300" 
+                    type="text" className="w-8 text-center text-[10px] border rounded border-gray-300" 
                     value={match.score1ET || ''} onChange={e => onScoreChange(match.id, 'score1ET', e.target.value)} placeholder="AET"
                 />
                 <span className="text-gray-400">-</span>
                 <input 
-                    type="number" min="0" className="w-8 text-center text-[10px] border rounded border-gray-300" 
+                    type="text" className="w-8 text-center text-[10px] border rounded border-gray-300" 
                     value={match.score2ET || ''} onChange={e => onScoreChange(match.id, 'score2ET', e.target.value)} placeholder="AET"
                 />
               </div>
@@ -163,12 +167,12 @@ const MatchCard: React.FC<{
               </div>
               <div className="flex justify-end gap-2">
                 <input 
-                    type="number" min="0" className="w-8 text-center text-[10px] border rounded border-gray-300" 
+                    type="text" className="w-8 text-center text-[10px] border rounded border-gray-300" 
                     value={match.score1Pen || ''} onChange={e => onScoreChange(match.id, 'score1Pen', e.target.value)} placeholder="P"
                 />
                 <span className="text-gray-400">-</span>
                 <input 
-                    type="number" min="0" className="w-8 text-center text-[10px] border rounded border-gray-300" 
+                    type="text" className="w-8 text-center text-[10px] border rounded border-gray-300" 
                     value={match.score2Pen || ''} onChange={e => onScoreChange(match.id, 'score2Pen', e.target.value)} placeholder="P"
                 />
               </div>
@@ -288,7 +292,8 @@ const TournamentBracket: React.FC = () => {
                     winnerId: null, 
                     nextMatchId,
                     date: '',
-                    time: ''
+                    time: '',
+                    venue: ''
                 });
             }
             
@@ -344,7 +349,7 @@ const TournamentBracket: React.FC = () => {
         });
     };
 
-    const handleDateTimeChange = (matchId: string, field: 'date' | 'time', value: string) => {
+    const handleDateTimeChange = (matchId: string, field: 'date' | 'time' | 'venue', value: string) => {
         updateBracket(prev => {
              const newRounds = prev.rounds.map(round => ({
                 ...round,
@@ -368,30 +373,44 @@ const TournamentBracket: React.FC = () => {
         
         let winnerId: number | null = null;
 
+        // Logic for numeric score comparison
+        const getScore = (s: string) => parseInt(s) || 0;
+
         // 1. Check Penalties
         if (currentMatch.score1Pen && currentMatch.score2Pen && currentMatch.score1Pen !== '' && currentMatch.score2Pen !== '') {
-             const p1 = parseInt(currentMatch.score1Pen);
-             const p2 = parseInt(currentMatch.score2Pen);
+             const p1 = getScore(currentMatch.score1Pen);
+             const p2 = getScore(currentMatch.score2Pen);
              if (p1 > p2) winnerId = currentMatch.team1Id;
              else if (p2 > p1) winnerId = currentMatch.team2Id;
         } 
         // 2. Check Extra Time
         else if (currentMatch.score1ET && currentMatch.score2ET && currentMatch.score1ET !== '' && currentMatch.score2ET !== '') {
-             const et1 = parseInt(currentMatch.score1ET);
-             const et2 = parseInt(currentMatch.score2ET);
+             const et1 = getScore(currentMatch.score1ET);
+             const et2 = getScore(currentMatch.score2ET);
              if (et1 > et2) winnerId = currentMatch.team1Id;
              else if (et2 > et1) winnerId = currentMatch.team2Id;
         }
         // 3. Check Normal Time
-        else {
-            const s1 = parseInt(currentMatch.score1);
-            const s2 = parseInt(currentMatch.score2);
+        else if (currentMatch.score1 !== '' && currentMatch.score2 !== '') {
+            const s1 = getScore(currentMatch.score1);
+            const s2 = getScore(currentMatch.score2);
             if (s1 > s2) winnerId = currentMatch.team1Id;
             else if (s2 > s1) winnerId = currentMatch.team2Id;
         }
 
+        // 4. Fallback: If logic above fails (e.g. complex strings like "2 (4)"), ask user
+        if (!winnerId && currentMatch.team1Id && currentMatch.team2Id) {
+            // If scores are entered but logic failed (e.g. text scores), prompt for manual selection
+            const t1 = teams.find(t => t.id === currentMatch!.team1Id);
+            const t2 = teams.find(t => t.id === currentMatch!.team2Id);
+            if (t1 && t2) {
+                const result = window.confirm(`Auto-calculation unclear. Was ${t1.name} the winner? (Cancel for ${t2.name})`);
+                winnerId = result ? t1.id : t2.id;
+            }
+        }
+
         if (!winnerId) {
-            alert("Cannot declare winner. Scores are level or missing.");
+            alert("Cannot declare winner. Please ensure scores are entered.");
             return;
         }
 
@@ -441,16 +460,17 @@ const TournamentBracket: React.FC = () => {
                 team1: {
                     name: teams.find(t => t.id === m.team1Id)?.name || 'TBD',
                     crestUrl: teams.find(t => t.id === m.team1Id)?.crestUrl,
-                    score: m.score1 ? parseInt(m.score1) : undefined
+                    score: m.score1 || undefined
                 },
                 team2: {
                     name: teams.find(t => t.id === m.team2Id)?.name || 'TBD',
                     crestUrl: teams.find(t => t.id === m.team2Id)?.crestUrl,
-                    score: m.score2 ? parseInt(m.score2) : undefined
+                    score: m.score2 || undefined
                 },
                 winner: m.winnerId === m.team1Id ? 'team1' : m.winnerId === m.team2Id ? 'team2' : undefined,
                 date: m.date,
-                time: m.time
+                time: m.time,
+                venue: m.venue
             }))
         }));
         return {
