@@ -17,11 +17,12 @@ import Skeleton from './ui/Skeleton';
 import { useAuth } from '../contexts/AuthContext';
 import PencilIcon from './icons/PencilIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
+import TrashIcon from './icons/TrashIcon';
 import TeamFormModal from './admin/TeamFormModal';
 import TeamRosterModal from './admin/TeamRosterModal';
 import { db } from '../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { removeUndefinedProps, findInMap } from '../services/utils';
+import { removeUndefinedProps, findInMap, calculateStandings } from '../services/utils';
 
 const TeamProfilePage: React.FC = () => {
   const { competitionId, teamId } = useParams<{ competitionId: string, teamId: string }>();
@@ -36,15 +37,13 @@ const TeamProfilePage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadData = useCallback(async () => {
       if (!teamId || !competitionId) {
           setLoading(false);
           return;
       }
-      // Only set loading on first load or major refresh, not silent updates if we wanted optimization, 
-      // but here we want to ensure data consistency so we show spinner or just update state.
-      // We'll keep it simple and show spinner if team is null, otherwise just update.
       if (!team) setLoading(true);
       
       const [competitionData, directoryEntries] = await Promise.all([
@@ -118,7 +117,6 @@ const TeamProfilePage: React.FC = () => {
                 });
             }
             
-            // CRITICAL: Sanitize the entire payload before updating.
             transaction.update(docRef, removeUndefinedProps({ teams: updatedTeams, fixtures: updatedFixtures }));
         });
         
@@ -128,6 +126,97 @@ const TeamProfilePage: React.FC = () => {
     } finally {
         setLoading(false);
     }
+  };
+
+  const handleDeleteTeam = async () => {
+      if (!team || !competitionId || isDeleting) return;
+      if (!window.confirm(`Are you sure you want to delete ${team.name}? This will also remove them from any associated fixtures and results, and standings will be recalculated.`)) return;
+
+      setIsDeleting(true);
+      try {
+          const docRef = doc(db, 'competitions', competitionId);
+          await runTransaction(db, async (transaction) => {
+              const docSnap = await transaction.get(docRef);
+              if (!docSnap.exists()) throw new Error("Competition not found");
+              const competition = docSnap.data() as Competition;
+
+              const teamIndex = (competition.teams || []).findIndex(t => t.id === team.id);
+              if (teamIndex === -1) throw new Error("Team not found");
+
+              const updatedTeams = [...(competition.teams || [])];
+              updatedTeams.splice(teamIndex, 1);
+
+              const targetName = team.name.trim();
+              const updatedFixtures = (competition.fixtures || []).filter(f => f.teamA.trim() !== targetName && f.teamB.trim() !== targetName);
+              const updatedResults = (competition.results || []).filter(r => r.teamA.trim() !== targetName && r.teamB.trim() !== targetName);
+
+              const recalculatedTeams = calculateStandings(updatedTeams, updatedResults);
+
+              transaction.update(docRef, removeUndefinedProps({ teams: recalculatedTeams, fixtures: updatedFixtures, results: updatedResults }));
+          });
+          navigate('/logs');
+      } catch (error) {
+          handleFirestoreError(error, 'delete team');
+          setIsDeleting(false);
+      }
+  };
+
+  const handleDeleteFixture = async (fixture: CompetitionFixture) => {
+      if (!competitionId || isDeleting) return;
+      if (!window.confirm("Are you sure you want to delete this match?")) return;
+
+      setIsDeleting(true);
+      try {
+          const docRef = doc(db, 'competitions', competitionId);
+          await runTransaction(db, async (transaction) => {
+              const docSnap = await transaction.get(docRef);
+              if (!docSnap.exists()) throw new Error("Competition not found");
+              const comp = docSnap.data() as Competition;
+
+              const filterList = (list: CompetitionFixture[]) => list.filter(f => String(f.id) !== String(fixture.id));
+              
+              const updatedFixtures = filterList(comp.fixtures || []);
+              const updatedResults = filterList(comp.results || []);
+              
+              const updatedTeams = calculateStandings(comp.teams || [], updatedResults, updatedFixtures);
+
+              transaction.update(docRef, removeUndefinedProps({ fixtures: updatedFixtures, results: updatedResults, teams: updatedTeams }));
+          });
+          loadData(); // Refresh
+      } catch (error) {
+          handleFirestoreError(error, 'delete fixture');
+      } finally {
+          setIsDeleting(false);
+      }
+  };
+
+  const handleDeletePlayer = async (playerId: number) => {
+      if (!team || !competitionId || isDeleting) return;
+      if (!window.confirm("Are you sure you want to remove this player from the team?")) return;
+
+      setIsDeleting(true);
+      try {
+          const docRef = doc(db, 'competitions', competitionId);
+          await runTransaction(db, async (transaction) => {
+              const docSnap = await transaction.get(docRef);
+              if (!docSnap.exists()) throw new Error("Competition not found");
+              const comp = docSnap.data() as Competition;
+
+              const updatedTeams = (comp.teams || []).map(t => {
+                  if (t.id === team.id) {
+                      return { ...t, players: (t.players || []).filter(p => p.id !== playerId) };
+                  }
+                  return t;
+              });
+
+              transaction.update(docRef, removeUndefinedProps({ teams: updatedTeams }));
+          });
+          loadData(); // Refresh
+      } catch (error) {
+          handleFirestoreError(error, 'delete player');
+      } finally {
+          setIsDeleting(false);
+      }
   };
 
   const handleRosterSave = async () => {
@@ -159,14 +248,15 @@ const TeamProfilePage: React.FC = () => {
   const crestUrl = directoryEntry?.crestUrl || team.crestUrl;
   
   const canManage = user?.role === 'super_admin' || (user?.role === 'club_admin' && user?.club === team.name);
+  const isSuperAdmin = user?.role === 'super_admin';
 
   const renderContent = () => {
     switch(activeTab) {
         case 'overview': return <OverviewTab team={team} />;
-        case 'squad': return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} />;
-        case 'fixtures': return <FixturesTab fixtures={teamFixtures} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} />;
-        case 'results': return <ResultsTab results={teamResults} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} />;
-        default: return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} />;
+        case 'squad': return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} onDeletePlayer={handleDeletePlayer} isSuperAdmin={isSuperAdmin} />;
+        case 'fixtures': return <FixturesTab fixtures={teamFixtures} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} onDeleteFixture={handleDeleteFixture} isSuperAdmin={isSuperAdmin} />;
+        case 'results': return <ResultsTab results={teamResults} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} onDeleteFixture={handleDeleteFixture} isSuperAdmin={isSuperAdmin} />;
+        default: return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} onDeletePlayer={handleDeletePlayer} isSuperAdmin={isSuperAdmin} />;
     }
   }
 
@@ -188,14 +278,26 @@ const TeamProfilePage: React.FC = () => {
                 <div className="relative flex flex-col sm:flex-row items-center gap-6 bg-black/30 backdrop-blur-sm p-6 rounded-xl">
                     <img src={crestUrl} alt={`${team.name} crest`} className="w-24 h-24 sm:w-32 sm:h-32 object-contain bg-white/80 rounded-full p-2" />
                     <h1 className="text-3xl sm:text-5xl font-display font-extrabold text-white text-center sm:text-left tracking-tight" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.7)'}}>{team.name}</h1>
-                     {user?.role === 'super_admin' && (
-                        <button
-                            onClick={() => setIsEditModalOpen(true)}
-                            className="absolute top-2 right-2 bg-white/80 text-gray-800 hover:bg-white p-2 rounded-full shadow-md transition-colors"
-                            aria-label="Edit Team"
-                        >
-                            <PencilIcon className="w-5 h-5" />
-                        </button>
+                     {isSuperAdmin && (
+                        <div className="absolute top-2 right-2 flex gap-2">
+                            <button
+                                onClick={() => setIsEditModalOpen(true)}
+                                className="bg-white/80 text-blue-600 hover:bg-white p-2 rounded-full shadow-md transition-colors"
+                                aria-label="Edit Team"
+                                title="Edit Team"
+                            >
+                                <PencilIcon className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={handleDeleteTeam}
+                                disabled={isDeleting}
+                                className="bg-white/80 text-red-600 hover:bg-white p-2 rounded-full shadow-md transition-colors"
+                                aria-label="Delete Team"
+                                title="Delete Team"
+                            >
+                                {isDeleting ? <Spinner className="w-5 h-5 border-red-600 border-2" /> : <TrashIcon className="w-5 h-5" />}
+                            </button>
+                        </div>
                     )}
                 </div>
             </header>
@@ -314,7 +416,7 @@ const OverviewTab: React.FC<{team: Team}> = ({team}) => {
 };
 
 
-const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () => void}> = ({players, canManage, onManage}) => (
+const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () => void, onDeletePlayer?: (id: number) => void, isSuperAdmin: boolean}> = ({players, canManage, onManage, onDeletePlayer, isSuperAdmin}) => (
     <div>
         {canManage && (
             <div className="flex justify-end mb-6">
@@ -329,32 +431,43 @@ const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () =>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {(players || []).map(player => (
-                <Link key={player.id} to={`/players/${player.id}`} className="group block text-center">
-                    <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
-                        <div className="relative">
-                            <div className="h-24 bg-gradient-to-br from-primary to-primary-dark relative overflow-hidden flex justify-center items-end pb-2">
-                                {player.photoUrl ? (
-                                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 z-10">
-                                        <img src={player.photoUrl} alt={player.name} className="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover bg-white" />
-                                    </div>
-                                ) : (
-                                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 z-10 w-20 h-20 rounded-full border-4 border-white shadow-md bg-gray-200 flex items-center justify-center">
-                                        <UserIcon className="w-12 h-12 text-gray-400" />
-                                    </div>
-                                )}
-                                {player.number > 0 && (
-                                    <div className="absolute top-2 right-2 text-white/30 font-display font-bold text-4xl opacity-50 select-none pointer-events-none">
-                                        {player.number}
-                                    </div>
-                                )}
+                <div key={player.id} className="group block text-center relative">
+                    <Link to={`/players/${player.id}`} className="block">
+                        <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
+                            <div className="relative">
+                                <div className="h-24 bg-gradient-to-br from-primary to-primary-dark relative overflow-hidden flex justify-center items-end pb-2">
+                                    {player.photoUrl ? (
+                                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+                                            <img src={player.photoUrl} alt={player.name} className="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover bg-white" />
+                                        </div>
+                                    ) : (
+                                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 z-10 w-20 h-20 rounded-full border-4 border-white shadow-md bg-gray-200 flex items-center justify-center">
+                                            <UserIcon className="w-12 h-12 text-gray-400" />
+                                        </div>
+                                    )}
+                                    {player.number > 0 && (
+                                        <div className="absolute top-2 right-2 text-white/30 font-display font-bold text-4xl opacity-50 select-none pointer-events-none">
+                                            {player.number}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                        <CardContent className="p-4 pt-10 text-center">
-                            <p className="font-bold text-gray-900 truncate group-hover:text-primary transition-colors mb-1">{player.name}</p>
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{player.position}</p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                            <CardContent className="p-4 pt-10 text-center">
+                                <p className="font-bold text-gray-900 truncate group-hover:text-primary transition-colors mb-1">{player.name}</p>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{player.position}</p>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                    {isSuperAdmin && onDeletePlayer && (
+                        <button 
+                            onClick={() => onDeletePlayer(player.id)}
+                            className="absolute top-1 right-1 bg-red-600 text-white p-1.5 rounded-full shadow-md hover:bg-red-700 transition-colors z-20"
+                            title="Delete Player"
+                        >
+                            <TrashIcon className="w-3 h-3" />
+                        </button>
+                    )}
+                </div>
             ))}
             {(!players || players.length === 0) && (
                 <div className="col-span-full text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
@@ -365,7 +478,7 @@ const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () =>
     </div>
 );
 
-const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, allTeams: Team[], competitionId: string }> = ({ fixtures, teamName, allTeams, competitionId }) => {
+const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, allTeams: Team[], competitionId: string, onDeleteFixture?: (f: CompetitionFixture) => void, isSuperAdmin: boolean }> = ({ fixtures, teamName, allTeams, competitionId, onDeleteFixture, isSuperAdmin }) => {
     if (fixtures.length === 0) return <p className="text-gray-500">No upcoming fixtures scheduled.</p>;
 
     return (
@@ -390,9 +503,20 @@ const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, 
                             <span className="font-mono text-xs bg-white px-1.5 py-0.5 rounded">{isHome ? 'H' : 'A'}</span>
                             {opponentContent}
                         </div>
-                        <div className="text-right">
-                             <p className="font-medium text-gray-700">{fixture.day}, {fixture.date}</p>
-                             <p className="text-xs text-gray-500">{fixture.time} at {fixture.venue || 'TBD'}</p>
+                        <div className="flex items-center gap-3">
+                             <div className="text-right">
+                                 <p className="font-medium text-gray-700">{fixture.day}, {fixture.date}</p>
+                                 <p className="text-xs text-gray-500">{fixture.time} at {fixture.venue || 'TBD'}</p>
+                             </div>
+                             {isSuperAdmin && onDeleteFixture && (
+                                <button 
+                                    onClick={() => onDeleteFixture(fixture)}
+                                    className="ml-2 p-1.5 bg-red-50 text-red-600 rounded-full hover:bg-red-100"
+                                    title="Delete Fixture"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                </button>
+                             )}
                         </div>
                     </li>
                 );
@@ -401,7 +525,7 @@ const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, 
     );
 };
 
-const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, allTeams: Team[], competitionId: string }> = ({ results, teamName, allTeams, competitionId }) => {
+const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, allTeams: Team[], competitionId: string, onDeleteFixture?: (f: CompetitionFixture) => void, isSuperAdmin: boolean }> = ({ results, teamName, allTeams, competitionId, onDeleteFixture, isSuperAdmin }) => {
     if (results.length === 0) return <p className="text-gray-500">No recent results found.</p>;
 
     return (
@@ -438,7 +562,7 @@ const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, al
                 );
 
                 return (
-                     <li key={result.id} className="text-sm bg-gray-50 p-3 rounded-md flex justify-between items-center">
+                     <li key={result.id} className="text-sm bg-gray-5 p-3 rounded-md flex justify-between items-center">
                         <div className="flex items-center gap-3">
                              <span className={`font-bold px-2 py-0.5 rounded-full text-xs ${colors}`}>{outcome}</span>
                              <div className="flex items-center gap-2">
@@ -449,6 +573,15 @@ const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, al
                         <div className="flex items-center gap-3">
                              <p className="font-bold text-lg">{teamScore} - {opponentScore}</p>
                              <p className="text-xs text-gray-500 text-right w-16">{result.day}, {result.date}</p>
+                             {isSuperAdmin && onDeleteFixture && (
+                                <button 
+                                    onClick={() => onDeleteFixture(result)}
+                                    className="ml-1 p-1.5 bg-red-50 text-red-600 rounded-full hover:bg-red-100"
+                                    title="Delete Result"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                </button>
+                             )}
                         </div>
                     </li>
                 );

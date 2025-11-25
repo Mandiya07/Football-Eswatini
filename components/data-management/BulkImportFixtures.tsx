@@ -101,6 +101,11 @@ const BulkImportFixtures: React.FC = () => {
         if (!pastedText.trim()) return setError('Please paste some text to parse.');
         if (!currentCompetitionData) return setError('Please select a valid competition.');
         
+        // Explicit check for API Key to provide better feedback
+        if (!process.env.API_KEY) {
+            return setError('System Error: API_KEY is not configured. Please add the API_KEY environment variable in your Vercel project settings.');
+        }
+        
         setIsParsing(true);
         setError('');
         setParsedFixtures([]);
@@ -467,7 +472,7 @@ Text to parse:\n\n${pastedText}`;
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                <tr key={f.tempId} className={`${!f.selected ? 'bg-gray-50 text-gray-500' : 'bg-white'}`}>
+                                                <tr key={f.tempId} className={`${!f.selected ? 'bg-gray-50 text-gray-500' : 'bg-white'} ${f.status === 'error' ? 'bg-red-50' : ''}`}>
                                                     <td className="p-2 text-center"><StatusIndicator status={f.reviewStatus} warnings={f.warnings} /></td>
                                                     <td className="p-2 text-center"><input type="checkbox" checked={f.selected} onChange={() => handleToggleSelection(f.tempId)} className="h-4 w-4 rounded" disabled={f.reviewStatus === 'reject'} /></td>
                                                     <td className="p-2">{f.normalizedTeamA ? <>{f.normalizedTeamA}{f.normalizedTeamA !== f.teamA && <span className="text-xs text-gray-500 ml-1">(from: "{f.teamA}")</span>}</> : <span className="text-red-500">{f.teamA} ?</span>}</td>
