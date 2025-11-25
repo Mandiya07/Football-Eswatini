@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -11,6 +10,9 @@ import { db } from '../../services/firebase';
 import TournamentBracketDisplay from '../TournamentBracketDisplay';
 import EyeIcon from '../icons/BinocularsIcon';
 import EditIcon from '../icons/Edit3Icon';
+import XIcon from '../icons/XIcon';
+import RefreshIcon from '../icons/RefreshIcon';
+import { removeUndefinedProps } from '../../services/utils';
 
 // Local interface for Admin editing state which requires explicit ID tracking for dropdowns
 interface AdminBracketMatch {
@@ -46,37 +48,46 @@ interface AdminTournament {
 const MatchCard: React.FC<{
   match: AdminBracketMatch;
   teams: Team[];
-  assignedTeamIds: Set<number>;
-  onTeamSelect: (matchId: string, teamSlot: 'team1Id' | 'team2Id', teamId: number) => void;
+  onTeamSelect: (matchId: string, teamSlot: 'team1Id' | 'team2Id', teamId: number | null) => void;
   onScoreChange: (matchId: string, scoreSlot: keyof AdminBracketMatch, value: string) => void;
   onDateTimeChange: (matchId: string, field: 'date' | 'time' | 'venue', value: string) => void;
   onDeclareWinner: (matchId: string) => void;
-}> = ({ match, teams, assignedTeamIds, onTeamSelect, onScoreChange, onDateTimeChange, onDeclareWinner }) => {
+  onResetWinner: (matchId: string) => void;
+}> = ({ match, teams, onTeamSelect, onScoreChange, onDateTimeChange, onDeclareWinner, onResetWinner }) => {
     
     const team1 = teams.find(t => t.id === match.team1Id);
     const team2 = teams.find(t => t.id === match.team2Id);
     
     const TeamSlot: React.FC<{ team: Team | undefined; slot: 'team1Id' | 'team2Id' }> = ({ team, slot }) => {
+        // RENDER TEAM IF SELECTED
         if (team) {
             const isWinner = match.winnerId === team.id;
             return (
                 <div className={`flex items-center gap-2 ${isWinner ? 'font-bold text-green-700' : ''}`}>
-                    <img src={team.crestUrl} alt={team.name} className="w-5 h-5 object-contain" />
-                    <span className="truncate">{team.name}</span>
+                    <img src={team.crestUrl} alt={team.name} className="w-5 h-5 object-contain flex-shrink-0" />
+                    <span className="truncate flex-grow">{team.name}</span>
+                    {!match.winnerId && ( // Can't clear if a winner has been decided from this match
+                        <button 
+                            onClick={() => onTeamSelect(match.id, slot, null)} 
+                            className="text-red-500 hover:text-red-700 p-1 flex-shrink-0"
+                            title="Clear Team"
+                        >
+                            <XIcon className="w-3 h-3"/>
+                        </button>
+                    )}
                 </div>
             );
         }
-        if (match.round > 1) {
-            return <div className="text-gray-400 italic text-[10px]">Winner of prev match</div>
-        }
+        
+        // RENDER DROPDOWN IF NO TEAM IS SELECTED (FOR ALL ROUNDS)
         return (
             <select
                 value=""
                 onChange={(e) => onTeamSelect(match.id, slot, parseInt(e.target.value))}
                 className="w-full text-[10px] p-1 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
             >
-                <option value="" disabled>Select Team</option>
-                {teams.filter(t => !assignedTeamIds.has(t.id)).map(t => (
+                <option value="" disabled>Select Team...</option>
+                {teams.map(t => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
             </select>
@@ -115,7 +126,7 @@ const MatchCard: React.FC<{
         />
       </div>
 
-      <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-100">
+      <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-100 min-h-[26px]">
         <div className="flex-grow overflow-hidden mr-2"><TeamSlot team={team1} slot="team1Id" /></div>
         <input 
             type="text" 
@@ -126,7 +137,7 @@ const MatchCard: React.FC<{
             placeholder="-"
         />
       </div>
-       <div className="flex justify-between items-center">
+       <div className="flex justify-between items-center min-h-[26px]">
         <div className="flex-grow overflow-hidden mr-2"><TeamSlot team={team2} slot="team2Id" /></div>
         <input 
             type="text" 
@@ -147,11 +158,13 @@ const MatchCard: React.FC<{
                 <input 
                     type="text" className="w-8 text-center text-[10px] border rounded border-gray-300" 
                     value={match.score1ET || ''} onChange={e => onScoreChange(match.id, 'score1ET', e.target.value)} placeholder="AET"
+                    disabled={!!match.winnerId}
                 />
                 <span className="text-gray-400">-</span>
                 <input 
                     type="text" className="w-8 text-center text-[10px] border rounded border-gray-300" 
                     value={match.score2ET || ''} onChange={e => onScoreChange(match.id, 'score2ET', e.target.value)} placeholder="AET"
+                    disabled={!!match.winnerId}
                 />
               </div>
           </div>
@@ -166,23 +179,31 @@ const MatchCard: React.FC<{
                 <input 
                     type="text" className="w-8 text-center text-[10px] border rounded border-gray-300" 
                     value={match.score1Pen || ''} onChange={e => onScoreChange(match.id, 'score1Pen', e.target.value)} placeholder="P"
+                    disabled={!!match.winnerId}
                 />
                 <span className="text-gray-400">-</span>
                 <input 
                     type="text" className="w-8 text-center text-[10px] border rounded border-gray-300" 
                     value={match.score2Pen || ''} onChange={e => onScoreChange(match.id, 'score2Pen', e.target.value)} placeholder="P"
+                    disabled={!!match.winnerId}
                 />
               </div>
           </div>
       )}
 
-      {canDeclareWinner && (
+      {match.winnerId ? (
+          <div className="mt-2 pt-2 border-t text-center">
+              <Button onClick={() => onResetWinner(match.id)} className="bg-red-100 text-red-700 hover:bg-red-200 text-[10px] h-6 px-2 w-full flex items-center justify-center gap-1">
+                  <RefreshIcon className="w-3 h-3"/> Reset Result
+              </Button>
+          </div>
+      ) : canDeclareWinner ? (
         <div className="mt-2 pt-2 border-t text-center">
             <Button onClick={() => onDeclareWinner(match.id)} className="bg-blue-600 text-white text-[10px] h-6 px-2 w-full">
                 Confirm Winner
             </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };
@@ -193,7 +214,8 @@ const TournamentBracket: React.FC = () => {
     const [existingTournaments, setExistingTournaments] = useState<DisplayTournament[]>([]);
     const [numTeams, setNumTeams] = useState(8);
     const [tournamentName, setTournamentName] = useState('');
-    const [teams, setTeams] = useState<Team[]>([]);
+    const [allTeams, setAllTeams] = useState<Team[]>([]); // Master list of all teams
+    const [availableTeamsForBracket, setAvailableTeamsForBracket] = useState<Team[]>([]); // Filtered list for current context
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [competitions, setCompetitions] = useState<{id: string, name: string}[]>([]);
@@ -203,11 +225,9 @@ const TournamentBracket: React.FC = () => {
     const loadInitialData = async () => {
         setLoading(true);
         try {
-            // Fetch everything needed
-            const [allComps, allCups, allTeams] = await Promise.all([
+            const [allComps, allCups] = await Promise.all([
                 fetchAllCompetitions(),
                 fetchCups(),
-                fetchAllCompetitions().then(comps => Object.values(comps).flatMap(c => c.teams || []))
             ]);
             
             const compList = Object.entries(allComps).map(([id, c]) => ({ id, name: c.name }));
@@ -215,11 +235,11 @@ const TournamentBracket: React.FC = () => {
             
             setExistingTournaments(allCups);
             
-            // Flatten and dedup teams for use in dropdowns
-            // We use a map to ensure unique IDs
             const teamMap = new Map<number, Team>();
-            allTeams.forEach(t => teamMap.set(t.id, t));
-            setTeams(Array.from(teamMap.values()).sort((a,b) => a.name.localeCompare(b.name)));
+            Object.values(allComps).flatMap(c => c.teams || []).forEach(t => teamMap.set(t.id, t));
+            const allTeamsList = Array.from(teamMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+            setAllTeams(allTeamsList);
+            setAvailableTeamsForBracket(allTeamsList); // Initially, all teams are available.
 
         } catch (e) {
             console.error("Error loading bracket data", e);
@@ -241,37 +261,46 @@ const TournamentBracket: React.FC = () => {
                 title: r.title,
                 matches: r.matches.map((m: any) => ({
                     id: m.id,
-                    round: m.round || 1, // Fallback if simple struct
+                    round: m.round || 1,
                     matchInRound: m.matchInRound || 1,
-                    team1Id: m.team1Id || m.team1?.id, // Try to recover IDs
-                    team2Id: m.team2Id || m.team2?.id,
-                    score1: m.score1 || (m.team1?.score?.toString() || ''),
-                    score2: m.score2 || (m.team2?.score?.toString() || ''),
-                    winnerId: m.winnerId,
-                    nextMatchId: m.nextMatchId,
+                    team1Id: m.team1Id || m.team1?.id || null,
+                    team2Id: m.team2Id || m.team2?.id || null,
+                    score1: m.score1 !== undefined ? String(m.score1) : (m.team1?.score?.toString() || ''),
+                    score2: m.score2 !== undefined ? String(m.score2) : (m.team2?.score?.toString() || ''),
+                    winnerId: m.winnerId || null,
+                    nextMatchId: m.nextMatchId || null,
                     date: m.date,
                     time: m.time,
                     venue: m.venue,
-                    // Extra fields
                     score1ET: m.score1ET, score2ET: m.score2ET, score1Pen: m.score1Pen, score2Pen: m.score2Pen
                 }))
             }))
         };
         setTournament(adminT);
+        setAvailableTeamsForBracket(allTeams); // When editing, allow all teams for flexibility
     };
 
     const handleSourceChange = async (compId: string) => {
         setSelectedSource(compId);
-        if (!compId) return;
+        
+        if (!compId) {
+            setAvailableTeamsForBracket(allTeams); // Reset to all teams if source is cleared
+            setTournamentName('');
+            return;
+        }
         
         setLoading(true);
         try {
             const comp = await fetchCompetition(compId);
             if (comp) {
                 setTournamentName(`${comp.name} Cup`);
+                setAvailableTeamsForBracket(comp.teams?.sort((a, b) => a.name.localeCompare(b.name)) || []);
+            } else {
+                setAvailableTeamsForBracket([]);
             }
         } catch (e) {
-            console.error(e);
+            console.error("Error fetching competition for source teams", e);
+            setAvailableTeamsForBracket([]);
         } finally {
             setLoading(false);
         }
@@ -281,7 +310,8 @@ const TournamentBracket: React.FC = () => {
         if (!updatedTournament.id) return;
         setSaving(true);
         try {
-            await updateDoc(doc(db, "cups", updatedTournament.id), { rounds: updatedTournament.rounds });
+            const sanitizedRounds = removeUndefinedProps(updatedTournament.rounds);
+            await updateDoc(doc(db, "cups", updatedTournament.id), { rounds: sanitizedRounds });
         } catch (error) {
             handleFirestoreError(error, 'update tournament');
         } finally {
@@ -307,18 +337,9 @@ const TournamentBracket: React.FC = () => {
                 const nextMatchId = r < roundsCount ? `R${r+1}-M${Math.ceil(m/2)}` : null;
                 
                 matches.push({
-                    id: `R${r}-M${m}`, 
-                    round: r, 
-                    matchInRound: m, 
-                    team1Id: null, 
-                    team2Id: null,
-                    score1: '', 
-                    score2: '',
-                    winnerId: null, 
-                    nextMatchId,
-                    date: '',
-                    time: '',
-                    venue: ''
+                    id: `R${r}-M${m}`, round: r, matchInRound: m, team1Id: null, team2Id: null,
+                    score1: '', score2: '', winnerId: null, nextMatchId,
+                    date: '', time: '', venue: ''
                 });
             }
             
@@ -355,7 +376,7 @@ const TournamentBracket: React.FC = () => {
         });
     };
     
-    const handleTeamSelect = (matchId: string, teamSlot: 'team1Id' | 'team2Id', teamId: number) => {
+    const handleTeamSelect = (matchId: string, teamSlot: 'team1Id' | 'team2Id', teamId: number | null) => {
         updateBracket(prev => {
             const newRounds = prev.rounds.map(round => ({
                 ...round,
@@ -399,6 +420,7 @@ const TournamentBracket: React.FC = () => {
         let winnerId: number | null = null;
         const getScore = (s: string) => parseInt(s) || 0;
 
+        // Check penalties first
         if (currentMatch.score1Pen && currentMatch.score2Pen) {
              const p1 = getScore(currentMatch.score1Pen);
              const p2 = getScore(currentMatch.score2Pen);
@@ -412,50 +434,37 @@ const TournamentBracket: React.FC = () => {
         }
 
         if (!winnerId && currentMatch.team1Id && currentMatch.team2Id) {
-            const t1 = teams.find(t => t.id === currentMatch!.team1Id);
-            const t2 = teams.find(t => t.id === currentMatch!.team2Id);
+            const t1 = allTeams.find(t => t.id === currentMatch!.team1Id);
+            const t2 = allTeams.find(t => t.id === currentMatch!.team2Id);
             if (t1 && t2) {
-                const result = window.confirm(`Auto-calculation unclear. Was ${t1.name} the winner? (Cancel for ${t2.name})`);
+                const result = window.confirm(`Scores are level. Was ${t1.name} the winner? (Click OK for ${t1.name}, Cancel for ${t2.name})`);
                 winnerId = result ? t1.id : t2.id;
             }
         }
 
         if (!winnerId) {
-            alert("Cannot declare winner. Please ensure scores are entered.");
+            alert("Cannot declare winner. Please ensure scores are entered correctly.");
             return;
         }
 
         updateBracket(prev => {
-            const newRounds = [...prev.rounds];
-            
-            newRounds.forEach((round) => {
-                round.matches = round.matches.map(m => m.id === matchId ? { ...m, winnerId } : m);
-            });
-
-            if (currentMatch!.nextMatchId) {
-                newRounds.forEach(round => {
-                    round.matches = round.matches.map(m => {
-                        if (m.id === currentMatch!.nextMatchId) {
-                            const isSlot1 = currentMatch!.matchInRound % 2 !== 0;
-                            const slot = isSlot1 ? 'team1Id' : 'team2Id';
-                            return { ...m, [slot]: winnerId };
-                        }
-                        return m;
-                    });
-                });
-            }
-            
+            const newRounds = prev.rounds.map(round => ({
+                ...round,
+                matches: round.matches.map(m => m.id === matchId ? { ...m, winnerId } : m)
+            }));
             return { ...prev, rounds: newRounds };
         });
     };
 
-    const assignedTeamIds = new Set<number>();
-    if (tournament && tournament.rounds.length > 0) {
-        tournament.rounds[0].matches.forEach(m => {
-            if (m.team1Id) assignedTeamIds.add(m.team1Id);
-            if (m.team2Id) assignedTeamIds.add(m.team2Id);
+    const handleResetWinner = (matchId: string) => {
+        updateBracket(prev => {
+            const newRounds = prev.rounds.map(round => ({
+                ...round,
+                matches: round.matches.map(m => m.id === matchId ? { ...m, winnerId: null } : m)
+            }));
+            return { ...prev, rounds: newRounds };
         });
-    }
+    };
 
     const getPreviewTournament = (): DisplayTournament | null => {
         if (!tournament) return null;
@@ -463,27 +472,14 @@ const TournamentBracket: React.FC = () => {
             title: round.title,
             matches: round.matches.map(m => ({
                 id: m.id,
-                team1: {
-                    name: teams.find(t => t.id === m.team1Id)?.name || 'TBD',
-                    crestUrl: teams.find(t => t.id === m.team1Id)?.crestUrl,
-                    score: m.score1 || undefined
-                },
-                team2: {
-                    name: teams.find(t => t.id === m.team2Id)?.name || 'TBD',
-                    crestUrl: teams.find(t => t.id === m.team2Id)?.crestUrl,
-                    score: m.score2 || undefined
-                },
+                team1: { name: allTeams.find(t => t.id === m.team1Id)?.name || 'TBD', crestUrl: allTeams.find(t => t.id === m.team1Id)?.crestUrl, score: m.score1 || undefined },
+                team2: { name: allTeams.find(t => t.id === m.team2Id)?.name || 'TBD', crestUrl: allTeams.find(t => t.id === m.team2Id)?.crestUrl, score: m.score2 || undefined },
                 winner: m.winnerId === m.team1Id ? 'team1' : m.winnerId === m.team2Id ? 'team2' : undefined,
-                date: m.date,
-                time: m.time,
-                venue: m.venue
+                date: m.date, time: m.time, venue: m.venue
             }))
         }));
         return {
-            id: tournament.id || 'preview',
-            name: tournament.name,
-            logoUrl: tournament.logoUrl,
-            rounds: mappedRounds
+            id: tournament.id || 'preview', name: tournament.name, logoUrl: tournament.logoUrl, rounds: mappedRounds
         } as DisplayTournament;
     };
 
@@ -497,8 +493,9 @@ const TournamentBracket: React.FC = () => {
                     {round.matches.map(match => (
                         <div key={match.id} className="mb-4 relative flex justify-center">
                             <MatchCard 
-                                match={match} teams={teams} assignedTeamIds={assignedTeamIds}
-                                onTeamSelect={handleTeamSelect} onScoreChange={handleScoreChange} onDateTimeChange={handleDateTimeChange} onDeclareWinner={handleDeclareWinner}
+                                match={match} teams={availableTeamsForBracket}
+                                onTeamSelect={handleTeamSelect} onScoreChange={handleScoreChange} onDateTimeChange={handleDateTimeChange} 
+                                onDeclareWinner={handleDeclareWinner} onResetWinner={handleResetWinner}
                             />
                         </div>
                     ))}
@@ -516,7 +513,6 @@ const TournamentBracket: React.FC = () => {
                     <>
                         <h3 className="text-2xl font-bold font-display mb-4">Tournament Management</h3>
                         
-                        {/* List of Existing */}
                         {existingTournaments.length > 0 && (
                             <div className="mb-8">
                                 <h4 className="text-lg font-bold text-gray-700 mb-3">Existing Tournaments</h4>
@@ -536,18 +532,17 @@ const TournamentBracket: React.FC = () => {
                         <h4 className="text-lg font-bold text-gray-700 mb-3">Create New Tournament</h4>
                         <div className="space-y-4 max-w-md bg-gray-50 p-6 rounded-lg border">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Source League (Optional)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Source Teams (Optional)</label>
                                 <select 
                                     value={selectedSource} 
                                     onChange={e => handleSourceChange(e.target.value)} 
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
                                 >
-                                    <option value="">-- Select Source --</option>
+                                    <option value="">-- All Available Teams --</option>
                                     {competitions.map(c => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
-                                <p className="text-xs text-gray-500 mt-1">Selecting a league helps name the tournament and ensures team availability.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Name</label>
@@ -573,7 +568,7 @@ const TournamentBracket: React.FC = () => {
                                 </select>
                             </div>
                             <Button onClick={generateBracket} className="bg-primary text-white hover:bg-primary-dark w-full" disabled={loading}>
-                                {loading ? <Spinner className="w-4 h-4" /> : 'Generate Bracket'}
+                                {loading ? <Spinner className="w-4 h-4" /> : 'Create & Edit Bracket'}
                             </Button>
                         </div>
                     </>

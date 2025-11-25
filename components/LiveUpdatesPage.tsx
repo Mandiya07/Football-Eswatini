@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { listenToLiveUpdates, LiveUpdate, fetchAllCompetitions } from '../services/api';
 import { CompetitionFixture } from '../data/teams';
@@ -102,7 +101,7 @@ const LiveUpdatesPage: React.FC = () => {
     // Initial fetch and polling for fixture status updates
     useEffect(() => {
         fetchActiveFixtures();
-        const interval = setInterval(fetchActiveFixtures, 15000); // Poll every 15s for score/status updates
+        const interval = setInterval(fetchActiveFixtures, 30000); // Poll every 30s for score/status updates
         return () => clearInterval(interval);
     }, []);
 
