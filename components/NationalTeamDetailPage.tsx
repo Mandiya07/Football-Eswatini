@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Logs from './Logs';
@@ -56,9 +57,16 @@ const NationalTeamDetailPage: React.FC = () => {
                         {competition?.displayName || competition?.name || 'National Team'}
                     </h1>
                 </div>
-                <div className="space-y-16">
-                    <Fixtures showSelector={false} defaultCompetition={teamId} />
-                    <Logs showSelector={false} defaultLeague={teamId} />
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                    <div className="w-full space-y-4">
+                        <h2 className="text-2xl font-display font-bold text-gray-800 border-b pb-2">Fixtures & Results</h2>
+                        <Fixtures showSelector={false} defaultCompetition={teamId} maxHeight="max-h-[800px]" />
+                    </div>
+                    <div className="w-full space-y-4">
+                        <h2 className="text-2xl font-display font-bold text-gray-800 border-b pb-2">Standings</h2>
+                        <Logs showSelector={false} defaultLeague={teamId} maxHeight="max-h-[800px]" />
+                    </div>
                 </div>
             </>
         )}

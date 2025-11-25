@@ -229,26 +229,61 @@ const SeedDatabase: React.FC = () => {
                 }
             ];
 
-            regionalCompetitions.forEach(comp => {
-                const teams = generateTeams(comp.teamNames);
-                const results = generateMatches(teams, 'results'); // Populate logs
-                const fixtures = generateMatches(teams, 'fixtures'); // Populate upcoming
+            // 6. National Team Competitions Setup
+            const nationalCompetitions = [
+                {
+                    id: 'national-u17-cosafa',
+                    name: 'National U17 - COSAFA',
+                    description: 'Regional youth championship for the Under-17 squad.',
+                    teamNames: ['Eswatini U17', 'South Africa U17', 'Zambia U17', 'Botswana U17', 'Mozambique U17', 'Lesotho U17']
+                },
+                {
+                    id: 'national-u20-cosafa',
+                    name: 'National U-20 - COSAFA',
+                    description: 'The COSAFA U-20 Challenge Cup campaign.',
+                    teamNames: ['Eswatini U20', 'Angola U20', 'Namibia U20', 'Malawi U20', 'Zimbabwe U20', 'Comoros U20']
+                },
+                {
+                    id: 'world-cup-qualifiers-men',
+                    name: 'World Cup Qualifiers (Men)',
+                    description: 'Sihlangu Semnikati\'s journey to the FIFA World Cup.',
+                    teamNames: ['Eswatini', 'Cameroon', 'Libya', 'Angola', 'Mauritius', 'Cape Verde']
+                },
+                {
+                    id: 'world-cup-qualifiers-women',
+                    name: 'World Cup Qualifiers (Women)',
+                    description: 'Sitsebe SaMhlekazi\'s quest for global qualification.',
+                    teamNames: ['Eswatini Women', 'Burkina Faso Women', 'South Africa Women', 'Zambia Women']
+                }
+            ];
 
-                // Sort teams by points for the log
-                teams.sort((a, b) => b.stats.pts - a.stats.pts);
+            const seedLeagueGroup = (comps: typeof regionalCompetitions, categoryId: string) => {
+                comps.forEach(comp => {
+                    const teams = generateTeams(comp.teamNames);
+                    const results = generateMatches(teams, 'results'); // Populate logs
+                    const fixtures = generateMatches(teams, 'fixtures'); // Populate upcoming
 
-                batch.set(doc(db, 'competitions', comp.id), {
-                    name: comp.name,
-                    categoryId: 'regional-leagues',
-                    teams: teams,
-                    fixtures: fixtures,
-                    results: results,
-                    logoUrl: `https://via.placeholder.com/150?text=${comp.name.charAt(0)}`
+                    // Sort teams by points for the log
+                    teams.sort((a, b) => b.stats.pts - a.stats.pts);
+
+                    batch.set(doc(db, 'competitions', comp.id), {
+                        name: comp.name,
+                        displayName: comp.name,
+                        description: (comp as any).description || '',
+                        categoryId: categoryId,
+                        teams: teams,
+                        fixtures: fixtures,
+                        results: results,
+                        logoUrl: `https://via.placeholder.com/150?text=${comp.name.charAt(0)}`
+                    });
                 });
-            });
+            };
+
+            seedLeagueGroup(regionalCompetitions, 'regional-leagues');
+            seedLeagueGroup(nationalCompetitions, 'national-teams');
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database seeded successfully! Regional leagues are now populated.' });
+            setStatus({ type: 'success', msg: 'Database seeded successfully! National and Regional leagues are now populated.' });
         } catch (error) {
             console.error("Seeding failed:", error);
             setStatus({ type: 'error', msg: 'Failed to seed database. Check console for errors.' });
@@ -265,7 +300,7 @@ const SeedDatabase: React.FC = () => {
                     <h3 className="text-2xl font-bold font-display text-gray-800">Seed Database</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
-                    Initialize or reset the database with default content, including the <strong>Hhohho</strong> and <strong>Shiselweni</strong> regional super leagues (Northern/Southern zones). 
+                    Initialize or reset the database with default content, including the <strong>National Team</strong> competitions and <strong>Regional</strong> leagues.
                     Use this if the app is empty or you want to restore default demo data.
                 </p>
 

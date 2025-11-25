@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -12,6 +13,8 @@ import PhoneIcon from './icons/PhoneIcon';
 import MailIcon from './icons/MailIcon';
 import Spinner from './ui/Spinner';
 import ArrowRightIcon from './icons/ArrowRightIcon';
+import ChevronDownIcon from './icons/ChevronDownIcon';
+import MapPinIcon from './icons/MapPinIcon';
 
 const categoryIcons: Record<EntityCategory, React.FC<React.SVGProps<SVGSVGElement>>> = {
     'Club': ShieldIcon,
@@ -38,67 +41,111 @@ const REGION_OPTIONS: { value: Region | 'all', label: string }[] = [
 
 
 const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
     const Icon = categoryIcons[entity.category] || ShieldIcon;
     const isClickable = entity.category === 'Club' && entity.teamId && entity.competitionId;
 
-    const content = (
-        <CardContent className="p-2 flex items-center gap-3">
-            <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-100 rounded-md">
-                {entity.crestUrl ? (
-                    <img src={entity.crestUrl} alt={`${entity.name} crest`} className="w-8 h-8 object-contain" />
-                ) : (
-                    <Icon className="w-5 h-5 text-gray-500" />
-                )}
-            </div>
-            
-            <div className="flex-grow min-w-0">
-                <p className={`font-bold text-sm text-gray-900 truncate ${isClickable ? 'group-hover:text-primary' : ''} transition-colors`}>
-                    {entity.name}
-                </p>
-                <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-gray-600">
-                    <span className="font-semibold">{entity.category}</span>
-                    <span className="text-gray-300">&bull;</span>
-                    <span>{entity.region}</span>
-                    {entity.tier && <>
-                        <span className="text-gray-300">&bull;</span>
-                        <span>{entity.tier}</span>
-                    </>}
-                </div>
-            </div>
+    return (
+        <Card className={`border transition-all duration-200 ${isExpanded ? 'shadow-md border-primary/30' : 'hover:shadow-sm'}`}>
+            <div className="p-3">
+                {/* Header Section - Always Visible */}
+                <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-100">
+                        {entity.crestUrl ? (
+                            <img src={entity.crestUrl} alt={`${entity.name} crest`} className="w-9 h-9 object-contain" />
+                        ) : (
+                            <Icon className="w-6 h-6 text-gray-400" />
+                        )}
+                    </div>
+                    
+                    <div className="flex-grow min-w-0">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="font-bold text-gray-900 truncate">{entity.name}</h3>
+                                <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-500 mt-0.5">
+                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-medium">{entity.category}</span>
+                                    <span>&bull;</span>
+                                    <span>{entity.region}</span>
+                                    {entity.tier && <>
+                                        <span>&bull;</span>
+                                        <span className="text-blue-600">{entity.tier}</span>
+                                    </>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-            <div className="flex-shrink-0 flex items-center">
-                {entity.contact?.phone && (
-                    <a href={`tel:${entity.contact.phone}`} onClick={e => e.stopPropagation()} className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-primary/10" aria-label="Call">
-                        <PhoneIcon className="w-4 h-4" />
-                    </a>
-                )}
-                {entity.contact?.email && (
-                    <a href={`mailto:${entity.contact.email}`} onClick={e => e.stopPropagation()} className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-primary/10" aria-label="Email">
-                        <MailIcon className="w-4 h-4" />
-                    </a>
-                )}
-                {isClickable && (
-                    <div className="p-1.5 text-gray-400 group-hover:text-primary">
-                        <ArrowRightIcon className="w-5 h-5"/>
+                    <div className="flex-shrink-0 flex items-center gap-1">
+                        {isClickable && (
+                            <Link 
+                                to={`/competitions/${entity.competitionId}/teams/${entity.teamId}`} 
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors" 
+                                title="Visit Team Hub"
+                            >
+                                <ArrowRightIcon className="w-5 h-5"/>
+                            </Link>
+                        )}
+                        <button 
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className={`p-2 rounded-full transition-colors ${isExpanded ? 'bg-gray-100 text-gray-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                            aria-label={isExpanded ? "Collapse details" : "Expand details"}
+                        >
+                            <ChevronDownIcon className={`w-5 h-5 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Expanded Details Section */}
+                {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 animate-fade-in space-y-3 text-sm text-gray-600">
+                        {entity.nickname && (
+                            <p><span className="font-semibold text-gray-700">Nickname:</span> {entity.nickname}</p>
+                        )}
+                        {entity.founded && (
+                            <p><span className="font-semibold text-gray-700">Founded:</span> {entity.founded}</p>
+                        )}
+                        {entity.stadium && (
+                            <div className="flex items-start gap-2">
+                                <MapPinIcon className="w-4 h-4 text-gray-400 mt-0.5" />
+                                <span>{entity.stadium}</span>
+                            </div>
+                        )}
+                        
+                        {(entity.contact?.phone || entity.contact?.email) && (
+                            <div className="flex flex-wrap gap-3 pt-1">
+                                {entity.contact.phone && (
+                                    <a href={`tel:${entity.contact.phone}`} className="flex items-center gap-1.5 text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded">
+                                        <PhoneIcon className="w-3.5 h-3.5" /> {entity.contact.phone}
+                                    </a>
+                                )}
+                                {entity.contact.email && (
+                                    <a href={`mailto:${entity.contact.email}`} className="flex items-center gap-1.5 text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded">
+                                        <MailIcon className="w-3.5 h-3.5" /> {entity.contact.email}
+                                    </a>
+                                )}
+                            </div>
+                        )}
+
+                        {entity.leaders && entity.leaders.length > 0 && (
+                            <div className="bg-gray-50 p-2 rounded">
+                                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Leadership</p>
+                                {entity.leaders.map((l, idx) => (
+                                    <p key={idx} className="text-xs"><span className="font-medium">{l.role}:</span> {l.name}</p>
+                                ))}
+                            </div>
+                        )}
+
+                        {entity.honours && entity.honours.length > 0 && (
+                            <div className="bg-yellow-50 p-2 rounded border border-yellow-100">
+                                <p className="text-xs font-bold text-yellow-700 uppercase mb-1">Honours</p>
+                                <ul className="list-disc list-inside text-xs text-yellow-900">
+                                    {entity.honours.map((h, idx) => <li key={idx}>{h}</li>)}
+                                </ul>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
-        </CardContent>
-    );
-
-    if (isClickable) {
-        return (
-            <Link to={`/competitions/${entity.competitionId}/teams/${entity.teamId}`} className="group block h-full" aria-label={`View profile for ${entity.name}`}>
-                <Card className="transition-all duration-200 hover:shadow-md hover:border-primary/50 border h-full">
-                    {content}
-                </Card>
-            </Link>
-        );
-    }
-    
-    return (
-        <Card className="border h-full">
-            {content}
         </Card>
     );
 };

@@ -1,5 +1,5 @@
 
-import { Team, Player, CompetitionFixture } from '../data/teams';
+import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
 import { NewsItem } from '../data/news';
 import { db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, orderBy, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, runTransaction, deleteField, writeBatch, where, serverTimestamp, limit } from 'firebase/firestore';
@@ -20,6 +20,8 @@ import { User } from '../contexts/AuthContext';
 // NOTE: All data fetching functions now use Firebase Firestore.
 // For this to work, you must seed your Firestore database with collections
 // ('competitions', 'news', 'users', etc.) that match the structure of your mock data.
+
+export { type Competition }; // Re-export to maintain compatibility
 
 export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
@@ -55,18 +57,6 @@ export interface Category {
     id: string;
     name: string;
     order: number;
-}
-
-export interface Competition {
-    name: string;
-    displayName?: string;
-    description?: string;
-    logoUrl?: string;
-    fixtures: CompetitionFixture[];
-    results: CompetitionFixture[];
-    teams?: Team[]; // Only for leagues with standings
-    categoryId?: string;
-    externalApiId?: string;
 }
 
 export interface NationalTeam {

@@ -46,19 +46,27 @@ const Home: React.FC = () => {
         <Suspense fallback={<SectionLoader />}>
           <NewsSection />
         </Suspense>
-        <div id="matches">
-          <Suspense fallback={<SectionLoader />}>
-            <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="max-h-96" />
-          </Suspense>
+        
+        <div id="matches-and-logs" className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div className="w-full">
+                <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">Matches</h2>
+                <Suspense fallback={<SectionLoader />}>
+                    <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="max-h-[600px]" />
+                </Suspense>
+            </div>
+            <div className="w-full">
+                <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">Standings</h2>
+                <Suspense fallback={<SectionLoader />}>
+                    <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="max-h-[600px]" />
+                </Suspense>
+            </div>
         </div>
+
         <Suspense fallback={<SectionLoader />}>
           <VideoHub />
         </Suspense>
         <Suspense fallback={<SectionLoader />}>
           <AdBanner placement="homepage-banner" />
-        </Suspense>
-        <Suspense fallback={<SectionLoader />}>
-            <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="max-h-80" />
         </Suspense>
         <Suspense fallback={<SectionLoader />}>
             <Features />

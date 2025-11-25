@@ -25,13 +25,17 @@ const CupsPage: React.FC = () => {
       try {
           const [fetchedCups, fetchedTeams] = await Promise.all([fetchCups(), fetchAllTeams()]);
           
-          let displayCups: Tournament[] = [];
+          // Create a map starting with local data as fallback
+          const cupsMap = new Map<string, Tournament>();
+          localCupData.forEach(cup => cupsMap.set(cup.id, cup));
 
           if (fetchedCups.length > 0) {
-              displayCups = fetchedCups.map((cup: any) => {
+              fetchedCups.forEach((cup: any) => {
                   const sampleMatch = cup.rounds?.[0]?.matches?.[0];
                   const isIdBased = sampleMatch && (sampleMatch.team1Id !== undefined || sampleMatch.team1 === undefined);
                   
+                  let processedCup = cup as Tournament;
+
                   if (isIdBased) {
                       const newRounds = cup.rounds.map((round: any) => ({
                           title: round.title,
@@ -63,14 +67,22 @@ const CupsPage: React.FC = () => {
                               };
                           })
                       }));
-                      return { ...cup, rounds: newRounds } as Tournament;
+                      processedCup = { ...cup, rounds: newRounds };
                   }
-                  return cup as Tournament;
+                  
+                  // Special Linkage: If we find a fetched cup with specific name, map it to our expected local IDs
+                  if (processedCup.name.includes("Manzini Super League Ingwenyama Cup")) {
+                      cupsMap.set('ingwenyama-manzini', { ...processedCup, id: 'ingwenyama-manzini' });
+                  } else if (processedCup.name.includes("Ingwenyama Cup (National Finals)")) {
+                      cupsMap.set('ingwenyama-cup', { ...processedCup, id: 'ingwenyama-cup' });
+                  } else {
+                      // Overwrite or add normally using its Firestore ID
+                      cupsMap.set(cup.id, processedCup);
+                  }
               });
-          } else {
-              displayCups = localCupData;
           }
-          setCups(displayCups);
+          
+          setCups(Array.from(cupsMap.values()));
       } catch (e) {
           console.error("Failed to load cups, using fallback.", e);
           setCups(localCupData);
@@ -185,11 +197,11 @@ const CupsPage: React.FC = () => {
 
               {/* Regions */}
               {[
-                  { id: 'ingwenyama-hhohho', name: 'Hhohho Region', color: 'text-blue-600', bg: 'bg-blue-50' },
-                  { id: 'ingwenyama-manzini', name: 'Manzini Region', color: 'text-red-600', bg: 'bg-red-50' },
-                  { id: 'ingwenyama-lubombo', name: 'Lubombo Region', color: 'text-green-600', bg: 'bg-green-50' },
-                  { id: 'ingwenyama-shiselweni', name: 'Shiselweni Region', color: 'text-orange-600', bg: 'bg-orange-50' },
-                  { id: 'ingwenyama-cup-women', name: 'Women\'s Tournament', color: 'text-pink-600', bg: 'bg-pink-50' },
+                  { id: 'ingwenyama-hhohho', name: 'Hhohho Region', sub: 'View Qualifiers Bracket', color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { id: 'ingwenyama-manzini', name: 'Manzini Region', sub: 'Manzini Super League Qualifiers', color: 'text-red-600', bg: 'bg-red-50' },
+                  { id: 'ingwenyama-lubombo', name: 'Lubombo Region', sub: 'View Qualifiers Bracket', color: 'text-green-600', bg: 'bg-green-50' },
+                  { id: 'ingwenyama-shiselweni', name: 'Shiselweni Region', sub: 'View Qualifiers Bracket', color: 'text-orange-600', bg: 'bg-orange-50' },
+                  { id: 'ingwenyama-cup-women', name: 'Women\'s Tournament', sub: 'View Ladies Bracket', color: 'text-pink-600', bg: 'bg-pink-50' },
               ].map(region => (
                   <Card 
                     key={region.id} 
@@ -201,7 +213,7 @@ const CupsPage: React.FC = () => {
                               <MapPinIcon className={`w-6 h-6 ${region.color}`} />
                           </div>
                           <h3 className="font-bold text-lg text-gray-800">{region.name}</h3>
-                          <p className="text-xs text-gray-500 mt-1">View Qualifiers Bracket</p>
+                          <p className="text-xs text-gray-500 mt-1">{region.sub}</p>
                       </CardContent>
                   </Card>
               ))}

@@ -3,15 +3,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { Team, Competition } from '../../data/teams';
-import { fetchCompetition, addCup, updateCup, handleFirestoreError, fetchAllCompetitions } from '../../services/api';
-import { Tournament as DisplayTournament } from '../../data/cups';
+import { fetchCompetition, addCup, updateCup, handleFirestoreError, fetchAllCompetitions, fetchCups } from '../../services/api';
+import { Tournament as DisplayTournament, BracketMatch as ApiBracketMatch } from '../../data/cups';
 import Spinner from '../ui/Spinner';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import TournamentBracketDisplay from '../TournamentBracketDisplay';
-import EyeIcon from '../icons/BinocularsIcon'; // Using Binoculars as Eye/Preview icon
+import EyeIcon from '../icons/BinocularsIcon';
+import EditIcon from '../icons/Edit3Icon';
 
-interface BracketMatch {
+// Local interface for Admin editing state which requires explicit ID tracking for dropdowns
+interface AdminBracketMatch {
   id: string;
   round: number;
   matchInRound: number;
@@ -36,17 +38,17 @@ interface AdminTournament {
     name: string;
     rounds: {
         title: string;
-        matches: BracketMatch[];
+        matches: AdminBracketMatch[];
     }[];
     logoUrl?: string;
 }
 
 const MatchCard: React.FC<{
-  match: BracketMatch;
+  match: AdminBracketMatch;
   teams: Team[];
   assignedTeamIds: Set<number>;
   onTeamSelect: (matchId: string, teamSlot: 'team1Id' | 'team2Id', teamId: number) => void;
-  onScoreChange: (matchId: string, scoreSlot: keyof BracketMatch, value: string) => void;
+  onScoreChange: (matchId: string, scoreSlot: keyof AdminBracketMatch, value: string) => void;
   onDateTimeChange: (matchId: string, field: 'date' | 'time' | 'venue', value: string) => void;
   onDeclareWinner: (matchId: string) => void;
 }> = ({ match, teams, assignedTeamIds, onTeamSelect, onScoreChange, onDateTimeChange, onDeclareWinner }) => {
@@ -81,15 +83,10 @@ const MatchCard: React.FC<{
         );
     };
 
-    // Determine if Extra Time inputs should be shown
     const showET = (match.score1 !== '' && match.score2 !== '' && match.score1 === match.score2) || (match.score1ET && match.score1ET !== '') || (match.score2ET && match.score2ET !== '');
-
-    // Determine if Penalty inputs should be shown
     const score1ET = match.score1ET || '';
     const score2ET = match.score2ET || '';
     const showPen = showET && (score1ET !== '' && score2ET !== '' && score1ET === score2ET) || (match.score1Pen && match.score1Pen !== '') || (match.score2Pen && match.score2Pen !== '');
-
-    // Allow declaring winner if scores are different or if manual override is needed (e.g. text score like "2 (4)")
     const canDeclareWinner = team1 && team2 && !match.winnerId && (match.score1 !== '' || match.score2 !== '');
 
   return (
@@ -193,6 +190,7 @@ const MatchCard: React.FC<{
 
 const TournamentBracket: React.FC = () => {
     const [tournament, setTournament] = useState<AdminTournament | null>(null);
+    const [existingTournaments, setExistingTournaments] = useState<DisplayTournament[]>([]);
     const [numTeams, setNumTeams] = useState(8);
     const [tournamentName, setTournamentName] = useState('');
     const [teams, setTeams] = useState<Team[]>([]);
@@ -202,26 +200,65 @@ const TournamentBracket: React.FC = () => {
     const [selectedSource, setSelectedSource] = useState('');
     const [showPreview, setShowPreview] = useState(false);
 
+    const loadInitialData = async () => {
+        setLoading(true);
+        try {
+            // Fetch everything needed
+            const [allComps, allCups, allTeams] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchCups(),
+                fetchAllCompetitions().then(comps => Object.values(comps).flatMap(c => c.teams || []))
+            ]);
+            
+            const compList = Object.entries(allComps).map(([id, c]) => ({ id, name: c.name }));
+            setCompetitions(compList.sort((a, b) => a.name.localeCompare(b.name)));
+            
+            setExistingTournaments(allCups);
+            
+            // Flatten and dedup teams for use in dropdowns
+            // We use a map to ensure unique IDs
+            const teamMap = new Map<number, Team>();
+            allTeams.forEach(t => teamMap.set(t.id, t));
+            setTeams(Array.from(teamMap.values()).sort((a,b) => a.name.localeCompare(b.name)));
+
+        } catch (e) {
+            console.error("Error loading bracket data", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const loadInitialData = async () => {
-          setLoading(true);
-          try {
-              // Fetch all competitions to populate the selector
-              const allComps = await fetchAllCompetitions();
-              const compList = Object.entries(allComps).map(([id, c]) => ({ id, name: c.name }));
-              setCompetitions(compList.sort((a, b) => a.name.localeCompare(b.name)));
-              
-              // Load default teams (MTN Premier League) as a fallback
-              const defaultComp = allComps['mtn-premier-league'];
-              if (defaultComp?.teams) setTeams(defaultComp.teams);
-          } catch (e) {
-              console.error("Error loading bracket data", e);
-          } finally {
-              setLoading(false);
-          }
-        };
         loadInitialData();
     }, []);
+
+    const handleEditExisting = (t: DisplayTournament) => {
+        const adminT: AdminTournament = {
+            id: t.id,
+            name: t.name,
+            logoUrl: t.logoUrl,
+            rounds: (t.rounds as any).map((r: any) => ({
+                title: r.title,
+                matches: r.matches.map((m: any) => ({
+                    id: m.id,
+                    round: m.round || 1, // Fallback if simple struct
+                    matchInRound: m.matchInRound || 1,
+                    team1Id: m.team1Id || m.team1?.id, // Try to recover IDs
+                    team2Id: m.team2Id || m.team2?.id,
+                    score1: m.score1 || (m.team1?.score?.toString() || ''),
+                    score2: m.score2 || (m.team2?.score?.toString() || ''),
+                    winnerId: m.winnerId,
+                    nextMatchId: m.nextMatchId,
+                    date: m.date,
+                    time: m.time,
+                    venue: m.venue,
+                    // Extra fields
+                    score1ET: m.score1ET, score2ET: m.score2ET, score1Pen: m.score1Pen, score2Pen: m.score2Pen
+                }))
+            }))
+        };
+        setTournament(adminT);
+    };
 
     const handleSourceChange = async (compId: string) => {
         setSelectedSource(compId);
@@ -231,9 +268,6 @@ const TournamentBracket: React.FC = () => {
         try {
             const comp = await fetchCompetition(compId);
             if (comp) {
-                // Update available teams for the bracket
-                if (comp.teams) setTeams(comp.teams);
-                // Suggest a name based on the league, if tournament name is empty or generic
                 setTournamentName(`${comp.name} Cup`);
             }
         } catch (e) {
@@ -247,8 +281,6 @@ const TournamentBracket: React.FC = () => {
         if (!updatedTournament.id) return;
         setSaving(true);
         try {
-            // Map the local complex BracketMatch structure to a simpler structure for Firestore/Display
-            // Note: The display component uses a simplified structure. We save the FULL structure to allow future editing.
             await updateDoc(doc(db, "cups", updatedTournament.id), { rounds: updatedTournament.rounds });
         } catch (error) {
             handleFirestoreError(error, 'update tournament');
@@ -269,12 +301,9 @@ const TournamentBracket: React.FC = () => {
 
         for (let r = 1; r <= roundsCount; r++) {
             const matchesInRound = numTeams / Math.pow(2, r);
-            const matches: BracketMatch[] = [];
+            const matches: AdminBracketMatch[] = [];
             
             for (let m = 1; m <= matchesInRound; m++) {
-                // Calculate next match ID logic
-                // Round 1 Match 1 & 2 -> Round 2 Match 1
-                // Round 1 Match 3 & 4 -> Round 2 Match 2
                 const nextMatchId = r < roundsCount ? `R${r+1}-M${Math.ceil(m/2)}` : null;
                 
                 matches.push({
@@ -285,10 +314,6 @@ const TournamentBracket: React.FC = () => {
                     team2Id: null,
                     score1: '', 
                     score2: '',
-                    score1ET: '',
-                    score2ET: '',
-                    score1Pen: '',
-                    score2Pen: '',
                     winnerId: null, 
                     nextMatchId,
                     date: '',
@@ -308,12 +333,13 @@ const TournamentBracket: React.FC = () => {
         const newTournamentData = { 
             name: tournamentName, 
             rounds: rounds,
-            logoUrl: 'https://via.placeholder.com/150?text=Cup' // Default placeholder
+            logoUrl: 'https://via.placeholder.com/150?text=Cup'
         };
         
         try {
             const docRef = await addDoc(collection(db, 'cups'), newTournamentData);
             setTournament({ id: docRef.id, ...newTournamentData });
+            loadInitialData(); // Refresh list
         } catch (error) {
             handleFirestoreError(error, 'create tournament');
         }
@@ -339,7 +365,7 @@ const TournamentBracket: React.FC = () => {
         });
     };
     
-    const handleScoreChange = (matchId: string, scoreSlot: keyof BracketMatch, value: string) => {
+    const handleScoreChange = (matchId: string, scoreSlot: keyof AdminBracketMatch, value: string) => {
         updateBracket(prev => {
              const newRounds = prev.rounds.map(round => ({
                 ...round,
@@ -362,8 +388,7 @@ const TournamentBracket: React.FC = () => {
     const handleDeclareWinner = (matchId: string) => {
         if (!tournament) return;
         
-        // Find the match across all rounds
-        let currentMatch: BracketMatch | undefined;
+        let currentMatch: AdminBracketMatch | undefined;
         tournament.rounds.forEach(r => {
             const m = r.matches.find(match => match.id === matchId);
             if (m) currentMatch = m;
@@ -372,35 +397,21 @@ const TournamentBracket: React.FC = () => {
         if (!currentMatch) return;
         
         let winnerId: number | null = null;
-
-        // Logic for numeric score comparison
         const getScore = (s: string) => parseInt(s) || 0;
 
-        // 1. Check Penalties
-        if (currentMatch.score1Pen && currentMatch.score2Pen && currentMatch.score1Pen !== '' && currentMatch.score2Pen !== '') {
+        if (currentMatch.score1Pen && currentMatch.score2Pen) {
              const p1 = getScore(currentMatch.score1Pen);
              const p2 = getScore(currentMatch.score2Pen);
              if (p1 > p2) winnerId = currentMatch.team1Id;
              else if (p2 > p1) winnerId = currentMatch.team2Id;
-        } 
-        // 2. Check Extra Time
-        else if (currentMatch.score1ET && currentMatch.score2ET && currentMatch.score1ET !== '' && currentMatch.score2ET !== '') {
-             const et1 = getScore(currentMatch.score1ET);
-             const et2 = getScore(currentMatch.score2ET);
-             if (et1 > et2) winnerId = currentMatch.team1Id;
-             else if (et2 > et1) winnerId = currentMatch.team2Id;
-        }
-        // 3. Check Normal Time
-        else if (currentMatch.score1 !== '' && currentMatch.score2 !== '') {
+        } else if (currentMatch.score1 !== '' && currentMatch.score2 !== '') {
             const s1 = getScore(currentMatch.score1);
             const s2 = getScore(currentMatch.score2);
             if (s1 > s2) winnerId = currentMatch.team1Id;
             else if (s2 > s1) winnerId = currentMatch.team2Id;
         }
 
-        // 4. Fallback: If logic above fails (e.g. complex strings like "2 (4)"), ask user
         if (!winnerId && currentMatch.team1Id && currentMatch.team2Id) {
-            // If scores are entered but logic failed (e.g. text scores), prompt for manual selection
             const t1 = teams.find(t => t.id === currentMatch!.team1Id);
             const t2 = teams.find(t => t.id === currentMatch!.team2Id);
             if (t1 && t2) {
@@ -415,21 +426,17 @@ const TournamentBracket: React.FC = () => {
         }
 
         updateBracket(prev => {
-            const newRounds = [...prev.rounds]; // Shallow copy rounds array
+            const newRounds = [...prev.rounds];
             
-            // 1. Update current match with winner
-            newRounds.forEach((round, rIdx) => {
+            newRounds.forEach((round) => {
                 round.matches = round.matches.map(m => m.id === matchId ? { ...m, winnerId } : m);
             });
 
-            // 2. Advance winner to next match if exists
             if (currentMatch!.nextMatchId) {
                 newRounds.forEach(round => {
                     round.matches = round.matches.map(m => {
                         if (m.id === currentMatch!.nextMatchId) {
-                            // Logic to determine if winner goes to slot 1 or 2 based on previous match position
-                            // E.g. R1-M1 goes to R2-M1 Slot 1. R1-M2 goes to R2-M1 Slot 2.
-                            const isSlot1 = currentMatch!.matchInRound % 2 !== 0; // Odd number match -> Slot 1
+                            const isSlot1 = currentMatch!.matchInRound % 2 !== 0;
                             const slot = isSlot1 ? 'team1Id' : 'team2Id';
                             return { ...m, [slot]: winnerId };
                         }
@@ -442,7 +449,6 @@ const TournamentBracket: React.FC = () => {
         });
     };
 
-    // Calculate assigned teams for first round only to prevent duplicates in dropdown
     const assignedTeamIds = new Set<number>();
     if (tournament && tournament.rounds.length > 0) {
         tournament.rounds[0].matches.forEach(m => {
@@ -494,7 +500,6 @@ const TournamentBracket: React.FC = () => {
                                 match={match} teams={teams} assignedTeamIds={assignedTeamIds}
                                 onTeamSelect={handleTeamSelect} onScoreChange={handleScoreChange} onDateTimeChange={handleDateTimeChange} onDeclareWinner={handleDeclareWinner}
                             />
-                            {/* Visual connectors could go here with absolute positioning */}
                         </div>
                     ))}
                 </div>
@@ -509,7 +514,26 @@ const TournamentBracket: React.FC = () => {
             <CardContent className="p-6">
                  {!tournament ? (
                     <>
-                         <h3 className="text-2xl font-bold font-display mb-4">Create New Tournament</h3>
+                        <h3 className="text-2xl font-bold font-display mb-4">Tournament Management</h3>
+                        
+                        {/* List of Existing */}
+                        {existingTournaments.length > 0 && (
+                            <div className="mb-8">
+                                <h4 className="text-lg font-bold text-gray-700 mb-3">Existing Tournaments</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto p-2 bg-gray-50 rounded-lg border">
+                                    {existingTournaments.map(t => (
+                                        <div key={t.id} className="flex justify-between items-center p-3 bg-white rounded border hover:shadow-sm">
+                                            <span className="font-semibold text-sm">{t.name}</span>
+                                            <Button onClick={() => handleEditExisting(t)} className="text-xs h-8 px-3 bg-blue-100 text-blue-600 hover:bg-blue-200">
+                                                <EditIcon className="w-3 h-3 mr-1"/> Edit
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <h4 className="text-lg font-bold text-gray-700 mb-3">Create New Tournament</h4>
                         <div className="space-y-4 max-w-md bg-gray-50 p-6 rounded-lg border">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Source League (Optional)</label>
@@ -523,7 +547,7 @@ const TournamentBracket: React.FC = () => {
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
-                                <p className="text-xs text-gray-500 mt-1">Selecting a league will load its teams for the bracket.</p>
+                                <p className="text-xs text-gray-500 mt-1">Selecting a league helps name the tournament and ensures team availability.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Name</label>
@@ -570,7 +594,7 @@ const TournamentBracket: React.FC = () => {
                                     <EyeIcon className="w-4 h-4" /> {showPreview ? 'Edit Mode' : 'Preview Split Bracket'}
                                 </Button>
                                 <Button onClick={() => setTournament(null)} className="bg-gray-200 text-gray-800 text-sm">
-                                    Close / Create New
+                                    Close
                                 </Button>
                             </div>
                         </div>

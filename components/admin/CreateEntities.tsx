@@ -36,7 +36,11 @@ const CreateEntities: React.FC = () => {
         try {
             switch(type) {
                 case 'league':
-                    const leagueId = data.leagueName.toLowerCase().replace(/\s+/g, '-');
+                    // Sanitize ID: lowercase, replace spaces with dashes, remove everything else except dashes and alphanumeric
+                    const leagueId = data.leagueName.toLowerCase()
+                        .replace(/\s+/g, '-')
+                        .replace(/[^a-z0-9-]/g, '');
+                        
                     await setDoc(doc(db, "competitions", leagueId), {
                         name: data.leagueName,
                         teams: [],

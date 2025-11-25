@@ -40,7 +40,7 @@ const MatchCard: React.FC<{ match: BracketMatch }> = ({ match }) => {
                         {match.date && <span>{match.date}</span>}
                         {match.time && <span>{match.time}</span>}
                     </div>
-                    {match.venue && <span className="italic text-gray-400">{match.venue}</span>}
+                    {match.venue && <span className="italic text-gray-400 font-medium mt-0.5">{match.venue}</span>}
                 </div>
             )}
             <TeamDisplay team={match.team1} isWinner={match.winner === 'team1'} />

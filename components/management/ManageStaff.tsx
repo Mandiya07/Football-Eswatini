@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { fetchCompetition, handleFirestoreError } from '../../services/api';
 import { StaffMember, Team, Competition } from '../../data/teams';
@@ -43,6 +44,7 @@ const StaffForm: React.FC<{
                     <option>Assistant Coach</option>
                     <option>Goalkeeper Coach</option>
                     <option>Physiotherapist</option>
+                    <option>Team Doctor</option>
                     <option>Kit Manager</option>
                 </select>
                 <input type="email" name="email" value={formData.email || ''} onChange={handleChange} placeholder="Email Address" required className={inputClass} />
