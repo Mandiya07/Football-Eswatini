@@ -14,7 +14,7 @@ import { OnThisDayEvent, ArchiveItem } from '../data/memoryLane';
 import { Sponsor, KitPartner, sponsors as defaultSponsors } from '../data/sponsors';
 import { PhotoAlbum, BehindTheScenesContent } from '../data/media';
 import { Referee, Rule, refereeData as defaultRefereeData } from '../data/referees';
-import { calculateStandings } from './utils';
+import { calculateStandings, normalizeTeamName } from './utils';
 import { User } from '../contexts/AuthContext';
 
 // NOTE: All data fetching functions now use Firebase Firestore.
@@ -788,4 +788,62 @@ export const updateRefereesData = async (data: { referees: Referee[], ruleOfTheW
         handleFirestoreError(error, 'update referees data');
         throw error;
     }
+};
+
+export const fetchFootballDataOrg = async (
+    externalApiId: string,
+    apiKey: string,
+    season: string,
+    importType: 'fixtures' | 'results',
+    useProxy: boolean,
+    officialTeamNames: string[]
+): Promise<CompetitionFixture[]> => {
+    const statusQuery = importType === 'fixtures' ? 'SCHEDULED' : 'FINISHED';
+    let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=${statusQuery}`;
+
+    // Extract year for football-data (it expects YYYY)
+    const year = season.split('-')[0].trim();
+    if (year && year.length === 4 && !isNaN(Number(year))) {
+        url += `&season=${year}`;
+    }
+
+    if (useProxy) {
+        url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    }
+
+    const headers: HeadersInit = {};
+    if (apiKey) {
+        headers['X-Auth-Token'] = apiKey;
+    }
+
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Football-Data API Error (${response.status}): ${errorData.message || 'Check API Key/Proxy.'}`);
+    }
+
+    const data = await response.json();
+    const fetchedEvents: any[] = data.matches;
+
+    return fetchedEvents.map(event => {
+        const eventDate = new Date(event.utcDate);
+        const normalizedTeamA = normalizeTeamName(event.homeTeam.name, officialTeamNames);
+        const normalizedTeamB = normalizeTeamName(event.awayTeam.name, officialTeamNames);
+
+        return {
+            id: event.id,
+            teamA: normalizedTeamA || event.homeTeam.name,
+            teamB: normalizedTeamB || event.awayTeam.name,
+            fullDate: eventDate.toISOString().split('T')[0],
+            date: eventDate.getDate().toString(),
+            day: eventDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+            time: eventDate.toTimeString().substring(0, 5),
+            venue: event.venue || undefined,
+            matchday: event.matchday,
+            status: importType === 'results' ? 'finished' : 'scheduled',
+            scoreA: importType === 'results' ? (event.score?.fullTime.home ?? undefined) : undefined,
+            scoreB: importType === 'results' ? (event.score?.fullTime.away ?? undefined) : undefined,
+        };
+    });
 };

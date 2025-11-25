@@ -10,30 +10,13 @@ import XIcon from '../icons/XIcon';
 import SaveIcon from '../icons/SaveIcon';
 import TrashIcon from '../icons/TrashIcon';
 import { CompetitionFixture } from '../../data/teams';
-import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories } from '../../services/api';
+import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories, fetchFootballDataOrg } from '../../services/api';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps, normalizeTeamName, calculateStandings } from '../../services/utils';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import InfoIcon from '../icons/InfoIcon';
 import GlobeIcon from '../icons/GlobeIcon';
-
-// Fetched fixture from football-data.org
-interface FetchedFixtureFD {
-    id: number;
-    utcDate: string;
-    status: string;
-    homeTeam: { name: string; };
-    awayTeam: { name: string; };
-    score?: {
-        fullTime: {
-            home: number | null;
-            away: number | null;
-        }
-    };
-    venue?: string;
-    matchday: number;
-}
 
 // Fetched event from TheSportsDB
 interface FetchedEventTSDB {
@@ -139,13 +122,6 @@ const getMockUpcomingFixtures = (type: 'fixtures' | 'results'): CompetitionFixtu
             matchday: 5,
         },
     ];
-};
-
-// Helper to extract year for football-data from a potential range string
-const extractYear = (seasonStr: string) => {
-    if (!seasonStr) return '';
-    const parts = seasonStr.split('-');
-    return parts[0].trim(); // Returns '2024' from '2024-2025' or '2024'
 };
 
 const ApiImportPage: React.FC = () => {
@@ -309,61 +285,6 @@ const ApiImportPage: React.FC = () => {
         }
     };
     
-    const fetchFootballDataOrg = async (externalApiId: string) => {
-        const statusQuery = importType === 'fixtures' ? 'SCHEDULED' : 'FINISHED';
-        let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=${statusQuery}`;
-        
-        // Use extracted year from season input
-        const year = extractYear(season);
-        if (year && year.length === 4 && !isNaN(Number(year))) {
-            url += `&season=${year}`;
-        }
-        
-        if (useProxy) {
-            url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-        }
-
-        const headers: HeadersInit = {};
-        if (apiKey) {
-            headers['X-Auth-Token'] = apiKey;
-        }
-
-        const response = await fetch(url, { headers });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`Football-Data API Error (${response.status}): ${errorData.message || 'Check API Key/Proxy.'}`);
-        }
-
-        const data = await response.json();
-        const fetchedEvents: FetchedFixtureFD[] = data.matches;
-
-        const officialTeamNames = (currentCompetition?.teams || []).map(t => t.name);
-
-        const fixturesToReview: CompetitionFixture[] = fetchedEvents.map(event => {
-            const eventDate = new Date(event.utcDate);
-            const normalizedTeamA = normalizeTeamName(event.homeTeam.name, officialTeamNames);
-            const normalizedTeamB = normalizeTeamName(event.awayTeam.name, officialTeamNames);
-            
-            return {
-                id: event.id,
-                teamA: normalizedTeamA || event.homeTeam.name,
-                teamB: normalizedTeamB || event.awayTeam.name,
-                fullDate: eventDate.toISOString().split('T')[0],
-                date: eventDate.getDate().toString(),
-                day: eventDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-                time: eventDate.toTimeString().substring(0, 5),
-                venue: event.venue || undefined,
-                matchday: event.matchday,
-                status: importType === 'results' ? 'finished' : 'scheduled',
-                scoreA: importType === 'results' ? (event.score?.fullTime.home ?? undefined) : undefined,
-                scoreB: importType === 'results' ? (event.score?.fullTime.away ?? undefined) : undefined,
-            };
-        });
-
-        return fixturesToReview;
-    };
-
     const fetchTheSportsDB = async (externalApiId: string) => {
         const key = apiKey || '1'; 
         
@@ -506,11 +427,21 @@ const ApiImportPage: React.FC = () => {
             let fixtures: CompetitionFixture[] = [];
             let sourceLabel = "Live API";
 
+            const officialTeamNames = (currentCompetition?.teams || []).map(t => t.name);
+
             if (apiProvider === 'thesportsdb') {
                 fixtures = await fetchTheSportsDB(externalApiId);
                 sourceLabel = "TheSportsDB";
             } else {
-                fixtures = await fetchFootballDataOrg(externalApiId);
+                // Use centralized service function
+                fixtures = await fetchFootballDataOrg(
+                    externalApiId, 
+                    apiKey, 
+                    season, 
+                    importType, 
+                    useProxy, 
+                    officialTeamNames
+                );
                 sourceLabel = "Football-Data.org";
             }
 
