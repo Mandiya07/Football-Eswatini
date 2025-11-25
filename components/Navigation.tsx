@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
 import UserCircleIcon from './icons/UserCircleIcon';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,9 +32,11 @@ const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { isLoggedIn, user, openAuthModal, logout } = useAuth();
   const { cartCount } = useCart();
   const profileRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   const navItems = [
     { name: 'Home', to: '/' },
@@ -59,6 +61,13 @@ const Navigation: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      navigate(`/news?q=${encodeURIComponent(searchQuery.trim())}`);
+      setIsOpen(false); // Close mobile menu if open
+    }
+  };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
     const baseClass = "text-white hover:text-accent transition-colors duration-300 text-sm font-medium";
@@ -98,6 +107,9 @@ const Navigation: React.FC = () => {
                     type="text"
                     placeholder="Search..."
                     aria-label="Search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleSearch}
                     className="bg-white/20 text-white placeholder-gray-300 rounded-full py-1.5 pl-9 pr-4 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent focus:w-48 transition-all duration-300"
                   />
                 </div>
@@ -190,6 +202,9 @@ const Navigation: React.FC = () => {
                     type="text"
                     placeholder="Search..."
                     aria-label="Search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleSearch}
                     className="block w-full bg-primary-dark text-white placeholder-gray-400 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent"
                   />
                 </div>

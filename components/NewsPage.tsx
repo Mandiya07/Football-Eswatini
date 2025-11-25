@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { NewsItem } from '../data/news';
 import { NewsCard } from './News';
 import { fetchNews } from '../services/api';
@@ -8,62 +9,112 @@ import AdBanner from './AdBanner';
 import Button from './ui/Button';
 import ChevronLeftIcon from './icons/ChevronLeftIcon';
 import ChevronRightIcon from './icons/ChevronRightIcon';
+import SearchIcon from './icons/SearchIcon';
 
 const ITEMS_PER_PAGE = 12;
 
 const NewsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [allNews, setAllNews] = useState<NewsItem[]>([]);
   const [displayedNews, setDisplayedNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // Initialize search term from URL or default to empty
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
 
   useEffect(() => {
     const loadNews = async () => {
         setLoading(true);
         const data = await fetchNews();
-        
-        // Filter strictly for National or International news for the main news page
-        const filteredData = data.filter(item => {
-            const categories = Array.isArray(item.category) ? item.category : [item.category];
-            return categories.includes('National') || categories.includes('International');
-        });
-
-        setAllNews(filteredData);
-        setTotalPages(Math.ceil(filteredData.length / ITEMS_PER_PAGE));
+        // SHOW ALL NEWS: Removed the filter that restricted to specific categories.
+        setAllNews(data);
         setLoading(false);
     };
     loadNews();
   }, []);
 
+  // Handle Search and Pagination
   useEffect(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    // 1. Filter based on search term
+    const filtered = allNews.filter(item => {
+        const term = searchTerm.toLowerCase();
+        return (
+            item.title.toLowerCase().includes(term) ||
+            item.summary.toLowerCase().includes(term) ||
+            (Array.isArray(item.category) ? item.category.join(' ') : item.category).toLowerCase().includes(term)
+        );
+    });
+
+    // 2. Calculate Pages
+    const pages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+    setTotalPages(pages);
+
+    // 3. Handle Page Reset if search changes results significantly
+    let page = currentPage;
+    if (page > pages && pages > 0) {
+        page = 1;
+        setCurrentPage(1);
+    }
+
+    // 4. Slice for current page
+    const startIndex = (page - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
-    setDisplayedNews(allNews.slice(startIndex, endIndex));
-    // Scroll to top when page changes
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentPage, allNews]);
+    setDisplayedNews(filtered.slice(startIndex, endIndex));
+
+  }, [currentPage, allNews, searchTerm]);
+
+  // Update URL when search term changes
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setSearchTerm(val);
+      setCurrentPage(1); // Reset to page 1 on new search
+      
+      if (val) {
+          setSearchParams({ q: val });
+      } else {
+          setSearchParams({});
+      }
+  };
 
   const goToPage = (page: number) => {
       if (page >= 1 && page <= totalPages) {
           setCurrentPage(page);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
       }
   }
 
   return (
     <div className="bg-gray-50 py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
-            <div className="text-center mb-12">
+            <div className="text-center mb-8">
                 <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
                     Latest Headlines
                 </h1>
                 <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                    Stay up-to-date with the latest national and international football news.
+                    Stay up-to-date with the latest football news from Eswatini and around the world.
                 </p>
             </div>
 
-            <div className="mb-12">
+            <div className="mb-8">
                 <AdBanner placement="news-listing-top-banner" />
+            </div>
+
+            {/* Search Bar */}
+            <div className="max-w-xl mx-auto mb-10 relative">
+                <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <SearchIcon className="h-5 w-5 text-gray-400" />
+                    </span>
+                    <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        placeholder="Search news by title, summary, or category..."
+                        className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-full leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm shadow-sm transition-shadow hover:shadow-md"
+                    />
+                </div>
             </div>
 
             {loading ? (
@@ -72,11 +123,16 @@ const NewsPage: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start min-h-[600px]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start min-h-[400px]">
                         {displayedNews.length > 0 ? displayedNews.map(item => (
                             <NewsCard key={item.id} item={item} />
                         )) : (
-                            <p className="col-span-full text-center text-gray-500 py-12">No headlines found.</p>
+                            <div className="col-span-full text-center py-12">
+                                <p className="text-gray-500 text-lg">No news found matching "{searchTerm}".</p>
+                                <Button onClick={() => setSearchTerm('')} className="mt-4 bg-gray-200 text-gray-800 hover:bg-gray-300">
+                                    Clear Search
+                                </Button>
+                            </div>
                         )}
                     </div>
 
@@ -92,19 +148,9 @@ const NewsPage: React.FC = () => {
                             </Button>
                             
                             <div className="flex items-center gap-2">
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                    <button
-                                        key={page}
-                                        onClick={() => goToPage(page)}
-                                        className={`w-8 h-8 rounded-full text-sm font-bold transition-colors ${
-                                            currentPage === page 
-                                            ? 'bg-primary text-white' 
-                                            : 'text-gray-600 hover:bg-gray-200'
-                                        }`}
-                                    >
-                                        {page}
-                                    </button>
-                                ))}
+                                <span className="text-sm text-gray-600 font-medium">
+                                    Page {currentPage} of {totalPages}
+                                </span>
                             </div>
 
                             <Button 
