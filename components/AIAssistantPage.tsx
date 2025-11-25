@@ -25,6 +25,16 @@ const AIAssistantPage: React.FC = () => {
 
   // Load chat history on mount and initialize AI
   useEffect(() => {
+    // Robust check for missing API Key in deployment
+    if (!process.env.API_KEY || process.env.API_KEY === 'undefined' || process.env.API_KEY === '') {
+        console.error("API_KEY is missing. Ensure it is set in Vercel environment variables.");
+        setChatHistory([{
+            role: 'model',
+            text: '⚠️ Configuration Error: The API_KEY is missing.\n\nPlease add the "API_KEY" environment variable to your Vercel project settings and redeploy the application.'
+        }]);
+        return;
+    }
+
     try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -40,11 +50,15 @@ const AIAssistantPage: React.FC = () => {
             }
         }
 
-        // Step 2: Prepare history for the AI model (don't include our hardcoded welcome message)
+        // Step 2: Prepare history for the AI model (don't include our hardcoded welcome message or errors)
         const apiHistory = loadedHistory
             .filter((msg, index) => {
-                // Remove the initial welcome message only if it's the very first item.
+                // Remove the initial welcome message
                 if (index === 0 && msg.role === 'model' && msg.text.startsWith('Hello! I am the FE Agent.')) {
+                    return false;
+                }
+                // Remove error messages from history so they don't confuse the model
+                if (msg.text.startsWith('⚠️ Configuration Error')) {
                     return false;
                 }
                 return true;
@@ -64,7 +78,7 @@ const AIAssistantPage: React.FC = () => {
         });
         
         // Step 4: Set the display history
-        if (loadedHistory.length > 0) {
+        if (loadedHistory.length > 0 && !loadedHistory[loadedHistory.length-1].text.startsWith('⚠️')) {
             setChatHistory(loadedHistory);
         } else {
             setChatHistory([{
@@ -173,7 +187,7 @@ const AIAssistantPage: React.FC = () => {
                     </div>
                   </div>
                   {/* Feedback UI for model responses */}
-                  {message.role === 'model' && message.text && index > 0 && !isLoading && (
+                  {message.role === 'model' && message.text && index > 0 && !isLoading && !message.text.startsWith('⚠️') && (
                     <div className="flex items-center justify-start gap-2 ml-11 mt-2">
                         <button 
                             onClick={() => handleFeedback(index, 'good')}

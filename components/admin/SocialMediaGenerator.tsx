@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
@@ -174,6 +173,10 @@ const SocialMediaGenerator: React.FC = () => {
     const handleGenerate = async () => {
         if (!contextData.trim()) {
             alert("Please enter some context or fetch recent data first.");
+            return;
+        }
+        if (!process.env.API_KEY || process.env.API_KEY === 'undefined' || process.env.API_KEY === '') {
+            alert('System Error: API_KEY is not configured. Please add the API_KEY environment variable in your Vercel project settings.');
             return;
         }
 

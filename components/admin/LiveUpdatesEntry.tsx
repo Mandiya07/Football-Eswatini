@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -102,6 +101,9 @@ const LiveUpdatesEntry: React.FC = () => {
 
      const handleParse = async () => {
         if (!pastedText.trim()) return setError('Please paste some text to analyze.');
+        if (!process.env.API_KEY || process.env.API_KEY === 'undefined' || process.env.API_KEY === '') {
+            return setError('System Error: API_KEY is not configured. Please add the API_KEY environment variable in your Vercel project settings.');
+        }
         
         setIsParsing(true);
         setError('');
