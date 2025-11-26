@@ -1,19 +1,18 @@
-
 import React, { useState, useEffect } from 'react';
-// FIX: Import 'fetchAllCompetitions' which is now correctly exported from the API service.
-import { fetchAllCompetitions, handleFirestoreError } from '../../services/api';
-import { Competition, CompetitionFixture, Team } from '../../data/teams';
+import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
+import { Team, Competition, CompetitionFixture } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import RefreshIcon from '../icons/RefreshIcon';
+import CheckCircleIcon from '../icons/CheckCircleIcon';
+import { db } from '../../services/firebase';
+import { doc, getDoc, updateDoc, runTransaction } from 'firebase/firestore';
+import { calculateStandings, removeUndefinedProps, normalize, levenshtein } from '../../services/utils';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import GitMergeIcon from '../icons/GitMergeIcon';
 import SparklesIcon from '../icons/SparklesIcon';
-import { db } from '../../services/firebase';
-import { doc, getDoc, updateDoc, runTransaction } from 'firebase/firestore';
-import { calculateStandings, removeUndefinedProps, normalize, levenshtein } from '../../services/utils';
 
 const RecalculateLogs: React.FC = () => {
     const [leagues, setLeagues] = useState<{ id: string, name: string }[]>([]);

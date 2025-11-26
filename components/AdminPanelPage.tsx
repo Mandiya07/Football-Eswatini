@@ -1,3 +1,4 @@
+
 import React, { useState, lazy } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import AdminLoginPrompt from './admin/AdminLoginPrompt';
@@ -16,29 +17,29 @@ import LiveUpdatesEntry from './admin/LiveUpdatesEntry';
 import ManageMatches from './admin/ManageMatches';
 import FeatureManagement from './admin/FeatureManagement';
 import RefereeManagement from './admin/RefereeManagement';
-
-import CheckCircleIcon from '../icons/CheckCircleIcon';
-import GitMergeIcon from '../icons/GitMergeIcon';
-import RefreshIcon from '../icons/RefreshIcon';
-import DatabaseIcon from '../icons/DatabaseIcon';
-import BracketIcon from '../icons/BracketIcon';
-import NewspaperIcon from '../icons/NewspaperIcon';
-import TagIcon from '../icons/TagIcon';
-import BinocularsIcon from '../icons/BinocularsIcon';
-import BookIcon from '../icons/BookIcon';
-import FilmIcon from '../icons/FilmIcon';
 import CategoryManagement from './admin/CategoryManagement';
-import LayersIcon from '../icons/LayersIcon';
-import AlertTriangleIcon from '../icons/AlertTriangleIcon';
-import UsersIcon from '../icons/UsersIcon';
-import MegaphoneIcon from '../icons/MegaphoneIcon';
-import RadioIcon from '../icons/RadioIcon';
-import CalendarIcon from '../icons/CalendarIcon';
-import YouthIcon from '../icons/YouthIcon';
-import SparklesIcon from '../icons/SparklesIcon';
-import WhistleIcon from '../icons/WhistleIcon';
-import ShareIcon from '../icons/ShareIcon';
-import ImageIcon from '../icons/ImageIcon';
+
+import CheckCircleIcon from './icons/CheckCircleIcon';
+import GitMergeIcon from './icons/GitMergeIcon';
+import RefreshIcon from './icons/RefreshIcon';
+import DatabaseIcon from './icons/DatabaseIcon';
+import BracketIcon from './icons/BracketIcon';
+import NewspaperIcon from './icons/NewspaperIcon';
+import TagIcon from './icons/TagIcon';
+import BinocularsIcon from './icons/BinocularsIcon';
+import BookIcon from './icons/BookIcon';
+import FilmIcon from './icons/FilmIcon';
+import LayersIcon from './icons/LayersIcon';
+import AlertTriangleIcon from './icons/AlertTriangleIcon';
+import UsersIcon from './icons/UsersIcon';
+import MegaphoneIcon from './icons/MegaphoneIcon';
+import RadioIcon from './icons/RadioIcon';
+import CalendarIcon from './icons/CalendarIcon';
+import YouthIcon from './icons/YouthIcon';
+import SparklesIcon from './icons/SparklesIcon';
+import WhistleIcon from './icons/WhistleIcon';
+import ShareIcon from './icons/ShareIcon';
+import ImageIcon from './icons/ImageIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
