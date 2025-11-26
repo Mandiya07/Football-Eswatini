@@ -15,6 +15,7 @@ import { db } from '../../services/firebase';
 
 type DivisionType = 'International' | 'MTN Premier League' | 'National First Division League' | 'Regional' | 'Cups' | 'National Team';
 type ContentType = 'captions' | 'summary' | 'image';
+type PlatformType = 'twitter' | 'facebook' | 'instagram';
 
 interface SocialMatch {
     id: string;
@@ -36,6 +37,7 @@ interface SocialMatch {
 const SocialMediaGenerator: React.FC = () => {
     const [division, setDivision] = useState<DivisionType>('MTN Premier League');
     const [contentType, setContentType] = useState<ContentType>('captions');
+    const [platform, setPlatform] = useState<PlatformType>('twitter');
     const [contextData, setContextData] = useState('');
     const [generatedContent, setGeneratedContent] = useState<string[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -156,7 +158,6 @@ const SocialMediaGenerator: React.FC = () => {
 
             setContextData(relevantText);
             setRawMatches(extractedMatches);
-            // Select the first match by default if available
             if (extractedMatches.length > 0) {
                 setSelectedMatchIds([extractedMatches[0].id]);
             } else {
@@ -176,7 +177,7 @@ const SocialMediaGenerator: React.FC = () => {
             return;
         }
         if (!process.env.API_KEY || process.env.API_KEY === 'undefined' || process.env.API_KEY === '') {
-            alert('System Error: API_KEY is not configured. Please add the API_KEY environment variable in your Vercel project settings.');
+            alert('System Error: API_KEY is not configured. Please add the API_KEY environment variable in your Vercel project settings and redeploy.');
             return;
         }
 
@@ -189,13 +190,26 @@ const SocialMediaGenerator: React.FC = () => {
             let prompt = "";
 
             if (contentType === 'captions') {
-                prompt = `You are a social media manager for Football Eswatini. Create 5 distinct, engaging social media posts (under 140 characters each) based on the following data. 
-                Section: ${division}.
-                Context: ${contextData}
-                
-                Style: Exciting, use emojis, use hashtags like #FootballEswatini #${division.replace(/\s/g, '')}.
-                Output format: Just the 5 captions separated by a "|||" delimiter. Do not number them.`;
-            } else {
+                if (platform === 'twitter') {
+                    prompt = `You are a social media manager for Football Eswatini. Create 5 distinct, engaging Twitter posts (under 280 characters each) based on the following data.
+                    Section: ${division}.
+                    Context: ${contextData}
+                    Style: Short, exciting, use emojis, and use 2-3 relevant hashtags like #FootballEswatini #${division.replace(/\s/g, '')}.
+                    Output format: Just the 5 captions separated by a "|||" delimiter. Do not number them.`;
+                } else if (platform === 'facebook') {
+                    prompt = `You are a social media manager for Football Eswatini. Create 3 distinct, engaging Facebook posts based on the following data.
+                    Section: ${division}.
+                    Context: ${contextData}
+                    Style: Slightly more descriptive than Twitter. Ask a question to encourage comments and engagement. Use emojis and 1-2 relevant hashtags.
+                    Output format: Just the 3 captions separated by a "|||" delimiter. Do not number them.`;
+                } else { // instagram
+                     prompt = `You are a social media manager for Football Eswatini. Create 3 distinct, visually-focused Instagram captions based on the following data.
+                    Section: ${division}.
+                    Context: ${contextData}
+                    Style: Storytelling and descriptive, as if accompanying a photo or video. End each caption with a block of 5-7 relevant hashtags.
+                    Output format: Just the 3 captions separated by a "|||" delimiter. Do not number them.`;
+                }
+            } else { // summary
                 prompt = `You are a sports journalist for Football Eswatini. Write a comprehensive "Weekly Wrap-Up" summary article for the ${division} based on the following data.
                 Context: ${contextData}
                 
@@ -210,16 +224,12 @@ const SocialMediaGenerator: React.FC = () => {
 
             const text = response.text || "";
             
-            if (contentType === 'captions') {
-                const captions = text.split('|||').map(c => c.trim()).filter(c => c.length > 0);
-                setGeneratedContent(captions);
-            } else {
-                setGeneratedContent([text]);
-            }
+            const captions = text.split('|||').map(c => c.trim()).filter(c => c.length > 0);
+            setGeneratedContent(captions);
 
         } catch (error) {
             console.error("AI Generation failed:", error);
-            alert("Failed to generate content. Check API key.");
+            alert("Failed to generate content. Check API key and content format.");
         } finally {
             setIsGenerating(false);
         }
@@ -380,7 +390,6 @@ const SocialMediaGenerator: React.FC = () => {
     const drawSingleMatch = (ctx: CanvasRenderingContext2D, match: SocialMatch, width: number, height: number) => {
         const centerX = width / 2;
 
-        // -- 1. League Logo (Top) --
         const leagueLogo = match.competitionLogoUrl ? imageCache.get(match.competitionLogoUrl) : null;
         if (leagueLogo) {
             const lSize = 120;
@@ -394,8 +403,7 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.restore();
         }
 
-        // -- 2. League Name --
-        ctx.fillStyle = '#FDB913'; // Eswatini Yellow
+        ctx.fillStyle = '#FDB913';
         ctx.font = 'bold 24px "Poppins", sans-serif';
         ctx.textAlign = 'center';
         ctx.shadowColor = 'rgba(0,0,0,0.5)';
@@ -403,9 +411,8 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.fillText(match.competition.toUpperCase(), centerX, 210);
         ctx.shadowBlur = 0;
 
-        // -- 3. Matchday / Status --
         ctx.fillStyle = 'rgba(255,255,255,0.15)';
-        fillRoundedRect(ctx, centerX - 200, 240, 400, 50, 25); // Pill background
+        fillRoundedRect(ctx, centerX - 200, 240, 400, 50, 25);
         
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '800 28px "Poppins", sans-serif';
@@ -418,13 +425,11 @@ const SocialMediaGenerator: React.FC = () => {
         }
         ctx.fillText(label, centerX, 276);
 
-        // -- 4. Teams Layout (Vertical Split) --
-        const crestSize = 220; // Reduced slightly for better spacing
+        const crestSize = 220;
         
         const imgA = match.teamACrest ? imageCache.get(match.teamACrest) : null;
         const imgB = match.teamBCrest ? imageCache.get(match.teamBCrest) : null;
 
-        // Home Team (Upper Section) - Moved UP to avoid center overlap
         const homeY = 420; 
         if (imgA) {
             const r = Math.min(crestSize / imgA.width, crestSize / imgA.height);
@@ -435,19 +440,12 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.shadowBlur = 25;
             ctx.drawImage(imgA, centerX - w/2, homeY - h/2, w, h);
             ctx.restore();
-        } else {
-            ctx.beginPath();
-            ctx.arc(centerX, homeY, 100, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,0.1)';
-            ctx.fill();
         }
         
-        // Home Name
         ctx.font = '900 42px "Inter", sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(match.teamA, centerX, homeY + 140); // y = 560
+        ctx.fillText(match.teamA, centerX, homeY + 140);
 
-        // Away Team (Lower Section) - Moved DOWN
         const awayY = 1000;
         if (imgB) {
             const r = Math.min(crestSize / imgB.width, crestSize / imgB.height);
@@ -458,23 +456,15 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.shadowBlur = 25;
             ctx.drawImage(imgB, centerX - w/2, awayY - h/2, w, h);
             ctx.restore();
-        } else {
-            ctx.beginPath();
-            ctx.arc(centerX, awayY, 100, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,0.1)';
-            ctx.fill();
         }
 
-        // Away Name
         ctx.font = '900 42px "Inter", sans-serif';
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(match.teamB, centerX, awayY + 140); // y = 1140
+        ctx.fillText(match.teamB, centerX, awayY + 140);
 
-        // -- 5. Center VS / Score --
-        const midY = 710; // Fixed midpoint
+        const midY = 710;
         
         if (match.type === 'result') {
-            // Score Box
             ctx.fillStyle = '#FDB913';
             ctx.shadowColor = 'rgba(0,0,0,0.5)';
             ctx.shadowBlur = 20;
@@ -484,7 +474,6 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.font = '900 90px "Poppins", sans-serif';
             ctx.fillText(`${match.scoreA}-${match.scoreB}`, centerX, midY + 35);
         } else {
-            // VS Circle
             ctx.fillStyle = '#FFFFFF';
             ctx.shadowColor = 'rgba(0,0,0,0.3)';
             ctx.shadowBlur = 10;
@@ -497,7 +486,6 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.fillText("VS", centerX, midY + 18);
         }
 
-        // -- 6. Info Footer (Date/Time) --
         const infoY = 1220;
         ctx.font = '600 28px "Inter", sans-serif';
         ctx.fillStyle = '#CCCCCC';
@@ -513,7 +501,6 @@ const SocialMediaGenerator: React.FC = () => {
     const drawMultiMatch = (ctx: CanvasRenderingContext2D, matches: SocialMatch[], width: number, height: number) => {
         const centerX = width / 2;
 
-        // -- Header --
         const leagueName = matches[0].competition.toUpperCase();
         const logoUrl = matches[0].competitionLogoUrl;
         
@@ -531,7 +518,6 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.fillStyle = '#FDB913';
         ctx.fillText(leagueName, centerX, 190);
         
-        // Title Logic
         const distinctMatchdays = new Set(matches.map(m => m.matchday).filter(Boolean));
         let title = matches[0].type === 'result' ? 'MATCH RESULTS' : 'UPCOMING FIXTURES';
         if (distinctMatchdays.size === 1) {
@@ -545,33 +531,28 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.fillText(title, centerX, 250);
         ctx.shadowBlur = 0;
 
-        // -- List Layout --
         const rowHeight = 100;
         const maxRows = 8; 
         const spacing = 20;
         const visibleMatches = matches.slice(0, maxRows);
 
-        // Dynamic Centering Logic
-        const headerBoundary = 290; // Bottom of header content
-        const footerBoundary = height - 90; // Top of footer content
+        const headerBoundary = 290;
+        const footerBoundary = height - 90;
         const drawingArea = footerBoundary - headerBoundary;
         const contentHeight = (visibleMatches.length * rowHeight) + ((Math.max(0, visibleMatches.length - 1)) * spacing);
         
         let currentY = headerBoundary + (drawingArea - contentHeight) / 2;
         
-        // Safety clamp to ensure it doesn't overlap header if list is full
         if (currentY < headerBoundary + 10) currentY = headerBoundary + 10;
 
         visibleMatches.forEach((m, i) => {
             const y = currentY + (i * (rowHeight + spacing));
             
-            // Row Background
             ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
             fillRoundedRect(ctx, 60, y, width - 120, rowHeight, 15);
 
             const rowCenterY = y + rowHeight/2;
 
-            // Team A (Left)
             const imgA = m.teamACrest ? imageCache.get(m.teamACrest) : null;
             if (imgA) {
                 const s = 60;
@@ -582,20 +563,16 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.fillStyle = '#FFFFFF';
             ctx.font = 'bold 26px "Inter", sans-serif';
             ctx.textAlign = 'left';
-            // Truncate name if too long
             let nameA = m.teamA;
             if (nameA.length > 15) nameA = nameA.substring(0, 13) + '..';
             ctx.fillText(nameA, 160, rowCenterY + 10);
 
-            // Center Info Group
             ctx.textAlign = 'center';
 
-            // 1. Date (Top of center)
-            ctx.fillStyle = '#CCCCCC'; // Light gray
+            ctx.fillStyle = '#CCCCCC';
             ctx.font = '600 13px "Inter", sans-serif';
             ctx.fillText(m.date, centerX, rowCenterY - 22);
 
-            // 2. Score / Time (Middle)
             if (m.type === 'result') {
                 ctx.fillStyle = '#FDB913';
                 ctx.font = '900 36px "Poppins", sans-serif';
@@ -606,16 +583,14 @@ const SocialMediaGenerator: React.FC = () => {
                 ctx.fillText(m.time || 'VS', centerX, rowCenterY + 10);
             }
 
-            // 3. Venue (Bottom of center)
             if (m.venue) {
-                ctx.fillStyle = '#888888'; // Dimmer gray
+                ctx.fillStyle = '#888888';
                 ctx.font = '500 11px "Inter", sans-serif';
                 let venueText = m.venue;
-                if (venueText.length > 25) venueText = venueText.substring(0, 23) + '..'; // Slightly tighter truncation for list
+                if (venueText.length > 25) venueText = venueText.substring(0, 23) + '..';
                 ctx.fillText(venueText, centerX, rowCenterY + 32);
             }
 
-            // Team B (Right)
             const imgB = m.teamBCrest ? imageCache.get(m.teamBCrest) : null;
             if (imgB) {
                 const s = 60;
@@ -643,7 +618,7 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.textAlign = 'center';
         ctx.fillText("FOOTBALL ESWATINI", width / 2, height - 28);
         
-        ctx.fillStyle = '#D22730'; // Red Accent Line
+        ctx.fillStyle = '#D22730';
         ctx.fillRect(0, height - footerH, width, 6);
         ctx.restore();
     };
@@ -670,10 +645,10 @@ const SocialMediaGenerator: React.FC = () => {
                         <h3 className="text-2xl font-bold font-display text-gray-800">Social & Content Gen</h3>
                     </div>
                     <p className="text-sm text-gray-600">
-                        Generate social media captions, summaries, or visual graphics (Portrait). Select your parameters and fetch real data.
+                        Generate social media captions, summaries, or visual graphics. Select your parameters and let the AI assist.
                     </p>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className={`grid ${contentType === 'captions' ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Division</label>
                             <select 
@@ -698,21 +673,35 @@ const SocialMediaGenerator: React.FC = () => {
                             >
                                 <option value="captions">Captions</option>
                                 <option value="summary">Summary</option>
-                                <option value="image">Image Graphic (Portrait)</option>
+                                <option value="image">Image Graphic</option>
                             </select>
                         </div>
+                        {contentType === 'captions' && (
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Platform</label>
+                                <select 
+                                    value={platform} 
+                                    onChange={(e) => setPlatform(e.target.value as PlatformType)}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                                >
+                                    <option value="twitter">Twitter</option>
+                                    <option value="facebook">Facebook</option>
+                                    <option value="instagram">Instagram</option>
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     <div>
                         <div className="flex justify-between items-center mb-2">
-                            <label className="block text-sm font-bold text-gray-700">Data Source</label>
+                            <label className="block text-sm font-bold text-gray-700">Context / Data Source</label>
                             <button 
                                 onClick={fetchRecentData} 
                                 disabled={isFetchingData}
                                 className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-800 disabled:opacity-50"
                             >
                                 {isFetchingData ? <Spinner className="w-3 h-3 border-blue-600 border-2" /> : <RefreshIcon className="w-3 h-3" />}
-                                Fetch Data
+                                Fetch Recent Data
                             </button>
                         </div>
                         
@@ -746,7 +735,7 @@ const SocialMediaGenerator: React.FC = () => {
                                 rows={8} 
                                 value={contextData} 
                                 onChange={(e) => setContextData(e.target.value)}
-                                placeholder={`Enter match results...`}
+                                placeholder={`Enter match details, player stats, or any other context...`}
                                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm font-mono"
                             />
                         )}
@@ -791,46 +780,45 @@ const SocialMediaGenerator: React.FC = () => {
                         </div>
                     ) : (
                         <>
-                            {generatedContent.length === 0 ? (
+                            {isGenerating ? (
+                                <div className="flex-grow flex flex-col items-center justify-center text-gray-400">
+                                    <Spinner className="w-8 h-8" />
+                                    <p className="text-sm mt-2">Generating...</p>
+                                </div>
+                            ) : generatedContent.length === 0 ? (
                                 <div className="flex-grow flex flex-col items-center justify-center text-gray-400">
                                     <SparklesIcon className="w-12 h-12 mb-2 opacity-20" />
                                     <p className="text-sm">Content will appear here.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {contentType === 'captions' ? (
-                                        generatedContent.map((caption, idx) => (
-                                            <div key={idx} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex gap-3 items-start group">
-                                                <div className="flex-grow text-gray-800 text-sm">{caption}</div>
-                                                <button 
-                                                    onClick={() => copyToClipboard(caption)}
-                                                    className="text-gray-400 hover:text-purple-600 p-1 rounded hover:bg-purple-50 transition-colors"
-                                                    title="Copy to Clipboard"
-                                                >
-                                                    <CopyIcon className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                                            <div className="prose prose-sm max-w-none text-gray-800 whitespace-pre-wrap">
-                                                {generatedContent[0]}
-                                            </div>
-                                            <div className="mt-6 flex gap-3 justify-end pt-4 border-t">
-                                                <Button 
-                                                    onClick={() => copyToClipboard(generatedContent[0])} 
-                                                    className="bg-gray-200 text-gray-800 hover:bg-gray-300 text-xs"
-                                                >
-                                                    <CopyIcon className="w-4 h-4 mr-1 inline" /> Copy Text
-                                                </Button>
-                                                <Button 
-                                                    onClick={saveAsNews} 
-                                                    disabled={savedAsNews}
-                                                    className="bg-green-600 text-white hover:bg-green-700 text-xs"
-                                                >
-                                                    {savedAsNews ? <span className="flex items-center gap-1">Saved <SaveIcon className="w-3 h-3"/></span> : "Save as News Article"}
-                                                </Button>
-                                            </div>
+                                    {generatedContent.map((caption, idx) => (
+                                        <div key={idx} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex gap-3 items-start group">
+                                            <div className="flex-grow text-gray-800 text-sm whitespace-pre-wrap">{caption}</div>
+                                            <button 
+                                                onClick={() => copyToClipboard(caption)}
+                                                className="text-gray-400 hover:text-purple-600 p-1 rounded hover:bg-purple-50 transition-colors"
+                                                title="Copy to Clipboard"
+                                            >
+                                                <CopyIcon className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {contentType === 'summary' && (
+                                        <div className="mt-6 flex gap-3 justify-end pt-4 border-t">
+                                            <Button 
+                                                onClick={() => copyToClipboard(generatedContent[0])} 
+                                                className="bg-gray-200 text-gray-800 hover:bg-gray-300 text-xs"
+                                            >
+                                                <CopyIcon className="w-4 h-4 mr-1 inline" /> Copy Text
+                                            </Button>
+                                            <Button 
+                                                onClick={saveAsNews} 
+                                                disabled={savedAsNews}
+                                                className="bg-green-600 text-white hover:bg-green-700 text-xs"
+                                            >
+                                                {savedAsNews ? <span className="flex items-center gap-1">Saved <SaveIcon className="w-3 h-3"/></span> : "Save as News Article"}
+                                            </Button>
                                         </div>
                                     )}
                                 </div>

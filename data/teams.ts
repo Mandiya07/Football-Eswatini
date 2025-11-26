@@ -49,7 +49,7 @@ export interface TeamResult {
 export interface StaffMember {
   id: number;
   name: string;
-  role: 'Head Coach' | 'Assistant Coach' | 'Goalkeeper Coach' | 'Physiotherapist' | 'Kit Manager';
+  role: 'Head Coach' | 'Assistant Coach' | 'Goalkeeper Coach' | 'Physiotherapist' | 'Team Doctor' | 'Kit Manager';
   email: string;
   phone: string;
 }
