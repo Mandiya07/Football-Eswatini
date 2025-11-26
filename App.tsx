@@ -56,7 +56,7 @@ const App: React.FC = () => {
   
   return (
     <HashRouter>
-      <div className="min-h-screen font-sans text-gray-800">
+      <div className="min-h-screen font-sans text-gray-800 antialiased">
         <Navigation />
         <main>
           <Suspense fallback={<div className="p-8 text-center">Loading Page...</div>}>
