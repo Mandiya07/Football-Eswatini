@@ -1,4 +1,3 @@
-
 import React, { useState, lazy } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import AdminLoginPrompt from './admin/AdminLoginPrompt';
@@ -18,35 +17,37 @@ import ManageMatches from './admin/ManageMatches';
 import FeatureManagement from './admin/FeatureManagement';
 import RefereeManagement from './admin/RefereeManagement';
 
-import CheckCircleIcon from './icons/CheckCircleIcon';
-import GitMergeIcon from './icons/GitMergeIcon';
-import RefreshIcon from './icons/RefreshIcon';
-import DatabaseIcon from './icons/DatabaseIcon';
-import BracketIcon from './icons/BracketIcon';
-import NewspaperIcon from './icons/NewspaperIcon';
-import TagIcon from './icons/TagIcon';
-import BinocularsIcon from './icons/BinocularsIcon';
-import BookIcon from './icons/BookIcon';
-import FilmIcon from './icons/FilmIcon';
+import CheckCircleIcon from '../icons/CheckCircleIcon';
+import GitMergeIcon from '../icons/GitMergeIcon';
+import RefreshIcon from '../icons/RefreshIcon';
+import DatabaseIcon from '../icons/DatabaseIcon';
+import BracketIcon from '../icons/BracketIcon';
+import NewspaperIcon from '../icons/NewspaperIcon';
+import TagIcon from '../icons/TagIcon';
+import BinocularsIcon from '../icons/BinocularsIcon';
+import BookIcon from '../icons/BookIcon';
+import FilmIcon from '../icons/FilmIcon';
 import CategoryManagement from './admin/CategoryManagement';
-import LayersIcon from './icons/LayersIcon';
-import AlertTriangleIcon from './icons/AlertTriangleIcon';
-import UsersIcon from './icons/UsersIcon';
-import MegaphoneIcon from './icons/MegaphoneIcon';
-import RadioIcon from './icons/RadioIcon';
-import CalendarIcon from './icons/CalendarIcon';
-import YouthIcon from './icons/YouthIcon';
-import SparklesIcon from './icons/SparklesIcon';
-import WhistleIcon from './icons/WhistleIcon';
-import ShareIcon from './icons/ShareIcon';
+import LayersIcon from '../icons/LayersIcon';
+import AlertTriangleIcon from '../icons/AlertTriangleIcon';
+import UsersIcon from '../icons/UsersIcon';
+import MegaphoneIcon from '../icons/MegaphoneIcon';
+import RadioIcon from '../icons/RadioIcon';
+import CalendarIcon from '../icons/CalendarIcon';
+import YouthIcon from '../icons/YouthIcon';
+import SparklesIcon from '../icons/SparklesIcon';
+import WhistleIcon from '../icons/WhistleIcon';
+import ShareIcon from '../icons/ShareIcon';
+import ImageIcon from '../icons/ImageIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
 const SeedDatabase = lazy(() => import('./admin/SeedDatabase'));
 const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
+const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -70,6 +71,7 @@ const AdminPanelPage: React.FC = () => {
       case 'scouting': return <ScoutingManagement />;
       case 'youth': return <YouthManagement />;
       case 'directory': return <DirectoryManagement />;
+      case 'crests': return <TeamCrestManager />;
       case 'videos': return <VideoManagement />;
       case 'features': return <FeatureManagement />;
       case 'referees': return <RefereeManagement />;
@@ -129,6 +131,7 @@ const AdminPanelPage: React.FC = () => {
                         <TabButton tabName="youth" label="Youth Page" Icon={YouthIcon} />
                         <TabButton tabName="referees" label="Referees" Icon={WhistleIcon} />
                         <TabButton tabName="directory" label="Directory" Icon={BookIcon} />
+                        <TabButton tabName="crests" label="Team Crests" Icon={ImageIcon} />
                         <TabButton tabName="videos" label="Videos" Icon={FilmIcon} />
                         <TabButton tabName="ads" label="Ad Management" Icon={MegaphoneIcon} />
 

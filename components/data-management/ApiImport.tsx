@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -524,7 +523,7 @@ const ApiImportPage: React.FC = () => {
         } catch(err) {
             handleFirestoreError(err, `import ${importType}`);
             setError('An error occurred during import. See alert for details.');
-            setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? {...f, status: 'new'} : f));
+            setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? {...f, status: 'new'} : f)); // Revert on failure
         } finally {
             setIsSaving(false);
         }
