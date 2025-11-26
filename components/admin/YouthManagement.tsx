@@ -85,6 +85,19 @@ const YouthManagement: React.FC = () => {
             handleFirestoreError(err, 'delete youth player');
         }
     };
+    
+    const handlePlayerPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setPlayerFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleSavePlayer = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -207,7 +220,17 @@ const YouthManagement: React.FC = () => {
                                     </div>
                                     <input placeholder="Team/Academy" value={playerFormData.team} onChange={e => setPlayerFormData({...playerFormData, team: e.target.value})} className={inputClass} required />
                                     <input placeholder="Position" value={playerFormData.position} onChange={e => setPlayerFormData({...playerFormData, position: e.target.value})} className={inputClass} required />
-                                    <input placeholder="Photo URL" value={playerFormData.photoUrl} onChange={e => setPlayerFormData({...playerFormData, photoUrl: e.target.value})} className={inputClass} required />
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Photo URL or Upload</label>
+                                        <div className="flex items-center gap-2">
+                                            <input placeholder="Photo URL" value={playerFormData.photoUrl} onChange={e => setPlayerFormData({...playerFormData, photoUrl: e.target.value})} className={inputClass} required />
+                                            <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                                Upload
+                                                <input type="file" onChange={handlePlayerPhotoUpload} accept="image/*" className="sr-only" />
+                                            </label>
+                                        </div>
+                                        {playerFormData.photoUrl && <img src={playerFormData.photoUrl} alt="Preview" className="mt-2 h-20 w-20 rounded-full object-cover border"/>}
+                                    </div>
                                     <textarea placeholder="Bio / Scouting Report" value={playerFormData.bio} onChange={e => setPlayerFormData({...playerFormData, bio: e.target.value})} className={inputClass} rows={3} required />
                                     
                                     <div className="flex justify-end pt-2">

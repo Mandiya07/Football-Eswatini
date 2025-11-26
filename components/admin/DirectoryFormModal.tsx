@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DirectoryEntity, EntityCategory, Region } from '../../data/directory';
 import { Card, CardContent } from '../ui/Card';
@@ -13,11 +14,8 @@ interface DirectoryFormModalProps {
 
 const DirectoryFormModal: React.FC<DirectoryFormModalProps> = ({ isOpen, onClose, onSave, entry }) => {
     const [formData, setFormData] = useState({
-        // FIX: Cast initial values to their broader types to allow for updates from select inputs without causing type errors.
         name: '', category: 'Club' as EntityCategory, region: 'Hhohho' as Region,
-        // Club-specific
         tier: 'Premier League' as NonNullable<DirectoryEntity['tier']>, nickname: '', founded: '', stadium: '', crestUrl: '', leaders: '', honours: '',
-        // Contact
         phone: '', email: '',
     });
 
@@ -28,7 +26,6 @@ const DirectoryFormModal: React.FC<DirectoryFormModalProps> = ({ isOpen, onClose
                 name: entry.name,
                 category: entry.category,
                 region: entry.region,
-                // Club-specific
                 tier: entry.tier || 'Regional',
                 nickname: entry.nickname || '',
                 founded: entry.founded ? String(entry.founded) : '',
@@ -36,12 +33,10 @@ const DirectoryFormModal: React.FC<DirectoryFormModalProps> = ({ isOpen, onClose
                 crestUrl: entry.crestUrl || '',
                 leaders: (entry.leaders || []).map(l => `${l.role}: ${l.name}`).join('\n'),
                 honours: (entry.honours || []).join('\n'),
-                // Contact
                 phone: entry.contact?.phone || '',
                 email: entry.contact?.email || '',
             });
         } else {
-            // Reset state for new entry
             setFormData({
                 name: '', category: 'Club', region: 'Hhohho',
                 tier: 'Premier League', nickname: '', founded: '', stadium: '', crestUrl: '', leaders: '', honours: '',
@@ -99,12 +94,9 @@ const DirectoryFormModal: React.FC<DirectoryFormModalProps> = ({ isOpen, onClose
             dataToSave.contact = contact;
         }
 
-        // If a location-based entity is being created without a location, add a default.
-        // This satisfies database validation rules that require a location for certain categories,
-        // preventing a "Missing permissions" error that masks a data shape mismatch.
         if (!entry && (category === 'Club' || category === 'Academy')) {
             dataToSave.location = {
-                lat: 50, // Default to a central position on the map
+                lat: 50,
                 lng: 60,
             };
         }
@@ -132,9 +124,6 @@ const DirectoryFormModal: React.FC<DirectoryFormModalProps> = ({ isOpen, onClose
             const parsedHonours = honours.split('\n').filter(Boolean).map(item => item.trim());
             if (parsedHonours.length > 0) dataToSave.honours = parsedHonours;
         } else if (entry && entry.category === 'Club') {
-            // If it's not a club, and we are editing an entry that *was* a club,
-            // explicitly mark club-specific fields for deletion.
-            // The API layer will convert `null` to Firestore's `deleteField()`.
             (dataToSave as any).tier = null;
             (dataToSave as any).nickname = null;
             (dataToSave as any).founded = null;
@@ -211,8 +200,7 @@ const DirectoryFormModal: React.FC<DirectoryFormModalProps> = ({ isOpen, onClose
                         )}
 
                         {/* Image Upload Section */}
-                        {/* FIX: Corrected a faulty type comparison that could cause linting errors. */}
-                        {['Club', 'Academy', 'Association'].includes(formData.category) && (() => {
+                        {['Club', 'Academy', 'Association', 'Referee'].includes(formData.category) && (() => {
                             const isReferee = formData.category === 'Referee';
                             const label = isReferee ? 'Photo URL or Upload' : 'Logo/Crest URL or Upload';
                             const altText = isReferee ? 'Photo preview' : 'Crest preview';

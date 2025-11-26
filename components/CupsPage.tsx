@@ -71,9 +71,12 @@ const CupsPage: React.FC = () => {
                   }
                   
                   // Special Linkage: If we find a fetched cup with specific name, map it to our expected local IDs
-                  if (processedCup.name.includes("Manzini Super League Ingwenyama Cup")) {
+                  const cupNameLower = processedCup.name.toLowerCase();
+                  if (cupNameLower.includes("manzini super league ingwenyama cup")) {
                       cupsMap.set('ingwenyama-manzini', { ...processedCup, id: 'ingwenyama-manzini' });
-                  } else if (processedCup.name.includes("Ingwenyama Cup (National Finals)")) {
+                  } else if (cupNameLower.includes("hhohho super league ingwenyama cup")) {
+                      cupsMap.set('ingwenyama-hhohho', { ...processedCup, id: 'ingwenyama-hhohho' });
+                  } else if (cupNameLower.includes("ingwenyama cup (national finals)")) {
                       cupsMap.set('ingwenyama-cup', { ...processedCup, id: 'ingwenyama-cup' });
                   } else {
                       // Overwrite or add normally using its Firestore ID
@@ -197,7 +200,7 @@ const CupsPage: React.FC = () => {
 
               {/* Regions */}
               {[
-                  { id: 'ingwenyama-hhohho', name: 'Hhohho Region', sub: 'View Qualifiers Bracket', color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { id: 'ingwenyama-hhohho', name: 'Hhohho Region', sub: 'Hhohho Super League Qualifiers', color: 'text-blue-600', bg: 'bg-blue-50' },
                   { id: 'ingwenyama-manzini', name: 'Manzini Region', sub: 'Manzini Super League Qualifiers', color: 'text-red-600', bg: 'bg-red-50' },
                   { id: 'ingwenyama-lubombo', name: 'Lubombo Region', sub: 'View Qualifiers Bracket', color: 'text-green-600', bg: 'bg-green-50' },
                   { id: 'ingwenyama-shiselweni', name: 'Shiselweni Region', sub: 'View Qualifiers Bracket', color: 'text-orange-600', bg: 'bg-orange-50' },

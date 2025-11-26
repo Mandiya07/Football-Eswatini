@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -486,16 +486,28 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.fillText("VS", centerX, midY + 18);
         }
 
-        const infoY = 1220;
-        ctx.font = '600 28px "Inter", sans-serif';
+        const infoY = 1180; // Start of the info block
+        ctx.save();
+        ctx.textAlign = 'center';
+
+        // 1. Draw Date
         ctx.fillStyle = '#CCCCCC';
-        const dateInfo = match.type === 'fixture' ? `${match.date} • ${match.time}` : match.date;
-        ctx.fillText(dateInfo, centerX, infoY);
-        
-        if (match.venue) {
-            ctx.font = '500 24px "Inter", sans-serif';
-            ctx.fillText(match.venue, centerX, infoY + 40);
+        ctx.font = '600 36px "Inter", sans-serif';
+        ctx.fillText(match.date, centerX, infoY);
+
+        // 2. Draw Time (only for fixtures)
+        if (match.type === 'fixture' && match.time) {
+            ctx.font = '600 28px "Inter", sans-serif';
+            ctx.fillText(match.time, centerX, infoY + 40);
         }
+
+        // 3. Draw Venue
+        if (match.venue) {
+            ctx.font = '500 34px "Inter", sans-serif';
+            ctx.fillStyle = '#FFFFFF'; // Make venue more prominent
+            ctx.fillText(match.venue, centerX, infoY + 85); // Position it below time
+        }
+        ctx.restore();
     };
 
     const drawMultiMatch = (ctx: CanvasRenderingContext2D, matches: SocialMatch[], width: number, height: number) => {
@@ -570,8 +582,8 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.textAlign = 'center';
 
             ctx.fillStyle = '#CCCCCC';
-            ctx.font = '600 13px "Inter", sans-serif';
-            ctx.fillText(m.date, centerX, rowCenterY - 22);
+            ctx.font = '600 16px "Inter", sans-serif'; // Increased from 15px
+            ctx.fillText(m.date, centerX, rowCenterY - 25);
 
             if (m.type === 'result') {
                 ctx.fillStyle = '#FDB913';
@@ -584,11 +596,11 @@ const SocialMediaGenerator: React.FC = () => {
             }
 
             if (m.venue) {
-                ctx.fillStyle = '#888888';
-                ctx.font = '500 11px "Inter", sans-serif';
+                ctx.fillStyle = '#AAAAAA';
+                ctx.font = '500 14px "Inter", sans-serif'; // Increased from 13px
                 let venueText = m.venue;
                 if (venueText.length > 25) venueText = venueText.substring(0, 23) + '..';
-                ctx.fillText(venueText, centerX, rowCenterY + 32);
+                ctx.fillText(venueText, centerX, rowCenterY + 35);
             }
 
             const imgB = m.teamBCrest ? imageCache.get(m.teamBCrest) : null;
