@@ -70,6 +70,9 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 
         if (fixture.status === 'live' || fixture.status === 'finished') {
             text += `\nScore: ${fixture.scoreA} - ${fixture.scoreB}`;
+            if (fixture.scoreAPen !== undefined && fixture.scoreBPen !== undefined) {
+                text += ` (${fixture.scoreAPen}-${fixture.scoreBPen} on penalties)`;
+            }
             if (fixture.status === 'live' && fixture.liveMinute) {
                 text += ` (Live at ${fixture.liveMinute}')`;
             } else if (fixture.status === 'finished') {
@@ -199,21 +202,30 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                     </div>
                     
                     {isScoreVisible ? (
-                        <div className="text-center min-w-[4rem]">
+                        <div className="text-center min-w-[5rem] flex flex-col justify-center">
                             <p 
                                 key={`score-${fixture.id}-${fixture.scoreA}-${fixture.scoreB}`}
-                                className={`font-bold text-xl ${fixture.status === 'live' ? 'text-secondary animate-score-update' : 'text-primary'} tracking-wider leading-none`}
+                                className={`font-black text-3xl leading-none ${fixture.status === 'live' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}
                             >
-                                {fixture.scoreA}-{fixture.scoreB}
+                                {fixture.scoreA ?? '-'} - {fixture.scoreB ?? '-'}
                             </p>
-                            {fixture.status === 'live' && <p className="text-[9px] font-bold text-secondary mt-0.5">{fixture.liveMinute}'</p>}
+                            {(fixture.scoreAPen !== undefined && fixture.scoreBPen !== undefined) && (
+                                <p className="text-xs font-semibold text-gray-500 mt-1">
+                                    ({fixture.scoreAPen} - {fixture.scoreBPen} pen)
+                                </p>
+                            )}
+                            {fixture.status === 'live' && (
+                                <p className="text-[10px] font-bold text-red-600 mt-1 bg-red-100 px-1.5 py-0.5 rounded-full leading-none">
+                                    {fixture.liveMinute}'
+                                </p>
+                            )}
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center min-w-[4rem]">
-                            <p className="text-[11px] text-red-500 font-black font-display italic tracking-widest">VS</p>
+                        <div className="flex flex-col items-center justify-center min-w-[5rem]">
+                            <p className="text-sm text-red-500 font-black font-display italic tracking-widest">VS</p>
                             {fixture.status === 'postponed' && <span className="text-[9px] font-bold uppercase text-yellow-900 bg-yellow-200 px-1 rounded mt-0.5">PP</span>}
                             {fixture.status === 'cancelled' && <span className="text-[9px] font-bold uppercase text-red-900 bg-red-200 px-1 rounded mt-0.5">CANC</span>}
-                            <p className="text-[10px] text-gray-400 mt-0.5">{fixture.time}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{fixture.time}</p>
                         </div>
                     )}
 

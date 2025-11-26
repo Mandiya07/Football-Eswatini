@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { fetchCompetition, handleFirestoreError } from '../../services/api';
 import { StaffMember, Team, Competition } from '../../data/teams';

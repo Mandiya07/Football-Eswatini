@@ -1,4 +1,3 @@
-
 export interface LogEntry {
   p: number;
   w: number;
@@ -88,6 +87,8 @@ export interface CompetitionFixture {
     status?: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' | 'abandoned' | 'suspended';
     scoreA?: number;
     scoreB?: number;
+    scoreAPen?: number;
+    scoreBPen?: number;
     liveMinute?: number;
     venue?: string;
     referee?: string;
