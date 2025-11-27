@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -205,7 +204,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                         <div className="text-center min-w-[5rem] flex flex-col justify-center">
                             <p 
                                 key={`score-${fixture.id}-${fixture.scoreA}-${fixture.scoreB}`}
-                                className={`font-black text-3xl leading-none ${fixture.status === 'live' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}
+                                className={`font-bold text-xl leading-none ${fixture.status === 'live' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}
                             >
                                 {fixture.scoreA ?? '-'} - {fixture.scoreB ?? '-'}
                             </p>

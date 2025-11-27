@@ -1,6 +1,5 @@
 
 
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import FacebookIcon from './icons/FacebookIcon';
@@ -34,61 +33,18 @@ const Footer: React.FC = () => {
     { name: 'Instagram', Icon: InstagramIcon, href: 'https://instagram.com' },
   ];
 
-  const linkClass = "text-neutral/80 hover:text-accent transition-colors text-sm";
-
   return (
     <footer className="bg-primary text-white mt-20">
-      <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div className="md:col-span-2 lg:col-span-1">
-            <Link to="/">
-                <LogoSVG className="h-14 w-auto" />
+      <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="text-center md:text-left">
+            <Link to="/" className="inline-block">
+                <LogoSVG className="h-14 w-auto mx-auto md:mx-0" />
             </Link>
-            <p className="text-sm text-neutral/70 mt-4">Your official source for football in the Kingdom of Eswatini.</p>
-          </div>
-
-          <div>
-            <h4 className="font-bold uppercase tracking-wider text-sm text-neutral/60">Explore</h4>
-            <ul className="mt-4 space-y-3">
-              <li><Link to="/features" className={linkClass}>Features</Link></li>
-              <li><Link to="/national-team" className={linkClass}>National Team</Link></li>
-              <li><Link to="/interactive" className={linkClass}>Interactive</Link></li>
-              <li><Link to="/memory-lane" className={linkClass}>Memory Lane</Link></li>
-              <li><Link to="/coachs-corner" className={linkClass}>Coach's Corner</Link></li>
-              <li><Link to="/referees" className={linkClass}>Referees</Link></li>
-              <li><Link to="/ai-assistant" className={linkClass}>AI Assistant</Link></li>
-            </ul>
+            <p className="text-sm text-neutral/70 mt-2">&copy; {new Date().getFullYear()} Football Eswatini. All Rights Reserved.</p>
           </div>
           
-          <div>
-            <h4 className="font-bold uppercase tracking-wider text-sm text-neutral/60">Resources</h4>
-            <ul className="mt-4 space-y-3">
-              <li><Link to="/directory" className={linkClass}>Directory</Link></li>
-              <li><Link to="/scouting" className={linkClass}>Scouting</Link></li>
-              <li><Link to="/club-management" className={linkClass}>Club Portal</Link></li>
-              <li><Link to="/admin-panel" className={linkClass}>Admin Panel</Link></li>
-              <li><Link to="/data-management" className={linkClass}>Data Management</Link></li>
-              <li><Link to="/submit-results" className={linkClass}>Submit Results</Link></li>
-              <li><Link to="/submit-fixtures" className={linkClass}>Submit Fixtures</Link></li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-bold uppercase tracking-wider text-sm text-neutral/60">About</h4>
-            <ul className="mt-4 space-y-3">
-              <li><Link to="/about" className={linkClass}>About Us</Link></li>
-              <li><Link to="/contact" className={linkClass}>Contact</Link></li>
-              <li><a href="#" onClick={(e) => e.preventDefault()} className={linkClass}>Privacy Policy</a></li>
-              <li><a href="#" onClick={(e) => e.preventDefault()} className={linkClass}>Terms of Service</a></li>
-            </ul>
-          </div>
-        </div>
-        
-        <hr className="my-10 border-white/20" />
-        
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-           <p className="text-sm text-neutral/70 order-2 md:order-1">&copy; {new Date().getFullYear()} Football Eswatini. All Rights Reserved.</p>
-           <div className="flex justify-center items-center gap-6 order-1 md:order-2">
+          <div className="flex justify-center items-center gap-6">
             {socialLinks.map(({ name, Icon, href }) => (
               <a 
                 key={name} 

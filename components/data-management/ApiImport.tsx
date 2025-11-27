@@ -504,10 +504,20 @@ const ApiImportPage: React.FC = () => {
 
                 if (importType === 'results') {
                     const existingResults = competitionData.results || [];
+                    let existingFixtures = competitionData.fixtures || [];
+                    
+                    // Filter out fixtures that are now being imported as results
+                    const newResultIdentifiers = new Set(newItems.map(item => `${item.teamA}-${item.teamB}-${item.fullDate}`));
+                    const updatedFixtures = existingFixtures.filter(fixture => {
+                        const fixtureIdentifier = `${fixture.teamA}-${fixture.teamB}-${fixture.fullDate}`;
+                        return !newResultIdentifiers.has(fixtureIdentifier);
+                    });
+
                     const finalResults = [...existingResults, ...newItems];
-                    const updatedTeams = calculateStandings(competitionData.teams || [], finalResults, competitionData.fixtures || []);
+                    const updatedTeams = calculateStandings(competitionData.teams || [], finalResults, updatedFixtures);
                     
                     transaction.update(docRef, removeUndefinedProps({ 
+                        fixtures: updatedFixtures,
                         results: finalResults,
                         teams: updatedTeams
                     }));
