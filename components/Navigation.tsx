@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -44,12 +45,14 @@ const Navigation: React.FC = () => {
     { name: 'News', to: '/news' },
     { name: 'Fixtures', to: '/fixtures' },
     { name: 'Logs', to: '/logs' },
-    { name: 'Cups', to: '/cups' },
     { name: 'Live', to: '/live-updates' },
-    { name: 'Media', to: '/media' },
+    { name: 'Cups', to: '/cups' },
     { name: 'Womens', to: '/womens' },
     { name: 'Youth', to: '/youth' },
     { name: 'National Team', to: '/national-team' },
+    { name: 'Interactive', to: '/interactive' },
+    { name: 'Scouting', to: '/scouting' },
+    { name: 'Media', to: '/media' },
     { name: 'Shop', to: '/shop'},
   ];
 
@@ -150,7 +153,10 @@ const Navigation: React.FC = () => {
                         <Link to="/club-management" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Club Portal</Link>
                       )}
                       {user.role === 'super_admin' && (
-                        <Link to="/admin-panel" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Admin Panel</Link>
+                        <>
+                          <Link to="/data-management" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Data Management</Link>
+                          <Link to="/admin-panel" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Admin Panel</Link>
+                        </>
                       )}
                       <button onClick={() => { logout(); setIsProfileOpen(false); }} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Log Out</button>
                     </div>
@@ -227,7 +233,10 @@ const Navigation: React.FC = () => {
                         <Link to="/club-management" onClick={() => setIsOpen(false)} className="text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">Club Portal</Link>
                     )}
                     {user.role === 'super_admin' && (
-                        <Link to="/admin-panel" onClick={() => setIsOpen(false)} className="text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">Admin Panel</Link>
+                       <>
+                          <Link to="/data-management" onClick={() => setIsOpen(false)} className="text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">Data Management</Link>
+                          <Link to="/admin-panel" onClick={() => setIsOpen(false)} className="text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">Admin Panel</Link>
+                        </>
                     )}
                     <button onClick={() => { logout(); setIsOpen(false); }} className="w-full text-left text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">
                       Log Out
