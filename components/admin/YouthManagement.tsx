@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { fetchYouthData, handleFirestoreError } from '../../services/api';
-import { YouthLeague, RisingStarPlayer } from '../../data/youth';
+import { YouthLeague, RisingStarPlayer, YouthArticle } from '../../data/youth';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -11,6 +11,8 @@ import PencilIcon from '../icons/PencilIcon';
 import { db } from '../../services/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import XIcon from '../icons/XIcon';
+import YouthArticleFormModal from './YouthArticleFormModal';
+import FileTextIcon from '../icons/FileTextIcon';
 
 const YouthManagement: React.FC = () => {
     const [leagues, setLeagues] = useState<YouthLeague[]>([]);
@@ -25,6 +27,10 @@ const YouthManagement: React.FC = () => {
     const [playerFormData, setPlayerFormData] = useState({
         name: '', age: 16, team: '', position: '', photoUrl: '', bio: ''
     });
+
+    // Article Modal State
+    const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
+    const [editingArticle, setEditingArticle] = useState<YouthArticle | null>(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -61,6 +67,7 @@ const YouthManagement: React.FC = () => {
         }
     };
 
+    // --- PLAYER HANDLERS ---
     const handleAddPlayer = () => {
         setEditingPlayer(null);
         setPlayerFormData({ name: '', age: 16, team: '', position: '', photoUrl: '', bio: '' });
@@ -124,6 +131,47 @@ const YouthManagement: React.FC = () => {
         }
     };
 
+    // --- ARTICLE HANDLERS ---
+    const handleAddArticle = () => {
+        setEditingArticle(null);
+        setIsArticleModalOpen(true);
+    };
+
+    const handleEditArticle = (article: YouthArticle) => {
+        setEditingArticle(article);
+        setIsArticleModalOpen(true);
+    };
+
+    const handleDeleteArticle = async (articleId: string) => {
+        if (!activeLeague || !window.confirm("Delete this article?")) return;
+        try {
+            const updatedArticles = (activeLeague.articles || []).filter(a => a.id !== articleId);
+            await updateDoc(doc(db, 'youth', activeLeague.id), { articles: updatedArticles });
+            loadData();
+        } catch (err) {
+            handleFirestoreError(err, 'delete youth article');
+        }
+    };
+
+    const handleSaveArticle = async (article: YouthArticle) => {
+        if (!activeLeague) return;
+        try {
+            let updatedArticles = [...(activeLeague.articles || [])];
+            if (editingArticle) {
+                updatedArticles = updatedArticles.map(a => a.id === editingArticle.id ? article : a);
+            } else {
+                updatedArticles.push(article);
+            }
+            
+            await updateDoc(doc(db, 'youth', activeLeague.id), { articles: updatedArticles });
+            setIsArticleModalOpen(false);
+            loadData();
+        } catch (err) {
+            handleFirestoreError(err, 'save youth article');
+        }
+    };
+
+
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
 
     return (
@@ -149,7 +197,7 @@ const YouthManagement: React.FC = () => {
                         </div>
 
                         {activeLeague && (
-                            <div className="space-y-6">
+                            <div className="space-y-8">
                                 {/* Description Editor */}
                                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                                     <div className="flex justify-between items-center mb-2">
@@ -199,6 +247,31 @@ const YouthManagement: React.FC = () => {
                                         {(!activeLeague.risingStars || activeLeague.risingStars.length === 0) && <p className="text-sm text-gray-500 italic">No rising stars featured for this category yet.</p>}
                                     </div>
                                 </div>
+
+                                {/* Articles Section */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="text-lg font-bold">Category Articles ({activeLeague.articles?.length || 0})</h4>
+                                        <Button onClick={handleAddArticle} className="bg-purple-600 text-white text-xs flex items-center gap-1"><PlusCircleIcon className="w-4 h-4"/> Add Article</Button>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {(activeLeague.articles || []).map(article => (
+                                            <div key={article.id} className="border p-3 rounded-lg flex gap-3 items-center bg-white shadow-sm">
+                                                <div className="p-2 bg-purple-100 rounded text-purple-600"><FileTextIcon className="w-5 h-5"/></div>
+                                                <div className="flex-grow">
+                                                    <p className="font-bold text-sm">{article.title}</p>
+                                                    <p className="text-xs text-gray-500">{article.date} &bull; {article.summary.substring(0, 50)}...</p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleEditArticle(article)} className="p-1 bg-gray-100 rounded hover:bg-blue-100 text-blue-600"><PencilIcon className="w-4 h-4"/></button>
+                                                    <button onClick={() => handleDeleteArticle(article.id)} className="p-1 bg-gray-100 rounded hover:bg-red-100 text-red-600"><TrashIcon className="w-4 h-4"/></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {(!activeLeague.articles || activeLeague.articles.length === 0) && <p className="text-sm text-gray-500 italic">No articles for this category yet.</p>}
+                                    </div>
+                                </div>
+
                             </div>
                         )}
                     </div>
@@ -240,6 +313,16 @@ const YouthManagement: React.FC = () => {
                             </div>
                          </div>
                     </div>
+                )}
+                
+                {/* Article Modal */}
+                {isArticleModalOpen && (
+                    <YouthArticleFormModal 
+                        isOpen={isArticleModalOpen} 
+                        onClose={() => setIsArticleModalOpen(false)} 
+                        onSave={handleSaveArticle} 
+                        article={editingArticle} 
+                    />
                 )}
             </CardContent>
         </Card>

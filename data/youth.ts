@@ -15,12 +15,22 @@ export interface YouthTeam {
     crestUrl: string;
 }
 
+export interface YouthArticle {
+    id: string;
+    title: string;
+    summary: string;
+    content: string;
+    imageUrl: string;
+    date: string;
+}
+
 export interface YouthLeague {
     id: string;
     name: string;
     description: string;
     teams: YouthTeam[];
     risingStars: RisingStarPlayer[];
+    articles?: YouthArticle[];
 }
 
 export const youthData: YouthLeague[] = [
@@ -76,6 +86,7 @@ export const youthData: YouthLeague[] = [
                 bio: "A composed and intelligent defender who reads the game exceptionally well. Linda is known for his perfectly-timed tackles and ability to organize the backline. Comfortable playing out from the back under pressure."
             },
         ],
+        articles: []
     },
     {
         id: 'hub-hardware-u17',
@@ -118,6 +129,7 @@ export const youthData: YouthLeague[] = [
                 bio: "The anchor of his team's midfield. Jabu is a tenacious ball-winner with an impressive tactical understanding of the game. He breaks up opposition attacks and initiates his own team's forward movements with simple, intelligent passes."
             }
         ],
+        articles: []
     },
      {
         id: 'schools',
@@ -144,6 +156,7 @@ export const youthData: YouthLeague[] = [
                 bio: "A versatile and incredibly fast player who dominates the entire left flank. Sandziso's blistering recovery speed makes him a formidable defender, while his attacking overlaps and crossing ability create numerous scoring chances. A standout in the recent schools championship."
             }
         ],
+        articles: []
     },
     {
         id: 'build-it-u13',
@@ -158,5 +171,6 @@ export const youthData: YouthLeague[] = [
             { id: 1306, name: "Simunye Colts", crestUrl: "https://via.placeholder.com/64/6D28D9/FFFFFF?text=SC" },
         ],
         risingStars: [], // No rising stars for U-13 to emphasize development over individual accolades
+        articles: []
     }
 ];

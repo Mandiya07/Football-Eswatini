@@ -50,8 +50,6 @@ const Navigation: React.FC = () => {
     { name: 'Womens', to: '/womens' },
     { name: 'Youth', to: '/youth' },
     { name: 'National Team', to: '/national-team' },
-    { name: 'Interactive', to: '/interactive' },
-    { name: 'Scouting', to: '/scouting' },
     { name: 'Media', to: '/media' },
     { name: 'Shop', to: '/shop'},
   ];

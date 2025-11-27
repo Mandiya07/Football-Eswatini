@@ -10,6 +10,7 @@ import Spinner from './ui/Spinner';
 import Fixtures from './Fixtures';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
+import YouthArticleSection from './YouthArticleSection';
 
 const BuildItU13Page: React.FC = () => {
   const [data, setData] = useState<YouthLeague | null>(null);
@@ -96,6 +97,8 @@ const BuildItU13Page: React.FC = () => {
             <div className="flex justify-center py-12"><Spinner /></div>
         ) : (
             <div className="space-y-16">
+                {data?.articles && <YouthArticleSection articles={data.articles} />}
+                
                 {/* Latest Updates Section */}
                 <div className="max-w-5xl mx-auto">
                     <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Schedule</h2>

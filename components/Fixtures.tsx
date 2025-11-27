@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -440,7 +441,33 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
         if (!competition) return [];
 
         const isResults = activeTab === 'results';
-        const sourceData = isResults ? (competition.results || []) : (competition.fixtures || []);
+        let sourceData = isResults ? (competition.results || []) : (competition.fixtures || []);
+        
+        // FILTER LOGIC
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        if (!isResults) {
+            // For "Fixtures" tab:
+            // 1. Must NOT be finished
+            // 2. Must NOT have scores (safety check for data integrity)
+            // 3. Date must be today or in the future (remove if date passed)
+            sourceData = sourceData.filter(f => {
+                const isFinished = f.status === 'finished';
+                const hasScore = f.scoreA !== undefined && f.scoreB !== undefined;
+                const isPast = f.fullDate ? f.fullDate < todayStr : false;
+                
+                return !isFinished && !hasScore && !isPast;
+            });
+        } else {
+            // For "Results" tab:
+            // 1. Must be finished OR have scores OR be abandoned
+            sourceData = sourceData.filter(f => {
+                const isFinished = f.status === 'finished';
+                const hasScore = f.scoreA !== undefined && f.scoreB !== undefined;
+                const isAbandoned = f.status === 'abandoned';
+                return isFinished || hasScore || isAbandoned;
+            });
+        }
         
         const groups: Record<string, CompetitionFixture[]> = {};
         sourceData.forEach(fixture => {

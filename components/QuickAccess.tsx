@@ -10,6 +10,7 @@ import SparklesIcon from './icons/SparklesIcon';
 import WhistleIcon from './icons/WhistleIcon';
 import WomanIcon from './icons/WomanIcon';
 import NationalTeamIcon from './icons/NationalTeamIcon';
+import VoteIcon from './icons/VoteIcon';
 
 const tiles = [
   {
@@ -55,6 +56,12 @@ const tiles = [
     color: 'text-blue-500',
   },
   {
+    name: 'Interactive Zone',
+    href: '/interactive',
+    Icon: VoteIcon,
+    color: 'text-indigo-600',
+  },
+  {
     name: 'AI Assistant',
     href: '/ai-assistant',
     Icon: SparklesIcon,
@@ -66,7 +73,7 @@ const QuickAccess: React.FC = () => {
   return (
     <section className="py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
           {tiles.map((tile) => (
             <Link
               key={tile.name}

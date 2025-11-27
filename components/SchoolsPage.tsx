@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import SchoolIcon from './icons/SchoolIcon';
@@ -14,6 +13,7 @@ import TournamentBracketDisplay from './TournamentBracketDisplay';
 import RisingStars from './RisingStars';
 import Fixtures from './Fixtures';
 import NewsSection from './News';
+import YouthArticleSection from './YouthArticleSection';
 
 const SchoolsPage: React.FC = () => {
   const [schoolsData, setSchoolsData] = useState<YouthLeague | null>(null);
@@ -69,6 +69,12 @@ const SchoolsPage: React.FC = () => {
         <div className="mb-16">
              <NewsSection category="Schools" />
         </div>
+
+        {schoolsData?.articles && (
+            <div className="mb-16">
+                <YouthArticleSection articles={schoolsData.articles} />
+            </div>
+        )}
 
         {/* Info Grid - Tournament Structure */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">

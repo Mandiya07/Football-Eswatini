@@ -1,13 +1,26 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import NewsSection from './News';
 import Logs from './Logs';
 import Fixtures from './Fixtures';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
+import { fetchYouthData } from '../services/api';
+import { YouthLeague } from '../data/youth';
+import YouthArticleSection from './YouthArticleSection';
 
 const U20Page: React.FC = () => {
   const U20_LEAGUE_ID = 'u20-elite-league';
+  const [leagueData, setLeagueData] = useState<YouthLeague | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+        const data = await fetchYouthData();
+        const league = data.find(l => l.id === U20_LEAGUE_ID);
+        setLeagueData(league || null);
+    };
+    load();
+  }, []);
 
   return (
     <div className="bg-gray-50 py-12">
@@ -29,6 +42,8 @@ const U20Page: React.FC = () => {
         </div>
 
         <div className="space-y-16">
+          {leagueData?.articles && <YouthArticleSection articles={leagueData.articles} />}
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="w-full">
                  <h2 className="text-2xl font-display font-bold mb-4 text-center lg:text-left">Fixtures & Results</h2>

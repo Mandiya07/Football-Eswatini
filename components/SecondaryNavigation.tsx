@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import FacebookIcon from './icons/FacebookIcon';
@@ -18,6 +19,8 @@ const SecondaryNavigation: React.FC = () => {
                     <div className="flex items-center space-x-4">
                         <Link to="/about" className={linkClass}>About</Link>
                         <Link to="/directory" className={linkClass}>Directory</Link>
+                        <Link to="/interactive" className={linkClass}>Interactive</Link>
+                        <Link to="/scouting" className={linkClass}>Scouting</Link>
                         <Link to="/referees" className={linkClass}>Referees</Link>
                         <Link to="/contact" className={linkClass}>Contact</Link>
                         {user?.role === 'super_admin' && (
