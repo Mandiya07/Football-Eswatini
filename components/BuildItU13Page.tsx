@@ -21,8 +21,28 @@ const BuildItU13Page: React.FC = () => {
       setLoading(true);
       try {
         const youthLeagues = await fetchYouthData();
-        const league = youthLeagues.find(l => l.id === 'build-it-u13');
-        setData(league || null);
+        
+        // Robust search: Try exact ID -> Partial ID -> Name keywords
+        let league = youthLeagues.find(l => l.id === 'build-it-u13');
+        
+        if (!league) {
+            league = youthLeagues.find(l => l.id.includes('build-it'));
+        }
+        
+        if (!league) {
+            const searchTerms = ['build it', 'under 13', 'u13', 'under-13', 'grassroots festival'];
+            league = youthLeagues.find(l => {
+                const nameLower = l.name.toLowerCase();
+                return searchTerms.some(term => nameLower.includes(term));
+            });
+        }
+
+        if (league) {
+            console.log("Loaded Build It U13 Data:", league);
+            setData(league);
+        } else {
+            console.warn("Build It U13 league data not found in response.");
+        }
       } catch (error) {
         console.error("Failed to load Build It U13 data", error);
       } finally {
@@ -47,10 +67,10 @@ const BuildItU13Page: React.FC = () => {
             <TrophyIcon className="w-12 h-12 text-red-600" />
           </div>
           <h1 className="text-3xl md:text-5xl font-display font-extrabold text-blue-900 mb-4">
-            Build It Under-13 National Final
+            {data?.name || "Build It Under-13 National Final"}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            A nationwide football festival that brings together regional champions to compete for national glory. Developing fundamentals, friendship, and the future of Eswatini football.
+            {data?.description || "A nationwide football festival that brings together regional champions to compete for national glory. Developing fundamentals, friendship, and the future of Eswatini football."}
           </p>
         </div>
 
@@ -97,7 +117,8 @@ const BuildItU13Page: React.FC = () => {
             <div className="flex justify-center py-12"><Spinner /></div>
         ) : (
             <div className="space-y-16">
-                {data?.articles && <YouthArticleSection articles={data.articles} />}
+                {/* Articles Section - Always render with fallback array to ensure empty state if needed */}
+                <YouthArticleSection articles={data?.articles || []} />
                 
                 {/* Latest Updates Section */}
                 <div className="max-w-5xl mx-auto">

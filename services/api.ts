@@ -121,6 +121,28 @@ export interface TeamYamVideo {
     likes: number;
 }
 
+// Interface for Community Football Hub
+export interface CommunityEvent {
+    id: string;
+    title: string;
+    eventType: 'Knockout' | 'League' | 'Festival' | 'Charity' | 'Trial' | 'Workshop' | 'Other';
+    description: string;
+    date: string;
+    time: string;
+    venue: string;
+    organizer: string;
+    contactName: string;
+    contactPhone: string;
+    contactEmail?: string;
+    posterUrl?: string; // Base64 or URL
+    status: 'pending' | 'approved';
+    isSpotlight?: boolean;
+    resultsSummary?: string; // For past events
+    fees?: string;
+    prizes?: string;
+    createdAt?: any;
+}
+
 export const addLiveUpdate = async (data: Omit<LiveUpdate, 'id' | 'timestamp'>) => {
     try {
         await addDoc(collection(db, 'live_updates'), {
@@ -846,4 +868,35 @@ export const fetchFootballDataOrg = async (
             scoreB: importType === 'results' ? (event.score?.fullTime.away ?? undefined) : undefined,
         };
     });
+};
+
+// --- COMMUNITY FOOTBALL HUB ---
+
+export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {
+    const items: CommunityEvent[] = [];
+    try {
+        const q = query(collection(db, "community_events"), where("status", "==", "approved"));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            items.push({ id: doc.id, ...doc.data() } as CommunityEvent);
+        });
+        // Sort client-side
+        items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } catch (error) {
+        handleFirestoreError(error, 'fetch community events');
+    }
+    return items;
+};
+
+export const submitCommunityEvent = async (data: Omit<CommunityEvent, 'id' | 'status'>) => {
+    try {
+        await addDoc(collection(db, 'community_events'), {
+            ...data,
+            status: 'pending',
+            createdAt: serverTimestamp()
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'submit community event');
+        throw error;
+    }
 };

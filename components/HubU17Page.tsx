@@ -22,7 +22,21 @@ const HubU17Page: React.FC = () => {
       setLoading(true);
       try {
         const youthLeagues = await fetchYouthData();
-        const league = youthLeagues.find(l => l.id === 'hub-hardware-u17');
+        
+        let league = youthLeagues.find(l => l.id === 'hub-hardware-u17');
+        
+        if (!league) {
+            league = youthLeagues.find(l => l.id.includes('hub') || l.id.includes('u17'));
+        }
+        
+        if (!league) {
+             const searchTerms = ['hub hardware', 'under 17', 'u17', 'under-17'];
+             league = youthLeagues.find(l => {
+                const nameLower = l.name.toLowerCase();
+                return searchTerms.some(term => nameLower.includes(term));
+            });
+        }
+
         setData(league || null);
       } catch (error) {
         console.error("Failed to load Hub U17 data", error);
@@ -48,10 +62,10 @@ const HubU17Page: React.FC = () => {
             <TrophyIcon className="w-12 h-12 text-yellow-600" />
           </div>
           <h1 className="text-3xl md:text-5xl font-display font-extrabold text-blue-900 mb-4">
-            The Hub Hardware Under-17 Tournament
+            {data?.name || "The Hub Hardware Under-17 Tournament"}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Organized under the Hhohho Regional Football Association, this tournament serves as a vital grassroots platform for identifying and nurturing the stars of tomorrow.
+            {data?.description || "Organized under the Hhohho Regional Football Association, this tournament serves as a vital grassroots platform for identifying and nurturing the stars of tomorrow."}
           </p>
         </div>
 
@@ -98,7 +112,7 @@ const HubU17Page: React.FC = () => {
             <div className="flex justify-center py-12"><Spinner /></div>
         ) : (
             <div className="space-y-16">
-                {data?.articles && <YouthArticleSection articles={data.articles} />}
+                <YouthArticleSection articles={data?.articles || []} />
 
                 {/* Latest Updates Section */}
                 <div className="max-w-5xl mx-auto">

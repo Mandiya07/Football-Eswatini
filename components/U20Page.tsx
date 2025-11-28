@@ -16,7 +16,21 @@ const U20Page: React.FC = () => {
   useEffect(() => {
     const load = async () => {
         const data = await fetchYouthData();
-        const league = data.find(l => l.id === U20_LEAGUE_ID);
+        
+        let league = data.find(l => l.id === U20_LEAGUE_ID);
+        
+        if (!league) {
+            league = data.find(l => l.id.includes('u20') || l.id.includes('elite'));
+        }
+        
+        if (!league) {
+             const searchTerms = ['u20', 'elite league', 'under 20', 'under-20'];
+             league = data.find(l => {
+                const nameLower = l.name.toLowerCase();
+                return searchTerms.some(term => nameLower.includes(term));
+            });
+        }
+
         setLeagueData(league || null);
     };
     load();
@@ -34,15 +48,15 @@ const U20Page: React.FC = () => {
 
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
-            U-20 Elite League
+            {leagueData?.name || "U-20 Elite League"}
           </h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            The premier youth competition where the future stars of the MTN Premier League earn their stripes.
+            {leagueData?.description || "The premier youth competition where the future stars of the MTN Premier League earn their stripes."}
           </p>
         </div>
 
         <div className="space-y-16">
-          {leagueData?.articles && <YouthArticleSection articles={leagueData.articles} />}
+          <YouthArticleSection articles={leagueData?.articles || []} />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="w-full">

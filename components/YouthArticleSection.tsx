@@ -1,15 +1,28 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { YouthArticle } from '../data/youth';
 import { Card, CardContent } from './ui/Card';
 import FileTextIcon from './icons/FileTextIcon';
 
 interface YouthArticleSectionProps {
-    articles: YouthArticle[];
+    articles?: YouthArticle[];
 }
 
 const YouthArticleSection: React.FC<YouthArticleSectionProps> = ({ articles }) => {
+    // Safety check: ensure articles exists and has items
     if (!articles || articles.length === 0) return null;
+
+    // Sort articles by date descending (newest first)
+    const sortedArticles = useMemo(() => {
+        return [...articles].sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            // Handle invalid dates by treating them as older (0)
+            const valA = isNaN(dateA) ? 0 : dateA;
+            const valB = isNaN(dateB) ? 0 : dateB;
+            return valB - valA;
+        });
+    }, [articles]);
 
     return (
         <section className="mb-16">
@@ -18,7 +31,7 @@ const YouthArticleSection: React.FC<YouthArticleSectionProps> = ({ articles }) =
                 <h3 className="text-2xl font-bold font-display text-blue-900">Latest News & Updates</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {articles.map(article => (
+                {sortedArticles.map(article => (
                     <Card key={article.id} className="flex flex-col h-full transition-shadow hover:shadow-lg">
                         {article.imageUrl && (
                             <div className="h-48 overflow-hidden">

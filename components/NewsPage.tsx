@@ -10,6 +10,7 @@ import Button from './ui/Button';
 import ChevronLeftIcon from './icons/ChevronLeftIcon';
 import ChevronRightIcon from './icons/ChevronRightIcon';
 import SearchIcon from './icons/SearchIcon';
+import CommunityHub from './CommunityHub';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -164,6 +165,9 @@ const NewsPage: React.FC = () => {
                     )}
                 </>
             )}
+            
+            {/* Community Football Hub Section */}
+            <CommunityHub />
         </div>
     </div>
   );

@@ -70,11 +70,9 @@ const SchoolsPage: React.FC = () => {
              <NewsSection category="Schools" />
         </div>
 
-        {schoolsData?.articles && (
-            <div className="mb-16">
-                <YouthArticleSection articles={schoolsData.articles} />
-            </div>
-        )}
+        <div className="mb-16">
+            <YouthArticleSection articles={schoolsData?.articles || []} />
+        </div>
 
         {/* Info Grid - Tournament Structure */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">

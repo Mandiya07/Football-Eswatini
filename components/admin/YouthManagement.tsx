@@ -36,9 +36,14 @@ const YouthManagement: React.FC = () => {
         setLoading(true);
         try {
             const data = await fetchYouthData();
-            // Sort order: U20, U17, Schools, U13
-            const order = ['u20', 'u17', 'schools', 'u13'];
-            const sortedData = [...data].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+            // Sort order: U20, U17, Schools, U13 using EXACT IDs
+            const order = ['u20-elite-league', 'hub-hardware-u17', 'schools', 'build-it-u13'];
+            const sortedData = [...data].sort((a, b) => {
+                const indexA = order.indexOf(a.id);
+                const indexB = order.indexOf(b.id);
+                // Handle items not in the list (put them at the end)
+                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+            });
             setLeagues(sortedData);
             if (sortedData.length > 0 && !activeLeagueId) {
                 setActiveLeagueId(sortedData[0].id);
