@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -14,7 +15,7 @@ import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 
 type DivisionType = 'International' | 'MTN Premier League' | 'National First Division League' | 'Regional' | 'Cups' | 'National Team';
-type ContentType = 'captions' | 'summary' | 'image';
+type ContentType = 'captions' | 'summary' | 'image' | 'recap';
 type PlatformType = 'twitter' | 'facebook' | 'instagram';
 
 interface SocialMatch {
@@ -209,6 +210,26 @@ const SocialMediaGenerator: React.FC = () => {
                     Style: Storytelling and descriptive, as if accompanying a photo or video. End each caption with a block of 5-7 relevant hashtags.
                     Output format: Just the 3 captions separated by a "|||" delimiter. Do not number them.`;
                 }
+            } else if (contentType === 'recap') {
+                const selectedMatch = rawMatches.find(m => selectedMatchIds.includes(m.id));
+                
+                if (!selectedMatch && !contextData.trim()) {
+                    alert("For a Match Recap, please select a match from the list or enter details manually in the text box.");
+                    setIsGenerating(false);
+                    return;
+                }
+
+                const specificContext = selectedMatch 
+                    ? `Match: ${selectedMatch.teamA} vs ${selectedMatch.teamB}, Score: ${selectedMatch.scoreA}-${selectedMatch.scoreB}, Date: ${selectedMatch.date}, Venue: ${selectedMatch.venue}, Competition: ${selectedMatch.competition}`
+                    : contextData;
+
+                prompt = `You are a sports journalist for Football Eswatini. Write a detailed match recap (200-400 words) for the following game.
+                
+                Data: ${specificContext}
+                
+                If the data provided is limited (e.g. just scores), use creative sports writing to describe a generic but plausible intense match based on the scoreline, or focus on the significance of the result for the ${division}.
+                Style: Engaging, professional sports journalism. Title the recap appropriately.
+                Output format: A single markdown-formatted article body.`;
             } else { // summary
                 prompt = `You are a sports journalist for Football Eswatini. Write a comprehensive "Weekly Wrap-Up" summary article for the ${division} based on the following data.
                 Context: ${contextData}
@@ -251,8 +272,18 @@ const SocialMediaGenerator: React.FC = () => {
             if (division === 'International') category = ['International'];
             else if (division === 'National Team') category = ['National', 'International'];
             
+            let title = `${division}: Weekly Update`;
+            if (contentType === 'recap') {
+                 const selectedMatch = rawMatches.find(m => selectedMatchIds.includes(m.id));
+                 if (selectedMatch) {
+                     title = `Match Recap: ${selectedMatch.teamA} vs ${selectedMatch.teamB}`;
+                 } else {
+                     title = `Match Recap: ${division}`;
+                 }
+            }
+
             await addDoc(collection(db, "news"), {
-                title: `${division}: Weekly Update`,
+                title: title,
                 date: today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
                 content: generatedContent[0],
                 summary: summary,
@@ -271,10 +302,15 @@ const SocialMediaGenerator: React.FC = () => {
     // --- IMAGE GENERATION LOGIC ---
 
     const handleMatchSelection = (id: string) => {
-        setSelectedMatchIds(prev => {
-            if (prev.includes(id)) return prev.filter(pid => pid !== id);
-            return [...prev, id];
-        });
+        if (contentType === 'recap') {
+            // For recaps, enforce single selection
+            setSelectedMatchIds([id]);
+        } else {
+            setSelectedMatchIds(prev => {
+                if (prev.includes(id)) return prev.filter(pid => pid !== id);
+                return [...prev, id];
+            });
+        }
     };
 
     // Load Images
@@ -657,7 +693,7 @@ const SocialMediaGenerator: React.FC = () => {
                         <h3 className="text-2xl font-bold font-display text-gray-800">Social & Content Gen</h3>
                     </div>
                     <p className="text-sm text-gray-600">
-                        Generate social media captions, summaries, or visual graphics. Select your parameters and let the AI assist.
+                        Generate social media captions, summaries, match recaps, or visual graphics. Select your parameters and let the AI assist.
                     </p>
 
                     <div className={`grid ${contentType === 'captions' ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
@@ -684,7 +720,8 @@ const SocialMediaGenerator: React.FC = () => {
                                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
                             >
                                 <option value="captions">Captions</option>
-                                <option value="summary">Summary</option>
+                                <option value="summary">Weekly Summary</option>
+                                <option value="recap">Match Recap</option>
                                 <option value="image">Image Graphic</option>
                             </select>
                         </div>
@@ -717,7 +754,7 @@ const SocialMediaGenerator: React.FC = () => {
                             </button>
                         </div>
                         
-                        {contentType === 'image' ? (
+                        {contentType === 'image' || contentType === 'recap' ? (
                             <div className="space-y-4">
                                 {rawMatches.length > 0 ? (
                                     <div className="border rounded-md max-h-60 overflow-y-auto bg-white">
@@ -736,27 +773,32 @@ const SocialMediaGenerator: React.FC = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-red-500 bg-red-50 p-2 rounded">No matches found. Please fetch data.</p>
+                                    <p className="text-sm text-red-500 bg-red-50 p-2 rounded">No recent matches found. Click "Fetch Recent Data" or enter details manually below.</p>
                                 )}
                                 <p className="text-xs text-gray-500">
-                                    Select one match for a feature graphic, or multiple for a list view.
+                                    {contentType === 'recap' ? 'Select ONE match for the recap.' : 'Select matches to render image.'}
                                 </p>
                             </div>
-                        ) : (
-                            <textarea 
-                                rows={8} 
-                                value={contextData} 
-                                onChange={(e) => setContextData(e.target.value)}
-                                placeholder={`Enter match details, player stats, or any other context...`}
-                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm font-mono"
-                            />
+                        ) : null}
+                        
+                        {(contentType !== 'image' || rawMatches.length === 0) && (
+                            <div className="mt-4">
+                                {contentType === 'recap' && <p className="text-xs text-gray-500 mb-1">If no match selected above, enter match details manually:</p>}
+                                <textarea 
+                                    rows={8} 
+                                    value={contextData} 
+                                    onChange={(e) => setContextData(e.target.value)}
+                                    placeholder={`Enter match details, player stats, or any other context...`}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 sm:text-sm font-mono"
+                                />
+                            </div>
                         )}
                     </div>
 
                     {contentType !== 'image' && (
                         <Button 
                             onClick={handleGenerate} 
-                            disabled={isGenerating || !contextData} 
+                            disabled={isGenerating || (!contextData && selectedMatchIds.length === 0)} 
                             className="w-full bg-purple-600 text-white hover:bg-purple-700 flex justify-center items-center gap-2 h-11"
                         >
                             {isGenerating ? <Spinner className="w-5 h-5 border-2" /> : <><SparklesIcon className="w-5 h-5" /> Generate Content</>}
@@ -816,7 +858,7 @@ const SocialMediaGenerator: React.FC = () => {
                                             </button>
                                         </div>
                                     ))}
-                                    {contentType === 'summary' && (
+                                    {(contentType === 'summary' || contentType === 'recap') && (
                                         <div className="mt-6 flex gap-3 justify-end pt-4 border-t">
                                             <Button 
                                                 onClick={() => copyToClipboard(generatedContent[0])} 

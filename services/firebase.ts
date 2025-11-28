@@ -16,10 +16,9 @@ const firebaseConfig = {
 // Initialize Firebase and export the app instance
 export const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with persistent local cache settings
-// This replaces the deprecated enableIndexedDbPersistence and avoids initialization race conditions
-// Added experimentalForceLongPolling to resolve backend connection timeouts in some environments
+// Initialize Firestore with persistent local cache settings.
+// Removed experimentalForceLongPolling to allow auto-detection (WebSockets preferred) 
+// which resolves "Backend didn't respond within 10 seconds" errors.
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
-  experimentalForceLongPolling: true
+  localCache: persistentLocalCache()
 });
