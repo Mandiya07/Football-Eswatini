@@ -18,6 +18,7 @@ import ManageMatches from './admin/ManageMatches';
 import FeatureManagement from './admin/FeatureManagement';
 import RefereeManagement from './admin/RefereeManagement';
 import CategoryManagement from './admin/CategoryManagement';
+import CommunityEventManagement from './admin/CommunityEventManagement';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -48,7 +49,7 @@ const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -85,6 +86,7 @@ const AdminPanelPage: React.FC = () => {
       case 'merge': return <MergeTeams />;
       case 'standings': return <RecalculateLogs />;
       case 'tournament': return <TournamentBracket />;
+      case 'community': return <CommunityEventManagement />;
       case 'seed': return <SeedDatabase />;
       case 'reset': return <ResetAllData />;
       case 'social': return <SocialMediaGenerator />;
@@ -138,6 +140,7 @@ const AdminPanelPage: React.FC = () => {
 
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
                         <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
+                        <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
                         <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
                         <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />

@@ -888,6 +888,22 @@ export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {
     return items;
 };
 
+// Admin: Fetch all community events (not just approved)
+export const fetchAllCommunityEvents = async (): Promise<CommunityEvent[]> => {
+    const items: CommunityEvent[] = [];
+    try {
+        const q = query(collection(db, "community_events"));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            items.push({ id: doc.id, ...doc.data() } as CommunityEvent);
+        });
+        items.sort((a, b) => new Date(b.createdAt?.seconds * 1000 || 0).getTime() - new Date(a.createdAt?.seconds * 1000 || 0).getTime());
+    } catch (error) {
+        handleFirestoreError(error, 'fetch all community events');
+    }
+    return items;
+};
+
 export const submitCommunityEvent = async (data: Omit<CommunityEvent, 'id' | 'status'>) => {
     try {
         await addDoc(collection(db, 'community_events'), {
@@ -900,3 +916,8 @@ export const submitCommunityEvent = async (data: Omit<CommunityEvent, 'id' | 'st
         throw error;
     }
 };
+
+export const updateCommunityEventStatus = (id: string, status: 'approved' | 'rejected' | 'pending') =>
+    updateDoc(doc(db, 'community_events', id), { status });
+
+export const deleteCommunityEvent = (id: string) => deleteDoc(doc(db, 'community_events', id));
