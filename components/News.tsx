@@ -166,7 +166,12 @@ const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
             const cats = Array.isArray(item.category) ? item.category : [item.category];
             return cats.includes(category);
         })
-        : allNews;
+        : allNews.filter(item => {
+            // Logic to exclude items that are ONLY 'Community Football Hub'
+            const cats = Array.isArray(item.category) ? item.category : [item.category];
+            const isCommunityExclusive = cats.includes('Community Football Hub') && cats.length === 1;
+            return !isCommunityExclusive;
+        });
 
 
     const scroll = (direction: 'left' | 'right') => {

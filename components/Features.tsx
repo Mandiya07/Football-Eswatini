@@ -9,7 +9,6 @@ import ClipboardIcon from './icons/ClipboardIcon';
 import FileTextIcon from './icons/FileTextIcon';
 import ShirtIcon from './icons/ShirtIcon';
 import HistoryIcon from './icons/HistoryIcon';
-import SparklesIcon from './icons/SparklesIcon';
 
 interface Feature {
   title: string;

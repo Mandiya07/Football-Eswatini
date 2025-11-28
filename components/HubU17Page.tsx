@@ -23,21 +23,35 @@ const HubU17Page: React.FC = () => {
       try {
         const youthLeagues = await fetchYouthData();
         
-        let league = youthLeagues.find(l => l.id === 'hub-hardware-u17');
-        
-        if (!league) {
-            league = youthLeagues.find(l => l.id.includes('hub') || l.id.includes('u17'));
-        }
-        
-        if (!league) {
-             const searchTerms = ['hub hardware', 'under 17', 'u17', 'under-17'];
-             league = youthLeagues.find(l => {
-                const nameLower = l.name.toLowerCase();
-                return searchTerms.some(term => nameLower.includes(term));
-            });
-        }
+        // 1. Filter candidates
+        const candidates = youthLeagues.filter(l => {
+            const id = l.id.toLowerCase();
+            const name = l.name.toLowerCase();
+            return id === 'hub-hardware-u17' || 
+                   id.includes('hub') || 
+                   id.includes('u17') ||
+                   name.includes('hub hardware') ||
+                   name.includes('under 17') ||
+                   name.includes('under-17') ||
+                   name.includes('u17');
+        });
 
-        setData(league || null);
+        // 2. Sort to find best match
+        candidates.sort((a, b) => {
+            const aName = a.name.toLowerCase();
+            const bName = b.name.toLowerCase();
+            const aHasArticles = (a.articles && a.articles.length > 0) ? 1 : 0;
+            const bHasArticles = (b.articles && b.articles.length > 0) ? 1 : 0;
+            const aIsHub = aName.includes('hub') ? 1 : 0;
+            const bIsHub = bName.includes('hub') ? 1 : 0;
+            
+            if (aIsHub !== bIsHub) return bIsHub - aIsHub;
+            if (aHasArticles !== bHasArticles) return bHasArticles - aHasArticles;
+            return 0;
+        });
+
+        const league = candidates.length > 0 ? candidates[0] : null;
+        setData(league);
       } catch (error) {
         console.error("Failed to load Hub U17 data", error);
       } finally {

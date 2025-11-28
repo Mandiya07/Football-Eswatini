@@ -8,14 +8,18 @@ import UsersIcon from './icons/UsersIcon';
 import CalendarIcon from './icons/CalendarIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
-import { CommunityEvent, fetchCommunityEvents, submitCommunityEvent } from '../services/api';
+import { CommunityEvent, fetchCommunityEvents, submitCommunityEvent, fetchNews } from '../services/api';
 import StarIcon from './icons/StarIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
 import InfoIcon from './icons/InfoIcon';
+import { NewsItem } from '../data/news';
+import { NewsCard } from './News';
+import NewspaperIcon from './icons/NewspaperIcon';
 
 const CommunityHub: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'news' | 'results' | 'submit'>('news');
     const [events, setEvents] = useState<CommunityEvent[]>([]);
+    const [communityNews, setCommunityNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
     
     // Form State
@@ -40,9 +44,24 @@ const CommunityHub: React.FC = () => {
     useEffect(() => {
         const loadEvents = async () => {
             setLoading(true);
-            const data = await fetchCommunityEvents();
-            setEvents(data);
-            setLoading(false);
+            try {
+                const [eventsData, newsData] = await Promise.all([
+                    fetchCommunityEvents(),
+                    fetchNews()
+                ]);
+                setEvents(eventsData);
+
+                // Filter news for Community Hub category
+                const hubNews = newsData.filter(item => {
+                    const cats = Array.isArray(item.category) ? item.category : [item.category];
+                    return cats.includes('Community Football Hub');
+                });
+                setCommunityNews(hubNews);
+            } catch (error) {
+                console.error("Error loading community data:", error);
+            } finally {
+                setLoading(false);
+            }
         };
         loadEvents();
     }, []);
@@ -126,6 +145,20 @@ const CommunityHub: React.FC = () => {
             <div className="max-w-6xl mx-auto">
                 {activeTab === 'news' && (
                     <div className="space-y-12">
+                        {/* Community News Articles */}
+                        {communityNews.length > 0 && (
+                            <div>
+                                <h3 className="text-xl font-bold font-display mb-6 border-b pb-2 flex items-center gap-2">
+                                    <NewspaperIcon className="w-5 h-5 text-green-600" /> Community Headlines
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {communityNews.map(item => (
+                                        <NewsCard key={item.id} item={item} variant="compact" />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Featured Spotlight */}
                         {featuredEvent && (
                             <Card className="shadow-lg border-l-4 border-green-500 overflow-hidden bg-gradient-to-r from-green-50 to-white">

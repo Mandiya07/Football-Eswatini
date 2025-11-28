@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { NewsItem } from '../data/news';
 import { NewsCard } from './News';
 import { fetchNews } from '../services/api';
@@ -12,10 +12,11 @@ import ChevronRightIcon from './icons/ChevronRightIcon';
 import SearchIcon from './icons/SearchIcon';
 import CommunityHub from './CommunityHub';
 
-const ITEMS_PER_PAGE = 12;
+const ITEMS_PER_PAGE = 9;
 
 const NewsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { hash } = useLocation();
   const [allNews, setAllNews] = useState<NewsItem[]>([]);
   const [displayedNews, setDisplayedNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,6 @@ const NewsPage: React.FC = () => {
     const loadNews = async () => {
         setLoading(true);
         const data = await fetchNews();
-        // SHOW ALL NEWS: Removed the filter that restricted to specific categories.
         setAllNews(data);
         setLoading(false);
     };
@@ -38,13 +38,20 @@ const NewsPage: React.FC = () => {
 
   // Handle Search and Pagination
   useEffect(() => {
-    // 1. Filter based on search term
+    // 1. Filter based on search term AND category exclusivity
     const filtered = allNews.filter(item => {
+        // Category Logic: Handle array or string
+        const cats = Array.isArray(item.category) ? item.category : [item.category];
+        
+        // Exclude items that are ONLY for Community Football Hub
+        const isCommunityExclusive = cats.includes('Community Football Hub') && cats.length === 1;
+        if (isCommunityExclusive) return false;
+
         const term = searchTerm.toLowerCase();
         return (
             item.title.toLowerCase().includes(term) ||
             item.summary.toLowerCase().includes(term) ||
-            (Array.isArray(item.category) ? item.category.join(' ') : item.category).toLowerCase().includes(term)
+            cats.join(' ').toLowerCase().includes(term)
         );
     });
 
@@ -66,14 +73,27 @@ const NewsPage: React.FC = () => {
 
   }, [currentPage, allNews, searchTerm]);
 
+  // Handle Scroll to Hash after loading
+  useEffect(() => {
+      if (!loading && hash) {
+          const id = hash.replace('#', '');
+          const element = document.getElementById(id);
+          if (element) {
+              setTimeout(() => {
+                  element.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+          }
+      }
+  }, [loading, hash]);
+
   // Update URL when search term changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
-      setSearchTerm(val);
+      const val = e.target;
+      setSearchTerm(val.value);
       setCurrentPage(1); // Reset to page 1 on new search
       
-      if (val) {
-          setSearchParams({ q: val });
+      if (val.value) {
+          setSearchParams({ q: val.value });
       } else {
           setSearchParams({});
       }
@@ -167,7 +187,9 @@ const NewsPage: React.FC = () => {
             )}
             
             {/* Community Football Hub Section */}
-            <CommunityHub />
+            <div id="community-hub">
+                <CommunityHub />
+            </div>
         </div>
     </div>
   );

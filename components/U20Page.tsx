@@ -17,21 +17,34 @@ const U20Page: React.FC = () => {
     const load = async () => {
         const data = await fetchYouthData();
         
-        let league = data.find(l => l.id === U20_LEAGUE_ID);
-        
-        if (!league) {
-            league = data.find(l => l.id.includes('u20') || l.id.includes('elite'));
-        }
-        
-        if (!league) {
-             const searchTerms = ['u20', 'elite league', 'under 20', 'under-20'];
-             league = data.find(l => {
-                const nameLower = l.name.toLowerCase();
-                return searchTerms.some(term => nameLower.includes(term));
-            });
-        }
+        // 1. Filter candidates
+        const candidates = data.filter(l => {
+            const id = l.id.toLowerCase();
+            const name = l.name.toLowerCase();
+            return id === U20_LEAGUE_ID || 
+                   id.includes('u20') || 
+                   id.includes('elite') ||
+                   name.includes('u20') || 
+                   name.includes('elite league') ||
+                   name.includes('under 20') ||
+                   name.includes('under-20');
+        });
 
-        setLeagueData(league || null);
+        // 2. Sort to find best match
+        candidates.sort((a, b) => {
+            const aName = a.name.toLowerCase();
+            const bName = b.name.toLowerCase();
+            const aHasArticles = (a.articles && a.articles.length > 0) ? 1 : 0;
+            const bHasArticles = (b.articles && b.articles.length > 0) ? 1 : 0;
+            const aIsElite = aName.includes('elite') ? 1 : 0;
+            const bIsElite = bName.includes('elite') ? 1 : 0;
+            
+            if (aIsElite !== bIsElite) return bIsElite - aIsElite;
+            if (aHasArticles !== bHasArticles) return bHasArticles - aHasArticles;
+            return 0;
+        });
+
+        setLeagueData(candidates.length > 0 ? candidates[0] : null);
     };
     load();
   }, []);

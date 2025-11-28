@@ -22,20 +22,41 @@ const BuildItU13Page: React.FC = () => {
       try {
         const youthLeagues = await fetchYouthData();
         
-        // Robust search: Try exact ID -> Partial ID -> Name keywords
-        let league = youthLeagues.find(l => l.id === 'build-it-u13');
+        // Robust search to find the correct league document
+        // 1. Filter by ID keywords or Name keywords
+        const candidates = youthLeagues.filter(l => {
+            const id = l.id.toLowerCase();
+            const name = l.name.toLowerCase();
+            return id === 'build-it-u13' || 
+                   id.includes('build-it') ||
+                   id.includes('u13') ||
+                   name.includes('build it') || 
+                   name.includes('under 13') || 
+                   name.includes('under-13') || 
+                   name.includes('u13') ||
+                   name.includes('grassroots');
+        });
+
+        // 2. Sort candidates to find the best match
+        // Priority:
+        // - Name contains "grassroots" (User specified this context)
+        // - Has articles (User wants to see their article)
+        // - ID is build-it-u13 (Default)
         
-        if (!league) {
-            league = youthLeagues.find(l => l.id.includes('build-it'));
-        }
-        
-        if (!league) {
-            const searchTerms = ['build it', 'under 13', 'u13', 'under-13', 'grassroots festival'];
-            league = youthLeagues.find(l => {
-                const nameLower = l.name.toLowerCase();
-                return searchTerms.some(term => nameLower.includes(term));
-            });
-        }
+        candidates.sort((a, b) => {
+            const aName = a.name.toLowerCase();
+            const bName = b.name.toLowerCase();
+            const aHasArticles = (a.articles && a.articles.length > 0) ? 1 : 0;
+            const bHasArticles = (b.articles && b.articles.length > 0) ? 1 : 0;
+            const aIsGrassroots = aName.includes('grassroots') ? 1 : 0;
+            const bIsGrassroots = bName.includes('grassroots') ? 1 : 0;
+            
+            if (aIsGrassroots !== bIsGrassroots) return bIsGrassroots - aIsGrassroots;
+            if (aHasArticles !== bHasArticles) return bHasArticles - aHasArticles;
+            return 0;
+        });
+
+        const league = candidates.length > 0 ? candidates[0] : null;
 
         if (league) {
             console.log("Loaded Build It U13 Data:", league);
@@ -117,7 +138,7 @@ const BuildItU13Page: React.FC = () => {
             <div className="flex justify-center py-12"><Spinner /></div>
         ) : (
             <div className="space-y-16">
-                {/* Articles Section - Always render with fallback array to ensure empty state if needed */}
+                {/* Articles Section */}
                 <YouthArticleSection articles={data?.articles || []} />
                 
                 {/* Latest Updates Section */}

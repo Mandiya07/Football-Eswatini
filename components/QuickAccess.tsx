@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import TrophyIcon from './icons/TrophyIcon';
@@ -11,6 +10,7 @@ import WhistleIcon from './icons/WhistleIcon';
 import WomanIcon from './icons/WomanIcon';
 import NationalTeamIcon from './icons/NationalTeamIcon';
 import VoteIcon from './icons/VoteIcon';
+import UsersIcon from './icons/UsersIcon';
 
 const tiles = [
   {
@@ -54,6 +54,12 @@ const tiles = [
     href: '/national-team',
     Icon: NationalTeamIcon,
     color: 'text-blue-500',
+  },
+  {
+    name: 'Community Hub',
+    href: '/news#community-hub',
+    Icon: UsersIcon,
+    color: 'text-green-600',
   },
   {
     name: 'Interactive Zone',
