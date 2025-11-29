@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { DirectoryEntity, EntityCategory, Region } from '../../data/directory';
 import { Card, CardContent } from '../ui/Card';
@@ -172,8 +173,14 @@ const DirectoryFormModal: React.FC<DirectoryFormModalProps> = ({ isOpen, onClose
                                 <h3 className="text-lg font-semibold text-gray-700">Club Details</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label htmlFor="tier" className="block text-sm font-medium text-gray-700 mb-1">Tier</label>
-                                        <select id="tier" name="tier" value={formData.tier} onChange={handleChange} className={inputClass}><option>Premier League</option><option>NFD</option><option>Regional</option></select>
+                                        <label htmlFor="tier" className="block text-sm font-medium text-gray-700 mb-1">League / Tier</label>
+                                        <select id="tier" name="tier" value={formData.tier} onChange={handleChange} className={inputClass}>
+                                            <option value="Premier League">MTN Premier League</option>
+                                            <option value="NFD">National First Division</option>
+                                            <option value="Regional">Super League / Regional</option>
+                                            <option value="Womens League">Women's League</option>
+                                            <option value="Schools">Schools</option>
+                                        </select>
                                     </div>
                                     <div>
                                         <label htmlFor="nickname" className="block text-sm font-medium text-gray-700 mb-1">Nickname</label>

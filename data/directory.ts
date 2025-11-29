@@ -25,7 +25,7 @@ export interface DirectoryEntity {
     lng: number; // Percentage from left
   };
   crestUrl?: string;
-  tier?: 'Premier League' | 'NFD' | 'Womens League' | 'Regional';
+  tier?: 'Premier League' | 'NFD' | 'Womens League' | 'Regional' | 'Schools';
 }
 
 export const directoryData: DirectoryEntity[] = [

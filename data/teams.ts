@@ -1,3 +1,4 @@
+
 export interface LogEntry {
   p: number;
   w: number;
@@ -95,6 +96,7 @@ export interface CompetitionFixture {
     teamAForm?: string; // e.g., "W D L W W"
     teamBForm?: string;
     events?: MatchEvent[];
+    galleryImages?: string[];
 }
   
 export interface Competition {

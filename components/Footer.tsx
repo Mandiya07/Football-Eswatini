@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import FacebookIcon from './icons/FacebookIcon';
@@ -21,7 +22,11 @@ const Footer: React.FC = () => {
             <Link to="/" className="inline-block">
                 <Logo className="h-14 w-auto mx-auto md:mx-0" />
             </Link>
-            <p className="text-sm text-neutral/70 mt-2">&copy; {new Date().getFullYear()} Football Eswatini. All Rights Reserved.</p>
+            <div className="flex flex-col md:flex-row gap-4 mt-4 text-sm text-neutral/70">
+                <p>&copy; {new Date().getFullYear()} Football Eswatini. All Rights Reserved.</p>
+                <span className="hidden md:inline">•</span>
+                <Link to="/partnerships" className="hover:text-accent transition-colors">Partnership & Opportunities</Link>
+            </div>
           </div>
           
           <div className="flex justify-center items-center gap-6">

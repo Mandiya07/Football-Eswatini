@@ -1,5 +1,6 @@
 
 
+
 import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation';
@@ -50,6 +51,7 @@ const RegionDetailPage = lazy(() => import('./components/RegionDetailPage'));
 const LiveUpdatesPage = lazy(() => import('./components/LiveUpdatesPage'));
 const TeamYamPage = lazy(() => import('./components/TeamYamPage'));
 const ExclusivePage = lazy(() => import('./components/ExclusivePage'));
+const PartnershipPage = lazy(() => import('./components/PartnershipPage'));
 
 
 const App: React.FC = () => {
@@ -85,6 +87,7 @@ const App: React.FC = () => {
               <Route path="/regional" element={<RegionalPage />} />
               <Route path="/region/:regionId" element={<RegionDetailPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/partnerships" element={<PartnershipPage />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/profile/setup" element={<ProfileSetupPage />} />

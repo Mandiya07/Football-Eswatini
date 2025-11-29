@@ -17,6 +17,8 @@ import { db } from '../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps } from '../services/utils';
 import PlusCircleIcon from './icons/PlusCircleIcon';
+import PhotoIcon from './icons/PhotoIcon';
+import XIcon from './icons/XIcon';
 
 const EventIcon: React.FC<{ type: MatchEvent['type'] }> = ({ type }) => {
     switch (type) {
@@ -75,6 +77,9 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
     // State for adding match events
     const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
     const [newEvent, setNewEvent] = useState({ minute: '', type: 'goal' as MatchEvent['type'], description: '' });
+
+    // State for gallery lightbox
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     const canAddEvent = user && (user.role === 'super_admin' || user.role === 'club_admin');
 
@@ -227,6 +232,27 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                 </div>
             )}
             
+            {/* Match Gallery Section */}
+            {fixture.galleryImages && fixture.galleryImages.length > 0 && (
+                <div className="mt-6 pt-4 border-t">
+                    <h4 className="font-bold text-sm text-gray-800 mb-3 flex items-center gap-2">
+                        <PhotoIcon className="w-5 h-5 text-gray-500" />
+                        Match Gallery
+                    </h4>
+                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                        {fixture.galleryImages.map((imgUrl, index) => (
+                            <button 
+                                key={index} 
+                                onClick={() => setSelectedImage(imgUrl)}
+                                className="flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                                <img src={imgUrl} alt={`Match photo ${index + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+            
             {canAddEvent && fixture.status === 'live' && (
                 <div className="mt-6 pt-4 border-t">
                     <h4 className="font-bold text-sm text-gray-800 mb-3">Add Match Event</h4>
@@ -309,6 +335,27 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                     )}
                 </div>
             </div>
+
+            {/* Lightbox Modal */}
+            {selectedImage && (
+                <div 
+                    className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 animate-fade-in"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <button 
+                        onClick={() => setSelectedImage(null)}
+                        className="absolute top-4 right-4 text-white hover:text-gray-300"
+                    >
+                        <XIcon className="w-8 h-8" />
+                    </button>
+                    <img 
+                        src={selectedImage} 
+                        alt="Match gallery" 
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
+                        onClick={e => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </div>
     );
 };

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -39,6 +40,15 @@ const REGION_OPTIONS: { value: Region | 'all', label: string }[] = [
     { value: 'Shiselweni', label: 'Shiselweni' },
 ];
 
+const TIER_OPTIONS: { value: string, label: string }[] = [
+    { value: 'all', label: 'All Leagues / Levels' },
+    { value: 'Premier League', label: 'MTN Premier League' },
+    { value: 'NFD', label: 'National First Division' },
+    { value: 'Regional', label: 'Super League / Regional' },
+    { value: 'Womens League', label: 'Women\'s League' },
+    { value: 'Schools', label: 'Schools' },
+];
+
 
 const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -68,7 +78,7 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
                                     <span>{entity.region}</span>
                                     {entity.tier && <>
                                         <span>&bull;</span>
-                                        <span className="text-blue-600">{entity.tier}</span>
+                                        <span className="text-blue-600 font-semibold">{entity.tier}</span>
                                     </>}
                                 </div>
                             </div>
@@ -157,6 +167,7 @@ const DirectoryPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<EntityCategory | 'all'>('all');
     const [selectedRegion, setSelectedRegion] = useState<Region | 'all'>('all');
+    const [selectedTier, setSelectedTier] = useState<string>('all');
 
     useEffect(() => {
         const loadData = async () => {
@@ -190,6 +201,10 @@ const DirectoryPage: React.FC = () => {
                     ? true
                     : entity.name.toLowerCase().includes(lowerCaseSearchTerm);
 
+                const matchesTier = selectedTier === 'all'
+                    ? true
+                    : (entity.tier || '').trim().toLowerCase() === selectedTier.toLowerCase();
+
                 const matchesCategory = selectedCategory === 'all'
                     ? true
                     : (() => {
@@ -206,10 +221,10 @@ const DirectoryPage: React.FC = () => {
                         return entityCategory.startsWith(filterCategory);
                     })();
                 
-                return matchesSearch && matchesCategory && matchesRegion;
+                return matchesSearch && matchesCategory && matchesRegion && matchesTier;
             })
             .sort((a, b) => a.name.localeCompare(b.name));
-    }, [searchTerm, selectedCategory, selectedRegion, allEntries]);
+    }, [searchTerm, selectedCategory, selectedRegion, selectedTier, allEntries]);
 
     const inputClass = "block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm";
 
@@ -225,9 +240,9 @@ const DirectoryPage: React.FC = () => {
                     </p>
                 </div>
 
-                <Card className="shadow-lg mb-8 max-w-4xl mx-auto">
+                <Card className="shadow-lg mb-8 max-w-5xl mx-auto">
                     <CardContent className="p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                     <SearchIcon className="h-5 w-5 text-gray-400" />
@@ -254,11 +269,18 @@ const DirectoryPage: React.FC = () => {
                                     ))}
                                 </select>
                             </div>
+                            <div>
+                                <select value={selectedTier} onChange={e => setSelectedTier(e.target.value)} className={inputClass}>
+                                    {TIER_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-5xl mx-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {loading ? <div className="flex justify-center p-8 md:col-span-2"><Spinner /></div> :
                          filteredAndSortedEntries.length > 0 ? filteredAndSortedEntries.map(entity => (

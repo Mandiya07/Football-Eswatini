@@ -6,6 +6,7 @@ import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
+import PhotoIcon from '../icons/PhotoIcon';
 
 interface EditMatchModalProps {
     isOpen: boolean;
@@ -24,9 +25,13 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
         minute: '', type: 'goal', description: ''
     });
 
+    // Gallery State
+    const [galleryImages, setGalleryImages] = useState<string[]>(match.galleryImages || []);
+
     useEffect(() => {
         setFormData({ ...match });
         setEvents(match.events || []);
+        setGalleryImages(match.galleryImages || []);
     }, [match, isOpen]);
     
     // Find team objects for player selection
@@ -109,10 +114,32 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
         }
     };
 
+    // --- Gallery Logic ---
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setGalleryImages(prev => [...prev, reader.result as string]);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveImage = (index: number) => {
+        setGalleryImages(prev => prev.filter((_, i) => i !== index));
+    };
+
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({ ...formData, events: events });
+        onSave({ 
+            ...formData, 
+            events: events,
+            galleryImages: galleryImages 
+        });
     };
     
     if (!isOpen) return null;
@@ -234,6 +261,38 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                                      </div>
                                  )) : <p className="text-xs text-gray-400 text-center">No events added yet.</p>}
                              </div>
+                        </div>
+
+                        {/* Match Gallery Section */}
+                        <div className="border-t pt-4 mt-4">
+                            <h3 className="font-bold text-lg mb-2 text-gray-800 flex items-center gap-2">
+                                <PhotoIcon className="w-5 h-5 text-gray-600"/> Match Gallery
+                            </h3>
+                            <div className="bg-gray-50 p-4 rounded-md border">
+                                <label className="cursor-pointer bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-md shadow-sm text-sm font-medium inline-flex items-center gap-2 mb-4">
+                                    <PlusCircleIcon className="w-4 h-4" /> Add Photos
+                                    <input type="file" onChange={handleImageUpload} accept="image/*" className="sr-only" />
+                                </label>
+                                
+                                {galleryImages.length > 0 ? (
+                                    <div className="flex gap-3 overflow-x-auto pb-2">
+                                        {galleryImages.map((img, idx) => (
+                                            <div key={idx} className="relative flex-shrink-0 w-24 h-24 group">
+                                                <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover rounded-md border" />
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemoveImage(idx)}
+                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                                                >
+                                                    <XIcon className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-500 italic">No images in gallery yet.</p>
+                                )}
+                            </div>
                         </div>
 
                          <div className="flex justify-end gap-2 pt-4 mt-2 border-t">
