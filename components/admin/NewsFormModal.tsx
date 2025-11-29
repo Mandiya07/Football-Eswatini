@@ -24,7 +24,16 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
         url: '',
     });
 
-    const availableCategories = ['National', 'International', 'Womens', 'Schools', 'Football News', 'Community Football Hub'];
+    const availableCategories = [
+        'National', 
+        'International', 
+        'Womens', 
+        'Schools', 
+        'Football News', 
+        'Community Football Hub',
+        'Sponsored',
+        'Partner Feature'
+    ];
 
     useEffect(() => {
         if (article) {

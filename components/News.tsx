@@ -9,6 +9,7 @@ import ChevronRightIcon from './icons/ChevronRightIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 // FIX: Import 'fetchNews' which is now correctly exported from the API service.
 import { fetchNews } from '../services/api';
+import MegaphoneIcon from './icons/MegaphoneIcon';
 
 export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact' }> = React.memo(({ item, variant = 'default' }) => {
     const [copied, setCopied] = useState(false);
@@ -16,9 +17,14 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     // Helper to get categories as array
     const categories = Array.isArray(item.category) ? item.category : [item.category];
     const mainCategory = categories[0];
+    
+    // Detect if this is a sponsored article
+    const isSponsored = categories.some(c => c === 'Sponsored' || c === 'Partner Feature');
 
     let categoryColor = 'bg-green-100 text-green-800';
-    if (mainCategory === 'National') {
+    if (isSponsored) {
+        categoryColor = 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+    } else if (mainCategory === 'National') {
         categoryColor = 'bg-blue-100 text-blue-800';
     } else if (mainCategory === 'Womens') {
         categoryColor = 'bg-pink-100 text-pink-800';
@@ -65,7 +71,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     if (isCompact) {
         return (
             <Link to={item.url} className="group block h-full">
-                <Card className="transition-shadow duration-300 hover:shadow-lg flex flex-row h-24 overflow-hidden">
+                <Card className={`transition-shadow duration-300 hover:shadow-lg flex flex-row h-24 overflow-hidden ${isSponsored ? 'border-l-4 border-yellow-400 bg-yellow-50/30' : ''}`}>
                     {/* Image on the left */}
                     <div className="relative w-24 flex-shrink-0">
                         <img src={item.image} alt={item.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
@@ -76,7 +82,8 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
                             {item.title}
                         </h3>
                         <div className="flex justify-between items-center mt-1">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${categoryColor} w-fit`}>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${categoryColor} w-fit flex items-center gap-1`}>
+                                {isSponsored && <MegaphoneIcon className="w-2.5 h-2.5" />}
                                 {mainCategory}
                             </span>
                             <p className="text-gray-500 text-xs">{item.date}</p>
@@ -90,22 +97,27 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     // Default Card Layout
     return (
         <Link to={item.url} className="group block h-full">
-            <Card className="transition-shadow duration-300 hover:shadow-xl flex flex-col relative h-full">
+            <Card className={`transition-all duration-300 hover:shadow-xl flex flex-col relative h-full ${isSponsored ? 'border-2 border-yellow-400 ring-4 ring-yellow-50' : ''}`}>
                 <div className="relative overflow-hidden">
                     <img src={item.image} alt={item.title} loading="lazy" className="w-full object-cover group-hover:scale-105 transition-transform duration-300 h-48" />
                      <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-                        {categories.map(cat => (
-                            <span key={cat} className={`text-xs font-bold px-2 py-1 rounded-full bg-opacity-90 ${
-                                cat === 'National' ? 'bg-blue-100 text-blue-800' : 
-                                cat === 'International' ? 'bg-purple-100 text-purple-800' : 
-                                'bg-green-100 text-green-800'
-                            }`}>
-                                {cat}
-                            </span>
-                        ))}
+                        {categories.map(cat => {
+                            const isCatSponsored = cat === 'Sponsored' || cat === 'Partner Feature';
+                            return (
+                                <span key={cat} className={`text-xs font-bold px-2 py-1 rounded-full bg-opacity-90 flex items-center gap-1 ${
+                                    isCatSponsored ? 'bg-yellow-400 text-yellow-900 shadow-sm' :
+                                    cat === 'National' ? 'bg-blue-100 text-blue-800' : 
+                                    cat === 'International' ? 'bg-purple-100 text-purple-800' : 
+                                    'bg-green-100 text-green-800'
+                                }`}>
+                                    {isCatSponsored && <MegaphoneIcon className="w-3 h-3" />}
+                                    {cat}
+                                </span>
+                            );
+                        })}
                      </div>
                 </div>
-                <CardContent className="flex flex-col flex-grow p-4">
+                <CardContent className={`flex flex-col flex-grow p-4 ${isSponsored ? 'bg-yellow-50/20' : ''}`}>
                     <div className="flex-grow">
                         <div className="flex justify-between items-start mb-2">
                             <p className="text-sm text-gray-500">{item.date}</p>
@@ -134,9 +146,9 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-100">
                         <span
-                            className="text-sm font-semibold text-blue-600 group-hover:text-blue-800 transition-colors flex items-center gap-1"
+                            className={`text-sm font-semibold transition-colors flex items-center gap-1 ${isSponsored ? 'text-yellow-700 group-hover:text-yellow-900' : 'text-blue-600 group-hover:text-blue-800'}`}
                         >
-                            Read More
+                            {isSponsored ? 'Read Feature' : 'Read More'}
                             <ArrowRightIcon className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
                         </span>
                     </div>
