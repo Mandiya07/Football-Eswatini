@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -71,21 +69,21 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Team Sheet (PDF, DOCX)</label>
-                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Team Sheet (Photo, PDF, DOCX)</label>
+                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:bg-gray-50 transition-colors">
                             <div className="space-y-1 text-center">
                                 <UploadCloudIcon className="mx-auto h-12 w-12 text-gray-400" />
-                                <div className="flex text-sm text-gray-600">
+                                <div className="flex text-sm text-gray-600 justify-center">
                                     <label htmlFor="team-sheet-input" className="relative cursor-pointer bg-white rounded-md font-medium text-primary hover:text-primary-dark focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-light">
                                         <span>Upload a file</span>
-                                        <input id="team-sheet-input" name="team-sheet" type="file" className="sr-only" onChange={handleFileChange} accept=".pdf,.doc,.docx" />
+                                        <input id="team-sheet-input" name="team-sheet" type="file" className="sr-only" onChange={handleFileChange} accept=".pdf,.doc,.docx,image/*" />
                                     </label>
                                     <p className="pl-1">or drag and drop</p>
                                 </div>
                                 {teamSheet ? (
                                     <p className="text-sm text-green-600 font-semibold">{teamSheet.name}</p>
                                 ) : (
-                                    <p className="text-xs text-gray-500">PDF, DOC, DOCX up to 10MB</p>
+                                    <p className="text-xs text-gray-500">Images, PDF, DOC up to 10MB</p>
                                 )}
                             </div>
                         </div>

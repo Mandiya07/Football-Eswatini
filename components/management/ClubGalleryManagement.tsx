@@ -23,6 +23,35 @@ const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => 
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
+    const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setFormData(prev => ({ ...prev, coverUrl: reader.result as string }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleGalleryImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setFormData(prev => ({ 
+                        ...prev, 
+                        imageUrls: prev.imageUrls ? `${prev.imageUrls},${reader.result}` : reader.result as string 
+                    }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -84,15 +113,36 @@ const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => 
                     </div>
                     
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image URL</label>
-                        <input type="url" name="coverUrl" value={formData.coverUrl} onChange={handleChange} className={inputClass} placeholder="https://..." />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image URL or Upload</label>
+                        <div className="flex items-center gap-2">
+                            <input type="url" name="coverUrl" value={formData.coverUrl} onChange={handleChange} className={inputClass} placeholder="https://..." />
+                            <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                Upload Cover
+                                <input type="file" onChange={handleCoverFileChange} accept="image/*" className="sr-only" />
+                            </label>
+                        </div>
+                        {formData.coverUrl && <img src={formData.coverUrl} alt="Cover Preview" className="mt-2 h-20 object-cover rounded border p-1" />}
                         <p className="text-xs text-gray-500 mt-1">Optional. Defaults to the first image in the list.</p>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Image URLs (Comma Separated)</label>
-                        <input type="text" name="imageUrls" value={formData.imageUrls} onChange={handleChange} required className={inputClass} placeholder="https://site.com/img1.jpg, https://site.com/img2.jpg" />
-                        <p className="text-xs text-gray-500 mt-1">Paste multiple image links separated by commas.</p>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Gallery Images</label>
+                        <div className="flex items-center gap-2 mb-2">
+                            <input type="text" name="imageUrls" value={formData.imageUrls} onChange={handleChange} required className={inputClass} placeholder="Paste comma separated URLs..." />
+                            <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                Add Image
+                                <input type="file" onChange={handleGalleryImageUpload} accept="image/*" className="sr-only" />
+                            </label>
+                        </div>
+                        <p className="text-xs text-gray-500">Add images by uploading or pasting URLs separated by commas.</p>
+                        {formData.imageUrls && (
+                            <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
+                                {formData.imageUrls.split(',').slice(0, 5).map((url, i) => (
+                                    url.trim() && <img key={i} src={url.trim()} className="h-16 w-16 object-cover rounded border" alt="" />
+                                ))}
+                                {formData.imageUrls.split(',').length > 5 && <span className="self-center text-xs text-gray-500">+{formData.imageUrls.split(',').length - 5} more</span>}
+                            </div>
+                        )}
                     </div>
 
                     <div className="text-right">

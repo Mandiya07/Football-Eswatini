@@ -23,6 +23,19 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -76,8 +89,15 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
                         <textarea name="content" value={formData.content} onChange={handleChange} required rows={6} className={inputClass} placeholder="Write your full announcement here..." />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                        <input type="url" name="imageUrl" value={formData.imageUrl} onChange={handleChange} className={inputClass} placeholder="https://..." />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Image URL or Upload</label>
+                        <div className="flex items-center gap-2">
+                            <input type="url" name="imageUrl" value={formData.imageUrl} onChange={handleChange} className={inputClass} placeholder="https://..." />
+                            <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                Upload Photo
+                                <input type="file" onChange={handleFileChange} accept="image/*" className="sr-only" />
+                            </label>
+                        </div>
+                        {formData.imageUrl && <img src={formData.imageUrl} alt="Preview" className="mt-2 h-32 object-cover rounded border p-1" />}
                         <p className="text-xs text-gray-500 mt-1">Leave blank to use a default placeholder.</p>
                     </div>
                     <div className="text-right">
