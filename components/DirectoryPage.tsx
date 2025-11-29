@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import { DirectoryEntity, EntityCategory, Region } from '../data/directory';
-import { fetchDirectoryEntries } from '../services/api';
+import { fetchDirectoryEntries, fetchAllCompetitions, fetchCategories } from '../services/api';
 import SearchIcon from './icons/SearchIcon';
 import ShieldIcon from './icons/ShieldIcon';
 import SchoolIcon from './icons/SchoolIcon';
@@ -173,10 +173,69 @@ const DirectoryPage: React.FC = () => {
         const loadData = async () => {
             setLoading(true);
             try {
-                const dataFromDb = await fetchDirectoryEntries();
-                setAllEntries(dataFromDb);
+                // Fetch Directory, Competitions, and Categories to perform cross-reference filtering
+                const [directoryData, competitionsData, categoriesData] = await Promise.all([
+                    fetchDirectoryEntries(),
+                    fetchAllCompetitions(),
+                    fetchCategories()
+                ]);
+
+                // 1. Identify International Competitions and Teams
+                const internationalCompIds = new Set<string>();
+                const internationalTeamNames = new Set<string>();
+                const localTeamNames = new Set<string>();
+
+                // Helper to check if a category is considered "International"
+                const isIntlCategory = (catId: string) => {
+                    const cat = categoriesData.find(c => c.id === catId);
+                    const name = cat ? cat.name.toLowerCase() : catId.toLowerCase();
+                    return name.includes('international') || name.includes('caf') || name.includes('uefa') || name.includes('fifa');
+                };
+
+                Object.entries(competitionsData).forEach(([id, comp]) => {
+                    const isIntl = comp.categoryId ? isIntlCategory(comp.categoryId) : false;
+                    
+                    if (isIntl) {
+                        internationalCompIds.add(id);
+                        comp.teams?.forEach(t => internationalTeamNames.add(t.name.trim()));
+                    } else {
+                        // Classify as Local: Premier, NFD, Regional, Women, Youth, Cups
+                        comp.teams?.forEach(t => localTeamNames.add(t.name.trim()));
+                    }
+                });
+
+                // 2. Filter Directory Entries
+                const filteredData = directoryData.filter(entity => {
+                    // Always keep non-clubs (Referees, Associations, Academies)
+                    if (entity.category !== 'Club') return true;
+
+                    const name = entity.name.trim();
+
+                    // Rule A: If entity is linked explicitly to an International Competition via ID
+                    if (entity.competitionId && internationalCompIds.has(entity.competitionId)) {
+                        // EXCEPTION: Keep it if it ALSO plays in a local league (e.g. Mbabane Swallows in CAF)
+                        if (localTeamNames.has(name)) return true;
+                        return false; // Hide if ONLY international
+                    }
+
+                    // Rule B: Name Cross-Check
+                    // If the name is known as an International Team AND is NOT known as a Local Team
+                    // This handles cases where data was imported/seeded without a competitionId but matches an int'l team name
+                    if (internationalTeamNames.has(name) && !localTeamNames.has(name)) {
+                        return false;
+                    }
+
+                    // Rule C: Strict Region Filter
+                    // Ensure only valid Eswatini regions are shown.
+                    const validRegions = ['hhohho', 'manzini', 'lubombo', 'shiselweni'];
+                    if (!validRegions.includes(entity.region.toLowerCase())) return false;
+
+                    return true;
+                });
+
+                setAllEntries(filteredData);
             } catch (error) {
-                console.error("Error fetching directory entries from Firestore:", error);
+                console.error("Error fetching directory data:", error);
                 setAllEntries([]);
             } finally {
                 setLoading(false);
@@ -190,20 +249,16 @@ const DirectoryPage: React.FC = () => {
 
         return allEntries
             .filter(entity => {
-                // A valid entity must have a name and a region to be displayed.
-                if (!entity || !entity.name || !entity.region) return false;
+                if (!entity || !entity.name) return false;
 
-                // Explicitly exclude International/CAF entries
-                const isExcluded = ['international', 'caf'].some(keyword => 
-                    (entity.tier || '').toLowerCase().includes(keyword) ||
-                    (entity.category || '').toLowerCase().includes(keyword) ||
-                    (entity.region || '').toLowerCase().includes(keyword)
-                );
-                if (isExcluded) return false;
+                const entityRegionLower = (entity.region || '').trim().toLowerCase();
+                const entityTierLower = (entity.tier || '').trim().toLowerCase();
+                const entityCategoryLower = (entity.category || '').trim().toLowerCase();
 
+                // 1. User Selected Filters
                 const matchesRegion = selectedRegion === 'all'
                     ? true
-                    : (entity.region || '').trim().toLowerCase() === selectedRegion.toLowerCase();
+                    : entityRegionLower === selectedRegion.toLowerCase();
 
                 const matchesSearch = !lowerCaseSearchTerm
                     ? true
@@ -211,22 +266,15 @@ const DirectoryPage: React.FC = () => {
 
                 const matchesTier = selectedTier === 'all'
                     ? true
-                    : (entity.tier || '').trim().toLowerCase() === selectedTier.toLowerCase();
+                    : entityTierLower === selectedTier.toLowerCase();
 
                 const matchesCategory = selectedCategory === 'all'
                     ? true
                     : (() => {
-                        const entityCategory = (entity.category || '').trim().toLowerCase();
-                        const filterCategory = selectedCategory.toLowerCase();
-
-                        if (filterCategory === 'club') {
-                            // For a 'Club' filter, identify by category OR by the presence of a 'tier'.
-                            // This makes the filter resilient to missing or incorrect category data for clubs.
-                            return entityCategory.startsWith('club') || !!entity.tier;
+                        if (selectedCategory.toLowerCase() === 'club') {
+                            return entityCategoryLower.startsWith('club') || !!entity.tier;
                         }
-                        
-                        // For all other categories, the check remains strict on the category field.
-                        return entityCategory.startsWith(filterCategory);
+                        return entityCategoryLower.startsWith(selectedCategory.toLowerCase());
                     })();
                 
                 return matchesSearch && matchesCategory && matchesRegion && matchesTier;
