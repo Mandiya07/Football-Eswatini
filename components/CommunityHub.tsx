@@ -15,6 +15,7 @@ import InfoIcon from './icons/InfoIcon';
 import { NewsItem } from '../data/news';
 import { NewsCard } from './News';
 import NewspaperIcon from './icons/NewspaperIcon';
+import AdBanner from './AdBanner';
 
 const CommunityHub: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'news' | 'results' | 'submit'>('news');
@@ -131,6 +132,8 @@ const CommunityHub: React.FC = () => {
                     Your Home for Local Tournaments, Knockouts, Festivals & Grassroots Football Activities Across Eswatini.
                 </p>
             </div>
+
+            <AdBanner placement="community-hub-banner" className="mb-8 max-w-6xl mx-auto" />
 
             {/* Navigation Tabs */}
             <div className="flex justify-center mb-8">

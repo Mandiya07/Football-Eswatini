@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -16,6 +15,7 @@ import Spinner from './ui/Spinner';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 import MapPinIcon from './icons/MapPinIcon';
+import AdBanner from './AdBanner';
 
 const categoryIcons: Record<EntityCategory, React.FC<React.SVGProps<SVGSVGElement>>> = {
     'Club': ShieldIcon,
@@ -193,6 +193,14 @@ const DirectoryPage: React.FC = () => {
                 // A valid entity must have a name and a region to be displayed.
                 if (!entity || !entity.name || !entity.region) return false;
 
+                // Explicitly exclude International/CAF entries
+                const isExcluded = ['international', 'caf'].some(keyword => 
+                    (entity.tier || '').toLowerCase().includes(keyword) ||
+                    (entity.category || '').toLowerCase().includes(keyword) ||
+                    (entity.region || '').toLowerCase().includes(keyword)
+                );
+                if (isExcluded) return false;
+
                 const matchesRegion = selectedRegion === 'all'
                     ? true
                     : (entity.region || '').trim().toLowerCase() === selectedRegion.toLowerCase();
@@ -239,6 +247,8 @@ const DirectoryPage: React.FC = () => {
                         A comprehensive listing of clubs, academies, referees, and associations across Eswatini.
                     </p>
                 </div>
+
+                <AdBanner placement="directory-banner" className="mb-8 max-w-5xl mx-auto" />
 
                 <Card className="shadow-lg mb-8 max-w-5xl mx-auto">
                     <CardContent className="p-4">

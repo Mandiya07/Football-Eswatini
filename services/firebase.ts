@@ -17,8 +17,9 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with persistent local cache settings.
-// Removed experimentalForceLongPolling to allow auto-detection (WebSockets preferred) 
-// which resolves "Backend didn't respond within 10 seconds" errors.
+// We enable experimentalForceLongPolling to ensure stability in environments where 
+// WebSockets might be restricted or slow, preventing the 10-second timeout error.
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache()
+  localCache: persistentLocalCache(),
+  experimentalForceLongPolling: true,
 });

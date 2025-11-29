@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { fetchAllAds, updateAd, Ad } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
@@ -26,7 +27,13 @@ const AdManagement: React.FC = () => {
             const adsData = await fetchAllAds();
             const placementDetails = [
                 { id: 'homepage-banner', name: 'Homepage Banner' },
-                { id: 'fixtures-banner', name: 'Fixtures List Banner' },
+                { id: 'fixtures-banner', name: 'Fixtures & Results Banner' },
+                { id: 'live-scoreboard-banner', name: 'Live Scoreboard Banner' },
+                { id: 'news-listing-top-banner', name: 'News Listing Banner' },
+                { id: 'news-article-top-banner', name: 'News Article Banner' },
+                { id: 'community-hub-banner', name: 'Community Football Hub Banner' },
+                { id: 'directory-banner', name: 'Directory Listings Banner' },
+                { id: 'interactive-zone-banner', name: 'Interactive Zone Banner' },
             ];
             const adPlacements = placementDetails.map(p => ({
                 ...p,

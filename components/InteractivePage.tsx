@@ -1,9 +1,11 @@
+
 import React from 'react';
 import MatchPredictor from './MatchPredictor';
 import MiniFantasy from './MiniFantasy';
 import Logs from './Logs';
 import PlayerOfTheMonth from './PlayerOfTheMonth';
 import FanOfTheWeek from './FanOfTheWeek';
+import AdBanner from './AdBanner';
 
 const InteractivePage: React.FC = () => {
   return (
@@ -17,6 +19,8 @@ const InteractivePage: React.FC = () => {
                     Get involved! Predict match outcomes, build your fantasy team, vote for Player of the Month, and explore league stats.
                 </p>
             </div>
+
+            <AdBanner placement="interactive-zone-banner" className="mb-12" />
             
             <div className="space-y-8 mb-12">
                 <MatchPredictor />

@@ -58,6 +58,26 @@ const initialAds = {
         imageUrl: 'https://via.placeholder.com/800x100/FDB913/002B7F?text=Subscribe+to+our+Newsletter+for+Exclusive+News',
         link: '#/profile/setup',
         altText: 'Newsletter Subscription Banner'
+    },
+    'live-scoreboard-banner': {
+        imageUrl: 'https://via.placeholder.com/1200x120/228B22/FFFFFF?text=Live+Updates+Powered+by+Instacash',
+        link: '#',
+        altText: 'Advertisement for Instacash'
+    },
+    'community-hub-banner': {
+        imageUrl: 'https://via.placeholder.com/1200x120/FF4500/FFFFFF?text=Support+Local+Football+-+Hub+Hardware',
+        link: '#',
+        altText: 'Advertisement for Hub Hardware'
+    },
+    'directory-banner': {
+        imageUrl: 'https://via.placeholder.com/1200x120/00008B/FFFFFF?text=Find+Your+Local+Club+-+Sponsored+by+Standard+Bank',
+        link: '#',
+        altText: 'Advertisement for Standard Bank'
+    },
+    'interactive-zone-banner': {
+        imageUrl: 'https://via.placeholder.com/1200x120/4B0082/FFFFFF?text=Predict+and+Win+-+Eswatini+Gaming+Board',
+        link: '#',
+        altText: 'Advertisement for Eswatini Gaming'
     }
 };
 

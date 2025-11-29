@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { listenToLiveUpdates, LiveUpdate, fetchAllCompetitions } from '../services/api';
 import { CompetitionFixture } from '../data/teams';
@@ -14,6 +15,7 @@ import AlertTriangleIcon from './icons/AlertTriangleIcon';
 import XCircleIcon from './icons/XCircleIcon';
 import WhistleIcon from './icons/WhistleIcon';
 import { DirectoryEntity } from '../data/directory';
+import AdBanner from './AdBanner';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
     switch (type) {
@@ -188,7 +190,7 @@ const LiveUpdatesPage: React.FC = () => {
     return (
         <div className="bg-gray-50 py-12">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
-                <div className="text-center mb-12">
+                <div className="text-center mb-8">
                      <RadioIcon className="w-12 h-12 mx-auto text-primary mb-2" />
                     <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
                         Live Match Center
@@ -197,6 +199,8 @@ const LiveUpdatesPage: React.FC = () => {
                         Real-time updates from matches as they happen across all leagues.
                     </p>
                 </div>
+
+                <AdBanner placement="live-scoreboard-banner" className="mb-12" />
 
                 {loading ? <div className="flex justify-center py-8"><Spinner /></div> : 
                  liveMatches.length > 0 ? (
