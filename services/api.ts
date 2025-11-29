@@ -53,6 +53,40 @@ export interface PendingChange {
   author: string;
 }
 
+export interface ClubRegistrationRequest {
+    id: string;
+    userId: string;
+    clubName: string;
+    repName: string;
+    email: string;
+    phone: string;
+    status: 'pending' | 'approved' | 'rejected';
+    submittedAt: any;
+}
+
+export interface AdvertiserRequest {
+    companyName: string;
+    contactName: string;
+    email: string;
+    phone: string;
+    industry: string;
+    interestedPlacements: string[];
+    budgetRange: string;
+    status: 'pending' | 'contacted' | 'closed';
+    submittedAt: any;
+}
+
+export interface SponsorRequest {
+    brandName: string;
+    contactName: string;
+    email: string;
+    phone: string;
+    sponsorshipTier: string; // Bronze, Silver, etc.
+    goals: string;
+    status: 'pending' | 'contacted' | 'closed';
+    submittedAt: any;
+}
+
 export interface Category {
     id: string;
     name: string;
@@ -625,6 +659,93 @@ export const deletePendingChange = async (id: string) => {
     }
 };
 
+// --- CLUB REGISTRATION REQUESTS ---
+
+export const submitClubRequest = async (request: Omit<ClubRegistrationRequest, 'id' | 'status' | 'submittedAt'>) => {
+    try {
+        await addDoc(collection(db, 'club_requests'), {
+            ...request,
+            status: 'pending',
+            submittedAt: serverTimestamp()
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'submit club request');
+        throw error;
+    }
+};
+
+export const fetchClubRequests = async (): Promise<ClubRegistrationRequest[]> => {
+    const items: ClubRegistrationRequest[] = [];
+    try {
+        const q = query(collection(db, "club_requests"), where("status", "==", "pending"));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            items.push({ id: doc.id, ...doc.data() } as ClubRegistrationRequest);
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'fetch club requests');
+    }
+    return items;
+};
+
+export const approveClubRequest = async (request: ClubRegistrationRequest) => {
+    try {
+        await runTransaction(db, async (transaction) => {
+            // 1. Update the User profile
+            const userRef = doc(db, 'users', request.userId);
+            transaction.update(userRef, {
+                role: 'club_admin',
+                club: request.clubName
+            });
+
+            // 2. Delete the request (or update status to approved)
+            const requestRef = doc(db, 'club_requests', request.id);
+            transaction.delete(requestRef);
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'approve club request');
+        throw error;
+    }
+};
+
+export const rejectClubRequest = async (requestId: string) => {
+    try {
+        await deleteDoc(doc(db, 'club_requests', requestId));
+    } catch (error) {
+        handleFirestoreError(error, 'reject club request');
+        throw error;
+    }
+};
+
+// --- ADVERTISER & SPONSOR REQUESTS ---
+
+export const submitAdvertiserRequest = async (request: Omit<AdvertiserRequest, 'status' | 'submittedAt'>) => {
+    try {
+        await addDoc(collection(db, 'advertiser_requests'), {
+            ...request,
+            status: 'pending',
+            submittedAt: serverTimestamp()
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'submit advertiser request');
+        throw error;
+    }
+};
+
+export const submitSponsorRequest = async (request: Omit<SponsorRequest, 'status' | 'submittedAt'>) => {
+    try {
+        await addDoc(collection(db, 'sponsor_requests'), {
+            ...request,
+            status: 'pending',
+            submittedAt: serverTimestamp()
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'submit sponsor request');
+        throw error;
+    }
+};
+
+
 export const addCup = (data: Omit<Tournament, 'id'>) => addDoc(collection(db, 'cups'), data);
 export const updateCup = (id: string, data: Partial<Tournament>) => updateDoc(doc(db, 'cups', id), data);
 
@@ -765,7 +886,7 @@ export const resetAllCompetitionData = async () => {
                         batch.update(doc.ref, {
                             teams: [],
                             fixtures: [],
-                            results: []
+                            results: [],
                         });
                     } else if (colName === 'cups') {
                         // Similar logic for cups

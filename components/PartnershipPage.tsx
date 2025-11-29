@@ -9,6 +9,7 @@ import CheckCircleIcon from './icons/CheckCircleIcon';
 import GlobeIcon from './icons/GlobeIcon';
 import MailIcon from './icons/MailIcon';
 import StarIcon from './icons/StarIcon';
+import { Link } from 'react-router-dom';
 
 const PricingCard: React.FC<{
     title: string;
@@ -38,9 +39,11 @@ const PricingCard: React.FC<{
                 </li>
             ))}
         </ul>
-        <Button className={`w-full ${isPopular ? 'bg-primary text-white hover:bg-primary-dark' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}>
-            Get Started
-        </Button>
+        <Link to="/club-registration" className="block">
+            <Button className={`w-full ${isPopular ? 'bg-primary text-white hover:bg-primary-dark' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}>
+                Get Started
+            </Button>
+        </Link>
     </div>
 );
 
@@ -210,7 +213,9 @@ const PartnershipPage: React.FC = () => {
                                 <h3 className="text-2xl font-bold font-display mb-2">{pkg.title}</h3>
                                 <div className="text-3xl font-extrabold mb-4">{pkg.price}<span className="text-base font-normal opacity-75">{pkg.period}</span></div>
                                 <p className="text-sm opacity-90 flex-grow">{pkg.desc}</p>
-                                <Button className="mt-6 w-full bg-white/50 hover:bg-white/80 text-black border-0">Inquire</Button>
+                                <Link to="/sponsor-onboarding" className="block w-full">
+                                    <Button className="mt-6 w-full bg-white/50 hover:bg-white/80 text-black border-0">Inquire</Button>
+                                </Link>
                             </CardContent>
                         </Card>
                     ))}
@@ -244,17 +249,17 @@ const PartnershipPage: React.FC = () => {
                         <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
                             <h4 className="font-bold text-xl mb-2">Teams & Clubs</h4>
                             <p className="text-sm text-blue-100 mb-4">Activate your official club profile today.</p>
-                            <a href="mailto:clubs@eswatini.football" className="inline-block bg-white text-primary font-bold py-2 px-6 rounded-full hover:bg-gray-100 transition-colors">Onboard Club</a>
+                            <Link to="/club-registration" className="inline-block bg-white text-primary font-bold py-2 px-6 rounded-full hover:bg-gray-100 transition-colors">Onboard Club</Link>
                         </div>
                         <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
                             <h4 className="font-bold text-xl mb-2">Advertisers</h4>
                             <p className="text-sm text-blue-100 mb-4">Grow your brand in high-traffic zones.</p>
-                            <a href="mailto:ads@eswatini.football" className="inline-block bg-yellow-400 text-yellow-900 font-bold py-2 px-6 rounded-full hover:bg-yellow-300 transition-colors">Request Rate Card</a>
+                            <Link to="/advertiser-onboarding" className="inline-block bg-yellow-400 text-yellow-900 font-bold py-2 px-6 rounded-full hover:bg-yellow-300 transition-colors">Request Rate Card</Link>
                         </div>
                         <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
                             <h4 className="font-bold text-xl mb-2">Sponsors</h4>
                             <p className="text-sm text-blue-100 mb-4">Deep engagement and long-term value.</p>
-                            <a href="mailto:partners@eswatini.football" className="inline-block bg-white text-primary font-bold py-2 px-6 rounded-full hover:bg-gray-100 transition-colors">Contact Us</a>
+                            <Link to="/sponsor-onboarding" className="inline-block bg-white text-primary font-bold py-2 px-6 rounded-full hover:bg-gray-100 transition-colors">Contact Us</Link>
                         </div>
                     </div>
                 </div>

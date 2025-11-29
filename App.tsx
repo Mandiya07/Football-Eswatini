@@ -1,6 +1,4 @@
 
-
-
 import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation';
@@ -27,10 +25,6 @@ const NewsArticlePage = lazy(() => import('./components/NewsArticlePage'));
 const AdminPanelPage = lazy(() => import('./components/AdminPanelPage'));
 const ShopPage = lazy(() => import('./components/ShopPage'));
 const YouthPage = lazy(() => import('./components/YouthPage'));
-const SchoolsPage = lazy(() => import('./components/SchoolsPage'));
-const U20Page = lazy(() => import('./components/U20Page'));
-const HubU17Page = lazy(() => import('./components/HubU17Page'));
-const BuildItU13Page = lazy(() => import('./components/BuildItU13Page'));
 const WomensPage = lazy(() => import('./components/WomensPage'));
 const CupsPage = lazy(() => import('./components/CupsPage'));
 const DirectoryPage = lazy(() => import('./components/DirectoryPage'));
@@ -52,6 +46,9 @@ const LiveUpdatesPage = lazy(() => import('./components/LiveUpdatesPage'));
 const TeamYamPage = lazy(() => import('./components/TeamYamPage'));
 const ExclusivePage = lazy(() => import('./components/ExclusivePage'));
 const PartnershipPage = lazy(() => import('./components/PartnershipPage'));
+const ClubRegistrationPage = lazy(() => import('./components/ClubRegistrationPage'));
+const AdvertiserOnboardingPage = lazy(() => import('./components/AdvertiserOnboardingPage'));
+const SponsorOnboardingPage = lazy(() => import('./components/SponsorOnboardingPage'));
 
 
 const App: React.FC = () => {
@@ -77,10 +74,6 @@ const App: React.FC = () => {
               <Route path="/interactive" element={<InteractivePage />} />
               <Route path="/media" element={<MediaPage />} />
               <Route path="/youth" element={<YouthPage />} />
-              <Route path="/youth/u20" element={<U20Page />} />
-              <Route path="/youth/hub-u17" element={<HubU17Page />} />
-              <Route path="/youth/build-it-u13" element={<BuildItU13Page />} />
-              <Route path="/schools" element={<SchoolsPage />} />
               <Route path="/womens" element={<WomensPage />} />
               <Route path="/national-team" element={<NationalTeamLandingPage />} />
               <Route path="/national-team/:teamId" element={<NationalTeamDetailPage />} />
@@ -88,6 +81,9 @@ const App: React.FC = () => {
               <Route path="/region/:regionId" element={<RegionDetailPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/partnerships" element={<PartnershipPage />} />
+              <Route path="/club-registration" element={<ClubRegistrationPage />} />
+              <Route path="/advertiser-onboarding" element={<AdvertiserOnboardingPage />} />
+              <Route path="/sponsor-onboarding" element={<SponsorOnboardingPage />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/profile/setup" element={<ProfileSetupPage />} />
