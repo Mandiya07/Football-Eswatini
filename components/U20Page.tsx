@@ -46,6 +46,8 @@ const U20Page: React.FC = () => {
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
+  const competitionId = leagueData?.id || U20_LEAGUE_ID;
+
   return (
     <div className="bg-gray-50 py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
@@ -76,11 +78,11 @@ const U20Page: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="w-full">
                  <h2 className="text-2xl font-display font-bold mb-4 text-center lg:text-left">Fixtures & Results</h2>
-                 <Fixtures showSelector={false} defaultCompetition={U20_LEAGUE_ID} maxHeight="max-h-[800px]" />
+                 <Fixtures showSelector={false} defaultCompetition={competitionId} maxHeight="max-h-[800px]" />
             </div>
             <div className="w-full">
                  <h2 className="text-2xl font-display font-bold mb-4 text-center lg:text-left">League Standings</h2>
-                 <Logs showSelector={false} defaultLeague={U20_LEAGUE_ID} maxHeight="max-h-[800px]" />
+                 <Logs showSelector={false} defaultLeague={competitionId} maxHeight="max-h-[800px]" />
             </div>
           </div>
 

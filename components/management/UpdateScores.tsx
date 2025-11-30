@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchCompetition, handleFirestoreError } from '../../services/api';
+import { fetchCompetition, handleFirestoreError, addPendingChange } from '../../services/api';
 import { CompetitionFixture, Competition, Team } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -10,6 +10,7 @@ import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { calculateStandings, removeUndefinedProps } from '../../services/utils';
+import { useAuth } from '../../contexts/AuthContext';
 
 
 const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
@@ -18,6 +19,7 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState<number | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const { user } = useAuth();
 
     const COMPETITION_ID = 'mtn-premier-league';
 
@@ -51,46 +53,59 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
         const score = scores[fixtureId];
         if (fixture && score && score.scoreA && score.scoreB) {
             setSubmitting(fixtureId);
+            
             try {
-                const docRef = doc(db, 'competitions', COMPETITION_ID);
+                if (user?.role === 'super_admin') {
+                    // Super Admins can write directly to the database
+                    const docRef = doc(db, 'competitions', COMPETITION_ID);
+                    
+                    await runTransaction(db, async (transaction) => {
+                        const docSnap = await transaction.get(docRef);
+                        if (!docSnap.exists()) throw new Error("Competition not found");
+                        
+                        const competition = docSnap.data() as Competition;
+                        const fixtureToMove = competition.fixtures.find(f => f.id === fixtureId);
+
+                        if (!fixtureToMove) throw new Error("Fixture not found or already finished.");
+
+                        const updatedFixtures = competition.fixtures.filter(f => f.id !== fixtureId);
+                        
+                        // Preserve existing metadata
+                        const newResult = {
+                            ...fixtureToMove,
+                            status: 'finished' as const,
+                            scoreA: parseInt(score.scoreA),
+                            scoreB: parseInt(score.scoreB),
+                            // Explicitly ensuring venue/date/time are kept if present
+                            venue: fixtureToMove.venue || '',
+                            date: fixtureToMove.date,
+                            day: fixtureToMove.day,
+                            time: fixtureToMove.time,
+                            fullDate: fixtureToMove.fullDate,
+                        };
+                        
+                        const updatedResults = [...(competition.results || []), newResult];
+                        const updatedTeams = calculateStandings(competition.teams || [], updatedResults, updatedFixtures);
+
+                        transaction.update(docRef, removeUndefinedProps({ 
+                            fixtures: updatedFixtures, 
+                            results: updatedResults, 
+                            teams: updatedTeams 
+                        }));
+                    });
+                    
+                    setSuccessMessage(`Result for ${fixture.teamA} vs ${fixture.teamB} updated successfully!`);
+                    setMatches(prev => prev.filter(m => m.id !== fixtureId));
+                } else {
+                    // Club Admins submit a request to the pending queue to avoid permission errors
+                    await addPendingChange({
+                        type: 'Score Update',
+                        description: `${fixture.teamA} ${score.scoreA} - ${score.scoreB} ${fixture.teamB} (Match ID: ${fixture.id})`,
+                        author: user?.club || user?.email || 'Club Admin'
+                    });
+                    setSuccessMessage(`Score update submitted for approval.`);
+                }
                 
-                await runTransaction(db, async (transaction) => {
-                    const docSnap = await transaction.get(docRef);
-                    if (!docSnap.exists()) throw new Error("Competition not found");
-                    
-                    const competition = docSnap.data() as Competition;
-                    const fixtureToMove = competition.fixtures.find(f => f.id === fixtureId);
-
-                    if (!fixtureToMove) throw new Error("Fixture not found or already finished.");
-
-                    const updatedFixtures = competition.fixtures.filter(f => f.id !== fixtureId);
-                    
-                    // Preserve existing metadata
-                    const newResult = {
-                        ...fixtureToMove,
-                        status: 'finished' as const,
-                        scoreA: parseInt(score.scoreA),
-                        scoreB: parseInt(score.scoreB),
-                        // Explicitly ensuring venue/date/time are kept if present
-                        venue: fixtureToMove.venue || '',
-                        date: fixtureToMove.date,
-                        day: fixtureToMove.day,
-                        time: fixtureToMove.time,
-                        fullDate: fixtureToMove.fullDate,
-                    };
-                    
-                    const updatedResults = [...(competition.results || []), newResult];
-                    const updatedTeams = calculateStandings(competition.teams || [], updatedResults, updatedFixtures);
-
-                    transaction.update(docRef, removeUndefinedProps({ 
-                        fixtures: updatedFixtures, 
-                        results: updatedResults, 
-                        teams: updatedTeams 
-                    }));
-                });
-                
-                setSuccessMessage(`Result for ${fixture.teamA} vs ${fixture.teamB} updated successfully!`);
-                setMatches(prev => prev.filter(m => m.id !== fixtureId));
                 setTimeout(() => setSuccessMessage(null), 3000);
             } catch(error) {
                 handleFirestoreError(error, 'save score');

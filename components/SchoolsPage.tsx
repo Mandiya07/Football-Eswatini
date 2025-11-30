@@ -52,6 +52,8 @@ const SchoolsPage: React.FC = () => {
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
+  const competitionId = schoolsData?.id || "instacash-schools-tournament";
+
   return (
     <div className="bg-gray-50 py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
@@ -84,7 +86,7 @@ const SchoolsPage: React.FC = () => {
 
         <div className="mb-16 max-w-5xl mx-auto">
             <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Progress</h2>
-            <Fixtures showSelector={false} defaultCompetition="instacash-schools-tournament" maxHeight="max-h-[600px]" />
+            <Fixtures showSelector={false} defaultCompetition={competitionId} maxHeight="max-h-[600px]" />
         </div>
 
         <div className="space-y-16">

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
+import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, addPendingChange } from '../../services/api';
 import { Competition, CompetitionFixture } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -11,8 +11,10 @@ import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { calculateStandings, removeUndefinedProps } from '../../services/utils';
 import EditMatchModal from './EditMatchModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ManageMatches: React.FC = () => {
+    const { user } = useAuth();
     const [competitions, setCompetitions] = useState<{ id: string, name: string }[]>([]);
     const [selectedComp, setSelectedComp] = useState('mtn-premier-league'); 
     const [data, setData] = useState<Competition | null>(null);
@@ -55,7 +57,13 @@ const ManageMatches: React.FC = () => {
         if (!window.confirm(`Are you sure you want to delete:\n${matchLabel}?\n\nStandings will be recalculated immediately.`)) return;
         
         setDeletingId(match.id);
+        
         try {
+            // Check if user is super_admin. Even if they are, handle potential permission errors gracefully.
+            if (user?.role !== 'super_admin') {
+                throw { code: 'permission-denied' };
+            }
+
             const docRef = doc(db, 'competitions', selectedComp);
             await runTransaction(db, async (transaction) => {
                 const docSnap = await transaction.get(docRef);
@@ -75,7 +83,6 @@ const ManageMatches: React.FC = () => {
                     
                     // Attempt 2: Content Match Fallback
                     // If nothing was removed by ID, try removing by matching content (Teams + Date)
-                    // This handles cases where IDs might be different types (number vs string) or mismatched.
                     if (filtered.length === initialLen) {
                         console.warn(`ID delete failed for ${matchLabel}. Attempting content fallback deletion.`);
                         filtered = list.filter(item => {
@@ -114,10 +121,25 @@ const ManageMatches: React.FC = () => {
             });
             
             loadMatchData();
-        } catch (error) {
-            console.error("Delete failed:", error);
-            alert(`Failed to delete: ${(error as Error).message}`);
-            handleFirestoreError(error, 'delete match');
+        } catch (error: any) {
+            // Handle permission error by submitting a request
+            if (error.code === 'permission-denied' || user?.role !== 'super_admin') {
+                console.warn("Permission denied for delete. Submitting request instead.");
+                try {
+                    await addPendingChange({
+                        type: 'Match Delete',
+                        description: `Request to DELETE match: ${matchLabel} (ID: ${match.id}) from ${selectedComp}`,
+                        author: user?.email || 'Unknown User'
+                    });
+                    alert("Permission denied for direct deletion. A request has been submitted to the approval queue.");
+                } catch (reqError) {
+                    alert("Failed to submit deletion request.");
+                }
+            } else {
+                console.error("Delete failed:", error);
+                alert(`Failed to delete: ${(error as Error).message}`);
+                handleFirestoreError(error, 'delete match');
+            }
             await loadMatchData(); // Refresh to ensure UI is in sync
         } finally {
             setDeletingId(null);
@@ -134,6 +156,11 @@ const ManageMatches: React.FC = () => {
         setIsEditModalOpen(false);
         
         try {
+            // Check if user is super_admin. Even if they are, handle potential permission errors gracefully.
+            if (user?.role !== 'super_admin') {
+                throw { code: 'permission-denied' };
+            }
+
             const docRef = doc(db, 'competitions', selectedComp);
             await runTransaction(db, async (transaction) => {
                 const docSnap = await transaction.get(docRef);
@@ -172,10 +199,25 @@ const ManageMatches: React.FC = () => {
             alert('Match updated successfully!');
             loadMatchData();
 
-        } catch (error) {
-            console.error("Update failed:", error);
-            alert(`Failed to update match: ${(error as Error).message}`);
-            handleFirestoreError(error, 'update match');
+        } catch (error: any) {
+            // Handle permission error by submitting a request
+            if (error.code === 'permission-denied' || user?.role !== 'super_admin') {
+                console.warn("Permission denied for update. Submitting request instead.");
+                try {
+                    await addPendingChange({
+                        type: 'Match Edit',
+                        description: `Request to UPDATE match: ${updatedMatch.teamA} vs ${updatedMatch.teamB} (ID: ${updatedMatch.id}). New Data: ${JSON.stringify(updatedMatch)}`,
+                        author: user?.email || 'Unknown User'
+                    });
+                    alert("Permission denied for direct update. A request has been submitted to the approval queue.");
+                } catch (reqError) {
+                    alert("Failed to submit update request.");
+                }
+            } else {
+                console.error("Update failed:", error);
+                alert(`Failed to update match: ${(error as Error).message}`);
+                handleFirestoreError(error, 'update match');
+            }
         } finally {
             setSavingId(null);
             setEditingMatch(null);

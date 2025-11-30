@@ -82,7 +82,6 @@ const HubU17Page: React.FC = () => {
 
             <div className="max-w-5xl mx-auto">
                 <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Latest Fixtures & Results</h2>
-                {/* Dynamically use the ID from the youth document to find fixtures */}
                 <Fixtures showSelector={false} defaultCompetition={competitionId} maxHeight="max-h-[600px]" />
             </div>
 

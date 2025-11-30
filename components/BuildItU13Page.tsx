@@ -21,7 +21,7 @@ const BuildItU13Page: React.FC = () => {
       setLoading(true);
       try {
         const youthLeagues = await fetchYouthData();
-        // Robust finding logic: Try exact ID match first, then fuzzy name matching
+        // Robust finding logic
         const league = youthLeagues.find(l => {
             const name = l.name.toLowerCase();
             const id = l.id.toLowerCase();
@@ -48,7 +48,7 @@ const BuildItU13Page: React.FC = () => {
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
-  // Use the ID of the found document, or fallback to the default if not found (though loading handles null)
+  // Use the ID of the found document, or fallback to the default if not found
   const competitionId = data?.id || "build-it-u13";
 
   return (
@@ -84,7 +84,6 @@ const BuildItU13Page: React.FC = () => {
             
             <div className="max-w-5xl mx-auto">
                 <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Schedule</h2>
-                {/* Dynamically use the ID from the youth document to find fixtures */}
                 <Fixtures showSelector={false} defaultCompetition={competitionId} maxHeight="max-h-[600px]" />
             </div>
 

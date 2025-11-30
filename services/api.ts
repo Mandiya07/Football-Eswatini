@@ -48,7 +48,7 @@ export interface Ad {
 
 export interface PendingChange {
   id: string; // Firestore doc ID
-  type: 'Score Update' | 'New Player' | 'Squad Removal';
+  type: 'Score Update' | 'New Player' | 'Squad Removal' | 'Match Edit' | 'Match Delete';
   description: string;
   author: string;
 }
@@ -114,6 +114,16 @@ export interface FixtureComment {
 }
 
 export interface YouthArticleComment {
+    id: string;
+    articleId: string;
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    text: string;
+    timestamp: { seconds: number, nanoseconds: number };
+}
+
+export interface NewsComment {
     id: string;
     articleId: string;
     userId: string;
@@ -304,6 +314,47 @@ export const listenToYouthArticleComments = (articleId: string, callback: (comme
     }, (error) => {
         console.error(`Error listening to comments for article '${articleId}':`, error);
         handleFirestoreError(error, `listen to comments for article ${articleId}`);
+        callback([]);
+    });
+
+    return unsubscribe;
+};
+
+export const addNewsComment = async (articleId: string, text: string, user: User) => {
+    try {
+        const commentData = {
+            articleId,
+            text,
+            userId: user.id,
+            userName: user.name,
+            userAvatar: user.avatar,
+            timestamp: serverTimestamp(),
+        };
+        await addDoc(collection(db, 'news_comments'), commentData);
+    } catch (error) {
+        handleFirestoreError(error, 'add news comment');
+        throw error;
+    }
+};
+
+export const listenToNewsComments = (articleId: string, callback: (comments: NewsComment[]) => void): (() => void) => {
+    console.log(`API: Setting up listener for comments on news article '${articleId}'.`);
+    const q = query(
+        collection(db, "news_comments"),
+        where("articleId", "==", articleId)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const comments: NewsComment[] = [];
+        querySnapshot.forEach((doc) => {
+            comments.push({ id: doc.id, ...doc.data() } as NewsComment);
+        });
+        // Sort comments on the client-side
+        comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+        callback(comments);
+    }, (error) => {
+        console.error(`Error listening to comments for news article '${articleId}':`, error);
+        handleFirestoreError(error, `listen to comments for news article ${articleId}`);
         callback([]);
     });
 
@@ -706,6 +757,15 @@ export const deletePendingChange = async (id: string) => {
         await deleteDoc(doc(db, 'pendingChanges', id));
     } catch (error) {
         handleFirestoreError(error, `delete pending change ${id}`);
+        throw error;
+    }
+};
+
+export const addPendingChange = async (data: Omit<PendingChange, 'id'>) => {
+    try {
+        await addDoc(collection(db, 'pendingChanges'), data);
+    } catch (error) {
+        handleFirestoreError(error, 'submit pending change');
         throw error;
     }
 };
