@@ -1,6 +1,4 @@
 
-
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import FacebookIcon from './icons/FacebookIcon';
@@ -32,7 +30,7 @@ const SecondaryNavigation: React.FC = () => {
 
                     {/* Right side social icons */}
                     <div className="flex items-center space-x-4">
-                        <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-white/70 hover:text-white transition-colors">
+                        <a href="https://www.facebook.com/61584176729752/" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-white/70 hover:text-white transition-colors">
                             <FacebookIcon className="w-4 h-4" />
                         </a>
                         <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="text-white/70 hover:text-white transition-colors">

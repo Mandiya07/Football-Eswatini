@@ -9,7 +9,7 @@ import Logo from './Logo';
 const Footer: React.FC = () => {
 
   const socialLinks = [
-    { name: 'Facebook', Icon: FacebookIcon, href: 'https://facebook.com' },
+    { name: 'Facebook', Icon: FacebookIcon, href: 'https://www.facebook.com/61584176729752/' },
     { name: 'YouTube', Icon: YouTubeIcon, href: 'https://youtube.com' },
     { name: 'Instagram', Icon: InstagramIcon, href: 'https://instagram.com' },
   ];
