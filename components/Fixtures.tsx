@@ -173,7 +173,6 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 
     return (
         <div className={`flex items-stretch hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${getStatusBorder()}`}>
-            {/* Main Clickable Area - DIV, not button */}
             <div 
                 className="flex-grow relative flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer"
                 onClick={onToggleDetails}
@@ -185,7 +184,6 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
             >
                 {getStatusBadge()}
                 
-                {/* Date Box - Compact */}
                 <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white animate-pulse' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
                     <span className="font-bold text-base leading-tight">{fixture.date}</span>
                     <span className="text-[9px] uppercase font-bold tracking-wider">{fixture.day}</span>
@@ -203,10 +201,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                     
                     {isScoreVisible ? (
                         <div className="text-center min-w-[5rem] flex flex-col justify-center">
-                            <p 
-                                key={`score-${fixture.id}-${fixture.scoreA}-${fixture.scoreB}`}
-                                className={`font-bold text-xl leading-none ${fixture.status === 'live' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}
-                            >
+                            <p className={`font-bold text-xl leading-none ${fixture.status === 'live' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}>
                                 {fixture.scoreA ?? '-'} - {fixture.scoreB ?? '-'}
                             </p>
                             {(fixture.scoreAPen !== undefined && fixture.scoreBPen !== undefined) && (
@@ -240,7 +235,6 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                 </div>
             </div>
 
-            {/* Actions Column - Separate from main click target to avoid nesting buttons */}
             <div className="flex flex-col items-center justify-center gap-1 px-2 border-l border-gray-100 bg-white/50">
                 <div className="flex flex-col gap-1">
                     <button
@@ -303,7 +297,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
     const [compOptions, setCompOptions] = useState<{ label: string, options: { value: string; name: string; }[] }[]>([]);
     const [deletingId, setDeletingId] = useState<number | string | null>(null);
 
-    // Sync selectedComp with prop changes
     useEffect(() => {
         if (defaultCompetition) {
             setSelectedComp(defaultCompetition);
@@ -358,7 +351,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     }
                     setCompOptions(finalOptions);
                     
-                    // Only set if selector is shown and current value is default (not prop controlled)
                     if (showSelector && finalOptions.length > 0 && !allCompetitions.some(c => c.id === selectedComp)) {
                          const firstOpt = finalOptions[0].options[0];
                          if (firstOpt) setSelectedComp(firstOpt.value);
@@ -397,33 +389,10 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 const compData = docSnap.data() as Competition;
                 
                 const targetId = String(fixture.id).trim();
-                const matchA = fixture.teamA.trim();
-                const matchB = fixture.teamB.trim();
-                const matchDate = fixture.fullDate;
-
-                const filterList = (list: CompetitionFixture[]) => {
-                    const initialLen = list.length;
-                    let filtered = list.filter(f => String(f.id).trim() !== targetId);
-                    if (filtered.length === initialLen) {
-                        filtered = list.filter(f => {
-                             const fTeamA = f.teamA.trim();
-                             const fTeamB = f.teamB.trim();
-                             const teamsMatch = (fTeamA === matchA && fTeamB === matchB) || (fTeamA === matchB && fTeamB === matchA);
-                             const dateMatches = f.fullDate === matchDate;
-                             return !(teamsMatch && dateMatches);
-                        });
-                    }
-                    return filtered;
-                };
+                const filterList = (list: CompetitionFixture[]) => list.filter(f => String(f.id).trim() !== targetId);
 
                 const updatedFixtures = filterList(compData.fixtures || []);
                 const updatedResults = filterList(compData.results || []);
-                
-                const deletedCount = ((compData.fixtures?.length || 0) - updatedFixtures.length) + ((compData.results?.length || 0) - updatedResults.length);
-                
-                if (deletedCount === 0) {
-                    throw new Error(`Could not find match to delete.`);
-                }
                 
                 const updatedTeams = calculateStandings(compData.teams || [], updatedResults, updatedFixtures);
                 transaction.update(docRef, removeUndefinedProps({ fixtures: updatedFixtures, results: updatedResults, teams: updatedTeams }));
@@ -443,24 +412,18 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
         const isResults = activeTab === 'results';
         let sourceData = isResults ? (competition.results || []) : (competition.fixtures || []);
         
-        // FILTER LOGIC
         const todayStr = new Date().toISOString().split('T')[0];
 
         if (!isResults) {
-            // For "Fixtures" tab:
-            // 1. Must NOT be finished
-            // 2. Must NOT have scores (safety check for data integrity)
-            // 3. Date must be today or in the future (remove if date passed)
+            // FIX: Strictly hide past dates. Keep today's matches.
             sourceData = sourceData.filter(f => {
                 const isFinished = f.status === 'finished';
                 const hasScore = f.scoreA !== undefined && f.scoreB !== undefined;
-                const isPast = f.fullDate ? f.fullDate < todayStr : false;
-                
-                return !isFinished && !hasScore && !isPast;
+                // Only hide if fullDate is strictly less than today. If equal, keep it (match happens today).
+                const isStrictlyPast = f.fullDate && f.fullDate < todayStr;
+                return !isFinished && !hasScore && !isStrictlyPast;
             });
         } else {
-            // For "Results" tab:
-            // 1. Must be finished OR have scores OR be abandoned
             sourceData = sourceData.filter(f => {
                 const isFinished = f.status === 'finished';
                 const hasScore = f.scoreA !== undefined && f.scoreB !== undefined;
@@ -530,7 +493,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                 )}
             </div>
 
-            {/* Tabs */}
             <div className="flex justify-center sm:justify-start space-x-2 bg-gray-100 p-1 rounded-lg w-fit mb-4 mx-auto sm:mx-0 shadow-inner">
                 <button
                     onClick={() => setActiveTab('fixtures')}

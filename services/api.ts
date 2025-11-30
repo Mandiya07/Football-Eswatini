@@ -113,6 +113,16 @@ export interface FixtureComment {
     timestamp: { seconds: number, nanoseconds: number }; // Firestore Timestamp
 }
 
+export interface YouthArticleComment {
+    id: string;
+    articleId: string;
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    text: string;
+    timestamp: { seconds: number, nanoseconds: number };
+}
+
 export interface LiveUpdate {
     id: string;
     fixture_id: string;
@@ -253,6 +263,47 @@ export const listenToFixtureComments = (fixtureId: number, callback: (comments: 
     }, (error) => {
         console.error(`Error listening to comments for fixture '${fixtureId}':`, error);
         handleFirestoreError(error, `listen to comments for fixture ${fixtureId}`);
+        callback([]);
+    });
+
+    return unsubscribe;
+};
+
+export const addYouthArticleComment = async (articleId: string, text: string, user: User) => {
+    try {
+        const commentData = {
+            articleId,
+            text,
+            userId: user.id,
+            userName: user.name,
+            userAvatar: user.avatar,
+            timestamp: serverTimestamp(),
+        };
+        await addDoc(collection(db, 'youth_article_comments'), commentData);
+    } catch (error) {
+        handleFirestoreError(error, 'add youth article comment');
+        throw error;
+    }
+};
+
+export const listenToYouthArticleComments = (articleId: string, callback: (comments: YouthArticleComment[]) => void): (() => void) => {
+    console.log(`API: Setting up listener for comments on youth article '${articleId}'.`);
+    const q = query(
+        collection(db, "youth_article_comments"),
+        where("articleId", "==", articleId)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const comments: YouthArticleComment[] = [];
+        querySnapshot.forEach((doc) => {
+            comments.push({ id: doc.id, ...doc.data() } as YouthArticleComment);
+        });
+        // Sort comments on the client-side
+        comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+        callback(comments);
+    }, (error) => {
+        console.error(`Error listening to comments for article '${articleId}':`, error);
+        handleFirestoreError(error, `listen to comments for article ${articleId}`);
         callback([]);
     });
 

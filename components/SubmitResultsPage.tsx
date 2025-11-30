@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
@@ -6,7 +7,6 @@ import { fetchAllCompetitions, fetchCompetition } from '../services/api';
 import { Competition, Team, CompetitionFixture } from '../data/teams';
 import { db } from '../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import CheckCircleIcon from './icons/CheckCircleIcon';
 import { calculateStandings, removeUndefinedProps } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import ClubLoginPrompt from './management/ClubLoginPrompt';
@@ -49,7 +49,7 @@ const SubmitResultsPage: React.FC = () => {
             setLoading(true);
             const competitionData = await fetchCompetition(selectedComp);
             setTeams(competitionData?.teams?.sort((a,b) => a.name.localeCompare(b.name)) || []);
-            resetForm(); // Reset form when competition changes
+            resetForm(); 
             setLoading(false);
         };
         if (isLoggedIn) {
@@ -73,8 +73,8 @@ const SubmitResultsPage: React.FC = () => {
             setStatusMessage({ type: 'error', text: 'Home and Away teams cannot be the same.' });
             return;
         }
-        if (!homeTeam || !awayTeam || !homeScore || !awayScore || !matchday) {
-            setStatusMessage({ type: 'error', text: 'Please fill in all fields.' });
+        if (!homeTeam || !awayTeam || !homeScore || !awayScore) {
+            setStatusMessage({ type: 'error', text: 'Please fill in teams and scores.' });
             return;
         }
 
@@ -94,6 +94,7 @@ const SubmitResultsPage: React.FC = () => {
                 const currentFixtures = competition.fixtures || [];
                 const currentResults = competition.results || [];
 
+                // Find existing scheduled fixture to preserve its data
                 const fixtureToMove = currentFixtures.find(f => 
                     f.status === 'scheduled' &&
                     f.teamA === homeTeam &&
@@ -104,25 +105,30 @@ const SubmitResultsPage: React.FC = () => {
                 let newResult: CompetitionFixture;
                 const matchDateObj = new Date(matchDate);
 
+                // Default to existing data if form fields are empty, otherwise take form data
+                const finalMatchday = matchday ? parseInt(matchday, 10) : (fixtureToMove?.matchday || undefined);
+                const finalVenue = venue || (fixtureToMove?.venue || '');
+                const finalDate = matchDate || (fixtureToMove?.fullDate || new Date().toISOString().split('T')[0]);
+                
+                // Reconstruct date object from finalDate to get day string if needed
+                const finalDateObj = new Date(finalDate);
+
                 const resultData = {
                     status: 'finished' as const,
                     scoreA: parseInt(homeScore, 10),
                     scoreB: parseInt(awayScore, 10),
-                    fullDate: matchDate,
-                    date: matchDateObj.getDate().toString(),
-                    day: matchDateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-                    matchday: parseInt(matchday, 10),
-                    venue: venue,
+                    fullDate: finalDate,
+                    date: finalDateObj.getDate().toString(),
+                    day: finalDateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+                    matchday: finalMatchday,
+                    venue: finalVenue,
                 };
                 
                 if (fixtureToMove) {
-                     console.log("Found existing scheduled fixture to update.");
                      newResult = { ...fixtureToMove, ...resultData };
                 } else {
-                    console.log("No existing scheduled fixture found, adding new result.");
-                    // DUPLICATE CHECK: Verify this exact result doesn't already exist.
                     const resultExists = currentResults.some(r =>
-                        r.fullDate === matchDate &&
+                        r.fullDate === finalDate &&
                         ((r.teamA === homeTeam && r.teamB === awayTeam) || (r.teamA === awayTeam && r.teamB === homeTeam))
                     );
                     if (resultExists) {
@@ -132,7 +138,7 @@ const SubmitResultsPage: React.FC = () => {
                         id: Date.now(),
                         teamA: homeTeam,
                         teamB: awayTeam,
-                        time: '15:00', // Default time
+                        time: '15:00',
                         ...resultData
                     };
                 }
@@ -140,7 +146,6 @@ const SubmitResultsPage: React.FC = () => {
                 const updatedResults = [...currentResults, newResult];
                 const updatedTeamsWithNewStats = calculateStandings(currentTeams, updatedResults, updatedFixtures);
 
-                // CRITICAL: Sanitize the entire payload before updating.
                 transaction.update(docRef, removeUndefinedProps({
                     fixtures: updatedFixtures,
                     results: updatedResults,
@@ -150,13 +155,12 @@ const SubmitResultsPage: React.FC = () => {
                 setTeams(updatedTeamsWithNewStats); 
             });
 
-
-            setStatusMessage({ type: 'success', text: 'Result submitted and league logs updated successfully!' });
+            setStatusMessage({ type: 'success', text: 'Result submitted successfully!' });
             resetForm();
 
         } catch (error) {
             console.error(error);
-            setStatusMessage({ type: 'error', text: (error as Error).message || 'Failed to submit result. Please try again.' });
+            setStatusMessage({ type: 'error', text: (error as Error).message || 'Failed to submit result.' });
         } finally {
             setSubmitting(false);
         }
@@ -182,7 +186,7 @@ const SubmitResultsPage: React.FC = () => {
                         Submit Match Results
                     </h1>
                     <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                        Add a finished match result to a competition. The league log will be automatically recalculated.
+                        Add a finished match result. Metadata like venue and date will be preserved from the scheduled fixture if not provided here.
                     </p>
                 </div>
                 
@@ -211,7 +215,7 @@ const SubmitResultsPage: React.FC = () => {
                                             </select>
                                         </>
                                     ) : (
-                                         <p className="text-sm text-red-600 col-span-3">No teams found for this competition. Please add teams via the Admin Panel.</p>
+                                         <p className="text-sm text-red-600 col-span-3">No teams found for this competition.</p>
                                     )}
                                 </div>
 
@@ -223,12 +227,13 @@ const SubmitResultsPage: React.FC = () => {
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="matchDate" className="block text-sm font-medium text-gray-700 mb-1">Match Date</label>
-                                        <input type="date" id="matchDate" value={matchDate} onChange={e => setMatchDate(e.target.value)} className={inputClass} required />
+                                        <label htmlFor="matchDate" className="block text-sm font-medium text-gray-700 mb-1">Match Date (Optional)</label>
+                                        <input type="date" id="matchDate" value={matchDate} onChange={e => setMatchDate(e.target.value)} className={inputClass} />
+                                        <p className="text-xs text-gray-500 mt-1">Leave as is to use existing fixture date.</p>
                                     </div>
                                     <div>
-                                        <label htmlFor="matchday" className="block text-sm font-medium text-gray-700 mb-1">Matchday</label>
-                                        <input type="number" id="matchday" value={matchday} onChange={e => setMatchday(e.target.value)} placeholder="e.g., 5" className={inputClass} min="1" required />
+                                        <label htmlFor="matchday" className="block text-sm font-medium text-gray-700 mb-1">Matchday (Optional)</label>
+                                        <input type="number" id="matchday" value={matchday} onChange={e => setMatchday(e.target.value)} placeholder="e.g., 5" className={inputClass} min="1" />
                                     </div>
                                 </div>
 

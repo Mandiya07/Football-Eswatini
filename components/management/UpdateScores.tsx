@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect } from 'react';
-// FIX: Import 'fetchCompetition' which is now correctly exported from the API service.
 import { fetchCompetition, handleFirestoreError } from '../../services/api';
 import { CompetitionFixture, Competition, Team } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
@@ -19,7 +19,6 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [submitting, setSubmitting] = useState<number | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-    // Hardcoded for now, could be passed as a prop
     const COMPETITION_ID = 'mtn-premier-league';
 
     useEffect(() => {
@@ -66,17 +65,23 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
 
                     const updatedFixtures = competition.fixtures.filter(f => f.id !== fixtureId);
                     
+                    // Preserve existing metadata
                     const newResult = {
                         ...fixtureToMove,
                         status: 'finished' as const,
                         scoreA: parseInt(score.scoreA),
-                        scoreB: parseInt(score.scoreB)
+                        scoreB: parseInt(score.scoreB),
+                        // Explicitly ensuring venue/date/time are kept if present
+                        venue: fixtureToMove.venue || '',
+                        date: fixtureToMove.date,
+                        day: fixtureToMove.day,
+                        time: fixtureToMove.time,
+                        fullDate: fixtureToMove.fullDate,
                     };
                     
                     const updatedResults = [...(competition.results || []), newResult];
                     const updatedTeams = calculateStandings(competition.teams || [], updatedResults, updatedFixtures);
 
-                    // CRITICAL: Sanitize the entire payload before updating.
                     transaction.update(docRef, removeUndefinedProps({ 
                         fixtures: updatedFixtures, 
                         results: updatedResults, 

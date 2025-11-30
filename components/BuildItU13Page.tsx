@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
-import GlobeIcon from './icons/GlobeIcon';
 import UsersIcon from './icons/UsersIcon';
 import { fetchYouthData } from '../services/api';
 import { YouthLeague } from '../data/youth';
@@ -11,6 +10,7 @@ import Fixtures from './Fixtures';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 import YouthArticleSection from './YouthArticleSection';
+import RisingStars from './RisingStars';
 
 const BuildItU13Page: React.FC = () => {
   const [data, setData] = useState<YouthLeague | null>(null);
@@ -21,49 +21,22 @@ const BuildItU13Page: React.FC = () => {
       setLoading(true);
       try {
         const youthLeagues = await fetchYouthData();
-        
-        // Robust search to find the correct league document
-        // 1. Filter by ID keywords or Name keywords
-        const candidates = youthLeagues.filter(l => {
-            const id = l.id.toLowerCase();
+        // Robust finding logic: Try exact ID match first, then fuzzy name matching
+        const league = youthLeagues.find(l => {
             const name = l.name.toLowerCase();
-            return id === 'build-it-u13' || 
-                   id.includes('build-it') ||
-                   id.includes('u13') ||
-                   name.includes('build it') || 
-                   name.includes('under 13') || 
-                   name.includes('under-13') || 
-                   name.includes('u13') ||
-                   name.includes('grassroots');
+            const id = l.id.toLowerCase();
+            return (
+                id === 'build-it-u13' || 
+                id === 'u13' ||
+                id === 'under-13' ||
+                name.includes('build it') ||
+                name.includes('under-13') ||
+                name.includes('under 13') ||
+                name.includes('u13') ||
+                name.includes('u-13')
+            );
         });
-
-        // 2. Sort candidates to find the best match
-        // Priority:
-        // - Name contains "grassroots" (User specified this context)
-        // - Has articles (User wants to see their article)
-        // - ID is build-it-u13 (Default)
-        
-        candidates.sort((a, b) => {
-            const aName = a.name.toLowerCase();
-            const bName = b.name.toLowerCase();
-            const aHasArticles = (a.articles && a.articles.length > 0) ? 1 : 0;
-            const bHasArticles = (b.articles && b.articles.length > 0) ? 1 : 0;
-            const aIsGrassroots = aName.includes('grassroots') ? 1 : 0;
-            const bIsGrassroots = bName.includes('grassroots') ? 1 : 0;
-            
-            if (aIsGrassroots !== bIsGrassroots) return bIsGrassroots - aIsGrassroots;
-            if (aHasArticles !== bHasArticles) return bHasArticles - aHasArticles;
-            return 0;
-        });
-
-        const league = candidates.length > 0 ? candidates[0] : null;
-
-        if (league) {
-            console.log("Loaded Build It U13 Data:", league);
-            setData(league);
-        } else {
-            console.warn("Build It U13 league data not found in response.");
-        }
+        setData(league || null);
       } catch (error) {
         console.error("Failed to load Build It U13 data", error);
       } finally {
@@ -72,6 +45,11 @@ const BuildItU13Page: React.FC = () => {
     };
     loadData();
   }, []);
+
+  if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
+
+  // Use the ID of the found document, or fallback to the default if not found (though loading handles null)
+  const competitionId = data?.id || "build-it-u13";
 
   return (
     <div className="bg-gray-50 py-12">
@@ -91,85 +69,54 @@ const BuildItU13Page: React.FC = () => {
             {data?.name || "Build It Under-13 National Final"}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            {data?.description || "A nationwide football festival that brings together regional champions to compete for national glory. Developing fundamentals, friendship, and the future of Eswatini football."}
+            {data?.description || "A nationwide football festival for the youngest talents."}
           </p>
         </div>
 
-        {/* Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            <Card className="shadow-lg border-t-4 border-red-500">
-                <CardContent className="p-8 text-center">
-                    <div className="flex justify-center mb-4">
-                        <GlobeIcon className="w-10 h-10 text-red-600" />
-                    </div>
-                    <h3 className="text-xl font-bold font-display mb-3">National Coverage</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                       Covering the entire country, akin to the schools tournament, bringing together the best U-13 teams from every region.
-                    </p>
-                </CardContent>
-            </Card>
-
-            <Card className="shadow-lg border-t-4 border-blue-500">
-                <CardContent className="p-8 text-center">
-                    <div className="flex justify-center mb-4">
-                        <UsersIcon className="w-10 h-10 text-blue-600" />
-                    </div>
-                    <h3 className="text-xl font-bold font-display mb-3">Player Development</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                        Focusing on core skills, teamwork, and fair play. This is where professional habits are formed for the next generation.
-                    </p>
-                </CardContent>
-            </Card>
-
-            <Card className="shadow-lg border-t-4 border-green-500">
-                <CardContent className="p-8 text-center">
-                    <div className="flex justify-center mb-4">
-                        <TrophyIcon className="w-10 h-10 text-green-600" />
-                    </div>
-                    <h3 className="text-xl font-bold font-display mb-3">Grand Finals</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                        Culminates in a prestigious final event where regional winners face off to become the undisputed national U-13 champions.
-                    </p>
-                </CardContent>
-            </Card>
-        </div>
-
-        {loading ? (
-            <div className="flex justify-center py-12"><Spinner /></div>
-        ) : (
-            <div className="space-y-16">
-                {/* Articles Section */}
-                <YouthArticleSection articles={data?.articles || []} />
-                
-                {/* Latest Updates Section */}
-                <div className="max-w-5xl mx-auto">
-                    <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Schedule</h2>
-                    <Fixtures 
-                        showSelector={false} 
-                        defaultCompetition="build-it-u13" 
-                        maxHeight="max-h-[600px]" 
-                    />
+        <div className="space-y-16">
+            {/* 1. League-Specific Articles (Direct from Youth Document) */}
+            {data?.articles && data.articles.length > 0 && (
+                <div className="border-t pt-8">
+                    <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Tournament Highlights</h2>
+                    <YouthArticleSection articles={data.articles} />
                 </div>
-
-                {/* Participating Teams List */}
-                {data?.teams && data.teams.length > 0 && (
-                    <section>
-                        <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Regional Finalists</h2>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                            {data.teams.map(team => (
-                                <Card key={team.id} className="hover:shadow-md transition-shadow">
-                                    <CardContent className="p-4 flex flex-col items-center text-center">
-                                        <img src={team.crestUrl} alt={team.name} className="w-16 h-16 object-contain mb-3" />
-                                        <span className="font-semibold text-sm text-gray-800">{team.name}</span>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </section>
-                )}
+            )}
+            
+            <div className="max-w-5xl mx-auto">
+                <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Schedule</h2>
+                {/* Dynamically use the ID from the youth document to find fixtures */}
+                <Fixtures showSelector={false} defaultCompetition={competitionId} maxHeight="max-h-[600px]" />
             </div>
-        )}
 
+            {/* Rising Stars */}
+            {data?.risingStars && data.risingStars.length > 0 && (
+                <section>
+                    <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Promising Talents</h2>
+                    <RisingStars players={data.risingStars} />
+                </section>
+            )}
+
+            {/* Participating Teams */}
+            {data?.teams && data.teams.length > 0 && (
+                <section>
+                    <Card className="bg-red-50/50 border border-red-100">
+                        <CardContent className="p-8">
+                            <h3 className="text-2xl font-bold font-display text-gray-800 mb-6 flex items-center gap-2">
+                                <UsersIcon className="w-6 h-6 text-red-600" /> Participating Teams & Academies
+                            </h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {data.teams.map(team => (
+                                    <div key={team.id} className="flex items-center gap-3 bg-white py-3 px-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200">
+                                        <img src={team.crestUrl} alt={team.name} className="w-10 h-10 object-contain" />
+                                        <span className="text-sm font-bold text-gray-800">{team.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </section>
+            )}
+        </div>
       </div>
     </div>
   );

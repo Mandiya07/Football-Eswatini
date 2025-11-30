@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import { CoachingContent, Coach } from '../data/coaching';
@@ -14,6 +15,8 @@ import SectionLoader from './SectionLoader';
 
 const ArticleCard: React.FC<{ content: CoachingContent }> = ({ content }) => {
     const authorName = typeof content.author === 'string' ? content.author : content.author.name;
+    const authorRole = typeof content.author === 'object' ? content.author.credentials : null;
+
     return (
         <Card className="group transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full">
             <div className="relative overflow-hidden">
@@ -26,7 +29,10 @@ const ArticleCard: React.FC<{ content: CoachingContent }> = ({ content }) => {
                     <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">{content.summary}</p>
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500 font-medium">
-                    By {authorName}
+                    <div className="flex items-center gap-1">
+                        By <span className="text-gray-900 font-semibold">{authorName}</span>
+                    </div>
+                    {authorRole && <div className="text-gray-400 font-normal mt-0.5">{authorRole}</div>}
                 </div>
             </CardContent>
         </Card>

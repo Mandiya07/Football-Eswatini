@@ -6,9 +6,6 @@ import ShieldIcon from './icons/ShieldIcon';
 import MegaphoneIcon from './icons/MegaphoneIcon';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
-import GlobeIcon from './icons/GlobeIcon';
-import MailIcon from './icons/MailIcon';
-import StarIcon from './icons/StarIcon';
 import { Link } from 'react-router-dom';
 
 const PricingCard: React.FC<{
@@ -67,7 +64,7 @@ const PartnershipPage: React.FC = () => {
                         Partnership & Opportunities Hub
                     </h1>
                     <p className="text-xl text-gray-600 leading-relaxed mb-8">
-                        Welcome to the official partnership portal. Our digital ecosystem connects the entire Eswatini football community — from elite league clubs to grassroots communities — through live scores, media, data, and interactive features.
+                        Welcome to the official partnership portal. Our digital ecosystem connects the entire Eswatini football community — from elite league clubs to grassroots communities.
                     </p>
                     <div className="flex flex-wrap justify-center gap-4">
                         <Button className="bg-primary text-white px-8 py-3 text-lg" onClick={() => document.getElementById('clubs')?.scrollIntoView({ behavior: 'smooth' })}>
@@ -83,28 +80,8 @@ const PartnershipPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Overview Section */}
-            <section className="bg-white py-16 border-y border-gray-200">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-                        {[
-                            { label: "Active Users", value: "50k+", icon: "👥" },
-                            { label: "Matches Covered", value: "200+", icon: "⚽" },
-                            { label: "Social Reach", value: "120k", icon: "📱" },
-                            { label: "Clubs Registered", value: "30+", icon: "🛡️" },
-                        ].map((stat, idx) => (
-                            <div key={idx} className="p-4">
-                                <div className="text-4xl mb-2">{stat.icon}</div>
-                                <div className="text-3xl font-bold text-gray-900 font-display">{stat.value}</div>
-                                <div className="text-sm text-gray-500 uppercase tracking-wide font-semibold">{stat.label}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
             {/* Teams & Clubs Section */}
-            <div id="clubs" className="container mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div id="clubs" className="container mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-gray-200">
                 <SectionHeader 
                     title="For Teams & Clubs" 
                     subtitle="Your Club. Your Identity. Your Digital Home. Every club in Eswatini now has access to a professional digital footprint."
@@ -141,37 +118,34 @@ const PartnershipPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Advertisers Section */}
-            <div id="advertisers" className="bg-gray-900 text-white py-20">
+            {/* Advertisers Section (Reverted Colors) */}
+            <div id="advertisers" className="bg-white py-20 border-y border-gray-200">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="text-center mb-12">
-                        <div className="inline-block p-4 bg-yellow-500/20 rounded-full mb-4">
-                            <MegaphoneIcon className="w-10 h-10 text-yellow-400" />
-                        </div>
-                        <h2 className="text-3xl md:text-4xl font-display font-extrabold mb-4">Reach the Most Passionate Audience</h2>
-                        <p className="text-lg text-gray-300 max-w-3xl mx-auto">
-                            Football fans are the most active digital consumers. Our platform provides high-visibility advertising zones with excellent repeat exposure.
-                        </p>
-                    </div>
+                    <SectionHeader 
+                        title="For Advertisers" 
+                        subtitle="Reach the Most Passionate Audience. Football fans are active digital consumers. Place your ads in high-traffic zones."
+                        Icon={MegaphoneIcon}
+                        color="text-yellow-600"
+                    />
 
                     <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <Card className="bg-gray-800 border-gray-700 text-white">
+                        <Card className="shadow-lg border-t-4 border-yellow-500">
                             <CardContent className="p-8">
-                                <h3 className="text-xl font-bold mb-6 text-yellow-400">Ad Placement Options</h3>
+                                <h3 className="text-xl font-bold mb-6 text-gray-900">Ad Placement Options</h3>
                                 <ul className="space-y-3">
                                     {["Homepage Banner (High Visibility)", "Fixtures & Results Banner (Top Performing)", "Live Scoreboard Integration", "News Article Contextual Ads", "Community Hub & Directory Listings"].map((item, i) => (
                                         <li key={i} className="flex items-center gap-3">
-                                            <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                                            <span className="text-gray-300">{item}</span>
+                                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                            <span className="text-gray-700">{item}</span>
                                         </li>
                                     ))}
                                 </ul>
                             </CardContent>
                         </Card>
 
-                        <Card className="bg-gray-800 border-gray-700 text-white">
+                        <Card className="shadow-lg border-t-4 border-yellow-500">
                             <CardContent className="p-8">
-                                <h3 className="text-xl font-bold mb-6 text-yellow-400">Rate Card</h3>
+                                <h3 className="text-xl font-bold mb-6 text-gray-900">Rate Card</h3>
                                 <div className="space-y-4">
                                     {[
                                         { loc: "Homepage Banner", price: "E1,200/month" },
@@ -180,11 +154,16 @@ const PartnershipPage: React.FC = () => {
                                         { loc: "Community Hub Ads", price: "E600/month" },
                                         { loc: "Full Site Takeover", price: "E2,000/day" },
                                     ].map((rate, i) => (
-                                        <div key={i} className="flex justify-between items-center border-b border-gray-700 pb-2 last:border-0">
-                                            <span className="font-medium text-gray-200">{rate.loc}</span>
-                                            <span className="font-bold text-white">{rate.price}</span>
+                                        <div key={i} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-0">
+                                            <span className="font-medium text-gray-600">{rate.loc}</span>
+                                            <span className="font-bold text-gray-900">{rate.price}</span>
                                         </div>
                                     ))}
+                                </div>
+                                <div className="mt-6 pt-4 text-center">
+                                    <Link to="/advertiser-onboarding">
+                                        <Button className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold">Request Rate Card</Button>
+                                    </Link>
                                 </div>
                             </CardContent>
                         </Card>
@@ -196,17 +175,17 @@ const PartnershipPage: React.FC = () => {
             <div id="sponsors" className="container mx-auto px-4 sm:px-6 lg:px-8 py-20">
                 <SectionHeader 
                     title="For Sponsors" 
-                    subtitle="Long-Term Brand Partnerships That Build Legacy. Sponsors gain full brand alignment with the football community — from grassroots development to professional leagues."
+                    subtitle="Long-Term Brand Partnerships That Build Legacy. Gain full brand alignment with the football community."
                     Icon={BriefcaseIcon}
                     color="text-green-700"
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                     {[
-                        { title: "Bronze", price: "E10,000", period: "/year", desc: "Branding within one major section (e.g., Youth or Women's).", color: "bg-orange-100 text-orange-800 border-orange-200" },
-                        { title: "Silver", price: "E20,000", period: "/year", desc: "Section branding + naming rights for Monthly Awards.", color: "bg-gray-100 text-gray-800 border-gray-300" },
-                        { title: "Gold", price: "E35,000", period: "/year", desc: "Title features + widespread visibility across Live Scores.", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-                        { title: "Platinum", price: "E60,000", period: "/year", desc: "Total ecosystem brand integration and Site Title Sponsor.", color: "bg-blue-100 text-blue-900 border-blue-200" },
+                        { title: "Bronze", price: "E10,000", period: "/year", desc: "Branding within one major section.", color: "bg-orange-50 text-orange-900 border-orange-200" },
+                        { title: "Silver", price: "E20,000", period: "/year", desc: "Section branding + naming rights.", color: "bg-gray-50 text-gray-900 border-gray-300" },
+                        { title: "Gold", price: "E35,000", period: "/year", desc: "Title features + widespread visibility.", color: "bg-yellow-50 text-yellow-900 border-yellow-300" },
+                        { title: "Platinum", price: "E60,000", period: "/year", desc: "Total ecosystem brand integration.", color: "bg-blue-50 text-blue-900 border-blue-200" },
                     ].map((pkg, i) => (
                         <Card key={i} className={`text-center transition-transform hover:-translate-y-1 ${pkg.color} border-2`}>
                             <CardContent className="p-8 flex flex-col h-full">
@@ -214,54 +193,11 @@ const PartnershipPage: React.FC = () => {
                                 <div className="text-3xl font-extrabold mb-4">{pkg.price}<span className="text-base font-normal opacity-75">{pkg.period}</span></div>
                                 <p className="text-sm opacity-90 flex-grow">{pkg.desc}</p>
                                 <Link to="/sponsor-onboarding" className="block w-full">
-                                    <Button className="mt-6 w-full bg-white/50 hover:bg-white/80 text-black border-0">Inquire</Button>
+                                    <Button className="mt-6 w-full bg-white hover:bg-gray-50 text-black border border-gray-200">Inquire</Button>
                                 </Link>
                             </CardContent>
                         </Card>
                     ))}
-                </div>
-
-                <div className="mt-16 bg-white p-8 rounded-xl shadow-sm border border-gray-200 max-w-4xl mx-auto text-center">
-                    <h3 className="text-2xl font-bold font-display text-gray-900 mb-4">Why Partner With Us?</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-left">
-                        {[
-                            "Digital accessibility for all fans",
-                            "Grassroots visibility",
-                            "Youth talent recognition",
-                            "Professional standards",
-                            "Business development",
-                            "Community sports coverage"
-                        ].map((reason, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-gray-700 font-medium">{reason}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* CTA Section */}
-            <div className="bg-primary py-16">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
-                    <h2 className="text-3xl font-bold font-display mb-8">Ready to Get Started?</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-                        <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
-                            <h4 className="font-bold text-xl mb-2">Teams & Clubs</h4>
-                            <p className="text-sm text-blue-100 mb-4">Activate your official club profile today.</p>
-                            <Link to="/club-registration" className="inline-block bg-white text-primary font-bold py-2 px-6 rounded-full hover:bg-gray-100 transition-colors">Onboard Club</Link>
-                        </div>
-                        <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
-                            <h4 className="font-bold text-xl mb-2">Advertisers</h4>
-                            <p className="text-sm text-blue-100 mb-4">Grow your brand in high-traffic zones.</p>
-                            <Link to="/advertiser-onboarding" className="inline-block bg-yellow-400 text-yellow-900 font-bold py-2 px-6 rounded-full hover:bg-yellow-300 transition-colors">Request Rate Card</Link>
-                        </div>
-                        <div className="bg-white/10 p-6 rounded-lg backdrop-blur-sm">
-                            <h4 className="font-bold text-xl mb-2">Sponsors</h4>
-                            <p className="text-sm text-blue-100 mb-4">Deep engagement and long-term value.</p>
-                            <Link to="/sponsor-onboarding" className="inline-block bg-white text-primary font-bold py-2 px-6 rounded-full hover:bg-gray-100 transition-colors">Contact Us</Link>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

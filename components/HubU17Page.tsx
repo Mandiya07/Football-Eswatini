@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
-import MapPinIcon from './icons/MapPinIcon';
-import StarIcon from './icons/StarIcon';
+import UsersIcon from './icons/UsersIcon';
 import { fetchYouthData } from '../services/api';
 import { YouthLeague } from '../data/youth';
 import Spinner from './ui/Spinner';
@@ -22,36 +21,21 @@ const HubU17Page: React.FC = () => {
       setLoading(true);
       try {
         const youthLeagues = await fetchYouthData();
-        
-        // 1. Filter candidates
-        const candidates = youthLeagues.filter(l => {
-            const id = l.id.toLowerCase();
+        const league = youthLeagues.find(l => {
             const name = l.name.toLowerCase();
-            return id === 'hub-hardware-u17' || 
-                   id.includes('hub') || 
-                   id.includes('u17') ||
-                   name.includes('hub hardware') ||
-                   name.includes('under 17') ||
-                   name.includes('under-17') ||
-                   name.includes('u17');
+            const id = l.id.toLowerCase();
+            return (
+                id === 'hub-hardware-u17' || 
+                id === 'u17' ||
+                id === 'under-17' ||
+                name.includes('hub') ||
+                name.includes('u17') ||
+                name.includes('u-17') ||
+                name.includes('under-17') ||
+                name.includes('under 17')
+            );
         });
-
-        // 2. Sort to find best match
-        candidates.sort((a, b) => {
-            const aName = a.name.toLowerCase();
-            const bName = b.name.toLowerCase();
-            const aHasArticles = (a.articles && a.articles.length > 0) ? 1 : 0;
-            const bHasArticles = (b.articles && b.articles.length > 0) ? 1 : 0;
-            const aIsHub = aName.includes('hub') ? 1 : 0;
-            const bIsHub = bName.includes('hub') ? 1 : 0;
-            
-            if (aIsHub !== bIsHub) return bIsHub - aIsHub;
-            if (aHasArticles !== bHasArticles) return bHasArticles - aHasArticles;
-            return 0;
-        });
-
-        const league = candidates.length > 0 ? candidates[0] : null;
-        setData(league);
+        setData(league || null);
       } catch (error) {
         console.error("Failed to load Hub U17 data", error);
       } finally {
@@ -60,6 +44,11 @@ const HubU17Page: React.FC = () => {
     };
     loadData();
   }, []);
+
+  if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
+
+  // Use the ID of the found document, or fallback to the default if not found
+  const competitionId = data?.id || "hub-hardware-u17";
 
   return (
     <div className="bg-gray-50 py-12">
@@ -79,92 +68,52 @@ const HubU17Page: React.FC = () => {
             {data?.name || "The Hub Hardware Under-17 Tournament"}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            {data?.description || "Organized under the Hhohho Regional Football Association, this tournament serves as a vital grassroots platform for identifying and nurturing the stars of tomorrow."}
+            {data?.description || "Organized under the Hhohho Regional Football Association, this tournament serves as a vital grassroots platform."}
           </p>
         </div>
 
-        {/* Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            <Card className="shadow-lg border-t-4 border-blue-500">
-                <CardContent className="p-8 text-center">
-                    <div className="flex justify-center mb-4">
-                        <MapPinIcon className="w-10 h-10 text-blue-600" />
-                    </div>
-                    <h3 className="text-xl font-bold font-display mb-3">Hhohho Region</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                        Hosted primarily within the Hhohho region, connecting community teams and academies in high-intensity localized competition.
-                    </p>
-                </CardContent>
-            </Card>
-
-            <Card className="shadow-lg border-t-4 border-orange-500">
-                <CardContent className="p-8 text-center">
-                    <div className="flex justify-center mb-4">
-                        <StarIcon className="w-10 h-10 text-orange-600" />
-                    </div>
-                    <h3 className="text-xl font-bold font-display mb-3">Talent ID</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                        The primary scouting ground for regional select squads and a stepping stone to the national U-17 setup.
-                    </p>
-                </CardContent>
-            </Card>
-
-            <Card className="shadow-lg border-t-4 border-yellow-500">
-                <CardContent className="p-8 text-center">
-                    <div className="flex justify-center mb-4">
-                        <TrophyIcon className="w-10 h-10 text-yellow-600" />
-                    </div>
-                    <h3 className="text-xl font-bold font-display mb-3">Grassroots Growth</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                        Sponsored by Hub Hardware to empower youth development through sport, providing kits and equipment to participants.
-                    </p>
-                </CardContent>
-            </Card>
-        </div>
-
-        {loading ? (
-            <div className="flex justify-center py-12"><Spinner /></div>
-        ) : (
-            <div className="space-y-16">
-                <YouthArticleSection articles={data?.articles || []} />
-
-                {/* Latest Updates Section */}
-                <div className="max-w-5xl mx-auto">
-                    <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Latest Fixtures & Results</h2>
-                    <Fixtures 
-                        showSelector={false} 
-                        defaultCompetition="hub-hardware-u17" 
-                        maxHeight="max-h-[600px]" 
-                    />
+        <div className="space-y-16">
+            {data?.articles && data.articles.length > 0 && (
+                <div className="border-t pt-8">
+                    <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Latest Updates</h2>
+                    <YouthArticleSection articles={data.articles} />
                 </div>
+            )}
 
-                {/* Rising Stars */}
-                {data?.risingStars && data.risingStars.length > 0 && (
-                    <section>
-                        <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Top Performers</h2>
-                        <RisingStars players={data.risingStars} />
-                    </section>
-                )}
-
-                {/* Participating Teams List */}
-                {data?.teams && data.teams.length > 0 && (
-                    <section>
-                        <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Participating Teams</h2>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                            {data.teams.map(team => (
-                                <Card key={team.id} className="hover:shadow-md transition-shadow">
-                                    <CardContent className="p-4 flex flex-col items-center text-center">
-                                        <img src={team.crestUrl} alt={team.name} className="w-16 h-16 object-contain mb-3" />
-                                        <span className="font-semibold text-sm text-gray-800">{team.name}</span>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </section>
-                )}
+            <div className="max-w-5xl mx-auto">
+                <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Latest Fixtures & Results</h2>
+                {/* Dynamically use the ID from the youth document to find fixtures */}
+                <Fixtures showSelector={false} defaultCompetition={competitionId} maxHeight="max-h-[600px]" />
             </div>
-        )}
 
+            {data?.risingStars && data.risingStars.length > 0 && (
+                <section>
+                    <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Top Performers</h2>
+                    <RisingStars players={data.risingStars} />
+                </section>
+            )}
+
+            {/* Participating Teams */}
+            {data?.teams && data.teams.length > 0 && (
+                <section>
+                    <Card className="bg-yellow-50/50 border border-yellow-100">
+                        <CardContent className="p-8">
+                            <h3 className="text-2xl font-bold font-display text-gray-800 mb-6 flex items-center gap-2">
+                                <UsersIcon className="w-6 h-6 text-yellow-600" /> Participating Teams
+                            </h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {data.teams.map(team => (
+                                    <div key={team.id} className="flex items-center gap-3 bg-white py-3 px-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200">
+                                        <img src={team.crestUrl} alt={team.name} className="w-10 h-10 object-contain" />
+                                        <span className="text-sm font-bold text-gray-800">{team.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </section>
+            )}
+        </div>
       </div>
     </div>
   );

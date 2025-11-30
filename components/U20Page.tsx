@@ -1,53 +1,50 @@
 
 import React, { useState, useEffect } from 'react';
-import NewsSection from './News';
 import Logs from './Logs';
 import Fixtures from './Fixtures';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
+import UsersIcon from './icons/UsersIcon';
 import { Link } from 'react-router-dom';
 import { fetchYouthData } from '../services/api';
 import { YouthLeague } from '../data/youth';
 import YouthArticleSection from './YouthArticleSection';
+import Spinner from './ui/Spinner';
+import RisingStars from './RisingStars';
+import { Card, CardContent } from './ui/Card';
 
 const U20Page: React.FC = () => {
   const U20_LEAGUE_ID = 'u20-elite-league';
   const [leagueData, setLeagueData] = useState<YouthLeague | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-        const data = await fetchYouthData();
-        
-        // 1. Filter candidates
-        const candidates = data.filter(l => {
-            const id = l.id.toLowerCase();
-            const name = l.name.toLowerCase();
-            return id === U20_LEAGUE_ID || 
-                   id.includes('u20') || 
-                   id.includes('elite') ||
-                   name.includes('u20') || 
-                   name.includes('elite league') ||
-                   name.includes('under 20') ||
-                   name.includes('under-20');
-        });
-
-        // 2. Sort to find best match
-        candidates.sort((a, b) => {
-            const aName = a.name.toLowerCase();
-            const bName = b.name.toLowerCase();
-            const aHasArticles = (a.articles && a.articles.length > 0) ? 1 : 0;
-            const bHasArticles = (b.articles && b.articles.length > 0) ? 1 : 0;
-            const aIsElite = aName.includes('elite') ? 1 : 0;
-            const bIsElite = bName.includes('elite') ? 1 : 0;
-            
-            if (aIsElite !== bIsElite) return bIsElite - aIsElite;
-            if (aHasArticles !== bHasArticles) return bHasArticles - aHasArticles;
-            return 0;
-        });
-
-        setLeagueData(candidates.length > 0 ? candidates[0] : null);
+        setLoading(true);
+        try {
+            const data = await fetchYouthData();
+            const target = data.find(l => {
+                const name = l.name.toLowerCase();
+                const id = l.id.toLowerCase();
+                return (
+                    id === U20_LEAGUE_ID || 
+                    name.includes('u-20') || 
+                    name.includes('u20') ||
+                    name.includes('under 20') ||
+                    name.includes('under-20') ||
+                    name.includes('elite')
+                );
+            });
+            setLeagueData(target || null);
+        } catch (e) {
+            console.error("Failed to load U20 data", e);
+        } finally {
+            setLoading(false);
+        }
     };
     load();
   }, []);
+
+  if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
   return (
     <div className="bg-gray-50 py-12">
@@ -69,7 +66,12 @@ const U20Page: React.FC = () => {
         </div>
 
         <div className="space-y-16">
-          <YouthArticleSection articles={leagueData?.articles || []} />
+          {leagueData?.articles && leagueData.articles.length > 0 && (
+             <div className="border-t pt-8">
+                <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">League News</h2>
+                <YouthArticleSection articles={leagueData.articles} />
+             </div>
+          )}
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="w-full">
@@ -81,6 +83,35 @@ const U20Page: React.FC = () => {
                  <Logs showSelector={false} defaultLeague={U20_LEAGUE_ID} maxHeight="max-h-[800px]" />
             </div>
           </div>
+
+          {/* Rising Stars Section */}
+          {leagueData?.risingStars && leagueData.risingStars.length > 0 && (
+                <section>
+                    <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Players to Watch</h2>
+                    <RisingStars players={leagueData.risingStars} />
+                </section>
+          )}
+
+          {/* Participating Teams */}
+          {leagueData?.teams && leagueData.teams.length > 0 && (
+                <section>
+                    <Card className="bg-blue-50/50 border border-blue-100">
+                        <CardContent className="p-8">
+                            <h3 className="text-2xl font-bold font-display text-gray-800 mb-6 flex items-center gap-2">
+                                <UsersIcon className="w-6 h-6 text-blue-600" /> Participating Clubs
+                            </h3>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {leagueData.teams.map(team => (
+                                    <div key={team.id} className="flex items-center gap-3 bg-white py-3 px-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200">
+                                        <img src={team.crestUrl} alt={team.name} className="w-10 h-10 object-contain" />
+                                        <span className="text-sm font-bold text-gray-800">{team.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </section>
+            )}
         </div>
       </div>
     </div>
