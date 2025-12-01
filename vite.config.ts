@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
     define: {
       // Explicitly define the variable to be replaced during build
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
+      'process.env.FOOTBALL_DATA_API_KEY': JSON.stringify(env.FOOTBALL_DATA_API_KEY),
     },
   };
 });

@@ -140,8 +140,8 @@ const ApiImportPage: React.FC = () => {
     const [selectedCompId, setSelectedCompId] = useState<string>('');
     const [currentCompetition, setCurrentCompetition] = useState<Competition | null>(null);
     
-    // API Configuration State
-    const [apiKey, setApiKey] = useState('');
+    // API Configuration State - Initialize from Environment Variable if available
+    const [apiKey, setApiKey] = useState(process.env.FOOTBALL_DATA_API_KEY || '');
     const [season, setSeason] = useState('');
     const [useProxy, setUseProxy] = useState(true);
     const [autoImport, setAutoImport] = useState(false); // New state for auto-import
@@ -157,6 +157,7 @@ const ApiImportPage: React.FC = () => {
         if (savedConfig) {
             try {
                 const config = JSON.parse(savedConfig);
+                // Prefer local storage value if it exists, otherwise fall back to env var state
                 if (config.apiKey) setApiKey(config.apiKey);
                 if (config.season) setSeason(config.season);
                 if (config.apiProvider) setApiProvider(config.apiProvider);
@@ -178,6 +179,8 @@ const ApiImportPage: React.FC = () => {
 
     // Save settings whenever they change
     useEffect(() => {
+        // Only save to local storage if the user has manually changed it from the env default, or if it's different.
+        // For simplicity, we save current state.
         const config = { apiKey, season, apiProvider, importType, useProxy, autoImport };
         localStorage.setItem('fe_api_import_config', JSON.stringify(config));
     }, [apiKey, season, apiProvider, importType, useProxy, autoImport]);
@@ -727,6 +730,9 @@ const ApiImportPage: React.FC = () => {
                                             placeholder={apiProvider === 'thesportsdb' ? "Enter Private Key or '1' for test" : "Enter your API Key"} 
                                             className={inputClass}
                                         />
+                                        {process.env.FOOTBALL_DATA_API_KEY && apiKey === process.env.FOOTBALL_DATA_API_KEY && (
+                                            <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><CheckCircleIcon className="w-3 h-3"/> Loaded from environment variables.</p>
+                                        )}
                                     </div>
                                     <div>
                                         <label htmlFor="season" className="block text-xs font-bold text-gray-700 uppercase mb-1">Season / Year</label>
