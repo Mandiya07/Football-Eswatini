@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -214,6 +215,7 @@ const TournamentBracket: React.FC = () => {
     const [existingTournaments, setExistingTournaments] = useState<DisplayTournament[]>([]);
     const [numTeams, setNumTeams] = useState(8);
     const [tournamentName, setTournamentName] = useState('');
+    const [tournamentLogo, setTournamentLogo] = useState('');
     const [allTeams, setAllTeams] = useState<Team[]>([]); // Master list of all teams
     const [availableTeamsForBracket, setAvailableTeamsForBracket] = useState<Team[]>([]); // Filtered list for current context
     const [loading, setLoading] = useState(true);
@@ -311,7 +313,11 @@ const TournamentBracket: React.FC = () => {
         setSaving(true);
         try {
             const sanitizedRounds = removeUndefinedProps(updatedTournament.rounds);
-            await updateDoc(doc(db, "cups", updatedTournament.id), { rounds: sanitizedRounds });
+            await updateDoc(doc(db, "cups", updatedTournament.id), { 
+                rounds: sanitizedRounds,
+                name: updatedTournament.name,
+                logoUrl: updatedTournament.logoUrl || ''
+            });
         } catch (error) {
             handleFirestoreError(error, 'update tournament');
         } finally {
@@ -354,12 +360,13 @@ const TournamentBracket: React.FC = () => {
         const newTournamentData = { 
             name: tournamentName, 
             rounds: rounds,
-            logoUrl: 'https://via.placeholder.com/150?text=Cup'
+            logoUrl: tournamentLogo || 'https://via.placeholder.com/150?text=Cup'
         };
         
         try {
             const docRef = await addDoc(collection(db, 'cups'), newTournamentData);
             setTournament({ id: docRef.id, ...newTournamentData });
+            setTournamentLogo('');
             loadInitialData(); // Refresh list
         } catch (error) {
             handleFirestoreError(error, 'create tournament');
@@ -466,6 +473,23 @@ const TournamentBracket: React.FC = () => {
         });
     };
 
+    const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean = false) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    if (isEditing) {
+                         updateBracket(prev => ({ ...prev, logoUrl: reader.result as string }));
+                    } else {
+                        setTournamentLogo(reader.result as string);
+                    }
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const getPreviewTournament = (): DisplayTournament | null => {
         if (!tournament) return null;
         const mappedRounds = tournament.rounds.map(round => ({
@@ -519,7 +543,10 @@ const TournamentBracket: React.FC = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto p-2 bg-gray-50 rounded-lg border">
                                     {existingTournaments.map(t => (
                                         <div key={t.id} className="flex justify-between items-center p-3 bg-white rounded border hover:shadow-sm">
-                                            <span className="font-semibold text-sm">{t.name}</span>
+                                            <div className="flex items-center gap-3">
+                                                <img src={t.logoUrl || 'https://via.placeholder.com/64?text=Cup'} className="w-8 h-8 object-contain rounded border" alt="" />
+                                                <span className="font-semibold text-sm">{t.name}</span>
+                                            </div>
                                             <Button onClick={() => handleEditExisting(t)} className="text-xs h-8 px-3 bg-blue-100 text-blue-600 hover:bg-blue-200">
                                                 <EditIcon className="w-3 h-3 mr-1"/> Edit
                                             </Button>
@@ -555,6 +582,22 @@ const TournamentBracket: React.FC = () => {
                                 />
                             </div>
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Logo</label>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="text" 
+                                        value={tournamentLogo} 
+                                        onChange={(e) => setTournamentLogo(e.target.value)} 
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm"
+                                        placeholder="Image URL"
+                                    />
+                                    <label className="cursor-pointer bg-white px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 whitespace-nowrap">
+                                        Upload <input type="file" className="hidden" onChange={(e) => handleLogoFileChange(e, false)} accept="image/*" />
+                                    </label>
+                                </div>
+                                {tournamentLogo && <img src={tournamentLogo} className="h-12 mt-2 object-contain bg-gray-100 rounded border p-1" alt="Logo preview" />}
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Bracket Size</label>
                                 <select 
                                     value={numTeams} 
@@ -574,21 +617,48 @@ const TournamentBracket: React.FC = () => {
                     </>
                 ) : (
                     <>
-                        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                            <div>
-                                <h4 className="text-xl font-bold font-display">{tournament.name}</h4>
-                                <p className="text-xs text-gray-600">
+                        <div className="flex flex-col sm:flex-row justify-between items-start mb-6 gap-4 border-b pb-6">
+                            <div className="flex-grow space-y-4 w-full">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tournament Name</label>
+                                        <input
+                                            type="text"
+                                            value={tournament.name}
+                                            onChange={(e) => updateBracket(prev => ({ ...prev, name: e.target.value }))}
+                                            className="font-bold text-xl border-gray-300 rounded-md w-full px-3 py-2"
+                                        />
+                                     </div>
+                                     <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Logo</label>
+                                        <div className="flex items-center gap-2">
+                                            <img src={tournament.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-10 h-10 object-contain bg-gray-100 rounded border p-1" alt="Current Logo" />
+                                            <input
+                                                type="text"
+                                                value={tournament.logoUrl || ''}
+                                                onChange={(e) => updateBracket(prev => ({ ...prev, logoUrl: e.target.value }))}
+                                                className="text-sm border-gray-300 rounded-md flex-grow px-3 py-2"
+                                                placeholder="Logo URL"
+                                            />
+                                            <label className="cursor-pointer bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded text-xs font-bold text-gray-700 whitespace-nowrap">
+                                                Upload
+                                                <input type="file" className="hidden" onChange={(e) => handleLogoFileChange(e, true)} accept="image/*" />
+                                            </label>
+                                        </div>
+                                     </div>
+                                </div>
+                                <p className="text-xs text-gray-600 italic">
                                     {saving ? 'Saving changes...' : 'Changes saved automatically.'}
                                 </p>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-shrink-0 mt-4 md:mt-0 items-start">
                                 <Button 
                                     onClick={() => setShowPreview(!showPreview)} 
-                                    className={`text-sm flex items-center gap-2 ${showPreview ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-yellow-500 text-white hover:bg-yellow-600'}`}
+                                    className={`text-sm flex items-center gap-2 h-9 ${showPreview ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-yellow-500 text-white hover:bg-yellow-600'}`}
                                 >
-                                    <EyeIcon className="w-4 h-4" /> {showPreview ? 'Edit Mode' : 'Preview Split Bracket'}
+                                    <EyeIcon className="w-4 h-4" /> {showPreview ? 'Edit Matches' : 'Preview Bracket'}
                                 </Button>
-                                <Button onClick={() => setTournament(null)} className="bg-gray-200 text-gray-800 text-sm">
+                                <Button onClick={() => setTournament(null)} className="bg-gray-200 text-gray-800 text-sm h-9">
                                     Close
                                 </Button>
                             </div>

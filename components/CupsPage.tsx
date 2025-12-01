@@ -70,13 +70,18 @@ const CupsPage: React.FC = () => {
                       processedCup = { ...cup, rounds: newRounds };
                   }
                   
-                  // Special Linkage: If we find a fetched cup with specific name, map it to our expected local IDs
+                  // Special Linkage: More robust matching for admin-created tournament names
                   const cupNameLower = processedCup.name.toLowerCase();
-                  if (cupNameLower.includes("manzini super league ingwenyama cup")) {
+                  
+                  if (cupNameLower.includes("manzini") && cupNameLower.includes("ingwenyama")) {
                       cupsMap.set('ingwenyama-manzini', { ...processedCup, id: 'ingwenyama-manzini' });
-                  } else if (cupNameLower.includes("hhohho super league ingwenyama cup")) {
+                  } else if (cupNameLower.includes("hhohho") && cupNameLower.includes("ingwenyama")) {
                       cupsMap.set('ingwenyama-hhohho', { ...processedCup, id: 'ingwenyama-hhohho' });
-                  } else if (cupNameLower.includes("ingwenyama cup (national finals)")) {
+                  } else if (cupNameLower.includes("lubombo") && cupNameLower.includes("ingwenyama")) {
+                      cupsMap.set('ingwenyama-lubombo', { ...processedCup, id: 'ingwenyama-lubombo' });
+                  } else if (cupNameLower.includes("shiselweni") && cupNameLower.includes("ingwenyama")) {
+                      cupsMap.set('ingwenyama-shiselweni', { ...processedCup, id: 'ingwenyama-shiselweni' });
+                  } else if (cupNameLower.includes("ingwenyama cup (national finals)") || (cupNameLower.includes("ingwenyama") && cupNameLower.includes("national"))) {
                       cupsMap.set('ingwenyama-cup', { ...processedCup, id: 'ingwenyama-cup' });
                   } else {
                       // Overwrite or add normally using its Firestore ID
@@ -202,8 +207,8 @@ const CupsPage: React.FC = () => {
               {[
                   { id: 'ingwenyama-hhohho', name: 'Hhohho Region', sub: 'Hhohho Super League Qualifiers', color: 'text-blue-600', bg: 'bg-blue-50' },
                   { id: 'ingwenyama-manzini', name: 'Manzini Region', sub: 'Manzini Super League Qualifiers', color: 'text-red-600', bg: 'bg-red-50' },
-                  { id: 'ingwenyama-lubombo', name: 'Lubombo Region', sub: 'View Qualifiers Bracket', color: 'text-green-600', bg: 'bg-green-50' },
-                  { id: 'ingwenyama-shiselweni', name: 'Shiselweni Region', sub: 'View Qualifiers Bracket', color: 'text-orange-600', bg: 'bg-orange-50' },
+                  { id: 'ingwenyama-lubombo', name: 'Lubombo Region', sub: 'Lubombo Super League Qualifiers', color: 'text-green-600', bg: 'bg-green-50' },
+                  { id: 'ingwenyama-shiselweni', name: 'Shiselweni Region', sub: 'Shiselweni Super League Qualifiers', color: 'text-orange-600', bg: 'bg-orange-50' },
                   { id: 'ingwenyama-cup-women', name: 'Women\'s Tournament', sub: 'View Ladies Bracket', color: 'text-pink-600', bg: 'bg-pink-50' },
               ].map(region => (
                   <Card 

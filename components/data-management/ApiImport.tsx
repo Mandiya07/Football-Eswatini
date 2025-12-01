@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -16,6 +17,7 @@ import { removeUndefinedProps, normalizeTeamName, calculateStandings } from '../
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import InfoIcon from '../icons/InfoIcon';
 import GlobeIcon from '../icons/GlobeIcon';
+import SettingsIcon from '../icons/SettingsIcon'; // Assuming you might have one, if not I'll use existing
 
 // Fetched event from TheSportsDB
 interface FetchedEventTSDB {
@@ -142,25 +144,46 @@ const ApiImportPage: React.FC = () => {
     const [apiKey, setApiKey] = useState('');
     const [season, setSeason] = useState('');
     const [useProxy, setUseProxy] = useState(true);
+    const [autoImport, setAutoImport] = useState(false); // New state for auto-import
 
     // Edit State
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editFormData, setEditFormData] = useState<Partial<CompetitionFixture>>({});
 
+    // --- Persistence Logic ---
     useEffect(() => {
-        // Smart Season Defaulting
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth(); // 0-11
-        
-        // Standard European/Eswatini season is Aug-May.
-        // If we are in Jan-June (0-5), we are in the "2024-2025" season (where 2025 is current year).
-        // If we are in July-Dec (6-11), we are in the "2025-2026" season.
-        const seasonStr = month < 6 ? `${year - 1}-${year}` : `${year}-${year + 1}`;
-        setSeason(seasonStr);
+        // Load settings from localStorage on mount
+        const savedConfig = localStorage.getItem('fe_api_import_config');
+        if (savedConfig) {
+            try {
+                const config = JSON.parse(savedConfig);
+                if (config.apiKey) setApiKey(config.apiKey);
+                if (config.season) setSeason(config.season);
+                if (config.apiProvider) setApiProvider(config.apiProvider);
+                if (config.importType) setImportType(config.importType);
+                if (config.useProxy !== undefined) setUseProxy(config.useProxy);
+                if (config.autoImport !== undefined) setAutoImport(config.autoImport);
+            } catch (e) {
+                console.error("Error parsing saved config", e);
+            }
+        } else {
+            // Smart Season Defaulting if no save
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth(); // 0-11
+            const seasonStr = month < 6 ? `${year - 1}-${year}` : `${year}-${year + 1}`;
+            setSeason(seasonStr);
+        }
     }, []);
 
-    // Auto-detect season for TSDB when competition changes
+    // Save settings whenever they change
+    useEffect(() => {
+        const config = { apiKey, season, apiProvider, importType, useProxy, autoImport };
+        localStorage.setItem('fe_api_import_config', JSON.stringify(config));
+    }, [apiKey, season, apiProvider, importType, useProxy, autoImport]);
+
+
+    // Auto-detect season for TSDB when competition changes (if not set manually)
     useEffect(() => {
         const autoDetectSeason = async () => {
             if (apiProvider !== 'thesportsdb' || !selectedCompId || competitions.length === 0) return;
@@ -177,8 +200,8 @@ const ApiImportPage: React.FC = () => {
                 const res = await fetch(url);
                 const data = await res.json();
                 if (data.leagues && data.leagues[0]?.strCurrentSeason) {
-                    console.log("Auto-detected season for TSDB:", data.leagues[0].strCurrentSeason);
-                    setSeason(data.leagues[0].strCurrentSeason);
+                    // Only update if current season is empty or different format
+                    setSeason(prev => prev ? prev : data.leagues[0].strCurrentSeason);
                 }
             } catch (e) {
                 console.warn("Failed to lookup league season", e);
@@ -238,10 +261,11 @@ const ApiImportPage: React.FC = () => {
         loadCompetitionDetails();
     }, [selectedCompId]);
 
-    const processAndReviewFixtures = (fixturesToProcess: CompetitionFixture[], source: string) => {
+    // Refactored to return data instead of just setting state, allowing for chaining
+    const processAndReviewFixtures = (fixturesToProcess: CompetitionFixture[], source: string): ReviewedFixture[] => {
         if (!currentCompetition) {
             setError("Could not load current competition details for duplicate checking.");
-            return;
+            return [];
         }
 
         const existingMatches = [...(currentCompetition.fixtures || []), ...(currentCompetition.results || [])];
@@ -278,10 +302,11 @@ const ApiImportPage: React.FC = () => {
             };
         });
 
-        setReviewedFixtures(processedFixtures);
         if (source.includes("API") || source.includes("Fallback")) {
             setSuccessMessage(`Successfully fetched ${processedFixtures.length} ${importType} from ${source}.`);
         }
+        
+        return processedFixtures;
     };
     
     const fetchTheSportsDB = async (externalApiId: string) => {
@@ -404,6 +429,51 @@ const ApiImportPage: React.FC = () => {
         return fixturesToReview;
     }
 
+    const saveFixtures = async (fixturesToSave: ReviewedFixture[]) => {
+        setIsSaving(true);
+        try {
+            const docRef = doc(db, 'competitions', selectedCompId);
+            await runTransaction(db, async (transaction) => {
+                const docSnap = await transaction.get(docRef);
+                if (!docSnap.exists()) throw new Error("Competition not found");
+
+                const competitionData = docSnap.data() as Competition;
+                const newItems = fixturesToSave.map(f => f.fixtureData);
+
+                if (importType === 'results') {
+                    const existingResults = competitionData.results || [];
+                    let existingFixtures = competitionData.fixtures || [];
+                    
+                    const newResultIdentifiers = new Set(newItems.map(item => `${item.teamA}-${item.teamB}-${item.fullDate}`));
+                    const updatedFixtures = existingFixtures.filter(fixture => {
+                        const fixtureIdentifier = `${fixture.teamA}-${fixture.teamB}-${fixture.fullDate}`;
+                        return !newResultIdentifiers.has(fixtureIdentifier);
+                    });
+
+                    const finalResults = [...existingResults, ...newItems];
+                    const updatedTeams = calculateStandings(competitionData.teams || [], finalResults, updatedFixtures);
+                    
+                    transaction.update(docRef, removeUndefinedProps({ 
+                        fixtures: updatedFixtures,
+                        results: finalResults,
+                        teams: updatedTeams
+                    }));
+                } else {
+                    const existingFixtures = competitionData.fixtures || [];
+                    const finalFixtures = [...existingFixtures, ...newItems];
+                    transaction.update(docRef, { fixtures: removeUndefinedProps(finalFixtures) });
+                }
+            });
+            return true;
+        } catch(err) {
+            handleFirestoreError(err, `import ${importType}`);
+            setError('An error occurred during save.');
+            return false;
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const handleFetch = async () => {
         const selectedCompetition = competitions.find(c => c.id === selectedCompId);
         const externalApiId = selectedCompetition?.externalApiId;
@@ -417,7 +487,9 @@ const ApiImportPage: React.FC = () => {
         if (!externalApiId) {
             console.warn(`No external API ID for ${selectedCompetition?.name}. Activating mock fallback.`);
             setIsFallback(true);
-            processAndReviewFixtures(getMockUpcomingFixtures(importType), "Mock Data");
+            const mock = getMockUpcomingFixtures(importType);
+            const processedMock = processAndReviewFixtures(mock, "Mock Data");
+            setReviewedFixtures(processedMock);
             setIsFetching(false);
             return;
         }
@@ -432,7 +504,6 @@ const ApiImportPage: React.FC = () => {
                 fixtures = await fetchTheSportsDB(externalApiId);
                 sourceLabel = "TheSportsDB";
             } else {
-                // Use centralized service function
                 fixtures = await fetchFootballDataOrg(
                     externalApiId, 
                     apiKey, 
@@ -451,7 +522,26 @@ const ApiImportPage: React.FC = () => {
                 }
                 setError(msg);
             } else {
-                processAndReviewFixtures(fixtures, sourceLabel);
+                const processed = processAndReviewFixtures(fixtures, sourceLabel);
+                setReviewedFixtures(processed);
+
+                // --- AUTO-IMPORT LOGIC ---
+                if (autoImport) {
+                    const validNewItems = processed.filter(f => f.status === 'new');
+                    if (validNewItems.length > 0) {
+                        setReviewedFixtures(prev => prev.map(f => f.status === 'new' ? { ...f, status: 'importing' } : f));
+                        const success = await saveFixtures(validNewItems);
+                        if (success) {
+                            setSuccessMessage(`Auto-Import: Successfully saved ${validNewItems.length} new ${importType}.`);
+                            setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? { ...f, status: 'imported', selected: false } : f));
+                        } else {
+                            // Revert statuses if auto-save failed
+                            setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? { ...f, status: 'new' } : f));
+                        }
+                    } else {
+                        setSuccessMessage('Auto-Import enabled, but no valid new items were found to import.');
+                    }
+                }
             }
 
         } catch (err) {
@@ -459,7 +549,8 @@ const ApiImportPage: React.FC = () => {
             setError(`Error: ${(err as Error).message}. Switching to mock data for demonstration.`);
             setIsFallback(true);
             const mockData = getMockUpcomingFixtures(importType);
-            processAndReviewFixtures(mockData, "Fallback Data");
+            const processedMock = processAndReviewFixtures(mockData, "Fallback Data");
+            setReviewedFixtures(processedMock);
         } finally {
             setIsFetching(false);
         }
@@ -488,54 +579,15 @@ const ApiImportPage: React.FC = () => {
             return;
         }
 
-        setIsSaving(true);
-        setError('');
-
         setReviewedFixtures(prev => prev.map(f => f.selected && f.status !== 'imported' && f.status !== 'duplicate' ? {...f, status: 'importing'} : f));
         
-        try {
-            const docRef = doc(db, 'competitions', selectedCompId);
-            await runTransaction(db, async (transaction) => {
-                const docSnap = await transaction.get(docRef);
-                if (!docSnap.exists()) throw new Error("Competition not found");
-
-                const competitionData = docSnap.data() as Competition;
-                const newItems = fixturesToImport.map(f => f.fixtureData);
-
-                if (importType === 'results') {
-                    const existingResults = competitionData.results || [];
-                    let existingFixtures = competitionData.fixtures || [];
-                    
-                    // Filter out fixtures that are now being imported as results
-                    const newResultIdentifiers = new Set(newItems.map(item => `${item.teamA}-${item.teamB}-${item.fullDate}`));
-                    const updatedFixtures = existingFixtures.filter(fixture => {
-                        const fixtureIdentifier = `${fixture.teamA}-${fixture.teamB}-${fixture.fullDate}`;
-                        return !newResultIdentifiers.has(fixtureIdentifier);
-                    });
-
-                    const finalResults = [...existingResults, ...newItems];
-                    const updatedTeams = calculateStandings(competitionData.teams || [], finalResults, updatedFixtures);
-                    
-                    transaction.update(docRef, removeUndefinedProps({ 
-                        fixtures: updatedFixtures,
-                        results: finalResults,
-                        teams: updatedTeams
-                    }));
-                } else {
-                    const existingFixtures = competitionData.fixtures || [];
-                    const finalFixtures = [...existingFixtures, ...newItems];
-                    transaction.update(docRef, { fixtures: removeUndefinedProps(finalFixtures) });
-                }
-            });
-
+        const success = await saveFixtures(fixturesToImport);
+        
+        if (success) {
             setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? {...f, status: 'imported', selected: false} : f));
             setSuccessMessage(`Successfully imported ${fixturesToImport.length} ${importType}!`);
-        } catch(err) {
-            handleFirestoreError(err, `import ${importType}`);
-            setError('An error occurred during import. See alert for details.');
+        } else {
             setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? {...f, status: 'new'} : f)); // Revert on failure
-        } finally {
-            setIsSaving(false);
         }
     };
 
@@ -621,7 +673,7 @@ const ApiImportPage: React.FC = () => {
                             </div>
                         )}
                         
-                        {successMessage && !error && !isFallback && <div className="p-3 bg-green-100 text-green-800 rounded-md animate-fade-in">{successMessage}</div>}
+                        {successMessage && !error && !isFallback && <div className="p-3 bg-green-100 text-green-800 rounded-md animate-fade-in flex items-center gap-2"><CheckCircleIcon className="w-5 h-5"/>{successMessage}</div>}
                         {error && !isFallback && <div className="p-3 bg-red-100 text-red-800 rounded-md animate-fade-in">{error}</div>}
 
                         <div className="space-y-6 pt-4 border-t">
@@ -691,7 +743,7 @@ const ApiImportPage: React.FC = () => {
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center mt-4">
+                                <div className="flex flex-wrap items-center mt-4 gap-6">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input 
                                             type="checkbox" 
@@ -699,7 +751,16 @@ const ApiImportPage: React.FC = () => {
                                             onChange={e => setUseProxy(e.target.checked)} 
                                             className="h-4 w-4 text-blue-600 rounded"
                                         />
-                                        <span className="text-sm font-semibold text-gray-700">Use CORS Proxy (Recommended for browsers)</span>
+                                        <span className="text-sm font-semibold text-gray-700">Use CORS Proxy (Recommended)</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={autoImport} 
+                                            onChange={e => setAutoImport(e.target.checked)} 
+                                            className="h-4 w-4 text-green-600 rounded"
+                                        />
+                                        <span className="text-sm font-bold text-green-700">Auto-Import New & Valid Items</span>
                                     </label>
                                 </div>
                             </div>
@@ -758,8 +819,8 @@ const ApiImportPage: React.FC = () => {
                                                         <td colSpan={6} className="p-3">
                                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                                                                 <div className="col-span-2 grid grid-cols-2 gap-2">
-                                                                    <div><label className="text-xs font-bold text-gray-600">Home</label><select value={editFormData.teamA} onChange={e => setEditFormData({...editFormData, teamA: e.target.value})} className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>Select</option>{(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
-                                                                    <div><label className="text-xs font-bold text-gray-600">Away</label><select value={editFormData.teamB} onChange={e => setEditFormData({...editFormData, teamB: e.target.value})} className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>Select</option>{(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
+                                                                    <div><label className="text-xs font-bold text-gray-600">Home</label><select value={editFormData.teamA} onChange={handleEditChange} name="teamA" className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>-- Select --</option>{(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
+                                                                    <div><label className="text-xs font-bold text-gray-600">Away</label><select value={editFormData.teamB} onChange={handleEditChange} name="teamB" className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>-- Select --</option>{(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
                                                                 </div>
                                                                 <div className="flex gap-2 mt-2">
                                                                     <Button onClick={handleSaveEdit} className="bg-green-600 text-white text-xs h-8">Save</Button>
@@ -778,6 +839,7 @@ const ApiImportPage: React.FC = () => {
                                                             {f.status === 'new' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">New</span>}
                                                             {f.status === 'duplicate' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Duplicate</span>}
                                                             {f.status === 'imported' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">Imported</span>}
+                                                            {f.status === 'importing' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">Saving...</span>}
                                                             {f.status === 'error' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Action Req</span>}
                                                         </td>
                                                         <td className="p-2 text-center">
