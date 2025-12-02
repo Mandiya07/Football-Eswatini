@@ -17,7 +17,6 @@ import { removeUndefinedProps, normalizeTeamName, calculateStandings } from '../
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import InfoIcon from '../icons/InfoIcon';
 import GlobeIcon from '../icons/GlobeIcon';
-import SettingsIcon from '../icons/SettingsIcon'; // Assuming you might have one, if not I'll use existing
 
 // Fetched event from TheSportsDB
 interface FetchedEventTSDB {
@@ -149,6 +148,8 @@ const ApiImportPage: React.FC = () => {
     // Edit State
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editFormData, setEditFormData] = useState<Partial<CompetitionFixture>>({});
+
+    const [matchday, setMatchday] = useState('');
 
     // --- Persistence Logic ---
     useEffect(() => {
@@ -785,6 +786,18 @@ const ApiImportPage: React.FC = () => {
                                                     ))}
                                                 </select>
                                             </div>
+                                            <div className="w-full md:w-32">
+                                                <label htmlFor="matchday" className="block text-sm font-bold text-gray-700 mb-1">Matchday</label>
+                                                <input 
+                                                    type="number" 
+                                                    id="matchday"
+                                                    value={matchday} 
+                                                    onChange={e => setMatchday(e.target.value)} 
+                                                    className={inputClass} 
+                                                    placeholder="#" 
+                                                    min="1" 
+                                                />
+                                            </div>
                                             <Button onClick={handleFetch} disabled={isFetching || !selectedCompId} className="bg-purple-600 text-white w-full md:w-auto h-11 px-8 flex justify-center items-center">
                                                 {isFetching ? <Spinner className="w-5 h-5 border-2"/> : `Fetch Data`}
                                             </Button>
@@ -879,7 +892,7 @@ const ApiImportPage: React.FC = () => {
                                     </table>
                                 </div>
                                 <div className="text-right">
-                                    <Button onClick={handleImportSelected} disabled={isSaving || reviewedFixtures.filter(f => f.selected && f.status === 'new').length === 0} className="bg-green-600 text-white h-10 px-6 flex justify-center items-center">{isSaving ? <Spinner className="w-5 h-5 border-2"/> : `Import Selected`}</Button>
+                                    <Button onClick={handleImportSelected} disabled={isSaving || reviewedFixtures.filter(f => f.selected).length === 0} className="bg-green-600 text-white h-10 px-6 flex justify-center items-center">{isSaving ? <Spinner className="w-5 h-5 border-2"/> : `Import Selected`}</Button>
                                 </div>
                             </div>
                         )}

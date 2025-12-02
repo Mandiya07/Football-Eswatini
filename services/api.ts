@@ -217,7 +217,7 @@ export const addLiveUpdate = async (data: Omit<LiveUpdate, 'id' | 'timestamp'>) 
 };
 
 export const listenToLiveUpdates = (callback: (updates: LiveUpdate[]) => void): (() => void) => {
-    console.log(`API: Setting up listener for live updates.`);
+    // console.log(`API: Setting up listener for live updates.`);
     // Query for the 50 most recent updates, ordered by timestamp.
     // This requires a Firestore index on the 'timestamp' field (descending).
     const q = query(
@@ -234,7 +234,7 @@ export const listenToLiveUpdates = (callback: (updates: LiveUpdate[]) => void): 
         // The data is already sorted and limited by Firestore.
         callback(updates);
     }, (error) => {
-        console.error(`Error listening to live updates:`, error);
+        // console.error(`Error listening to live updates:`, error);
         handleFirestoreError(error, `listen to live updates`);
         callback([]);
     });
@@ -260,7 +260,7 @@ export const addFixtureComment = async (fixtureId: number, text: string, user: U
 };
 
 export const listenToFixtureComments = (fixtureId: number, callback: (comments: FixtureComment[]) => void): (() => void) => {
-    console.log(`API: Setting up listener for comments on fixture '${fixtureId}'.`);
+    // console.log(`API: Setting up listener for comments on fixture '${fixtureId}'.`);
     const q = query(
         collection(db, "fixture_comments"),
         where("fixtureId", "==", fixtureId)
@@ -276,7 +276,7 @@ export const listenToFixtureComments = (fixtureId: number, callback: (comments: 
         comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
         callback(comments);
     }, (error) => {
-        console.error(`Error listening to comments for fixture '${fixtureId}':`, error);
+        // console.error(`Error listening to comments for fixture '${fixtureId}':`, error);
         handleFirestoreError(error, `listen to comments for fixture ${fixtureId}`);
         callback([]);
     });
@@ -302,7 +302,7 @@ export const addYouthArticleComment = async (articleId: string, text: string, us
 };
 
 export const listenToYouthArticleComments = (articleId: string, callback: (comments: YouthArticleComment[]) => void): (() => void) => {
-    console.log(`API: Setting up listener for comments on youth article '${articleId}'.`);
+    // console.log(`API: Setting up listener for comments on youth article '${articleId}'.`);
     const q = query(
         collection(db, "youth_article_comments"),
         where("articleId", "==", articleId)
@@ -317,7 +317,7 @@ export const listenToYouthArticleComments = (articleId: string, callback: (comme
         comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
         callback(comments);
     }, (error) => {
-        console.error(`Error listening to comments for article '${articleId}':`, error);
+        // console.error(`Error listening to comments for article '${articleId}':`, error);
         handleFirestoreError(error, `listen to comments for article ${articleId}`);
         callback([]);
     });
@@ -343,7 +343,7 @@ export const addNewsComment = async (articleId: string, text: string, user: User
 };
 
 export const listenToNewsComments = (articleId: string, callback: (comments: NewsComment[]) => void): (() => void) => {
-    console.log(`API: Setting up listener for comments on news article '${articleId}'.`);
+    // console.log(`API: Setting up listener for comments on news article '${articleId}'.`);
     const q = query(
         collection(db, "news_comments"),
         where("articleId", "==", articleId)
@@ -358,7 +358,7 @@ export const listenToNewsComments = (articleId: string, callback: (comments: New
         comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
         callback(comments);
     }, (error) => {
-        console.error(`Error listening to comments for news article '${articleId}':`, error);
+        // console.error(`Error listening to comments for news article '${articleId}':`, error);
         handleFirestoreError(error, `listen to comments for news article ${articleId}`);
         callback([]);
     });
@@ -404,7 +404,8 @@ export const listenToCompetition = (competitionId: string, callback: (data: Comp
             callback(undefined);
         }
     }, (error) => {
-        console.error(`Error listening to competition '${competitionId}':`, error);
+        // console.error(`Error listening to competition '${competitionId}':`, error);
+        handleFirestoreError(error, `listen to competition ${competitionId}`);
         callback(undefined);
     });
 

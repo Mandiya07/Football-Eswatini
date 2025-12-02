@@ -70,7 +70,7 @@ const CupsPage: React.FC = () => {
                       processedCup = { ...cup, rounds: newRounds };
                   }
                   
-                  // Special Linkage: More robust matching for admin-created tournament names
+                  // Robust matching for admin-created tournament names to map to UI cards
                   const cupNameLower = processedCup.name.toLowerCase();
                   
                   if (cupNameLower.includes("manzini") && cupNameLower.includes("ingwenyama")) {

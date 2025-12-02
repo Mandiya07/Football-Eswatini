@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchCompetition, fetchDirectoryEntries } from '../services/api';
@@ -10,19 +11,37 @@ interface LiveMatch extends CompetitionFixture {
     teamBCrest?: string;
     teamAId?: number;
     teamBId?: number;
+    isScheduled?: boolean;
 }
 
 const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, DirectoryEntity>, competitionId: string }> = ({ match, directoryMap, competitionId }) => {
-    
+    const [timeLeft, setTimeLeft] = useState<string>('');
+
+    useEffect(() => {
+        if (match.status === 'scheduled' && match.fullDate) {
+            const target = new Date(`${match.fullDate}T${match.time || '00:00'}`);
+            const timer = setInterval(() => {
+                const now = new Date();
+                const diff = target.getTime() - now.getTime();
+                if (diff <= 0) {
+                    setTimeLeft('Starting...');
+                } else if (diff < 3600000) { // Less than 1 hour
+                    const mins = Math.floor(diff / 60000);
+                    setTimeLeft(`Starts in ${mins}m`);
+                } else {
+                    setTimeLeft(match.time || '');
+                }
+            }, 60000);
+            return () => clearInterval(timer);
+        }
+    }, [match]);
+
     const TeamLink: React.FC<{ teamName: string, teamId?: number, crestUrl?: string, justification: 'start' | 'end' }> = ({ teamName, teamId, crestUrl, justification }) => {
-        // HYBRID LINKING LOGIC
-        // 1. Prioritize direct ID from the match data.
         let linkProps = {
             isLinkable: !!teamId,
             competitionId: competitionId,
             teamId: teamId
         };
-        // 2. Fallback to directory if direct ID is missing.
         if (!linkProps.isLinkable) {
             const teamEntity = findInMap(teamName, directoryMap);
             if (teamEntity && teamEntity.teamId && teamEntity.competitionId) {
@@ -47,20 +66,32 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
         }
         return <div>{content}</div>;
     };
+    
+    const statusColor = match.status === 'live' ? 'text-secondary' : match.status === 'suspended' ? 'text-orange-600' : 'text-blue-600';
+    const statusText = match.status === 'live' ? 'LIVE' : match.status === 'suspended' ? 'SUSP' : 'UPCOMING';
 
     return (
         <div className="bg-white rounded-lg shadow-md p-3 snap-center h-full flex flex-col justify-center min-w-[280px]">
             <div className="flex justify-between items-center mb-2">
                 <p className="text-xs text-gray-500 truncate max-w-[150px]">{match.venue || 'Premier League'}</p>
-                <div className={`flex items-center space-x-1.5 ${match.status === 'suspended' ? 'text-orange-600' : 'text-secondary'} font-bold text-xs animate-pulse`}>
-                    <span className={`w-2 h-2 ${match.status === 'suspended' ? 'bg-orange-600' : 'bg-secondary'} rounded-full`}></span>
-                    <span>{match.status === 'suspended' ? 'SUSP' : 'LIVE'}</span>
-                    <span className="font-mono">{match.liveMinute ? `${match.liveMinute}'` : ''}</span>
+                <div className={`flex items-center space-x-1.5 ${statusColor} font-bold text-xs ${match.status === 'live' ? 'animate-pulse' : ''}`}>
+                    {match.status === 'live' && <span className="w-2 h-2 bg-secondary rounded-full"></span>}
+                    <span>{statusText}</span>
+                    {match.liveMinute && match.status === 'live' && <span className="font-mono">{match.liveMinute}'</span>}
                 </div>
             </div>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
                 <TeamLink teamName={match.teamA} teamId={match.teamAId} crestUrl={match.teamACrest} justification="start" />
-                <p className="font-bold text-2xl tracking-wider text-primary px-2">{match.scoreA ?? 0} - {match.scoreB ?? 0}</p>
+                
+                {match.status === 'scheduled' ? (
+                    <div className="bg-gray-100 px-2 py-1 rounded">
+                         <p className="font-bold text-sm text-gray-700">{timeLeft || match.time}</p>
+                         <p className="text-[10px] text-gray-500 font-bold">VS</p>
+                    </div>
+                ) : (
+                    <p className="font-bold text-2xl tracking-wider text-primary px-2">{match.scoreA ?? 0} - {match.scoreB ?? 0}</p>
+                )}
+                
                 <TeamLink teamName={match.teamB} teamId={match.teamBId} crestUrl={match.teamBCrest} justification="end" />
             </div>
         </div>
@@ -69,25 +100,38 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
 
 
 const LiveScoreboard: React.FC = () => {
-    const [liveMatches, setLiveMatches] = useState<LiveMatch[]>([]);
+    const [matches, setMatches] = useState<LiveMatch[]>([]);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     const competitionId = 'mtn-premier-league';
-    
-    // Use a ref to access the latest directoryMap inside the interval closure without re-running the effect
     const directoryMapRef = useRef<Map<string, DirectoryEntity>>(new Map());
 
-    const fetchLiveMatches = useCallback(async () => {
+    const fetchMatches = useCallback(async () => {
         try {
             const data = await fetchCompetition(competitionId);
             if (data) {
+                // 1. Live Matches
                 const live = data.fixtures?.filter(f => f.status === 'live' || f.status === 'suspended') || [];
+                
+                // 2. Upcoming Matches (Next 24 hours)
+                const now = new Date();
+                const scheduled = data.fixtures?.filter(f => {
+                    if (f.status !== 'scheduled' || !f.fullDate) return false;
+                    const matchTime = new Date(`${f.fullDate}T${f.time || '00:00'}`);
+                    return matchTime > now;
+                }) || [];
+                
+                // Sort scheduled by time
+                scheduled.sort((a, b) => new Date(`${a.fullDate}T${a.time}`).getTime() - new Date(`${b.fullDate}T${b.time}`).getTime());
+
+                // Take top 5 scheduled
+                const upcoming = scheduled.slice(0, 5);
+
+                const combined = [...live, ...upcoming];
                 const allTeams = data.teams || [];
                 
-                const matchesWithCrests = live.map(match => {
+                const processedMatches = combined.map(match => {
                     const teamA = allTeams.find(t => t.name.trim() === match.teamA.trim());
                     const teamB = allTeams.find(t => t.name.trim() === match.teamB.trim());
-                    
-                    // Resolve via directory if team object missing or missing crest
                     const dirA = findInMap(match.teamA, directoryMapRef.current);
                     const dirB = findInMap(match.teamB, directoryMapRef.current);
 
@@ -99,36 +143,29 @@ const LiveScoreboard: React.FC = () => {
                         teamBId: teamB?.id || dirB?.teamId,
                     };
                 });
-                setLiveMatches(matchesWithCrests);
+                setMatches(processedMatches);
             }
         } catch (error) {
-            console.error("Failed to fetch live matches:", error);
+            console.error("Failed to fetch matches:", error);
         }
     }, []);
 
     useEffect(() => {
         const loadInitialData = async () => {
-            // 1. Load Directory first
             const directoryEntries = await fetchDirectoryEntries();
             const map = new Map<string, DirectoryEntity>();
             directoryEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
             setDirectoryMap(map);
             directoryMapRef.current = map;
-
-            // 2. Initial Match Fetch
-            await fetchLiveMatches();
+            await fetchMatches();
         };
-        
         loadInitialData();
-
-        // 3. Set up polling every 30 seconds for live updates
-        const interval = setInterval(fetchLiveMatches, 30000);
-
+        const interval = setInterval(fetchMatches, 30000);
         return () => clearInterval(interval);
-    }, [fetchLiveMatches]);
+    }, [fetchMatches]);
 
 
-    if (liveMatches.length === 0) {
+    if (matches.length === 0) {
         return null;
     }
 
@@ -137,10 +174,10 @@ const LiveScoreboard: React.FC = () => {
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
-                    <h2 className="text-xl font-display font-bold text-gray-800">Live Matches</h2>
+                    <h2 className="text-xl font-display font-bold text-gray-800">Match Center</h2>
                 </div>
                 <div className="grid grid-flow-col auto-cols-max gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth -mx-4 px-4 pb-4 scrollbar-hide">
-                    {liveMatches.map(match => (
+                    {matches.map(match => (
                         <LiveMatchCard key={match.id} match={match} directoryMap={directoryMap} competitionId={competitionId} />
                     ))}
                 </div>
