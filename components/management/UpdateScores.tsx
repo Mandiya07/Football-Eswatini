@@ -66,7 +66,15 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
     const handleShare = async () => {
         if (!shareContent) return;
         if (navigator.share) {
-            try { await navigator.share({ title: 'Match Update', text: shareContent }); } catch (e) { console.error(e); }
+            try { 
+                await navigator.share({ 
+                    title: 'Match Update', 
+                    text: shareContent,
+                    url: window.location.href // Explicitly provide URL to prevent Invalid URL error
+                }); 
+            } catch (e) { 
+                console.error("Error sharing:", e); 
+            }
         } else {
             navigator.clipboard.writeText(shareContent);
             alert('Update text copied to clipboard!');

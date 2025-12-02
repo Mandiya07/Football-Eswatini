@@ -40,7 +40,9 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
         e.preventDefault();
         e.stopPropagation(); // Prevent link navigation
 
-        const articleUrl = `${window.location.origin}/#${item.url}`;
+        // Use current page base + hash path to ensure valid URL regardless of environment (e.g. file:// or unusual ports)
+        const baseUrl = window.location.href.split('#')[0];
+        const articleUrl = `${baseUrl}#${item.url}`;
 
         const shareData = {
           title: item.title,

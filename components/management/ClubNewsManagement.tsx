@@ -68,14 +68,23 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
 
     const handleShare = async () => {
         if (!publishedUrl) return;
-        const shareUrl = `${window.location.origin}/#${publishedUrl}`;
+        
+        // Robust URL construction: Use the current page URL base + hash path
+        const baseUrl = window.location.href.split('#')[0];
+        const shareUrl = `${baseUrl}#${publishedUrl}`;
+        
         const shareData = {
             title: 'Club Announcement',
             text: `Latest news from ${clubName}:`,
             url: shareUrl
         };
+        
         if (navigator.share) {
-            try { await navigator.share(shareData); } catch (e) { console.error(e); }
+            try { 
+                await navigator.share(shareData); 
+            } catch (e) { 
+                console.error("Error sharing:", e); 
+            }
         } else {
             navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
             alert('Link copied to clipboard!');
