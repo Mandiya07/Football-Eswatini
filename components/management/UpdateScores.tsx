@@ -18,6 +18,7 @@ import SubstitutionIcon from '../icons/SubstitutionIcon';
 import WhistleIcon from '../icons/WhistleIcon';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import PlayIcon from '../icons/PlayIcon';
+import ShareIcon from '../icons/ShareIcon';
 
 const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [matches, setMatches] = useState<CompetitionFixture[]>([]);
@@ -25,6 +26,7 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState<number | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [shareContent, setShareContent] = useState<string | null>(null);
     const { user } = useAuth();
 
     // Event Logging State
@@ -61,9 +63,20 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
 
     const activeMatch = useMemo(() => matches.find(m => m.id === activeMatchId), [matches, activeMatchId]);
 
+    const handleShare = async () => {
+        if (!shareContent) return;
+        if (navigator.share) {
+            try { await navigator.share({ title: 'Match Update', text: shareContent }); } catch (e) { console.error(e); }
+        } else {
+            navigator.clipboard.writeText(shareContent);
+            alert('Update text copied to clipboard!');
+        }
+    };
+
     const handleStatusChange = async (match: CompetitionFixture, newStatus: 'live' | 'suspended' | 'finished' | 'scheduled', message: string) => {
         if (submitting) return;
         setSubmitting(match.id);
+        setShareContent(null);
 
         try {
             // 1. Send Ticker Update
@@ -123,6 +136,9 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
 
             setSuccessMessage(`Match status updated: ${message}`);
             
+            const statusShareText = `MATCH STATUS: ${match.teamA} vs ${match.teamB} is now ${newStatus.toUpperCase()}. #FootballEswatini #${clubName.replace(/\s/g,'')}`;
+            setShareContent(statusShareText);
+            
             // Local state update
             if (newStatus === 'finished') {
                 setMatches(prev => prev.filter(m => m.id !== match.id));
@@ -131,7 +147,7 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                 setMatches(prev => prev.map(m => m.id === match.id ? { ...m, status: newStatus } : m));
             }
 
-            setTimeout(() => setSuccessMessage(null), 3000);
+            setTimeout(() => setSuccessMessage(null), 5000);
 
         } catch (error) {
             handleFirestoreError(error, 'update match status');
@@ -145,6 +161,7 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
         if (!activeMatch || !eventMinute) return;
 
         setSubmitting(activeMatch.id);
+        setShareContent(null);
         
         const player = squad.find(p => p.id.toString() === selectedPlayerId);
         const playerName = player ? player.name : 'Unknown Player';
@@ -218,6 +235,10 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
             });
 
             setSuccessMessage(`${eventType === 'goal' ? 'Goal' : 'Event'} logged successfully!`);
+            
+            const eventShareText = `MATCH UPDATE (${activeMatch.teamA} vs ${activeMatch.teamB}): ${finalDescription} ${eventMinute}' #FootballEswatini`;
+            setShareContent(eventShareText);
+
             setEventMinute('');
             setEventDescription('');
             
@@ -235,7 +256,7 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                 return m;
             }));
 
-            setTimeout(() => setSuccessMessage(null), 3000);
+            setTimeout(() => setSuccessMessage(null), 5000);
 
         } catch (error) {
             handleFirestoreError(error, 'log match event');
@@ -253,9 +274,16 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                 <p className="text-sm text-gray-600 mb-6">Manage match status (Kick-off, Half-time) and log events in real-time.</p>
                 
                 {successMessage && (
-                    <div className="mb-4 p-3 bg-green-100 text-green-800 border border-green-200 rounded-md flex items-center gap-2 animate-fade-in">
-                        <CheckCircleIcon className="w-5 h-5" />
-                        <span className="text-sm font-semibold">{successMessage}</span>
+                    <div className="mb-4 p-3 bg-green-100 text-green-800 border border-green-200 rounded-md flex items-center justify-between animate-fade-in">
+                        <div className="flex items-center gap-2">
+                            <CheckCircleIcon className="w-5 h-5" />
+                            <span className="text-sm font-semibold">{successMessage}</span>
+                        </div>
+                        {shareContent && (
+                            <Button onClick={handleShare} className="bg-green-700 text-white hover:bg-green-800 h-7 px-2 text-xs flex items-center gap-1">
+                                <ShareIcon className="w-3 h-3"/> Share
+                            </Button>
+                        )}
                     </div>
                 )}
                 

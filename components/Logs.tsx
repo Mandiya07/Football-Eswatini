@@ -10,6 +10,7 @@ import Spinner from './ui/Spinner';
 import ArrowUpIcon from './icons/ArrowUpIcon';
 import ArrowDownIcon from './icons/ArrowDownIcon';
 import MinusIcon from './icons/MinusIcon';
+import ShareIcon from './icons/ShareIcon';
 import FormGuide from './ui/FormGuide';
 import { calculateStandings, findInMap } from '../services/utils';
 
@@ -38,6 +39,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
   const [positionChanges, setPositionChanges] = useState<Record<number, 'up' | 'down' | 'same'>>({});
   const prevPositionsRef = useRef<Map<number, number>>(new Map());
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
+  const [copied, setCopied] = useState(false);
   
   // Sync selectedLeague with defaultLeague prop when it changes
   useEffect(() => {
@@ -175,6 +177,32 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
 
   }, [selectedLeague]);
 
+  const handleShare = async () => {
+        const shareData = {
+            title: `${competition?.name || 'League'} Standings`,
+            text: `Check out the latest ${competition?.name || 'league'} standings on Football Eswatini!`,
+            url: window.location.href
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+            } catch (err) {
+                if ((err as Error).name !== 'AbortError') {
+                    console.error('Error sharing:', err);
+                }
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (err) {
+                console.error('Failed to copy', err);
+            }
+        }
+    };
+
 
   return (
     <section>
@@ -185,25 +213,37 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     <h2 className="text-3xl font-display font-bold text-center lg:text-left">League Standings</h2>
                 </div>
             )}
-            {showSelector && (
-                 <div className="min-w-[200px]">
-                    <label htmlFor="league-select" className="sr-only">Select League</label>
-                    <select
-                        id="league-select"
-                        value={selectedLeague}
-                        onChange={(e) => setSelectedLeague(e.target.value)}
-                        className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-light focus:border-primary-light sm:text-sm rounded-md shadow-sm"
-                    >
-                        {leagueOptions.map(group => (
-                            <optgroup key={group.label} label={group.label}>
-                                {group.options.map(league => (
-                                    <option key={league.value} value={league.value}>{league.name}</option>
-                                ))}
-                            </optgroup>
-                        ))}
-                    </select>
-                </div>
-            )}
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                    onClick={handleShare}
+                    className="p-2 bg-white border border-gray-300 rounded-md text-gray-600 hover:text-primary hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary-light"
+                    title="Share Standings"
+                    aria-label="Share Standings"
+                >
+                    <ShareIcon className="w-5 h-5" />
+                </button>
+                {copied && <span className="text-xs text-green-600 font-medium animate-fade-in">Link Copied!</span>}
+
+                {showSelector && (
+                     <div className="min-w-[200px] flex-grow sm:flex-grow-0">
+                        <label htmlFor="league-select" className="sr-only">Select League</label>
+                        <select
+                            id="league-select"
+                            value={selectedLeague}
+                            onChange={(e) => setSelectedLeague(e.target.value)}
+                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-light focus:border-primary-light sm:text-sm rounded-md shadow-sm"
+                        >
+                            {leagueOptions.map(group => (
+                                <optgroup key={group.label} label={group.label}>
+                                    {group.options.map(league => (
+                                        <option key={league.value} value={league.value}>{league.name}</option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </div>
         </div>
 
         <Card className="shadow-lg animate-content-fade-in" key={selectedLeague}>

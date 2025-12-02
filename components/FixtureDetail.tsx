@@ -22,11 +22,11 @@ import XIcon from './icons/XIcon';
 
 const EventIcon: React.FC<{ type: MatchEvent['type'] }> = ({ type }) => {
     switch (type) {
-        case 'goal': return <GoalIcon className="w-5 h-5 text-green-600 flex-shrink-0" />;
-        case 'yellow-card': return <CardIcon className="w-5 h-5 text-yellow-500 flex-shrink-0" />;
-        case 'red-card': return <CardIcon className="w-5 h-5 text-red-600 flex-shrink-0" />;
-        case 'substitution': return <SubstitutionIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />;
-        default: return <ClockIcon className="w-5 h-5 text-gray-500 flex-shrink-0" />;
+        case 'goal': return <GoalIcon className="w-4 h-4 text-green-600" />;
+        case 'yellow-card': return <CardIcon className="w-4 h-4 text-yellow-500" />;
+        case 'red-card': return <CardIcon className="w-4 h-4 text-red-600" />;
+        case 'substitution': return <SubstitutionIcon className="w-4 h-4 text-blue-500" />;
+        default: return <ClockIcon className="w-4 h-4 text-gray-500" />;
     }
 };
 
@@ -219,16 +219,28 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
 
             {(fixture.status === 'live' || fixture.status === 'finished') && sortedEvents.length > 0 && (
                 <div className="mt-6 pt-4 border-t">
-                    <h4 className="font-bold text-sm text-gray-800 mb-3">Match Timeline</h4>
-                    <ul className="space-y-2 text-sm max-h-48 overflow-y-auto pr-2">
-                        {sortedEvents.map((event, index) => (
-                           <li key={index} className="flex items-start gap-3 animate-fade-in bg-white p-2 rounded-md shadow-sm">
-                               <span className="font-bold text-gray-600 w-10 text-right">{event.minute}'</span>
-                               <EventIcon type={event.type} />
-                               <span className="flex-1 text-gray-800">{event.description}</span>
-                           </li>
-                        ))}
-                    </ul>
+                    <h4 className="font-bold text-sm text-gray-800 mb-4 flex items-center gap-2">
+                        <ClockIcon className="w-5 h-5 text-gray-500" />
+                        Match Timeline
+                    </h4>
+                    <div className="max-h-80 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300">
+                        <ul className="space-y-0 relative pb-2">
+                            <div className="absolute left-[2.5rem] top-3 bottom-3 w-0.5 bg-gray-200 -ml-px z-0"></div>
+                            {sortedEvents.map((event, index) => (
+                               <li key={index} className="group relative flex items-start gap-4 pb-6 last:pb-0 animate-fade-in z-10">
+                                   <div className="w-10 text-right font-mono text-sm font-bold text-gray-500 pt-1">
+                                       {event.minute}'
+                                   </div>
+                                   <div className="relative z-10 flex items-center justify-center w-8 h-8 bg-white rounded-full border-2 border-gray-100 shadow-sm">
+                                       <EventIcon type={event.type} />
+                                   </div>
+                                   <div className="flex-1 pt-1.5">
+                                       <p className="text-sm font-medium text-gray-900">{event.description}</p>
+                                   </div>
+                               </li>
+                            ))}
+                        </ul>
+                    </div>
                 </div>
             )}
             

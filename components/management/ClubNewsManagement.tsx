@@ -5,6 +5,7 @@ import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
+import ShareIcon from '../icons/ShareIcon';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { handleFirestoreError } from '../../services/api';
@@ -18,6 +19,7 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -40,6 +42,9 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
         e.preventDefault();
         setIsSubmitting(true);
         setSuccessMessage('');
+        setPublishedUrl(null);
+
+        const newUrl = `/news/club-${clubName.toLowerCase().replace(/\s/g, '-')}-${Date.now()}`;
 
         try {
             await addDoc(collection(db, 'news'), {
@@ -49,14 +54,31 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
                 date: new Date().toISOString(), // Use ISO string for date
                 createdAt: serverTimestamp(),
                 authorClub: clubName,
-                url: `/news/club-${clubName.toLowerCase().replace(/\s/g, '-')}-${Date.now()}`
+                url: newUrl
             });
             setSuccessMessage("Announcement published successfully!");
+            setPublishedUrl(newUrl);
             setFormData({ title: '', summary: '', content: '', imageUrl: '' });
         } catch (error) {
             handleFirestoreError(error, 'publish club news');
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleShare = async () => {
+        if (!publishedUrl) return;
+        const shareUrl = `${window.location.origin}/#${publishedUrl}`;
+        const shareData = {
+            title: 'Club Announcement',
+            text: `Latest news from ${clubName}:`,
+            url: shareUrl
+        };
+        if (navigator.share) {
+            try { await navigator.share(shareData); } catch (e) { console.error(e); }
+        } else {
+            navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+            alert('Link copied to clipboard!');
         }
     };
 
@@ -69,9 +91,16 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
                 <p className="text-gray-600 mb-6 text-sm">Publish press releases, match previews, or club statements directly to the news feed.</p>
 
                 {successMessage && (
-                    <div className="mb-6 p-4 bg-green-50 text-green-800 border border-green-200 rounded-md flex items-center gap-3 animate-fade-in">
-                        <CheckCircleIcon className="w-6 h-6" />
-                        <span className="font-semibold">{successMessage}</span>
+                    <div className="mb-6 p-4 bg-green-50 text-green-800 border border-green-200 rounded-md flex items-center justify-between animate-fade-in">
+                        <div className="flex items-center gap-3">
+                            <CheckCircleIcon className="w-6 h-6" />
+                            <span className="font-semibold">{successMessage}</span>
+                        </div>
+                        {publishedUrl && (
+                            <Button onClick={handleShare} className="bg-green-600 text-white hover:bg-green-700 h-8 px-3 text-xs flex items-center gap-2">
+                                <ShareIcon className="w-4 h-4"/> Share
+                            </Button>
+                        )}
                     </div>
                 )}
 
