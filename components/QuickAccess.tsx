@@ -15,13 +15,13 @@ import UsersIcon from './icons/UsersIcon';
 const tiles = [
   {
     name: 'Premier League',
-    href: '/logs',
+    href: '/premier-league',
     Icon: TrophyIcon,
     color: 'text-primary',
   },
   {
     name: 'First Division',
-    href: '/logs',
+    href: '/first-division',
     Icon: MedalIcon,
     color: 'text-green-600',
   },

@@ -25,6 +25,13 @@ export { type Competition }; // Re-export to maintain compatibility
 
 export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
+    
+    // Gracefully handle offline/unavailable errors
+    if (firebaseError.code === 'unavailable' || firebaseError.message?.includes('offline')) {
+        console.warn(`[Offline] Operation '${operation}' failed. Using fallback/cached data if available.`);
+        return;
+    }
+
     console.error(`Firestore error during '${operation}':`, error);
     
     // We log the error to console but avoid alerting the user with a popup, 
@@ -33,8 +40,6 @@ export const handleFirestoreError = (error: any, operation: string) => {
     
     if (firebaseError.code === 'permission-denied' || firebaseError.code === 'failed-precondition') {
         console.warn(`Permission Denied for '${operation}'. Check security rules.`);
-    } else if (firebaseError.code === 'unavailable') {
-        console.warn(`Firestore unavailable for '${operation}'. Client offline.`);
     }
 };
 
