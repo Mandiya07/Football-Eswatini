@@ -69,7 +69,7 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
     const handleShare = async () => {
         if (!publishedUrl) return;
         
-        // Robust URL construction: Use the current page URL base + hash path
+        // Construct absolute URL for sharing
         const baseUrl = window.location.href.split('#')[0];
         const shareUrl = `${baseUrl}#${publishedUrl}`;
         

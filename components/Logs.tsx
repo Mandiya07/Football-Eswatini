@@ -1,10 +1,9 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, CardContent } from './ui/Card';
+import { Card } from './ui/Card';
 import { Team, Competition } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
-// FIX: Import 'fetchCategories' and 'fetchDirectoryEntries' which are now correctly exported from the API service.
 import { fetchAllCompetitions, listenToCompetition, fetchCategories, fetchDirectoryEntries } from '../services/api';
 import Spinner from './ui/Spinner';
 import ArrowUpIcon from './icons/ArrowUpIcon';
@@ -41,7 +40,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
   const [copied, setCopied] = useState(false);
   
-  // Sync selectedLeague with defaultLeague prop when it changes
   useEffect(() => {
     if (defaultLeague) {
         setSelectedLeague(defaultLeague);
@@ -100,9 +98,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     }
                 }
 
-                // Fallback
                 if (finalOptions.length === 0 && allCompetitions.length > 0) {
-                    console.warn("Category grouping for leagues failed. Falling back to a flat list.");
                     const flatLeagueOptions = allCompetitions
                         .sort((a,b) => a.name.localeCompare(b.name))
                         .map(comp => ({ value: comp.id, name: comp.name }));
@@ -116,7 +112,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                 
                 if (finalOptions.length > 0) {
                     const allLeagueOptions = finalOptions.flatMap(g => g.options);
-                    // Only override default if it's not in the list or if selector is active
                     if (allLeagueOptions.length > 0 && showSelector && !allLeagueOptions.some(opt => opt.value === selectedLeague)) {
                         setSelectedLeague(allLeagueOptions[0].value);
                     }
@@ -137,9 +132,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
     const unsubscribe = listenToCompetition(selectedLeague, (data) => {
         if (data) {
             setCompetition(data);
-            
-            // The `teams` array in Firestore can be stale or missing.
-            // Always recalculate standings from the results, which are the source of truth.
             const standings = calculateStandings(data.teams || [], data.results || [], data.fixtures || []);
 
             if (standings.length > 0) {
@@ -181,7 +173,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
         const shareData = {
             title: `${competition?.name || 'League'} Standings`,
             text: `Check out the latest ${competition?.name || 'league'} standings on Football Eswatini!`,
-            url: window.location.href
+            url: window.location.href // Use full absolute URL
         };
 
         if (navigator.share) {
@@ -202,7 +194,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
             }
         }
     };
-
 
   return (
     <section>
@@ -252,7 +243,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     <div className="flex justify-center items-center h-64"><Spinner /></div>
                  ) : leagueData.length > 0 ? (
                     <table className="w-full text-sm">
-                        {/* Enhanced Header with Eswatini Colors */}
                         <thead className="text-left font-bold uppercase text-xs sticky top-0 z-10">
                             <tr className="bg-primary text-white shadow-md border-b-4 border-secondary">
                                 <th className="px-3 py-3 w-8 text-center">#</th>
@@ -270,7 +260,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-sm">
                             {leagueData.map((team, index) => {
-                                // CRITICAL FIX: Prioritize the ID from the actual database record (`team.id`).
                                 const linkProps = {
                                     isLinkable: !!team.id,
                                     competitionId: selectedLeague,

@@ -5,6 +5,8 @@ import { fetchCompetition, fetchDirectoryEntries } from '../services/api';
 import { CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 import { findInMap } from '../services/utils';
+import ChevronLeftIcon from './icons/ChevronLeftIcon';
+import ChevronRightIcon from './icons/ChevronRightIcon';
 
 interface LiveMatch extends CompetitionFixture {
     teamACrest?: string;
@@ -71,7 +73,7 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
     const statusText = match.status === 'live' ? 'LIVE' : match.status === 'suspended' ? 'SUSP' : 'UPCOMING';
 
     return (
-        <div className="bg-white rounded-lg shadow-md p-3 snap-center h-full flex flex-col justify-center min-w-[280px]">
+        <div className="bg-white rounded-lg shadow-md p-3 h-full flex flex-col justify-center w-full hover:shadow-lg transition-shadow duration-200">
             <div className="flex justify-between items-center mb-2">
                 <p className="text-xs text-gray-500 truncate max-w-[150px]">{match.venue || 'Premier League'}</p>
                 <div className={`flex items-center space-x-1.5 ${statusColor} font-bold text-xs ${match.status === 'live' ? 'animate-pulse' : ''}`}>
@@ -104,15 +106,13 @@ const LiveScoreboard: React.FC = () => {
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     const competitionId = 'mtn-premier-league';
     const directoryMapRef = useRef<Map<string, DirectoryEntity>>(new Map());
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const fetchMatches = useCallback(async () => {
         try {
             const data = await fetchCompetition(competitionId);
             if (data) {
-                // 1. Live Matches
                 const live = data.fixtures?.filter(f => f.status === 'live' || f.status === 'suspended') || [];
-                
-                // 2. Upcoming Matches (Next 24 hours)
                 const now = new Date();
                 const scheduled = data.fixtures?.filter(f => {
                     if (f.status !== 'scheduled' || !f.fullDate) return false;
@@ -120,11 +120,8 @@ const LiveScoreboard: React.FC = () => {
                     return matchTime > now;
                 }) || [];
                 
-                // Sort scheduled by time
                 scheduled.sort((a, b) => new Date(`${a.fullDate}T${a.time}`).getTime() - new Date(`${b.fullDate}T${b.time}`).getTime());
-
-                // Take top 5 scheduled
-                const upcoming = scheduled.slice(0, 5);
+                const upcoming = scheduled.slice(0, 10); // Increased limit for carousel
 
                 const combined = [...live, ...upcoming];
                 const allTeams = data.teams || [];
@@ -164,6 +161,15 @@ const LiveScoreboard: React.FC = () => {
         return () => clearInterval(interval);
     }, [fetchMatches]);
 
+    const scroll = (direction: 'left' | 'right') => {
+        if (scrollContainerRef.current) {
+            const scrollAmount = 300; 
+            scrollContainerRef.current.scrollBy({
+                left: direction === 'left' ? -scrollAmount : scrollAmount,
+                behavior: 'smooth',
+            });
+        }
+    };
 
     if (matches.length === 0) {
         return null;
@@ -172,13 +178,37 @@ const LiveScoreboard: React.FC = () => {
     return (
         <section className="py-8 bg-primary/5">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
-                    <h2 className="text-xl font-display font-bold text-gray-800">Match Center</h2>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
+                        <h2 className="text-xl font-display font-bold text-gray-800">Match Center</h2>
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => scroll('left')}
+                            className="p-1.5 rounded-full bg-white text-gray-600 shadow-sm hover:bg-gray-100 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            aria-label="Scroll left"
+                        >
+                            <ChevronLeftIcon className="w-5 h-5" />
+                        </button>
+                        <button 
+                            onClick={() => scroll('right')}
+                            className="p-1.5 rounded-full bg-white text-gray-600 shadow-sm hover:bg-gray-100 hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            aria-label="Scroll right"
+                        >
+                            <ChevronRightIcon className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
-                <div className="grid grid-flow-col auto-cols-max gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth -mx-4 px-4 pb-4 scrollbar-hide">
+                
+                <div 
+                    ref={scrollContainerRef}
+                    className="flex overflow-x-auto gap-4 pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory scroll-smooth"
+                >
                     {matches.map(match => (
-                        <LiveMatchCard key={match.id} match={match} directoryMap={directoryMap} competitionId={competitionId} />
+                        <div key={match.id} className="flex-shrink-0 w-[280px] snap-center h-full">
+                            <LiveMatchCard match={match} directoryMap={directoryMap} competitionId={competitionId} />
+                        </div>
                     ))}
                 </div>
             </div>

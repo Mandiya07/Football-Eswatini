@@ -14,16 +14,20 @@ import NewspaperIcon from './icons/NewspaperIcon';
 import PhotoIcon from './icons/PhotoIcon';
 import VoteIcon from './icons/VoteIcon';
 import ShareIcon from './icons/ShareIcon';
+import BarChartIcon from './icons/BarChartIcon';
+import PaintBucketIcon from './icons/PaintBucketIcon';
 import SectionLoader from './SectionLoader';
 
 const ClubNewsManagement = lazy(() => import('./management/ClubNewsManagement'));
 const ClubGalleryManagement = lazy(() => import('./management/ClubGalleryManagement'));
 const ClubPollsManagement = lazy(() => import('./management/ClubPollsManagement'));
 const ClubSocialMedia = lazy(() => import('./management/ClubSocialMedia'));
+const ClubAnalytics = lazy(() => import('./management/ClubAnalytics'));
+const ClubBranding = lazy(() => import('./management/ClubBranding'));
 
 const ClubManagementPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'scores' | 'squad' | 'staff' | 'matchday' | 'news' | 'gallery' | 'polls' | 'social'>('scores');
+  const [activeTab, setActiveTab] = useState<'scores' | 'squad' | 'staff' | 'matchday' | 'news' | 'gallery' | 'polls' | 'social' | 'analytics' | 'branding'>('scores');
 
   if (!isLoggedIn || (user?.role !== 'club_admin' && user?.role !== 'super_admin')) {
     return (
@@ -45,6 +49,8 @@ const ClubManagementPage: React.FC = () => {
         return <ManageStaff clubName={user.club!} />;
       case 'matchday':
         return <ManageMatchDay clubName={user.club!} />;
+      case 'branding':
+        return <Suspense fallback={<SectionLoader />}><ClubBranding clubName={user.club!} /></Suspense>;
       case 'news':
         return <Suspense fallback={<SectionLoader />}><ClubNewsManagement clubName={user.club!} /></Suspense>;
       case 'gallery':
@@ -53,6 +59,8 @@ const ClubManagementPage: React.FC = () => {
         return <Suspense fallback={<SectionLoader />}><ClubPollsManagement clubName={user.club!} /></Suspense>;
       case 'social':
         return <Suspense fallback={<SectionLoader />}><ClubSocialMedia clubName={user.club!} /></Suspense>;
+      case 'analytics':
+        return <Suspense fallback={<SectionLoader />}><ClubAnalytics clubName={user.club!} /></Suspense>;
       default:
         return null;
     }
@@ -100,10 +108,15 @@ const ClubManagementPage: React.FC = () => {
                             <div className="my-4 border-t border-gray-100"></div>
                             
                             <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Fan Engagement</p>
+                            <TabButton tabName="branding" label="Branded Club Hub" Icon={PaintBucketIcon} />
                             <TabButton tabName="news" label="News & Announcements" Icon={NewspaperIcon} />
                             <TabButton tabName="gallery" label="Photo Galleries" Icon={PhotoIcon} />
                             <TabButton tabName="polls" label="Fan Polls" Icon={VoteIcon} />
                             <TabButton tabName="social" label="Social Media Integration" Icon={ShareIcon} />
+                            
+                            <div className="my-4 border-t border-gray-100"></div>
+                            <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Insights</p>
+                            <TabButton tabName="analytics" label="Analytics Dashboard" Icon={BarChartIcon} />
                         </div>
                     </div>
                 </aside>

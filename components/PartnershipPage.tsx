@@ -14,7 +14,8 @@ const PricingCard: React.FC<{
     features: string[];
     isPopular?: boolean;
     color: string;
-}> = ({ title, price, features, isPopular, color }) => (
+    extraAction?: React.ReactNode;
+}> = ({ title, price, features, isPopular, color, extraAction }) => (
     <div className={`relative flex flex-col p-6 bg-white border rounded-xl shadow-sm ${isPopular ? 'border-2 border-yellow-400 ring-4 ring-yellow-50 scale-105 z-10' : 'border-gray-200'}`}>
         {isPopular && (
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
@@ -36,6 +37,7 @@ const PricingCard: React.FC<{
                 </li>
             ))}
         </ul>
+        {extraAction && <div className="mb-3">{extraAction}</div>}
         <Link to="/club-registration" className="block">
             <Button className={`w-full ${isPopular ? 'bg-primary text-white hover:bg-primary-dark' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}>
                 Get Started
@@ -113,7 +115,12 @@ const PartnershipPage: React.FC = () => {
                         title="Enterprise" 
                         price="E500" 
                         color="text-gray-900"
-                        features={["All Elite Features", "Custom Microsite Domain", "Premium Analytics Dashboard", "Direct API Access", "Dedicated Account Manager"]} 
+                        features={["All Elite Features", "Branded Club Hub (Ad-free, Club Colors)", "Premium Analytics (Sponsorship & Scouting)", "Dedicated Account Manager"]} 
+                        extraAction={
+                            <Link to="/branded-example" className="block w-full text-center text-xs font-bold text-blue-600 hover:underline py-1">
+                                View Live Example
+                            </Link>
+                        }
                     />
                 </div>
             </div>

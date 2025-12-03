@@ -52,6 +52,22 @@ export interface StaffMember {
   role: 'Head Coach' | 'Assistant Coach' | 'Goalkeeper Coach' | 'Physiotherapist' | 'Team Doctor' | 'Kit Manager';
   email: string;
   phone: string;
+  photoUrl?: string;
+}
+
+export interface TeamBranding {
+    primaryColor: string;
+    secondaryColor: string;
+    bannerUrl?: string;
+    welcomeMessage?: string;
+}
+
+export interface TeamSocialMedia {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    youtube?: string;
+    website?: string;
 }
 
 export interface Team {
@@ -67,6 +83,8 @@ export interface Team {
     name: string;
     logoUrl: string;
   };
+  branding?: TeamBranding;
+  socialMedia?: TeamSocialMedia;
   competitionId?: string;
 }
 

@@ -55,6 +55,7 @@ const PartnershipPage = lazy(() => import('./components/PartnershipPage'));
 const ClubRegistrationPage = lazy(() => import('./components/ClubRegistrationPage'));
 const AdvertiserOnboardingPage = lazy(() => import('./components/AdvertiserOnboardingPage'));
 const SponsorOnboardingPage = lazy(() => import('./components/SponsorOnboardingPage'));
+const BrandedClubExample = lazy(() => import('./components/BrandedClubExample'));
 
 
 const App: React.FC = () => {
@@ -96,6 +97,7 @@ const App: React.FC = () => {
               <Route path="/club-registration" element={<ClubRegistrationPage />} />
               <Route path="/advertiser-onboarding" element={<AdvertiserOnboardingPage />} />
               <Route path="/sponsor-onboarding" element={<SponsorOnboardingPage />} />
+              <Route path="/branded-example" element={<BrandedClubExample />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/profile/setup" element={<ProfileSetupPage />} />

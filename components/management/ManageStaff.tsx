@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { fetchCompetition, handleFirestoreError } from '../../services/api';
 import { StaffMember, Team, Competition } from '../../data/teams';
@@ -9,6 +10,7 @@ import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import PhoneIcon from '../icons/PhoneIcon';
 import MailIcon from '../icons/MailIcon';
+import UserIcon from '../icons/UserIcon';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps } from '../../services/utils';
@@ -19,11 +21,24 @@ const StaffForm: React.FC<{
     onCancel: () => void;
 }> = ({ staffMember, onSave, onCancel }) => {
     const isNew = staffMember === 'new';
-    const [formData, setFormData] = useState(isNew ? { name: '', role: 'Head Coach' as const, email: '', phone: '' } : staffMember);
+    const [formData, setFormData] = useState(isNew ? { name: '', role: 'Head Coach' as const, email: '', phone: '', photoUrl: '' } : staffMember);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -46,10 +61,34 @@ const StaffForm: React.FC<{
                     <option>Team Doctor</option>
                     <option>Kit Manager</option>
                 </select>
-                <input type="email" name="email" value={formData.email || ''} onChange={handleChange} placeholder="Email Address" required className={inputClass} />
-                <input type="tel" name="phone" value={formData.phone || ''} onChange={handleChange} placeholder="Phone Number" required className={inputClass} />
+                <input type="email" name="email" value={formData.email || ''} onChange={handleChange} placeholder="Email Address" className={inputClass} />
+                <input type="tel" name="phone" value={formData.phone || ''} onChange={handleChange} placeholder="Phone Number" className={inputClass} />
             </div>
-            <div className="flex justify-end gap-2">
+            
+            {/* Photo Upload */}
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo</label>
+                <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded-full bg-gray-100 border overflow-hidden flex-shrink-0">
+                        {formData.photoUrl ? (
+                            <img src={formData.photoUrl} alt="Preview" className="h-full w-full object-cover" />
+                        ) : (
+                            <div className="h-full w-full flex items-center justify-center text-gray-400">
+                                <UserIcon className="w-8 h-8" />
+                            </div>
+                        )}
+                    </div>
+                    <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                        Change Photo
+                        <input type="file" onChange={handleFileChange} accept="image/*" className="sr-only" />
+                    </label>
+                    {formData.photoUrl && (
+                        <button type="button" onClick={() => setFormData(prev => ({...prev, photoUrl: ''}))} className="text-xs text-red-500 hover:underline">Remove Photo</button>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button type="button" onClick={onCancel} className="bg-gray-200 text-gray-800">Cancel</Button>
                 <Button type="submit" className="bg-green-600 text-white hover:bg-green-700">Save</Button>
             </div>
@@ -145,12 +184,23 @@ const ManageStaff: React.FC<{ clubName: string }> = ({ clubName }) => {
                         <div className="space-y-3">
                             {staff.map(member => (
                                 <div key={member.id} className="p-3 bg-white border rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                    <div>
-                                        <p className="font-bold text-gray-800">{member.name}</p>
-                                        <p className="text-sm font-semibold text-primary">{member.role}</p>
-                                        <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-600">
-                                            <span className="inline-flex items-center gap-1.5"><MailIcon className="w-3.5 h-3.5"/> {member.email}</span>
-                                            <span className="inline-flex items-center gap-1.5"><PhoneIcon className="w-3.5 h-3.5"/> {member.phone}</span>
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden border">
+                                            {member.photoUrl ? (
+                                                <img src={member.photoUrl} alt={member.name} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-gray-400">
+                                                    <UserIcon className="w-6 h-6" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-gray-800">{member.name}</p>
+                                            <p className="text-sm font-semibold text-primary">{member.role}</p>
+                                            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-600">
+                                                {member.email && <span className="inline-flex items-center gap-1.5"><MailIcon className="w-3.5 h-3.5"/> {member.email}</span>}
+                                                {member.phone && <span className="inline-flex items-center gap-1.5"><PhoneIcon className="w-3.5 h-3.5"/> {member.phone}</span>}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex-shrink-0 flex items-center gap-2 self-end sm:self-center">

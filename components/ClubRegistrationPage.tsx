@@ -17,9 +17,7 @@ import CheckCircleIcon from './icons/CheckCircleIcon';
 const ClubRegistrationPage: React.FC = () => {
     const { signup, user } = useAuth();
     const navigate = useNavigate();
-    const [step, setStep] = useState(1);
     const [allTeams, setAllTeams] = useState<string[]>([]);
-    const [loadingTeams, setLoadingTeams] = useState(true);
     
     // Form State
     const [clubName, setClubName] = useState('');
@@ -32,6 +30,13 @@ const ClubRegistrationPage: React.FC = () => {
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+
+    const tiers = [
+        { name: 'Basic', price: 'Free', features: 'Public Profile, Squad List, Fixtures & Results' },
+        { name: 'Professional', price: 'E120/mo', features: 'Admin Portal Access, Post News, Update Scores' },
+        { name: 'Elite', price: 'E250/mo', features: 'Merchandise Store, Video Hub Embedding, Sponsor Slots' },
+        { name: 'Enterprise', price: 'E500/mo', features: 'Branded Club Hub (Ad-free), Sponsorship Analytics, Dedicated Manager' },
+    ];
 
     useEffect(() => {
         const loadTeams = async () => {
@@ -73,8 +78,6 @@ const ClubRegistrationPage: React.FC = () => {
                 setAllTeams(filteredList);
             } catch (err) {
                 console.error("Error loading team list:", err);
-            } finally {
-                setLoadingTeams(false);
             }
         };
         loadTeams();
@@ -156,31 +159,30 @@ const ClubRegistrationPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Benefits Section */}
+                    {/* Benefits & Pricing Section */}
                     <div className="space-y-6">
                         <Card className="bg-blue-600 text-white border-none shadow-xl">
                             <CardContent className="p-8">
-                                <h3 className="text-xl font-bold mb-4">Why Register?</h3>
-                                <ul className="space-y-4">
-                                    <li className="flex items-start gap-3">
-                                        <div className="bg-white/20 p-1 rounded-full mt-1"><CheckCircleIcon className="w-4 h-4"/></div>
-                                        <span><strong>Official Badge:</strong> Get the verified checkmark on your club page.</span>
-                                    </li>
-                                    <li className="flex items-start gap-3">
-                                        <div className="bg-white/20 p-1 rounded-full mt-1"><CheckCircleIcon className="w-4 h-4"/></div>
-                                        <span><strong>Direct Control:</strong> Update scores, fixtures, and squad lists instantly.</span>
-                                    </li>
-                                    <li className="flex items-start gap-3">
-                                        <div className="bg-white/20 p-1 rounded-full mt-1"><CheckCircleIcon className="w-4 h-4"/></div>
-                                        <span><strong>Fan Engagement:</strong> Post news, create polls, and upload galleries.</span>
-                                    </li>
-                                    <li className="flex items-start gap-3">
-                                        <div className="bg-white/20 p-1 rounded-full mt-1"><CheckCircleIcon className="w-4 h-4"/></div>
-                                        <span><strong>Analytics:</strong> Access insights on player performance and fan interaction.</span>
-                                    </li>
-                                </ul>
+                                <h3 className="text-xl font-bold mb-4">Membership Tiers</h3>
+                                <div className="space-y-4">
+                                    {tiers.map((tier) => (
+                                        <div key={tier.name} className="flex justify-between items-center border-b border-blue-500 pb-2 last:border-0">
+                                            <div>
+                                                <p className="font-bold text-base">{tier.name}</p>
+                                                <p className="text-blue-100 text-xs">{tier.features}</p>
+                                            </div>
+                                            <div className="text-right pl-2">
+                                                <span className="bg-white/20 px-2 py-1 rounded text-sm font-bold whitespace-nowrap">{tier.price}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="mt-6 text-xs text-blue-200">
+                                    * You will be able to select your plan after your account is verified.
+                                </p>
                             </CardContent>
                         </Card>
+                        
                         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                             <h4 className="font-bold text-gray-800 mb-2">Verification Process</h4>
                             <p className="text-sm text-gray-600">
@@ -245,7 +247,7 @@ const ClubRegistrationPage: React.FC = () => {
                                         {isSubmitting ? <Spinner className="w-5 h-5 border-2" /> : 'Submit Registration'}
                                     </Button>
                                     <p className="text-xs text-center text-gray-500 mt-4">
-                                        By registering, you agree to our Terms of Service and verify that you are an authorized representative of the club.
+                                        By registering, you agree to our Terms of Service.
                                     </p>
                                 </div>
                             </form>

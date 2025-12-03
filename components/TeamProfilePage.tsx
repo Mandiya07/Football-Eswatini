@@ -23,6 +23,11 @@ import TeamRosterModal from './admin/TeamRosterModal';
 import { db } from '../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps, findInMap, calculateStandings } from '../services/utils';
+import FacebookIcon from './icons/FacebookIcon';
+import InstagramIcon from './icons/InstagramIcon';
+import YouTubeIcon from './icons/YouTubeIcon';
+import TwitterIcon from './icons/TwitterIcon';
+import GlobeIcon from './icons/GlobeIcon';
 
 const TeamProfilePage: React.FC = () => {
   const { competitionId, teamId } = useParams<{ competitionId: string, teamId: string }>();
@@ -250,10 +255,18 @@ const TeamProfilePage: React.FC = () => {
   const canManage = user?.role === 'super_admin' || (user?.role === 'club_admin' && user?.club === team.name);
   const isSuperAdmin = user?.role === 'super_admin';
 
+  // Branding Logic
+  const hasBranding = !!team.branding;
+  const primaryColor = team.branding?.primaryColor || '#000000'; // Default black fallback if not branded
+  const secondaryColor = team.branding?.secondaryColor || '#FFFFFF';
+  const bannerUrl = team.branding?.bannerUrl || "https://picsum.photos/1200/300?blur=5&grayscale";
+  const welcomeMsg = team.branding?.welcomeMessage;
+  const socialLinks = team.socialMedia;
+
   const renderContent = () => {
     switch(activeTab) {
-        case 'overview': return <OverviewTab team={team} />;
-        case 'squad': return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} onDeletePlayer={handleDeletePlayer} isSuperAdmin={isSuperAdmin} />;
+        case 'overview': return <OverviewTab team={team} primaryColor={hasBranding ? primaryColor : undefined} welcomeMessage={welcomeMsg} />;
+        case 'squad': return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} onDeletePlayer={handleDeletePlayer} isSuperAdmin={isSuperAdmin} primaryColor={hasBranding ? primaryColor : undefined} />;
         case 'fixtures': return <FixturesTab fixtures={teamFixtures} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} onDeleteFixture={handleDeleteFixture} isSuperAdmin={isSuperAdmin} />;
         case 'results': return <ResultsTab results={teamResults} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} onDeleteFixture={handleDeleteFixture} isSuperAdmin={isSuperAdmin} />;
         default: return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} onDeletePlayer={handleDeletePlayer} isSuperAdmin={isSuperAdmin} />;
@@ -261,7 +274,7 @@ const TeamProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="py-12">
+    <div className="py-12" style={hasBranding ? { backgroundColor: `${primaryColor}10` } : {}}>
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
             <button
@@ -273,11 +286,36 @@ const TeamProfilePage: React.FC = () => {
             </button>
         </div>
 
-        <Card className="shadow-lg animate-fade-in overflow-hidden">
-            <header className="bg-cover bg-center p-8" style={{backgroundImage: "url('https://picsum.photos/1200/300?blur=5&grayscale')"}}>
-                <div className="relative flex flex-col sm:flex-row items-center gap-6 bg-black/30 backdrop-blur-sm p-6 rounded-xl">
-                    <img src={crestUrl} alt={`${team.name} crest`} className="w-24 h-24 sm:w-32 sm:h-32 object-contain bg-white/80 rounded-full p-2" />
-                    <h1 className="text-3xl sm:text-5xl font-display font-extrabold text-white text-center sm:text-left tracking-tight" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.7)'}}>{team.name}</h1>
+        <Card className="shadow-lg animate-fade-in overflow-hidden" style={hasBranding ? { borderTop: `4px solid ${secondaryColor}` } : {}}>
+            {/* Dynamic Banner Header */}
+            <header 
+                className="bg-cover bg-center p-8 relative" 
+                style={{ 
+                    backgroundImage: `url('${bannerUrl}')`,
+                    height: '300px' 
+                }}
+            >
+                {/* Overlay for readability if using custom image */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent"></div>
+
+                <div className="relative h-full flex flex-col sm:flex-row items-end sm:items-center gap-6 z-10">
+                    <img src={crestUrl} alt={`${team.name} crest`} className="w-24 h-24 sm:w-32 sm:h-32 object-contain bg-white rounded-full p-2 border-4 border-white shadow-lg" />
+                    <div className="mb-2 flex-grow">
+                        <h1 className="text-3xl sm:text-5xl font-display font-extrabold text-white tracking-tight" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>{team.name}</h1>
+                        {hasBranding && <span className="text-white/90 font-medium text-sm bg-white/20 px-2 py-1 rounded backdrop-blur-sm border border-white/30">Official Club Hub</span>}
+                        
+                        {/* Social Media Icons in Header */}
+                        {socialLinks && (
+                            <div className="flex gap-3 mt-4">
+                                {socialLinks.facebook && <a href={socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors"><FacebookIcon className="w-5 h-5"/></a>}
+                                {socialLinks.twitter && <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors"><TwitterIcon className="w-5 h-5"/></a>}
+                                {socialLinks.instagram && <a href={socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors"><InstagramIcon className="w-5 h-5"/></a>}
+                                {socialLinks.youtube && <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors"><YouTubeIcon className="w-5 h-5"/></a>}
+                                {socialLinks.website && <a href={socialLinks.website} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors"><GlobeIcon className="w-5 h-5"/></a>}
+                            </div>
+                        )}
+                    </div>
+                    
                      {isSuperAdmin && (
                         <div className="absolute top-2 right-2 flex gap-2">
                             <button
@@ -303,11 +341,11 @@ const TeamProfilePage: React.FC = () => {
             </header>
             
             <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-4 px-6" aria-label="Tabs">
-                    <TabButton name="overview" label="Overview" Icon={BarChartIcon} activeTab={activeTab} setActiveTab={setActiveTab} />
-                    <TabButton name="squad" label="Squad" Icon={UsersIcon} activeTab={activeTab} setActiveTab={setActiveTab} />
-                    <TabButton name="fixtures" label="Fixtures" Icon={CalendarIcon} activeTab={activeTab} setActiveTab={setActiveTab} />
-                    <TabButton name="results" label="Results" Icon={CheckCircleIcon} activeTab={activeTab} setActiveTab={setActiveTab} />
+                <nav className="-mb-px flex space-x-4 px-6 overflow-x-auto" aria-label="Tabs">
+                    <TabButton name="overview" label="Overview" Icon={BarChartIcon} activeTab={activeTab} setActiveTab={setActiveTab} activeColor={hasBranding ? primaryColor : undefined} />
+                    <TabButton name="squad" label="Squad" Icon={UsersIcon} activeTab={activeTab} setActiveTab={setActiveTab} activeColor={hasBranding ? primaryColor : undefined} />
+                    <TabButton name="fixtures" label="Fixtures" Icon={CalendarIcon} activeTab={activeTab} setActiveTab={setActiveTab} activeColor={hasBranding ? primaryColor : undefined} />
+                    <TabButton name="results" label="Results" Icon={CheckCircleIcon} activeTab={activeTab} setActiveTab={setActiveTab} activeColor={hasBranding ? primaryColor : undefined} />
                 </nav>
             </div>
 
@@ -343,21 +381,29 @@ interface TabButtonProps {
     Icon: React.FC<React.SVGProps<SVGSVGElement>>;
     activeTab: string;
     setActiveTab: (name: string) => void;
+    activeColor?: string;
 }
 
-const TabButton: React.FC<TabButtonProps> = ({ name, label, Icon, activeTab, setActiveTab }) => (
-    <button
-      onClick={() => setActiveTab(name)}
-      className={`
-        ${activeTab === name ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-        whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm inline-flex items-center gap-2 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-t-sm
-      `}
-      aria-current={activeTab === name ? 'page' : undefined}
-    >
-      <Icon className="w-5 h-5" />
-      {label}
-    </button>
-);
+const TabButton: React.FC<TabButtonProps> = ({ name, label, Icon, activeTab, setActiveTab, activeColor }) => {
+    const isActive = activeTab === name;
+    // Dynamic styles for branded pages
+    const style = isActive && activeColor ? { color: activeColor, borderColor: activeColor } : {};
+    
+    return (
+        <button
+          onClick={() => setActiveTab(name)}
+          style={style}
+          className={`
+            ${isActive ? (activeColor ? '' : 'border-blue-600 text-blue-600') : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm inline-flex items-center gap-2 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-t-sm
+          `}
+          aria-current={isActive ? 'page' : undefined}
+        >
+          <Icon className="w-5 h-5" />
+          {label}
+        </button>
+    );
+};
 
 const StatBox: React.FC<{label: string; value: string | number; color?: 'green' | 'yellow' | 'red' | 'blue'; className?: string}> = ({ label, value, color, className = '' }) => {
     const colorClasses = {
@@ -375,7 +421,7 @@ const StatBox: React.FC<{label: string; value: string | number; color?: 'green' 
     );
 };
 
-const OverviewTab: React.FC<{team: Team}> = ({team}) => {
+const OverviewTab: React.FC<{team: Team, primaryColor?: string, welcomeMessage?: string}> = ({team, primaryColor, welcomeMessage}) => {
     if (!team.stats) {
         return (
             <div className="text-center py-8 text-gray-500">
@@ -385,6 +431,13 @@ const OverviewTab: React.FC<{team: Team}> = ({team}) => {
     }
     return (
         <div className="space-y-8">
+            {welcomeMessage && (
+                <div className="bg-gray-50 border-l-4 p-4 rounded-r-lg" style={primaryColor ? { borderColor: primaryColor } : { borderColor: '#3b82f6' }}>
+                    <h3 className="font-bold text-lg mb-1" style={primaryColor ? { color: primaryColor } : { color: '#1e40af' }}>Club Statement</h3>
+                    <p className="text-gray-700 italic">"{welcomeMessage}"</p>
+                </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
                 <StatBox label="Played" value={team.stats.p} />
                 <StatBox label="Won" value={team.stats.w} color="green" />
@@ -416,13 +469,14 @@ const OverviewTab: React.FC<{team: Team}> = ({team}) => {
 };
 
 
-const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () => void, onDeletePlayer?: (id: number) => void, isSuperAdmin: boolean}> = ({players, canManage, onManage, onDeletePlayer, isSuperAdmin}) => (
+const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () => void, onDeletePlayer?: (id: number) => void, isSuperAdmin: boolean, primaryColor?: string}> = ({players, canManage, onManage, onDeletePlayer, isSuperAdmin, primaryColor}) => (
     <div>
         {canManage && (
             <div className="flex justify-end mb-6">
                 <button 
                     onClick={onManage}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-md hover:bg-blue-700 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-semibold rounded-md hover:opacity-90 transition-opacity shadow-sm"
+                    style={{ backgroundColor: primaryColor || '#2563eb' }}
                 >
                     <PlusCircleIcon className="w-4 h-4" />
                     Manage Squad
@@ -435,7 +489,10 @@ const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () =>
                     <Link to={`/players/${player.id}`} className="block">
                         <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
                             <div className="relative">
-                                <div className="h-24 bg-gradient-to-br from-primary to-primary-dark relative overflow-hidden flex justify-center items-end pb-2">
+                                <div 
+                                    className="h-24 relative overflow-hidden flex justify-center items-end pb-2"
+                                    style={{ background: primaryColor ? `linear-gradient(to bottom right, ${primaryColor}, #000)` : 'linear-gradient(to bottom right, #002B7F, #001e5a)' }}
+                                >
                                     {player.photoUrl ? (
                                         <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 z-10">
                                             <img src={player.photoUrl} alt={player.name} className="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover bg-white" />
@@ -453,7 +510,7 @@ const SquadTab: React.FC<{players: Player[], canManage: boolean, onManage: () =>
                                 </div>
                             </div>
                             <CardContent className="p-4 pt-10 text-center">
-                                <p className="font-bold text-gray-900 truncate group-hover:text-primary transition-colors mb-1">{player.name}</p>
+                                <p className="font-bold text-gray-900 truncate mb-1" style={primaryColor ? { color: primaryColor } : {}}>{player.name}</p>
                                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{player.position}</p>
                             </CardContent>
                         </Card>

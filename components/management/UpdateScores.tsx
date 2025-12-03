@@ -94,7 +94,7 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                 home_team: match.teamA,
                 away_team: match.teamB,
                 minute: 0, // System update
-                type: newStatus === 'finished' ? 'full_time' : newStatus === 'suspended' ? 'match_suspended' : 'half_time', // Simplified type mapping
+                type: newStatus === 'finished' ? 'full_time' : newStatus === 'suspended' ? 'match_suspended' : 'half_time',
                 player: '',
                 description: message,
                 score_home: match.scoreA || 0,
@@ -110,16 +110,11 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                 const competition = docSnap.data() as Competition;
                 const fixtureIndex = competition.fixtures.findIndex(f => f.id === match.id);
                 
-                // If checking for 'finished' status, we might need to move it arrays, 
-                // but for simplicity in this club view, we just update the status in place 
-                // unless it is FINAL time.
-                
                 let updatedFixtures = [...competition.fixtures];
                 let updatedResults = [...(competition.results || [])];
                 let updatedTeams = competition.teams;
 
                 if (newStatus === 'finished') {
-                    // Move to results
                     if (fixtureIndex !== -1) {
                         const finishedFixture = { ...competition.fixtures[fixtureIndex], status: 'finished' as const };
                         updatedFixtures.splice(fixtureIndex, 1);
@@ -174,7 +169,6 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
         const player = squad.find(p => p.id.toString() === selectedPlayerId);
         const playerName = player ? player.name : 'Unknown Player';
         
-        // Auto-generate description if empty
         let finalDescription = eventDescription;
         if (!finalDescription) {
             if (eventType === 'goal') finalDescription = `Goal! ${playerName} finds the net.`;
@@ -190,21 +184,19 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
         };
 
         try {
-            // 1. Send Live Ticker Update (Real-time feed)
             await addLiveUpdate({
                 fixture_id: String(activeMatch.id),
                 competition: 'MTN Premier League',
                 home_team: activeMatch.teamA,
                 away_team: activeMatch.teamB,
                 minute: parseInt(eventMinute),
-                type: eventType === 'yellow-card' ? 'yellow_card' : eventType === 'red-card' ? 'red_card' : 'goal', // mapping types
+                type: eventType === 'yellow-card' ? 'yellow_card' : eventType === 'red-card' ? 'red_card' : 'goal',
                 player: playerName,
                 description: finalDescription,
                 score_home: activeMatch.teamA === clubName && eventType === 'goal' ? (activeMatch.scoreA || 0) + 1 : (activeMatch.scoreA || 0),
                 score_away: activeMatch.teamB === clubName && eventType === 'goal' ? (activeMatch.scoreB || 0) + 1 : (activeMatch.scoreB || 0),
             });
 
-            // 2. Update Official Match Data (Persistence)
             const docRef = doc(db, 'competitions', COMPETITION_ID);
             
             await runTransaction(db, async (transaction) => {
@@ -218,7 +210,6 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                 const fixture = competition.fixtures[fixtureIndex];
                 const updatedEvents = [...(fixture.events || []), newEvent];
                 
-                // Update score if goal
                 let newScoreA = fixture.scoreA ?? 0;
                 let newScoreB = fixture.scoreB ?? 0;
                 
@@ -233,7 +224,7 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                     scoreB: newScoreB,
                     events: updatedEvents,
                     liveMinute: parseInt(eventMinute),
-                    status: 'live' as const // Ensure match is marked live when events happen
+                    status: 'live' as const
                 };
 
                 const updatedFixtures = [...competition.fixtures];
@@ -250,7 +241,6 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
             setEventMinute('');
             setEventDescription('');
             
-            // Refresh local state
             setMatches(prev => prev.map(m => {
                 if (m.id === activeMatch.id) {
                     let sA = m.scoreA ?? 0;
@@ -297,7 +287,6 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                 
                 {loading ? <Spinner /> : matches.length > 0 ? (
                     <div className="space-y-6">
-                        {/* Match Selector / Active Match Display */}
                         <div className="grid grid-cols-1 gap-4">
                             {matches.map(match => (
                                 <div key={match.id} className={`border rounded-lg overflow-hidden transition-all ${activeMatchId === match.id ? 'ring-2 ring-primary border-transparent' : 'bg-white'}`}>
@@ -315,7 +304,6 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                                             <span className="font-bold text-lg text-left w-1/3">{match.teamB}</span>
                                         </div>
                                         
-                                        {/* Status Controls */}
                                         <div className="flex flex-wrap gap-2 justify-center mb-4">
                                             {match.status === 'scheduled' && (
                                                 <Button 
@@ -366,7 +354,6 @@ const UpdateScores: React.FC<{ clubName: string }> = ({ clubName }) => {
                                         )}
                                     </div>
 
-                                    {/* Console Controls */}
                                     {activeMatchId === match.id && (
                                         <div className="bg-blue-50 p-4 border-t border-blue-100 animate-slide-down">
                                             <form onSubmit={handleLogEvent} className="space-y-4">

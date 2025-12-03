@@ -7,7 +7,6 @@ import { NewsItem } from '../data/news';
 import ChevronLeftIcon from './icons/ChevronLeftIcon';
 import ChevronRightIcon from './icons/ChevronRightIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
-// FIX: Import 'fetchNews' which is now correctly exported from the API service.
 import { fetchNews } from '../services/api';
 import MegaphoneIcon from './icons/MegaphoneIcon';
 
@@ -38,9 +37,9 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
 
     const handleShare = async (e: React.MouseEvent) => {
         e.preventDefault();
-        e.stopPropagation(); // Prevent link navigation
+        e.stopPropagation();
 
-        // Use current page base + hash path to ensure valid URL regardless of environment (e.g. file:// or unusual ports)
+        // Use current page base + hash path to ensure valid absolute URL
         const baseUrl = window.location.href.split('#')[0];
         const articleUrl = `${baseUrl}#${item.url}`;
 
@@ -62,7 +61,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
           try {
             await navigator.clipboard.writeText(shareData.url);
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
+            setTimeout(() => setCopied(false), 2000); 
           } catch (err) {
             console.error('Failed to copy to clipboard:', err);
             alert('Could not copy link to clipboard.');
@@ -181,7 +180,6 @@ const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
             return cats.includes(category);
         })
         : allNews.filter(item => {
-            // Logic to exclude items that are ONLY 'Community Football Hub'
             const cats = Array.isArray(item.category) ? item.category : [item.category];
             const isCommunityExclusive = cats.includes('Community Football Hub') && cats.length === 1;
             return !isCommunityExclusive;
