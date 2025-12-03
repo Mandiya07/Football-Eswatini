@@ -20,6 +20,8 @@ import InstagramIcon from './icons/InstagramIcon';
 import YouTubeIcon from './icons/YouTubeIcon';
 import TwitterIcon from './icons/TwitterIcon';
 import GlobeIcon from './icons/GlobeIcon';
+import FilmIcon from './icons/FilmIcon';
+import VideoPlayer from './VideoPlayer';
 
 // Mock Data for the Example
 const MOCK_BRANDED_TEAM: Team = {
@@ -61,6 +63,10 @@ const MOCK_BRANDED_TEAM: Team = {
         youtube: '#',
         website: '#'
     },
+    videos: [
+        { id: 'v1', title: 'Match Highlights: Swallows vs Wanderers', url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', date: '2023-11-01' },
+        { id: 'v2', title: 'Coach Interview Pre-Match', url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4', date: '2023-10-28' }
+    ],
     kitSponsor: {
         name: 'Moneni',
         logoUrl: 'https://via.placeholder.com/100x50?text=Sponsor'
@@ -196,6 +202,7 @@ const BrandedClubExample: React.FC = () => {
                     <TabButton name="staff" label="Staff" Icon={BriefcaseIcon} />
                     <TabButton name="fixtures" label="Fixtures" Icon={CalendarIcon} />
                     <TabButton name="gallery" label="Gallery" Icon={PhotoIcon} />
+                    <TabButton name="videos" label="Videos" Icon={FilmIcon} />
                     <TabButton name="fans" label="Fan Zone" Icon={VoteIcon} />
                 </nav>
             </div>
@@ -370,6 +377,25 @@ const BrandedClubExample: React.FC = () => {
                                     <img src={img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                         <PhotoIcon className="w-8 h-8 text-white" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'videos' && (
+                    <div>
+                        <h3 className="text-xl font-bold font-display mb-4 text-gray-800">Video Hub</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {team.videos?.map(video => (
+                                <div key={video.id} className="bg-white border rounded-lg overflow-hidden shadow-sm">
+                                    <div className="relative">
+                                        <VideoPlayer src={video.url} title={video.title} />
+                                    </div>
+                                    <div className="p-3">
+                                        <p className="font-bold text-sm text-gray-900 line-clamp-2">{video.title}</p>
+                                        <p className="text-xs text-gray-500 mt-1">{video.date}</p>
                                     </div>
                                 </div>
                             ))}

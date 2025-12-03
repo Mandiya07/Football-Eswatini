@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Team, Player, Competition, CompetitionFixture } from '../data/teams';
+import { Team, Player, Competition, CompetitionFixture, TeamVideo } from '../data/teams';
 import { fetchCompetition, handleFirestoreError, fetchDirectoryEntries } from '../services/api';
 import { DirectoryEntity } from '../data/directory';
 import { Card, CardContent } from './ui/Card';
@@ -28,6 +28,8 @@ import InstagramIcon from './icons/InstagramIcon';
 import YouTubeIcon from './icons/YouTubeIcon';
 import TwitterIcon from './icons/TwitterIcon';
 import GlobeIcon from './icons/GlobeIcon';
+import FilmIcon from './icons/FilmIcon';
+import VideoPlayer from './VideoPlayer';
 
 const TeamProfilePage: React.FC = () => {
   const { competitionId, teamId } = useParams<{ competitionId: string, teamId: string }>();
@@ -269,6 +271,7 @@ const TeamProfilePage: React.FC = () => {
         case 'squad': return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} onDeletePlayer={handleDeletePlayer} isSuperAdmin={isSuperAdmin} primaryColor={hasBranding ? primaryColor : undefined} />;
         case 'fixtures': return <FixturesTab fixtures={teamFixtures} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} onDeleteFixture={handleDeleteFixture} isSuperAdmin={isSuperAdmin} />;
         case 'results': return <ResultsTab results={teamResults} teamName={team.name} allTeams={allTeams} competitionId={competitionId!} onDeleteFixture={handleDeleteFixture} isSuperAdmin={isSuperAdmin} />;
+        case 'videos': return <VideosTab videos={team.videos} />;
         default: return <SquadTab players={team.players} canManage={canManage} onManage={() => setIsRosterModalOpen(true)} onDeletePlayer={handleDeletePlayer} isSuperAdmin={isSuperAdmin} />;
     }
   }
@@ -346,6 +349,7 @@ const TeamProfilePage: React.FC = () => {
                     <TabButton name="squad" label="Squad" Icon={UsersIcon} activeTab={activeTab} setActiveTab={setActiveTab} activeColor={hasBranding ? primaryColor : undefined} />
                     <TabButton name="fixtures" label="Fixtures" Icon={CalendarIcon} activeTab={activeTab} setActiveTab={setActiveTab} activeColor={hasBranding ? primaryColor : undefined} />
                     <TabButton name="results" label="Results" Icon={CheckCircleIcon} activeTab={activeTab} setActiveTab={setActiveTab} activeColor={hasBranding ? primaryColor : undefined} />
+                    <TabButton name="videos" label="Videos" Icon={FilmIcon} activeTab={activeTab} setActiveTab={setActiveTab} activeColor={hasBranding ? primaryColor : undefined} />
                 </nav>
             </div>
 
@@ -647,5 +651,24 @@ const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, al
     );
 };
 
+const VideosTab: React.FC<{ videos?: TeamVideo[] }> = ({ videos }) => {
+    if (!videos || videos.length === 0) return <p className="text-gray-500 text-center py-8">No videos uploaded yet.</p>;
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {videos.map(video => (
+                <div key={video.id} className="bg-white border rounded-lg overflow-hidden shadow-sm">
+                    <div className="relative">
+                        <VideoPlayer src={video.url} title={video.title} />
+                    </div>
+                    <div className="p-3">
+                        <p className="font-bold text-sm text-gray-900 line-clamp-2">{video.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">{video.date}</p>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 export default TeamProfilePage;

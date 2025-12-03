@@ -1,6 +1,7 @@
 
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState, lazy, Suspense, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import ClubLoginPrompt from './management/ClubLoginPrompt';
 import UpdateScores from './management/UpdateScores';
 import ManageSquad from './management/ManageSquad';
@@ -17,6 +18,7 @@ import ShareIcon from './icons/ShareIcon';
 import BarChartIcon from './icons/BarChartIcon';
 import PaintBucketIcon from './icons/PaintBucketIcon';
 import SectionLoader from './SectionLoader';
+import FilmIcon from './icons/FilmIcon';
 
 const ClubNewsManagement = lazy(() => import('./management/ClubNewsManagement'));
 const ClubGalleryManagement = lazy(() => import('./management/ClubGalleryManagement'));
@@ -24,10 +26,33 @@ const ClubPollsManagement = lazy(() => import('./management/ClubPollsManagement'
 const ClubSocialMedia = lazy(() => import('./management/ClubSocialMedia'));
 const ClubAnalytics = lazy(() => import('./management/ClubAnalytics'));
 const ClubBranding = lazy(() => import('./management/ClubBranding'));
+const ClubVideoManagement = lazy(() => import('./management/ClubVideoManagement'));
+
+type ClubTab = 'scores' | 'squad' | 'staff' | 'matchday' | 'news' | 'gallery' | 'videos' | 'polls' | 'social' | 'analytics' | 'branding';
 
 const ClubManagementPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'scores' | 'squad' | 'staff' | 'matchday' | 'news' | 'gallery' | 'polls' | 'social' | 'analytics' | 'branding'>('scores');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get initial tab from URL or default to 'scores'
+  const tabParam = searchParams.get('tab');
+  const validTabs: ClubTab[] = ['scores', 'squad', 'staff', 'matchday', 'news', 'gallery', 'videos', 'polls', 'social', 'analytics', 'branding'];
+  const initialTab = (tabParam && validTabs.includes(tabParam as ClubTab)) ? (tabParam as ClubTab) : 'scores';
+
+  const [activeTab, setActiveTabState] = useState<ClubTab>(initialTab);
+
+  // Sync state with URL changes (e.g. back button)
+  useEffect(() => {
+      const currentTab = searchParams.get('tab');
+      if (currentTab && validTabs.includes(currentTab as ClubTab)) {
+          setActiveTabState(currentTab as ClubTab);
+      }
+  }, [searchParams]);
+
+  const setActiveTab = (tab: ClubTab) => {
+      setActiveTabState(tab);
+      setSearchParams({ tab });
+  };
 
   if (!isLoggedIn || (user?.role !== 'club_admin' && user?.role !== 'super_admin')) {
     return (
@@ -55,6 +80,8 @@ const ClubManagementPage: React.FC = () => {
         return <Suspense fallback={<SectionLoader />}><ClubNewsManagement clubName={user.club!} /></Suspense>;
       case 'gallery':
         return <Suspense fallback={<SectionLoader />}><ClubGalleryManagement clubName={user.club!} /></Suspense>;
+      case 'videos':
+        return <Suspense fallback={<SectionLoader />}><ClubVideoManagement clubName={user.club!} /></Suspense>;
       case 'polls':
         return <Suspense fallback={<SectionLoader />}><ClubPollsManagement clubName={user.club!} /></Suspense>;
       case 'social':
@@ -66,7 +93,7 @@ const ClubManagementPage: React.FC = () => {
     }
   };
 
-  const TabButton: React.FC<{tabName: typeof activeTab; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>>}> = ({ tabName, label, Icon }) => (
+  const TabButton: React.FC<{tabName: ClubTab; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>>}> = ({ tabName, label, Icon }) => (
     <button
         onClick={() => setActiveTab(tabName)}
         className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-md transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light w-full text-left ${
@@ -111,6 +138,7 @@ const ClubManagementPage: React.FC = () => {
                             <TabButton tabName="branding" label="Branded Club Hub" Icon={PaintBucketIcon} />
                             <TabButton tabName="news" label="News & Announcements" Icon={NewspaperIcon} />
                             <TabButton tabName="gallery" label="Photo Galleries" Icon={PhotoIcon} />
+                            <TabButton tabName="videos" label="Video Hub" Icon={FilmIcon} />
                             <TabButton tabName="polls" label="Fan Polls" Icon={VoteIcon} />
                             <TabButton tabName="social" label="Social Media Integration" Icon={ShareIcon} />
                             

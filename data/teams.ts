@@ -70,6 +70,13 @@ export interface TeamSocialMedia {
     website?: string;
 }
 
+export interface TeamVideo {
+    id: string;
+    title: string;
+    url: string;
+    date: string;
+}
+
 export interface Team {
   id: number;
   name: string;
@@ -85,6 +92,7 @@ export interface Team {
   };
   branding?: TeamBranding;
   socialMedia?: TeamSocialMedia;
+  videos?: TeamVideo[];
   competitionId?: string;
 }
 

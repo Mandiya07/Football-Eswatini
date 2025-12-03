@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -8,15 +9,19 @@ import ShoppingCartIcon from './icons/ShoppingCartIcon';
 import CartModal from './CartModal';
 import SecondaryNavigation from './SecondaryNavigation';
 import Logo from './Logo';
+import ShieldIcon from './icons/ShieldIcon';
+import ChevronDownIcon from './icons/ChevronDownIcon';
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isClubMenuOpen, setIsClubMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { isLoggedIn, user, openAuthModal, logout } = useAuth();
   const { cartCount } = useCart();
   const profileRef = useRef<HTMLDivElement>(null);
+  const clubMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const navItems = [
@@ -37,6 +42,9 @@ const Navigation: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
+      }
+      if (clubMenuRef.current && !clubMenuRef.current.contains(event.target as Node)) {
+        setIsClubMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -81,6 +89,33 @@ const Navigation: React.FC = () => {
                   </NavLink>
                 ))}
                 
+                {/* Dedicated Club Portal Dropdown for Club Admins */}
+                {isLoggedIn && user?.role === 'club_admin' && (
+                  <div className="relative" ref={clubMenuRef}>
+                      <button 
+                          onClick={() => setIsClubMenuOpen(!isClubMenuOpen)}
+                          className="flex items-center gap-1 text-white hover:text-accent transition-colors duration-300 text-sm font-bold border border-white/20 px-3 py-1.5 rounded-md hover:bg-white/10 group"
+                      >
+                          <ShieldIcon className="w-4 h-4 group-hover:text-accent" />
+                          <span>Club Portal</span>
+                          <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${isClubMenuOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {isClubMenuOpen && (
+                          <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50 animate-fade-in-fast ring-1 ring-black ring-opacity-5">
+                               <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase border-b bg-gray-50 truncate">
+                                  {user.club || 'My Club'}
+                               </div>
+                               <Link to="/club-management?tab=scores" onClick={() => setIsClubMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary font-medium">Update Scores</Link>
+                               <Link to="/club-management?tab=news" onClick={() => setIsClubMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary font-medium">Post News</Link>
+                               <Link to="/club-management?tab=squad" onClick={() => setIsClubMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary font-medium">Manage Squad</Link>
+                               <Link to="/club-management?tab=matchday" onClick={() => setIsClubMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary font-medium">Team Sheet</Link>
+                               <div className="border-t border-gray-100 my-1"></div>
+                               <Link to="/club-management" onClick={() => setIsClubMenuOpen(false)} className="block px-4 py-2 text-sm font-bold text-primary hover:bg-gray-50">Go to Dashboard &rarr;</Link>
+                          </div>
+                      )}
+                  </div>
+                )}
+
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                     <SearchIcon className="h-4 w-4 text-gray-300" />
@@ -198,6 +233,21 @@ const Navigation: React.FC = () => {
                   {item.name}
                 </NavLink>
               ))}
+              
+              {/* Mobile Club Portal Shortcuts */}
+              {isLoggedIn && user?.role === 'club_admin' && (
+                  <div className="mt-2 mb-2 pb-2 border-b border-primary-light/50">
+                      <div className="px-3 text-xs font-bold text-accent uppercase tracking-wider mb-1 mt-3">Club Management</div>
+                      <NavLink to="/club-management" onClick={() => setIsOpen(false)} className="text-white hover:bg-primary-light block px-3 py-2 rounded-md text-base font-medium flex items-center gap-2 bg-white/10">
+                         <ShieldIcon className="w-4 h-4" /> Club Portal Dashboard
+                      </NavLink>
+                      <div className="pl-4 space-y-1 mt-1">
+                          <NavLink to="/club-management?tab=scores" onClick={() => setIsOpen(false)} className="text-gray-300 hover:text-white hover:bg-primary-light block px-3 py-1.5 rounded-md text-sm">Update Scores</NavLink>
+                          <NavLink to="/club-management?tab=news" onClick={() => setIsOpen(false)} className="text-gray-300 hover:text-white hover:bg-primary-light block px-3 py-1.5 rounded-md text-sm">Post News</NavLink>
+                          <NavLink to="/club-management?tab=matchday" onClick={() => setIsOpen(false)} className="text-gray-300 hover:text-white hover:bg-primary-light block px-3 py-1.5 rounded-md text-sm">Team Sheet</NavLink>
+                      </div>
+                  </div>
+              )}
                 
               <div className="border-t border-primary-dark mt-3 pt-3">
                 {isLoggedIn && user ? (
