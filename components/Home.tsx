@@ -2,7 +2,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Hero from './Hero';
 import QuickAccess from './QuickAccess';
-import LiveScoreboard from './LiveScoreboard';
 import OnboardingModal from './OnboardingModal';
 import { useAuth } from '../contexts/AuthContext';
 import SectionLoader from './SectionLoader';
@@ -38,7 +37,6 @@ const Home: React.FC = () => {
       {showOnboarding && <OnboardingModal onClose={handleOnboardingFinish} />}
       <Hero />
       <QuickAccess />
-      <LiveScoreboard />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-20">
         <Suspense fallback={<SectionLoader />}>
           <SponsorSpotlight />
