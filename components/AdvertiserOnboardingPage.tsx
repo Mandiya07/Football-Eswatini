@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
-import { submitAdvertiserRequest } from '../services/api';
+import { submitAdvertiserRequest, PromoCode } from '../services/api';
 import MegaphoneIcon from './icons/MegaphoneIcon';
 import UserIcon from './icons/UserIcon';
 import MailIcon from './icons/MailIcon';
@@ -12,6 +12,7 @@ import PhoneIcon from './icons/PhoneIcon';
 import Spinner from './ui/Spinner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import BuildingIcon from './icons/BuildingIcon';
+import PromoCodeInput from './ui/PromoCodeInput';
 
 const AdvertiserOnboardingPage: React.FC = () => {
     const navigate = useNavigate();
@@ -22,6 +23,7 @@ const AdvertiserOnboardingPage: React.FC = () => {
     const [industry, setIndustry] = useState('');
     const [budgetRange, setBudgetRange] = useState('E1,000 - E5,000');
     const [interestedPlacements, setInterestedPlacements] = useState<string[]>([]);
+    const [discount, setDiscount] = useState<PromoCode | null>(null);
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -53,6 +55,7 @@ const AdvertiserOnboardingPage: React.FC = () => {
                 industry,
                 budgetRange,
                 interestedPlacements,
+                promoCode: discount ? discount.code : undefined
             });
             setIsSuccess(true);
         } catch (error) {
@@ -153,6 +156,12 @@ const AdvertiserOnboardingPage: React.FC = () => {
                                         </label>
                                     ))}
                                 </div>
+                            </div>
+                            
+                            {/* Promo Code */}
+                            <div>
+                                <PromoCodeInput onApply={setDiscount} />
+                                {discount && <p className="text-xs text-gray-500 mt-1">This discount will be applied to your quote.</p>}
                             </div>
 
                             <div className="pt-4 border-t border-gray-200">

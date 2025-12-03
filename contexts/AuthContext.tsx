@@ -15,6 +15,12 @@ import { handleFirestoreError } from '../services/api';
 // Initialize auth here
 const auth = getAuth(app);
 
+export interface NotificationPreferences {
+    matchAlerts: boolean;
+    news: boolean;
+    announcements: boolean;
+}
+
 export interface User {
   id: string; // Firebase UID
   name: string;
@@ -23,6 +29,7 @@ export interface User {
   role: 'user' | 'club_admin' | 'super_admin';
   club?: string; // Club they manage
   favoriteTeamIds: number[];
+  notificationPreferences: NotificationPreferences;
 }
 
 export type LoginCredentials = { email: string; password?: string; };
@@ -48,6 +55,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const DEFAULT_PREFERENCES: NotificationPreferences = {
+      matchAlerts: true,
+      news: true,
+      announcements: true
+  };
+
   const signup = async (credentials: RegisterCredentials) => {
     const userCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password!);
     const firebaseUser = userCredential.user;
@@ -71,6 +84,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         role: userRole,
         club: userClub,
         favoriteTeamIds: [],
+        notificationPreferences: DEFAULT_PREFERENCES
     };
 
     try {
@@ -102,6 +116,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         avatar: firebaseUser.photoURL || `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
                         role: 'user', // Default to basic user if we can't check DB
                         favoriteTeamIds: [],
+                        notificationPreferences: DEFAULT_PREFERENCES
                     });
                     setLoading(false);
                     return;
@@ -139,6 +154,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         role: userDataFromDb.role,
                         club: userDataFromDb.club,
                         favoriteTeamIds: userDataFromDb.favoriteTeamIds || [],
+                        notificationPreferences: userDataFromDb.notificationPreferences || DEFAULT_PREFERENCES
                     };
                     
                     // Immediately set the user state
@@ -158,6 +174,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         role: expectedRole || 'user',
                         club: expectedClub,
                         favoriteTeamIds: [],
+                        notificationPreferences: DEFAULT_PREFERENCES
                     };
                     try {
                         await setDoc(userDocRef, newUserProfile);

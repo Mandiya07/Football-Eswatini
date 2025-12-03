@@ -20,8 +20,15 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(({ product, onAddToCa
     onAddToCart(product);
   };
 
+  const isOnSale = product.salePrice && product.salePrice < product.price;
+
   return (
-    <Card className="group transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full text-center">
+    <Card className="group transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full text-center relative overflow-hidden">
+      {isOnSale && (
+          <div className="absolute top-0 right-0 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg z-10 shadow-sm">
+              SALE
+          </div>
+      )}
       <div className="relative bg-gray-100 overflow-hidden p-4">
         <img src={product.imageUrl} alt={product.name} loading="lazy" className="w-full h-48 object-contain group-hover:scale-105 transition-transform duration-300" />
       </div>
@@ -29,7 +36,14 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(({ product, onAddToCa
         <div className="flex-grow">
             <p className="text-xs text-gray-500">{product.category}</p>
             <h3 className="text-md font-bold font-display mb-1">{product.name}</h3>
-            <p className="text-lg font-semibold text-blue-600">E{product.price.toFixed(2)}</p>
+            {isOnSale ? (
+                 <div className="flex items-center justify-center gap-2">
+                    <span className="text-gray-400 line-through text-sm">E{product.price.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-red-600">E{product.salePrice!.toFixed(2)}</span>
+                 </div>
+            ) : (
+                <p className="text-lg font-semibold text-blue-600">E{product.price.toFixed(2)}</p>
+            )}
         </div>
         <div className="mt-4">
             <Button

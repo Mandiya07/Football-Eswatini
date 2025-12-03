@@ -1,7 +1,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -16,10 +16,11 @@ const firebaseConfig = {
 // Initialize Firebase and export the app instance
 export const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with persistent local cache settings.
-// We enable experimentalForceLongPolling to ensure stability in environments where 
-// WebSockets might be restricted or slow, preventing the 10-second timeout error.
+// Initialize Firestore with memory cache settings.
+// We use memoryLocalCache instead of persistentLocalCache to avoid initialization timeouts
+// in environments where IndexedDB is slow or restricted (fixing "Backend didn't respond within 10 seconds").
+// experimentalForceLongPolling is enabled to support environments without WebSocket access.
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
+  localCache: memoryLocalCache(),
   experimentalForceLongPolling: true,
 });

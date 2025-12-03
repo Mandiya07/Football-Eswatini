@@ -90,6 +90,12 @@ const initialCategories = [
     { id: 'development', name: 'Development', order: 40 },
 ];
 
+const initialPromoCodes = [
+    { code: 'SAVE10', type: 'percentage', value: 10, isActive: true },
+    { code: 'WELCOME20', type: 'percentage', value: 20, isActive: true },
+    { code: 'FLASHSALE', type: 'fixed', value: 50, isActive: true },
+];
+
 // --- HELPER FUNCTIONS ---
 const generateTeams = (names: string[]): Team[] => {
     return names.map((name, index) => ({
@@ -214,6 +220,12 @@ const SeedDatabase: React.FC = () => {
             for (const item of products) {
                 batch.set(doc(db, 'products', item.id), item);
             }
+            
+            // Seed Promo Codes
+            for (const code of initialPromoCodes) {
+                const docRef = doc(collection(db, 'promo_codes'));
+                batch.set(docRef, code);
+            }
 
             // 5. Regional Competitions Setup
             const regionalCompetitions = [
@@ -303,7 +315,7 @@ const SeedDatabase: React.FC = () => {
             seedLeagueGroup(nationalCompetitions, 'national-teams');
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database seeded successfully! National and Regional leagues are now populated.' });
+            setStatus({ type: 'success', msg: 'Database seeded successfully! Shop Discounts, Leagues, and content updated.' });
         } catch (error) {
             console.error("Seeding failed:", error);
             setStatus({ type: 'error', msg: 'Failed to seed database. Check console for errors.' });
@@ -320,7 +332,7 @@ const SeedDatabase: React.FC = () => {
                     <h3 className="text-2xl font-bold font-display text-gray-800">Seed Database</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
-                    Initialize or reset the database with default content, including the <strong>National Team</strong> competitions and <strong>Regional</strong> leagues.
+                    Initialize or reset the database with default content, including the <strong>National Team</strong> competitions, <strong>Regional</strong> leagues, and <strong>Shop Promo Codes</strong>.
                     Use this if the app is empty or you want to restore default demo data.
                 </p>
 

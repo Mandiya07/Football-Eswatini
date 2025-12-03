@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, NotificationPreferences } from '../contexts/AuthContext';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import TeamSelector from './TeamSelector';
@@ -38,7 +38,10 @@ const ProfileSetupPage: React.FC = () => {
     const [email, setEmail] = useState(user?.email || '');
     const [avatar, setAvatar] = useState(user?.avatar || '');
     const [favoriteTeamIds, setFavoriteTeamIds] = useState(user?.favoriteTeamIds || []);
-    const [notifications, setNotifications] = useState({ alerts: true, summary: true, announcements: false });
+    
+    const [notifications, setNotifications] = useState<NotificationPreferences>(
+        user?.notificationPreferences || { matchAlerts: true, news: true, announcements: true }
+    );
 
     if (!user) {
         navigate('/');
@@ -46,8 +49,13 @@ const ProfileSetupPage: React.FC = () => {
     }
 
     const handleSaveChanges = () => {
-        updateUser({ name, email, avatar, favoriteTeamIds });
-        // In a real app, you'd also save notification preferences
+        updateUser({ 
+            name, 
+            email, 
+            avatar, 
+            favoriteTeamIds,
+            notificationPreferences: notifications
+        });
         alert("Profile updated successfully!");
         navigate('/profile');
     };
@@ -65,7 +73,7 @@ const ProfileSetupPage: React.FC = () => {
         }
     };
     
-    const toggleNotification = (key: keyof typeof notifications) => {
+    const toggleNotification = (key: keyof NotificationPreferences) => {
         setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
@@ -118,10 +126,11 @@ const ProfileSetupPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <Card className="shadow-lg">
                             <CardContent className="p-6">
-                                <h2 className="text-xl font-bold font-display mb-4">Email Notifications</h2>
+                                <h2 className="text-xl font-bold font-display mb-4">Notification Preferences</h2>
+                                <p className="text-xs text-gray-500 mb-4">Choose what updates you receive via email and push notifications.</p>
                                 <div className="space-y-4">
-                                    <Switch label="Favorite team match alerts" checked={notifications.alerts} onToggle={() => toggleNotification('alerts')} />
-                                    <Switch label="Weekly news summary" checked={notifications.summary} onToggle={() => toggleNotification('summary')} />
+                                    <Switch label="Favorite team match alerts" checked={notifications.matchAlerts} onToggle={() => toggleNotification('matchAlerts')} />
+                                    <Switch label="Weekly news summary" checked={notifications.news} onToggle={() => toggleNotification('news')} />
                                     <Switch label="Special feature announcements" checked={notifications.announcements} onToggle={() => toggleNotification('announcements')} />
                                 </div>
                             </CardContent>

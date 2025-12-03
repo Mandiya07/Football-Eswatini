@@ -5,7 +5,7 @@ import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchAllCompetitions, fetchCategories, submitClubRequest } from '../services/api';
+import { fetchAllCompetitions, fetchCategories, submitClubRequest, PromoCode } from '../services/api';
 import ShieldIcon from './icons/ShieldIcon';
 import UserIcon from './icons/UserIcon';
 import MailIcon from './icons/MailIcon';
@@ -13,6 +13,7 @@ import PhoneIcon from './icons/PhoneIcon';
 import LockIcon from './icons/LockIcon';
 import Spinner from './ui/Spinner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
+import PromoCodeInput from './ui/PromoCodeInput';
 
 const ClubRegistrationPage: React.FC = () => {
     const { signup, user } = useAuth();
@@ -26,10 +27,30 @@ const ClubRegistrationPage: React.FC = () => {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [discount, setDiscount] = useState<PromoCode | null>(null);
     
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+
+    const calculatePrice = (basePriceStr: string): { display: string, original?: string } => {
+        if (basePriceStr === 'Free') return { display: 'Free' };
+        if (!discount) return { display: basePriceStr };
+
+        const basePrice = parseInt(basePriceStr.replace(/[^0-9]/g, ''), 10);
+        let discountedPrice = basePrice;
+
+        if (discount.type === 'percentage') {
+            discountedPrice = basePrice - (basePrice * (discount.value / 100));
+        } else {
+            discountedPrice = Math.max(0, basePrice - discount.value);
+        }
+        
+        return {
+            display: `E${Math.round(discountedPrice)}/mo`,
+            original: basePriceStr
+        };
+    };
 
     const tiers = [
         { name: 'Basic', price: 'Free', features: 'Public Profile, Squad List, Fixtures & Results' },
@@ -114,6 +135,7 @@ const ClubRegistrationPage: React.FC = () => {
                 repName,
                 email,
                 phone,
+                promoCode: discount ? discount.code : undefined
             });
 
             setIsSuccess(true);
@@ -165,17 +187,25 @@ const ClubRegistrationPage: React.FC = () => {
                             <CardContent className="p-8">
                                 <h3 className="text-xl font-bold mb-4">Membership Tiers</h3>
                                 <div className="space-y-4">
-                                    {tiers.map((tier) => (
-                                        <div key={tier.name} className="flex justify-between items-center border-b border-blue-500 pb-2 last:border-0">
-                                            <div>
-                                                <p className="font-bold text-base">{tier.name}</p>
-                                                <p className="text-blue-100 text-xs">{tier.features}</p>
+                                    {tiers.map((tier) => {
+                                        const priceInfo = calculatePrice(tier.price);
+                                        return (
+                                            <div key={tier.name} className="flex justify-between items-center border-b border-blue-500 pb-2 last:border-0">
+                                                <div>
+                                                    <p className="font-bold text-base">{tier.name}</p>
+                                                    <p className="text-blue-100 text-xs">{tier.features}</p>
+                                                </div>
+                                                <div className="text-right pl-2">
+                                                    {priceInfo.original && (
+                                                        <span className="block text-xs text-blue-300 line-through">{priceInfo.original}</span>
+                                                    )}
+                                                    <span className={`bg-white/20 px-2 py-1 rounded text-sm font-bold whitespace-nowrap ${priceInfo.original ? 'text-yellow-300' : ''}`}>
+                                                        {priceInfo.display}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="text-right pl-2">
-                                                <span className="bg-white/20 px-2 py-1 rounded text-sm font-bold whitespace-nowrap">{tier.price}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                                 <p className="mt-6 text-xs text-blue-200">
                                     * You will be able to select your plan after your account is verified.
@@ -240,6 +270,11 @@ const ClubRegistrationPage: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
                                         <Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required placeholder="******" />
                                     </div>
+                                </div>
+                                
+                                {/* Discount Code Section */}
+                                <div className="pt-2">
+                                    <PromoCodeInput onApply={setDiscount} label="Have a Referral/Discount Code?" />
                                 </div>
 
                                 <div className="pt-4">

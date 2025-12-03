@@ -67,6 +67,7 @@ export interface ClubRegistrationRequest {
     phone: string;
     status: 'pending' | 'approved' | 'rejected';
     submittedAt: any;
+    promoCode?: string; // New field for discounts
 }
 
 export interface AdvertiserRequest {
@@ -79,6 +80,7 @@ export interface AdvertiserRequest {
     budgetRange: string;
     status: 'pending' | 'contacted' | 'closed';
     submittedAt: any;
+    promoCode?: string; // New field for discounts
 }
 
 export interface SponsorRequest {
@@ -90,6 +92,7 @@ export interface SponsorRequest {
     goals: string;
     status: 'pending' | 'contacted' | 'closed';
     submittedAt: any;
+    promoCode?: string; // New field for discounts
 }
 
 export interface Category {
@@ -200,6 +203,13 @@ export interface CommunityEvent {
     fees?: string;
     prizes?: string;
     createdAt?: any;
+}
+
+export interface PromoCode {
+    code: string;
+    type: 'percentage' | 'fixed';
+    value: number;
+    isActive: boolean;
 }
 
 export const addLiveUpdate = async (data: Omit<LiveUpdate, 'id' | 'timestamp'>) => {
@@ -1159,3 +1169,22 @@ export const updateCommunityEventStatus = (id: string, status: 'approved' | 'rej
     updateDoc(doc(db, 'community_events', id), { status });
 
 export const deleteCommunityEvent = (id: string) => deleteDoc(doc(db, 'community_events', id));
+
+// --- DISCOUNTS & PROMO CODES ---
+
+export const validatePromoCode = async (code: string): Promise<PromoCode | null> => {
+    try {
+        const q = query(collection(db, "promo_codes"), where("code", "==", code));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const promo = querySnapshot.docs[0].data() as PromoCode;
+            if (promo.isActive) {
+                return promo;
+            }
+        }
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, 'validate promo code');
+        return null;
+    }
+};

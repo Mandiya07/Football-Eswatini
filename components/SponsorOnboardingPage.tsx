@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
-import { submitSponsorRequest } from '../services/api';
+import { submitSponsorRequest, PromoCode } from '../services/api';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import UserIcon from './icons/UserIcon';
 import MailIcon from './icons/MailIcon';
@@ -12,6 +12,7 @@ import PhoneIcon from './icons/PhoneIcon';
 import Spinner from './ui/Spinner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import BuildingIcon from './icons/BuildingIcon';
+import PromoCodeInput from './ui/PromoCodeInput';
 
 const SponsorOnboardingPage: React.FC = () => {
     const navigate = useNavigate();
@@ -21,6 +22,7 @@ const SponsorOnboardingPage: React.FC = () => {
     const [phone, setPhone] = useState('');
     const [sponsorshipTier, setSponsorshipTier] = useState('Silver (E20,000/yr)');
     const [goals, setGoals] = useState('');
+    const [discount, setDiscount] = useState<PromoCode | null>(null);
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -36,6 +38,7 @@ const SponsorOnboardingPage: React.FC = () => {
                 phone,
                 sponsorshipTier,
                 goals,
+                promoCode: discount ? discount.code : undefined
             });
             setIsSuccess(true);
         } catch (error) {
@@ -125,6 +128,12 @@ const SponsorOnboardingPage: React.FC = () => {
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
                                     placeholder="Tell us what you hope to achieve (e.g. Brand Awareness, Youth Development CSR, Product Sales...)"
                                 />
+                            </div>
+                            
+                            {/* Promo Code */}
+                            <div>
+                                <PromoCodeInput onApply={setDiscount} />
+                                {discount && <p className="text-xs text-gray-500 mt-1">Code applied to sponsorship proposal.</p>}
                             </div>
 
                             <div className="pt-4 border-t border-gray-200">
