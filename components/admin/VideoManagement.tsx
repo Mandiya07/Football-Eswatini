@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { addVideo, deleteVideo, fetchVideos, updateVideo } from '../../services/api';
 import { Video } from '../../data/videos';
@@ -8,11 +9,14 @@ import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import VideoFormModal from './VideoFormModal';
+import RecapGeneratorModal from './RecapGeneratorModal';
+import SparklesIcon from '../icons/SparklesIcon';
 
 const VideoManagement: React.FC = () => {
     const [videos, setVideos] = useState<Video[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
     const [editingVideo, setEditingVideo] = useState<Video | null>(null);
 
     const loadVideos = async () => {
@@ -57,11 +61,16 @@ const VideoManagement: React.FC = () => {
         <>
             <Card className="shadow-lg animate-fade-in">
                 <CardContent className="p-6">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
                         <h3 className="text-2xl font-bold font-display">Video Management</h3>
-                        <Button onClick={handleAddNew} className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2">
-                            <PlusCircleIcon className="w-5 h-5" /> Add Video
-                        </Button>
+                        <div className="flex gap-3">
+                            <Button onClick={() => setIsRecapModalOpen(true)} className="bg-purple-600 text-white hover:bg-purple-700 inline-flex items-center gap-2 shadow-sm">
+                                <SparklesIcon className="w-5 h-5" /> AI Recap Studio
+                            </Button>
+                            <Button onClick={handleAddNew} className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2">
+                                <PlusCircleIcon className="w-5 h-5" /> Add Video
+                            </Button>
+                        </div>
                     </div>
                     
                     {loading ? <div className="flex justify-center py-8"><Spinner /></div> : (
@@ -86,6 +95,7 @@ const VideoManagement: React.FC = () => {
                 </CardContent>
             </Card>
             {isModalOpen && <VideoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSave} video={editingVideo} />}
+            {isRecapModalOpen && <RecapGeneratorModal isOpen={isRecapModalOpen} onClose={() => setIsRecapModalOpen(false)} />}
         </>
     );
 };

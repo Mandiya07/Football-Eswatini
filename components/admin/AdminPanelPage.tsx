@@ -15,29 +15,41 @@ import VideoManagement from './admin/VideoManagement';
 import ResetAllData from './admin/ResetAllData';
 import LiveUpdatesEntry from './admin/LiveUpdatesEntry';
 import ManageMatches from './admin/ManageMatches';
-
-import CheckCircleIcon from '../icons/CheckCircleIcon';
-import GitMergeIcon from '../icons/GitMergeIcon';
-import RefreshIcon from '../icons/RefreshIcon';
-import DatabaseIcon from '../icons/DatabaseIcon';
-import BracketIcon from '../icons/BracketIcon';
-import NewspaperIcon from '../icons/NewspaperIcon';
-import TagIcon from '../icons/TagIcon';
-import BinocularsIcon from '../icons/BinocularsIcon';
-import BookIcon from '../icons/BookIcon';
-import FilmIcon from '../icons/FilmIcon';
+import FeatureManagement from './admin/FeatureManagement';
+import RefereeManagement from './admin/RefereeManagement';
 import CategoryManagement from './admin/CategoryManagement';
-import LayersIcon from '../icons/LayersIcon';
-import AlertTriangleIcon from '../icons/AlertTriangleIcon';
-import UsersIcon from '../icons/UsersIcon';
-import MegaphoneIcon from '../icons/MegaphoneIcon';
-import RadioIcon from '../icons/RadioIcon';
-import CalendarIcon from '../icons/CalendarIcon';
+import CommunityEventManagement from './admin/CommunityEventManagement';
+
+import CheckCircleIcon from './icons/CheckCircleIcon';
+import GitMergeIcon from './icons/GitMergeIcon';
+import RefreshIcon from './icons/RefreshIcon';
+import DatabaseIcon from './icons/DatabaseIcon';
+import BracketIcon from './icons/BracketIcon';
+import NewspaperIcon from './icons/NewspaperIcon';
+import TagIcon from './icons/TagIcon';
+import BinocularsIcon from './icons/BinocularsIcon';
+import BookIcon from './icons/BookIcon';
+import FilmIcon from './icons/FilmIcon';
+import LayersIcon from './icons/LayersIcon';
+import AlertTriangleIcon from './icons/AlertTriangleIcon';
+import UsersIcon from './icons/UsersIcon';
+import MegaphoneIcon from './icons/MegaphoneIcon';
+import RadioIcon from './icons/RadioIcon';
+import CalendarIcon from './icons/CalendarIcon';
+import YouthIcon from './icons/YouthIcon';
+import SparklesIcon from './icons/SparklesIcon';
+import WhistleIcon from './icons/WhistleIcon';
+import ShareIcon from './icons/ShareIcon';
+import ImageIcon from './icons/ImageIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
+const SeedDatabase = lazy(() => import('./admin/SeedDatabase'));
+const YouthManagement = lazy(() => import('./admin/YouthManagement'));
+const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
+const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -59,8 +71,12 @@ const AdminPanelPage: React.FC = () => {
       case 'news': return <NewsManagement />;
       case 'shop': return <ShopManagement />;
       case 'scouting': return <ScoutingManagement />;
+      case 'youth': return <YouthManagement />;
       case 'directory': return <DirectoryManagement />;
+      case 'crests': return <TeamCrestManager />;
       case 'videos': return <VideoManagement />;
+      case 'features': return <FeatureManagement />;
+      case 'referees': return <RefereeManagement />;
       case 'ads': return <AdManagement />;
       case 'live': return <LiveUpdatesEntry />;
       case 'matches': return <ManageMatches />;
@@ -70,7 +86,10 @@ const AdminPanelPage: React.FC = () => {
       case 'merge': return <MergeTeams />;
       case 'standings': return <RecalculateLogs />;
       case 'tournament': return <TournamentBracket />;
+      case 'community': return <CommunityEventManagement />;
+      case 'seed': return <SeedDatabase />;
       case 'reset': return <ResetAllData />;
+      case 'social': return <SocialMediaGenerator />;
       default: return null;
     }
   };
@@ -108,14 +127,20 @@ const AdminPanelPage: React.FC = () => {
                     <div className="space-y-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Content</h4>
                         <TabButton tabName="news" label="News" Icon={NewspaperIcon} />
+                        <TabButton tabName="social" label="Social Gen" Icon={ShareIcon} className="bg-purple-50 text-purple-700 hover:bg-purple-100" />
                         <TabButton tabName="shop" label="Shop Items" Icon={TagIcon} />
+                        <TabButton tabName="features" label="Features Content" Icon={SparklesIcon} />
                         <TabButton tabName="scouting" label="Scouting" Icon={BinocularsIcon} />
+                        <TabButton tabName="youth" label="Youth Page" Icon={YouthIcon} />
+                        <TabButton tabName="referees" label="Referees" Icon={WhistleIcon} />
                         <TabButton tabName="directory" label="Directory" Icon={BookIcon} />
+                        <TabButton tabName="crests" label="Logos & Crests" Icon={ImageIcon} />
                         <TabButton tabName="videos" label="Videos" Icon={FilmIcon} />
                         <TabButton tabName="ads" label="Ad Management" Icon={MegaphoneIcon} />
 
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
                         <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
+                        <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
                         <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
                         <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
@@ -127,7 +152,8 @@ const AdminPanelPage: React.FC = () => {
 
                         <div className="!mt-6 pt-4 border-t border-red-200">
                             <h4 className="font-bold text-xs uppercase text-red-600 px-4">Danger Zone</h4>
-                             <div className="p-2">
+                             <div className="p-2 space-y-2">
+                                <TabButton tabName="seed" label="Seed Database" Icon={DatabaseIcon} className="bg-green-50 hover:bg-green-100 text-green-700" />
                                 <TabButton tabName="reset" label="Reset All Competition Data" Icon={AlertTriangleIcon} className="bg-red-50 hover:bg-red-100 text-red-700" />
                             </div>
                         </div>
