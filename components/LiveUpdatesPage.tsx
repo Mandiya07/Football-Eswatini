@@ -16,6 +16,7 @@ import XCircleIcon from './icons/XCircleIcon';
 import WhistleIcon from './icons/WhistleIcon';
 import { DirectoryEntity } from '../data/directory';
 import AdBanner from './AdBanner';
+import CheckCircleIcon from './icons/CheckCircleIcon';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
     switch (type) {
@@ -49,7 +50,9 @@ const LiveUpdatesPage: React.FC = () => {
     const [activeFixtures, setActiveFixtures] = useState<{ fixture: CompetitionFixture, competitionName: string, competitionId: string }[]>([]);
     const [updates, setUpdates] = useState<LiveUpdate[]>([]);
     const [upcomingMatches, setUpcomingMatches] = useState<{ fixture: CompetitionFixture, competitionId: string }[]>([]);
+    const [recentResults, setRecentResults] = useState<{ fixture: CompetitionFixture, competitionId: string }[]>([]);
     const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState<'live' | 'upcoming' | 'results'>('live');
     
     // Fake empty directory map for FixtureItem since we don't need full linking functionality in the fallback view
     const emptyMap = useMemo(() => new Map<string, DirectoryEntity>(), []);
@@ -60,6 +63,7 @@ const LiveUpdatesPage: React.FC = () => {
             const allCompetitions = await fetchAllCompetitions();
             const active: { fixture: CompetitionFixture, competitionName: string, competitionId: string }[] = [];
             const upcoming: { fixture: CompetitionFixture, competitionId: string }[] = [];
+            const results: { fixture: CompetitionFixture, competitionId: string }[] = [];
             const now = new Date();
 
             Object.entries(allCompetitions).forEach(([compId, comp]) => {
@@ -82,19 +86,35 @@ const LiveUpdatesPage: React.FC = () => {
                             } else if (matchDateTime > now) {
                                 upcoming.push({ fixture: f, competitionId: compId });
                             }
+                        } else if (f.status === 'scheduled') {
+                            // Standard future scheduled
+                             upcoming.push({ fixture: f, competitionId: compId });
                         }
+                    });
+                }
+                if (comp.results) {
+                    comp.results.forEach(r => {
+                        results.push({ fixture: r, competitionId: compId });
                     });
                 }
             });
 
-            // Sort upcoming by date ascending and take top 5
+            // Sort upcoming by date ascending
             upcoming.sort((a, b) => 
-                new Date(a.fixture.fullDate + 'T' + a.fixture.time).getTime() - 
-                new Date(b.fixture.fullDate + 'T' + b.fixture.time).getTime()
+                new Date(a.fixture.fullDate + 'T' + (a.fixture.time || '00:00')).getTime() - 
+                new Date(b.fixture.fullDate + 'T' + (b.fixture.time || '00:00')).getTime()
+            );
+
+            // Sort results by date descending
+            results.sort((a, b) => 
+                new Date(b.fixture.fullDate + 'T' + (b.fixture.time || '00:00')).getTime() - 
+                new Date(a.fixture.fullDate + 'T' + (a.fixture.time || '00:00')).getTime()
             );
             
             setActiveFixtures(active);
-            setUpcomingMatches(upcoming.slice(0, 5));
+            setUpcomingMatches(upcoming.slice(0, 20));
+            setRecentResults(results.slice(0, 20));
+
         } catch (err) {
             console.error("Error fetching fixtures:", err);
         }
@@ -193,100 +213,162 @@ const LiveUpdatesPage: React.FC = () => {
                 <div className="text-center mb-8">
                      <RadioIcon className="w-12 h-12 mx-auto text-primary mb-2" />
                     <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
-                        Live Match Center
+                        Match Center
                     </h1>
                     <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                        Real-time updates from matches as they happen across all leagues.
+                        Real-time updates, upcoming fixtures, and latest results from across all leagues.
                     </p>
                 </div>
 
-                <AdBanner placement="live-scoreboard-banner" className="mb-12" />
+                <AdBanner placement="live-scoreboard-banner" className="mb-8" />
 
-                {loading ? <div className="flex justify-center py-8"><Spinner /></div> : 
-                 liveMatches.length > 0 ? (
-                    <div className="max-w-4xl mx-auto space-y-8">
-                        {liveMatches.map((match) => (
-                            <Card key={match.id} className="shadow-lg overflow-hidden">
-                                <CardContent className="p-0">
-                                    <header className="p-4 bg-gray-100 border-b">
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-sm text-gray-600 font-semibold">{match.competitionName || 'Match Update'}</p>
-                                            <div className={`flex items-center space-x-1.5 ${match.status === 'suspended' ? 'text-orange-600' : 'text-secondary'} font-bold text-sm`}>
-                                                <span className={`relative flex h-2 w-2`}>
-                                                    {match.status !== 'suspended' && match.status !== 'postponed' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
-                                                    <span className={`relative inline-flex rounded-full h-2 w-2 ${match.status === 'suspended' ? 'bg-orange-600' : 'bg-secondary'}`}></span>
-                                                </span>
-                                                <span className="uppercase">{match.status || 'LIVE'}</span>
-                                                {match.liveMinute && <span className="font-mono ml-1">{match.liveMinute !== 'Live' ? match.liveMinute + "'" : ''}</span>}
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2 mt-4 mb-2">
-                                            <p className="font-bold text-xl truncate text-right">{match.teamA}</p>
-                                            <div className="bg-white px-3 py-1 rounded shadow-sm border border-gray-200">
-                                                <p className="font-bold text-3xl tracking-wider text-primary">
-                                                    {match.scoreA !== undefined ? match.scoreA : 0} - {match.scoreB !== undefined ? match.scoreB : 0}
-                                                </p>
-                                            </div>
-                                            <p className="font-bold text-xl truncate text-left">{match.teamB}</p>
-                                        </div>
-                                    </header>
-                                    
-                                    {match.events.length > 0 ? (
-                                        <div className="p-4 bg-white">
-                                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Match Timeline</h4>
-                                            <ul className="space-y-3 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
-                                                {match.events.sort((a,b) => b.minute - a.minute).map((event) => (
-                                                    <li key={event.id} className="flex items-start gap-3 text-sm relative pl-8 animate-fade-in">
-                                                        <div className="absolute left-0 top-1 bg-white border-2 border-gray-200 rounded-full w-2.5 h-2.5 z-10"></div>
-                                                        <span className="font-mono font-bold text-gray-500 min-w-[2rem]">{event.minute}'</span>
-                                                        <EventIcon type={event.type} />
-                                                        <div>
-                                                            <p className="font-semibold text-gray-900">{event.description}</p>
-                                                            {event.player && <p className="text-xs text-gray-500 mt-0.5">{event.player}</p>}
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    ) : (
-                                        <div className="p-6 text-center text-gray-500 text-sm italic bg-white">
-                                            Waiting for match events...
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        ))}
+                {/* Filter Tabs */}
+                <div className="flex justify-center mb-8">
+                    <div className="bg-white p-1 rounded-full shadow-sm border border-gray-200 inline-flex">
+                        <button 
+                            onClick={() => setFilter('live')} 
+                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${filter === 'live' ? 'bg-red-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
+                        >
+                            <div className={`w-2 h-2 rounded-full ${filter === 'live' ? 'bg-white' : 'bg-red-500 animate-pulse'}`}></div>
+                            Live
+                        </button>
+                        <button 
+                            onClick={() => setFilter('upcoming')} 
+                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${filter === 'upcoming' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
+                        >
+                            <CalendarIcon className="w-4 h-4" />
+                            Upcoming
+                        </button>
+                        <button 
+                            onClick={() => setFilter('results')} 
+                            className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${filter === 'results' ? 'bg-green-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
+                        >
+                            <CheckCircleIcon className="w-4 h-4" />
+                            Results
+                        </button>
                     </div>
-                ) : (
-                    <div className="max-w-3xl mx-auto animate-fade-in">
-                        <Card className="mb-8 text-center p-8 bg-blue-50 border border-blue-100 shadow-md">
-                            <ClockIcon className="w-12 h-12 mx-auto text-blue-300 mb-4" />
-                            <h3 className="text-xl font-bold text-blue-800">No Live Matches Currently</h3>
-                            <p className="text-blue-600 mt-2">There are no games active right now. Check out the upcoming schedule below.</p>
-                        </Card>
+                </div>
+
+                {loading ? <div className="flex justify-center py-8"><Spinner /></div> : (
+                    <div className="max-w-4xl mx-auto min-h-[400px]">
                         
-                        <h3 className="text-2xl font-bold font-display mb-6 flex items-center gap-2">
-                            <CalendarIcon className="w-6 h-6 text-gray-600" /> Upcoming Matches
-                        </h3>
-                        
-                        <div className="space-y-4">
-                            {upcomingMatches.length > 0 ? upcomingMatches.map(({ fixture, competitionId }) => (
-                                <Card key={fixture.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                                     <FixtureItem
-                                        fixture={fixture}
-                                        isExpanded={false}
-                                        onToggleDetails={() => {}} 
-                                        teams={[]} 
-                                        onDeleteFixture={() => {}} 
-                                        isDeleting={false}
-                                        directoryMap={emptyMap}
-                                        competitionId={competitionId}
-                                    />
-                                </Card>
-                            )) : (
-                                <p className="text-center text-gray-500 py-4">No upcoming matches found.</p>
-                            )}
-                        </div>
+                        {/* LIVE MATCHES SECTION */}
+                        {filter === 'live' && (
+                            liveMatches.length > 0 ? (
+                                <div className="space-y-8 animate-fade-in">
+                                    {liveMatches.map((match) => (
+                                        <Card key={match.id} className="shadow-lg overflow-hidden border-t-4 border-secondary">
+                                            <CardContent className="p-0">
+                                                <header className="p-4 bg-gray-50 border-b">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="text-sm text-gray-600 font-semibold">{match.competitionName || 'Match Update'}</p>
+                                                        <div className={`flex items-center space-x-1.5 ${match.status === 'suspended' ? 'text-orange-600' : 'text-secondary'} font-bold text-sm`}>
+                                                            <span className={`relative flex h-2 w-2`}>
+                                                                {match.status !== 'suspended' && match.status !== 'postponed' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
+                                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${match.status === 'suspended' ? 'bg-orange-600' : 'bg-secondary'}`}></span>
+                                                            </span>
+                                                            <span className="uppercase">{match.status || 'LIVE'}</span>
+                                                            {match.liveMinute && <span className="font-mono ml-1">{match.liveMinute !== 'Live' ? match.liveMinute + "'" : ''}</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2 mt-4 mb-2">
+                                                        <p className="font-bold text-xl truncate text-right">{match.teamA}</p>
+                                                        <div className="bg-white px-3 py-1 rounded shadow-sm border border-gray-200">
+                                                            <p className="font-bold text-3xl tracking-wider text-primary">
+                                                                {match.scoreA !== undefined ? match.scoreA : 0} - {match.scoreB !== undefined ? match.scoreB : 0}
+                                                            </p>
+                                                        </div>
+                                                        <p className="font-bold text-xl truncate text-left">{match.teamB}</p>
+                                                    </div>
+                                                </header>
+                                                
+                                                {match.events.length > 0 ? (
+                                                    <div className="p-4 bg-white">
+                                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Match Timeline</h4>
+                                                        <ul className="space-y-3 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
+                                                            {match.events.sort((a,b) => b.minute - a.minute).map((event) => (
+                                                                <li key={event.id} className="flex items-start gap-3 text-sm relative pl-8 animate-fade-in">
+                                                                    <div className="absolute left-0 top-1 bg-white border-2 border-gray-200 rounded-full w-2.5 h-2.5 z-10"></div>
+                                                                    <span className="font-mono font-bold text-gray-500 min-w-[2rem]">{event.minute}'</span>
+                                                                    <EventIcon type={event.type} />
+                                                                    <div>
+                                                                        <p className="font-semibold text-gray-900">{event.description}</p>
+                                                                        {event.player && <p className="text-xs text-gray-500 mt-0.5">{event.player}</p>}
+                                                                    </div>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-6 text-center text-gray-500 text-sm italic bg-white">
+                                                        Waiting for match events...
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="animate-fade-in">
+                                    <Card className="mb-8 text-center p-8 bg-blue-50 border border-blue-100 shadow-md">
+                                        <ClockIcon className="w-12 h-12 mx-auto text-blue-300 mb-4" />
+                                        <h3 className="text-xl font-bold text-blue-800">No Live Matches</h3>
+                                        <p className="text-blue-600 mt-2">There are no games active right now. Check the "Upcoming" tab for scheduled matches.</p>
+                                    </Card>
+                                </div>
+                            )
+                        )}
+
+                        {/* UPCOMING FIXTURES SECTION */}
+                        {filter === 'upcoming' && (
+                             <div className="space-y-4 animate-fade-in">
+                                <h3 className="text-xl font-bold font-display mb-4 flex items-center gap-2 text-blue-800">
+                                    Scheduled Matches
+                                </h3>
+                                {upcomingMatches.length > 0 ? upcomingMatches.map(({ fixture, competitionId }) => (
+                                    <Card key={fixture.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                                         <FixtureItem
+                                            fixture={fixture}
+                                            isExpanded={false}
+                                            onToggleDetails={() => {}} 
+                                            teams={[]} 
+                                            onDeleteFixture={() => {}} 
+                                            isDeleting={false}
+                                            directoryMap={emptyMap}
+                                            competitionId={competitionId}
+                                        />
+                                    </Card>
+                                )) : (
+                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No upcoming matches found in the schedule.</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* RECENT RESULTS SECTION */}
+                        {filter === 'results' && (
+                             <div className="space-y-4 animate-fade-in">
+                                <h3 className="text-xl font-bold font-display mb-4 flex items-center gap-2 text-green-800">
+                                    Recent Results
+                                </h3>
+                                {recentResults.length > 0 ? recentResults.map(({ fixture, competitionId }) => (
+                                    <Card key={fixture.id} className="overflow-hidden hover:shadow-md transition-shadow border-l-4 border-gray-400">
+                                         <FixtureItem
+                                            fixture={fixture}
+                                            isExpanded={false}
+                                            onToggleDetails={() => {}} 
+                                            teams={[]} 
+                                            onDeleteFixture={() => {}} 
+                                            isDeleting={false}
+                                            directoryMap={emptyMap}
+                                            competitionId={competitionId}
+                                        />
+                                    </Card>
+                                )) : (
+                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No recent results available.</p>
+                                )}
+                            </div>
+                        )}
+
                     </div>
                 )}
             </div>

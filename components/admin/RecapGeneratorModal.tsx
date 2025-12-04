@@ -8,6 +8,7 @@ import Spinner from '../ui/Spinner';
 import SparklesIcon from '../icons/SparklesIcon';
 import PlayIcon from '../icons/PlayIcon';
 import FilmIcon from '../icons/FilmIcon';
+import RadioIcon from '../icons/RadioIcon';
 import { fetchAllCompetitions } from '../../services/api';
 
 interface MatchSummary {
@@ -28,6 +29,9 @@ interface RecapGeneratorModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
+
+// Royalty-free sports intro music placeholder
+const AUDIO_SRC = "https://cdn.pixabay.com/download/audio/2022/03/24/audio_07424301e9.mp3?filename=news-room-news-19931.mp3";
 
 const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClose }) => {
     // Configuration State
@@ -51,6 +55,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const [isPlaying, setIsPlaying] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [isAudioEnabled, setIsAudioEnabled] = useState(false);
     
     // Refs
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,6 +63,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const startTimeRef = useRef<number>(0);
+    const audioRef = useRef<HTMLAudioElement>(null);
     
     // Load Competitions
     useEffect(() => {
@@ -390,20 +396,53 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         requestRef.current = requestAnimationFrame(animate);
     };
 
-    const startPlayback = (record: boolean = false) => {
+    const startPlayback = async (record: boolean = false) => {
         if (isRecording || isPlaying) return;
         
         // Reset
         setCurrentMatchIndex(0);
         setProgress(0);
         startTimeRef.current = 0;
+
+        // Audio Handling
+        if (isAudioEnabled && audioRef.current) {
+            try {
+                audioRef.current.currentTime = 0;
+                await audioRef.current.play();
+            } catch (e) {
+                console.warn("Audio play failed (likely needs interaction first)", e);
+            }
+        }
         
         if (record) {
             try {
-                const stream = canvasRef.current?.captureStream(30);
-                if (!stream) throw new Error("Canvas stream capture failed");
+                // Video Stream
+                const canvasStream = (canvasRef.current as any)?.captureStream(30);
+                if (!canvasStream) throw new Error("Canvas stream capture failed");
                 
-                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                const tracks = [...canvasStream.getVideoTracks()];
+
+                // Audio Stream (Try to capture from audio element if supported)
+                if (isAudioEnabled && audioRef.current) {
+                    // Note: captureStream on media elements is not supported in all browsers (mostly Chrome/Edge)
+                    // @ts-ignore
+                    if (audioRef.current.captureStream) {
+                        // @ts-ignore
+                        const audioStream = audioRef.current.captureStream();
+                        tracks.push(...audioStream.getAudioTracks());
+                    } else if (typeof (audioRef.current as any).mozCaptureStream === 'function') {
+                         // Firefox
+                         // @ts-ignore
+                         const audioStream = (audioRef.current as any).mozCaptureStream();
+                         tracks.push(...audioStream.getAudioTracks());
+                    } else {
+                         console.warn("Browser does not support audio element capture. Video will be silent.");
+                         alert("Recording with audio is not fully supported in this browser. Video may be silent.");
+                    }
+                }
+                
+                const combinedStream = new MediaStream(tracks);
+                const recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
                 mediaRecorderRef.current = recorder;
                 chunksRef.current = [];
 
@@ -420,13 +459,18 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                     a.click();
                     setIsRecording(false);
                     setIsPlaying(false);
+                    // Stop audio on record stop
+                    if (audioRef.current) {
+                        audioRef.current.pause();
+                        audioRef.current.currentTime = 0;
+                    }
                 };
 
                 recorder.start();
                 setIsRecording(true);
             } catch (err) {
                 console.error(err);
-                alert("Recording failed. Your browser might not support canvas recording, or the canvas is tainted by external images.");
+                alert("Recording failed. Your browser might not support canvas recording.");
                 return;
             }
         } else {
@@ -440,6 +484,10 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         if (requestRef.current) cancelAnimationFrame(requestRef.current);
         if (isRecording) stopRecording();
         setIsPlaying(false);
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
     };
 
     const stopRecording = () => {
@@ -454,6 +502,11 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             drawMatchFrame(matches[0], 0);
         }
     }, [step, matches, assetsLoaded]);
+
+    // Stop audio if modal closed
+    useEffect(() => {
+        if (!isOpen) stopPlayback();
+    }, [isOpen]);
 
 
     return (
@@ -514,6 +567,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
                     {step === 3 && (
                         <div className="flex flex-col items-center animate-fade-in">
+                            {/* Audio Element */}
+                            <audio ref={audioRef} src={AUDIO_SRC} loop crossOrigin="anonymous" />
+
                             {/* Monitor */}
                             <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-700 bg-black mb-6 w-full max-w-[600px] aspect-video">
                                 <canvas ref={canvasRef} width={800} height={450} className="w-full h-full object-contain" />
@@ -528,11 +584,21 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                             </div>
 
                             {/* Controls */}
-                            <div className="flex gap-4 items-center">
+                            <div className="flex gap-4 items-center w-full justify-center flex-wrap">
                                 <Button onClick={() => { stopPlayback(); setStep(1); }} className="bg-gray-700 hover:bg-gray-600 text-white px-4">
                                     Back
                                 </Button>
                                 
+                                {/* Audio Toggle */}
+                                <button 
+                                    onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded font-bold transition-colors ${isAudioEnabled ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                                    disabled={isRecording || isPlaying}
+                                    title="Toggle Background Music"
+                                >
+                                    <RadioIcon className="w-5 h-5" /> {isAudioEnabled ? 'Music ON' : 'Music OFF'}
+                                </button>
+
                                 {!isPlaying && !isRecording ? (
                                     <Button onClick={() => startPlayback(false)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 flex items-center gap-2">
                                         <PlayIcon className="w-5 h-5" /> Preview
@@ -553,7 +619,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                 </Button>
                             </div>
                             <p className="text-xs text-gray-500 mt-6 max-w-md text-center">
-                                Note: To prevent security errors, some images may not appear in the recorded video if the source website blocks access. The video file will download automatically when finished.
+                                Note: To prevent security errors, some images may not appear in the recorded video if the source website blocks access. 
+                                Audio recording requires browser support (best in Chrome/Edge).
                             </p>
                         </div>
                     )}
