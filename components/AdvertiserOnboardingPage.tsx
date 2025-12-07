@@ -13,6 +13,7 @@ import Spinner from './ui/Spinner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import BuildingIcon from './icons/BuildingIcon';
 import PromoCodeInput from './ui/PromoCodeInput';
+import { AdvertiserValueInfographic } from './ui/Infographics';
 
 const AdvertiserOnboardingPage: React.FC = () => {
     const navigate = useNavigate();
@@ -87,13 +88,18 @@ const AdvertiserOnboardingPage: React.FC = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-4xl mx-auto">
                 <div className="text-center mb-12">
                     <MegaphoneIcon className="w-12 h-12 mx-auto text-yellow-600 mb-4" />
                     <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">Advertiser Registration</h1>
                     <p className="text-lg text-gray-600">
                         Connect with thousands of passionate football fans. Tell us about your business goals.
                     </p>
+                </div>
+
+                {/* Infographic Placement */}
+                <div className="mb-12 animate-fade-in">
+                    <AdvertiserValueInfographic />
                 </div>
 
                 <Card className="shadow-xl">

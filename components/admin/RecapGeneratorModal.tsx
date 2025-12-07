@@ -9,6 +9,7 @@ import SparklesIcon from '../icons/SparklesIcon';
 import PlayIcon from '../icons/PlayIcon';
 import FilmIcon from '../icons/FilmIcon';
 import RadioIcon from '../icons/RadioIcon';
+import UploadIcon from '../icons/UploadIcon';
 import { fetchAllCompetitions } from '../../services/api';
 
 interface MatchSummary {
@@ -20,9 +21,11 @@ interface MatchSummary {
     date: string;
     time?: string;
     competition: string;
+    competitionLogoUrl?: string;
     headline?: string;
     teamACrest?: string;
     teamBCrest?: string;
+    venue?: string;
 }
 
 interface RecapGeneratorModalProps {
@@ -30,8 +33,8 @@ interface RecapGeneratorModalProps {
     onClose: () => void;
 }
 
-// Royalty-free sports intro music placeholder
-const AUDIO_SRC = "https://cdn.pixabay.com/download/audio/2022/03/24/audio_07424301e9.mp3?filename=news-room-news-19931.mp3";
+// Default fallback audio
+const AUDIO_SRC = "https://cdn.pixabay.com/download/audio/2022/03/24/audio_07823f9586.mp3";
 
 const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClose }) => {
     // Configuration State
@@ -55,7 +58,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const [isPlaying, setIsPlaying] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [progress, setProgress] = useState(0);
-    const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+    const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+    const [audioError, setAudioError] = useState(false);
+    const [customAudioName, setCustomAudioName] = useState<string | null>(null);
     
     // Refs
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -63,7 +68,12 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const startTimeRef = useRef<number>(0);
-    const audioRef = useRef<HTMLAudioElement>(null);
+    const audioInputRef = useRef<HTMLInputElement>(null);
+    
+    // Audio Context Refs
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const audioBufferRef = useRef<AudioBuffer | null>(null);
+    const audioSourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
     
     // Load Competitions
     useEffect(() => {
@@ -74,6 +84,16 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             if (list.length > 0) setSelectedCompIds([list[0].id]);
         };
         loadComps();
+    }, []);
+
+    // Cleanup on unmount or close
+    useEffect(() => {
+        return () => {
+            stopAudio();
+            if (audioContextRef.current) {
+                audioContextRef.current.close();
+            }
+        };
     }, []);
 
     const toggleComp = (id: string) => {
@@ -92,16 +112,88 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             
             img.onload = () => resolve(img);
             img.onerror = () => {
-                console.warn(`Failed to load image safely: ${url}. Trying direct load as fallback (might taint canvas).`);
-                // If proxy fails, try direct. Note: This might still taint canvas if headers are missing.
+                console.warn(`Failed to load image safely: ${url}. Trying direct load as fallback.`);
                 const fallbackImg = new Image();
                 fallbackImg.crossOrigin = "anonymous";
                 fallbackImg.onload = () => resolve(fallbackImg);
-                fallbackImg.onerror = () => resolve(null); // Give up
+                fallbackImg.onerror = () => resolve(null);
                 fallbackImg.src = url;
             };
             img.src = proxyUrl;
         });
+    };
+
+    // Helper: Load Audio Buffer
+    const loadAudio = async (file?: File) => {
+        try {
+            // Initialize AudioContext if not exists
+            if (!audioContextRef.current) {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            }
+
+            let arrayBuffer: ArrayBuffer;
+            
+            if (file) {
+                arrayBuffer = await file.arrayBuffer();
+                setCustomAudioName(file.name);
+            } else {
+                 if (audioBufferRef.current && !customAudioName) return; // Already loaded default
+                 const response = await fetch(AUDIO_SRC);
+                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                 arrayBuffer = await response.arrayBuffer();
+            }
+
+            const decodedBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+            audioBufferRef.current = decodedBuffer;
+            console.log("Audio loaded successfully");
+            setAudioError(false);
+            setIsAudioEnabled(true);
+        } catch (error) {
+            console.warn("Failed to load audio.", error);
+            setAudioError(true);
+            setIsAudioEnabled(false);
+        }
+    };
+
+    const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            loadAudio(file);
+        }
+    };
+
+    const playAudio = async (destination?: MediaStreamAudioDestinationNode) => {
+        if (!isAudioEnabled || !audioContextRef.current || !audioBufferRef.current || audioError) return;
+
+        // Ensure context is running (fixes autoplay policy issues)
+        if (audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+        }
+
+        // Stop any existing source
+        stopAudio();
+
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = audioBufferRef.current;
+        source.loop = true;
+
+        // Connect to destination (recording stream) AND local speakers (if not recording, or if monitoring)
+        if (destination) {
+            source.connect(destination);
+        }
+        
+        // Always connect to speakers for monitoring
+        source.connect(audioContextRef.current.destination);
+        
+        source.start(0);
+        audioSourceNodeRef.current = source;
+    };
+
+    const stopAudio = () => {
+        if (audioSourceNodeRef.current) {
+            try { audioSourceNodeRef.current.stop(); } catch(e) {}
+            audioSourceNodeRef.current = null;
+        }
     };
 
     const handlePrepare = async () => {
@@ -111,6 +203,11 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         setLoading(true);
         setStatusText("Fetching match data...");
         
+        // Load default audio if no custom audio set
+        if (!customAudioName) {
+            loadAudio();
+        }
+
         try {
             const allCompsData = await fetchAllCompetitions();
             const rawMatches: MatchSummary[] = [];
@@ -145,7 +242,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                 scoreB: m.scoreB,
                                 date: m.fullDate || '',
                                 time: m.time,
+                                venue: m.venue,
                                 competition: comp.name,
+                                competitionLogoUrl: comp.logoUrl, 
                                 teamACrest: teamMap.get(m.teamA),
                                 teamBCrest: teamMap.get(m.teamB)
                             });
@@ -162,17 +261,18 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 return alert("No matches found for criteria.");
             }
 
-            // 2. Generate Headlines
-            setStatusText("Generating AI headlines...");
+            // 2. Generate Headlines (Kept for internal use, though hidden in UI now)
+            setStatusText("Processing text...");
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             const processedMatches = await Promise.all(limitedMatches.map(async (match) => {
                 try {
-                    const prompt = `Write a short, punchy 3-5 word headline for: ${match.home} ${match.scoreA ?? ''}-${match.scoreB ?? ''} ${match.away} (${match.competition}).`;
+                    const prompt = `Write a short, punchy broadcast headline (max 6 words) for this match: ${match.home} vs ${match.away}, Score: ${match.scoreA}-${match.scoreB}.`;
                     const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-                    return { ...match, headline: result.text.trim().replace(/['"]/g, '') };
+                    const headline = result.text.trim().replace(/['"]/g, '').replace(/\*\*/g, '');
+                    return { ...match, headline };
                 } catch (e) {
-                    return { ...match, headline: `${match.home} vs ${match.away}` };
+                    return { ...match, headline: "Matchday Action" };
                 }
             }));
 
@@ -187,6 +287,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             processedMatches.forEach(m => {
                 if (m.teamACrest) imageUrls.add(m.teamACrest);
                 if (m.teamBCrest) imageUrls.add(m.teamBCrest);
+                if (m.competitionLogoUrl) imageUrls.add(m.competitionLogoUrl);
             });
 
             const promises = Array.from(imageUrls).map(async url => {
@@ -209,7 +310,61 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         }
     };
 
-    // --- Canvas Drawing ---
+    // --- Canvas Drawing Helper ---
+
+    const drawGlassRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, radius);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4;
+        ctx.restore();
+    };
+
+    // Helper to wrap text and fit it within width
+    const fitText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, fontSize: number, x: number, y: number) => {
+        ctx.font = `italic bold ${fontSize}px "Inter", sans-serif`;
+        const words = text.split(' ');
+        let line = '';
+        let lineHeight = fontSize * 1.2;
+        
+        // Check if full text fits first
+        if (ctx.measureText(text).width <= maxWidth) {
+             ctx.fillText(text, x, y);
+             return;
+        }
+
+        // If not, we might need to wrap or scale down.
+        const lines: string[] = [];
+        for(let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' ';
+          const metrics = ctx.measureText(testLine);
+          const testWidth = metrics.width;
+          if (testWidth > maxWidth && n > 0) {
+            lines.push(line);
+            line = words[n] + ' ';
+          } else {
+            line = testLine;
+          }
+        }
+        lines.push(line);
+
+        // Adjust Y based on number of lines to keep centered
+        const totalHeight = lines.length * lineHeight;
+        let startY = y - (totalHeight / 2) + (lineHeight / 2); // approximate centering
+
+        lines.forEach(l => {
+            ctx.fillText(l.trim(), x, startY);
+            startY += lineHeight;
+        });
+    };
 
     const drawMatchFrame = (match: MatchSummary, progress: number) => {
         const canvas = canvasRef.current;
@@ -225,7 +380,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         // 1. Dynamic Background
         const gradient = ctx.createLinearGradient(0, 0, width, height);
-        // Shift gradient based on progress for animation effect
         gradient.addColorStop(0, '#001e5a');
         gradient.addColorStop(0.5 + (progress * 0.1), '#002B7F');
         gradient.addColorStop(1, '#1a4a9f');
@@ -249,23 +403,45 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         const fadeIn = Math.min(1, progress * 4); 
         const slideUp = (1 - fadeIn) * 30;
         
-        // Competition & Date
+        // --- TOP SECTION (League Info) ---
+        // Restricted to top 25% area
+        const topSectionY = 20; 
+        const logoH = 60; 
+
+        // Draw League Logo if available
+        if (match.competitionLogoUrl && imageCache.has(match.competitionLogoUrl)) {
+             const logo = imageCache.get(match.competitionLogoUrl)!;
+             const ratio = logoH / logo.height;
+             const logoW = logo.width * ratio;
+             
+             ctx.globalAlpha = fadeIn;
+             ctx.save();
+             ctx.shadowColor = 'rgba(0,0,0,0.3)';
+             ctx.shadowBlur = 10;
+             // Draw centered at top
+             ctx.drawImage(logo, (width - logoW) / 2, topSectionY + slideUp, logoW, logoH);
+             ctx.restore();
+        }
+
+        // Competition Name
         ctx.globalAlpha = fadeIn;
         ctx.fillStyle = '#FDB913';
-        ctx.font = 'bold 24px Arial';
+        ctx.font = 'bold 20px "Poppins", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(match.competition.toUpperCase(), width / 2, 60 + slideUp);
+        // Position below logo space
+        const textStartY = match.competitionLogoUrl ? topSectionY + logoH + 20 : topSectionY + 30;
+        ctx.fillText(match.competition.toUpperCase(), width / 2, textStartY + slideUp);
         
-        ctx.fillStyle = '#CCCCCC';
-        ctx.font = '18px Arial';
-        ctx.fillText(match.date, width / 2, 90 + slideUp);
+        // --- CENTER SECTION (Teams & Score) ---
+        // Center of the canvas is height / 2. We position elements around there.
+        // Approx 55% down the screen
+        const centerY = height * 0.55; 
+        const crestSize = 100; 
+        const crestY = centerY - 30; // Shift crests up relative to center line
 
-        const centerY = height / 2;
-        const crestSize = 140;
-        const crestY = centerY - 40;
-
-        // Home Team
         ctx.textAlign = 'center';
+
+        // Home Team Crest
         if (match.teamACrest && imageCache.has(match.teamACrest)) {
             const img = imageCache.get(match.teamACrest)!;
             const ratio = Math.min(crestSize/img.width, crestSize/img.height);
@@ -274,27 +450,27 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             
             ctx.save();
             ctx.shadowColor = 'rgba(0,0,0,0.4)';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 20;
             ctx.drawImage(img, (width / 4) - w/2, crestY - h/2 + slideUp, w, h);
             ctx.restore();
         } else {
-            // Fallback circle if image failed
             ctx.beginPath();
-            ctx.arc(width / 4, crestY + slideUp, 50, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.arc(width / 4, crestY + slideUp, 40, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
             ctx.fill();
             ctx.fillStyle = '#FFF';
-            ctx.font = 'bold 40px Arial';
-            ctx.fillText(match.home.charAt(0), width/4, crestY + 15 + slideUp);
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText(match.home.charAt(0), width/4, crestY + 10 + slideUp);
         }
         
+        // Home Team Name
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 20px Arial';
-        let homeName = match.home;
-        if (homeName.length > 15) homeName = homeName.substring(0, 13) + '..';
-        ctx.fillText(homeName, width / 4, crestY + 100 + slideUp);
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        fitText(ctx, match.home, 180, 20, width / 4, crestY + 90 + slideUp);
+        ctx.shadowBlur = 0;
 
-        // Away Team
+        // Away Team Crest
         if (match.teamBCrest && imageCache.has(match.teamBCrest)) {
             const img = imageCache.get(match.teamBCrest)!;
             const ratio = Math.min(crestSize/img.width, crestSize/img.height);
@@ -303,49 +479,60 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             
             ctx.save();
             ctx.shadowColor = 'rgba(0,0,0,0.4)';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 20;
             ctx.drawImage(img, (width * 0.75) - w/2, crestY - h/2 + slideUp, w, h);
             ctx.restore();
         } else {
              ctx.beginPath();
-            ctx.arc(width * 0.75, crestY + slideUp, 50, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.arc(width * 0.75, crestY + slideUp, 40, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
             ctx.fill();
             ctx.fillStyle = '#FFF';
-            ctx.font = 'bold 40px Arial';
-            ctx.fillText(match.away.charAt(0), width * 0.75, crestY + 15 + slideUp);
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText(match.away.charAt(0), width * 0.75, crestY + 10 + slideUp);
         }
 
+        // Away Team Name
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 20px Arial';
-        let awayName = match.away;
-        if (awayName.length > 15) awayName = awayName.substring(0, 13) + '..';
-        ctx.fillText(awayName, width * 0.75, crestY + 100 + slideUp);
-
-        // Score / VS
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowColor = 'rgba(0,0,0,0.3)';
-        ctx.shadowBlur = 10;
-        ctx.fillRect(width/2 - 70, crestY - 35, 140, 70);
-        ctx.shadowBlur = 0;
-
-        ctx.fillStyle = '#000000';
-        ctx.font = 'bold 48px Arial';
-        const centerText = mode === 'results' ? `${match.scoreA}-${match.scoreB}` : (match.time || 'VS');
-        ctx.fillText(centerText, width/2, crestY + 15);
-
-        // Headline
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'italic bold 32px Arial';
         ctx.shadowColor = 'rgba(0,0,0,0.8)';
         ctx.shadowBlur = 4;
-        const headline = match.headline || '';
-        // wrap text slightly if long
-        if (ctx.measureText(headline).width > width - 40) {
-             ctx.font = 'italic bold 24px Arial';
-        }
-        ctx.fillText(headline, width / 2, height - 60 - slideUp);
+        fitText(ctx, match.away, 180, 20, width * 0.75, crestY + 90 + slideUp);
         ctx.shadowBlur = 0;
+
+
+        // --- SCORE BOARD (GLASSY) ---
+        const scoreBoxW = 160;
+        const scoreBoxH = 80;
+        // Draw Glass Background for Score in visual center between crests
+        drawGlassRect(ctx, (width - scoreBoxW)/2, crestY - scoreBoxH/2 + slideUp, scoreBoxW, scoreBoxH, 20);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 48px "Poppins", sans-serif';
+        const centerText = mode === 'results' ? `${match.scoreA}-${match.scoreB}` : (match.time || 'VS');
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 5;
+        // Center text vertically in scorebox
+        ctx.fillText(centerText, width/2, crestY + 18 + slideUp);
+        ctx.shadowBlur = 0;
+
+
+        // --- INFO PILL (Date/Venue/Time) ---
+        // Moved to bottom area (bottom 25%)
+        const infoY = height - 90; 
+        const infoBoxW = 450;
+        const infoBoxH = 45;
+        
+        drawGlassRect(ctx, (width - infoBoxW)/2, infoY, infoBoxW, infoBoxH, 22);
+        
+        ctx.fillStyle = '#FFDD57'; // Gold-ish
+        ctx.font = '600 15px "Inter", sans-serif';
+        
+        const infoParts = [];
+        if (match.date) infoParts.push(match.date);
+        if (match.time) infoParts.push(match.time); // Always show time if available
+        if (match.venue) infoParts.push(match.venue);
+        
+        ctx.fillText(infoParts.join('  •  '), width/2, infoY + 28);
 
         // Branding Footer
         ctx.fillStyle = '#D22730';
@@ -399,50 +586,37 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const startPlayback = async (record: boolean = false) => {
         if (isRecording || isPlaying) return;
         
+        // IMPORTANT: Resume audio context on user gesture
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+        }
+
         // Reset
         setCurrentMatchIndex(0);
         setProgress(0);
         startTimeRef.current = 0;
-
-        // Audio Handling
-        if (isAudioEnabled && audioRef.current) {
-            try {
-                audioRef.current.currentTime = 0;
-                await audioRef.current.play();
-            } catch (e) {
-                console.warn("Audio play failed (likely needs interaction first)", e);
-            }
-        }
         
+        let audioDest: MediaStreamAudioDestinationNode | undefined = undefined;
+
         if (record) {
             try {
                 // Video Stream
                 const canvasStream = (canvasRef.current as any)?.captureStream(30);
                 if (!canvasStream) throw new Error("Canvas stream capture failed");
-                
                 const tracks = [...canvasStream.getVideoTracks()];
 
-                // Audio Stream (Try to capture from audio element if supported)
-                if (isAudioEnabled && audioRef.current) {
-                    // Note: captureStream on media elements is not supported in all browsers (mostly Chrome/Edge)
-                    // @ts-ignore
-                    if (audioRef.current.captureStream) {
-                        // @ts-ignore
-                        const audioStream = audioRef.current.captureStream();
-                        tracks.push(...audioStream.getAudioTracks());
-                    } else if (typeof (audioRef.current as any).mozCaptureStream === 'function') {
-                         // Firefox
-                         // @ts-ignore
-                         const audioStream = (audioRef.current as any).mozCaptureStream();
-                         tracks.push(...audioStream.getAudioTracks());
-                    } else {
-                         console.warn("Browser does not support audio element capture. Video will be silent.");
-                         alert("Recording with audio is not fully supported in this browser. Video may be silent.");
-                    }
+                // Audio Stream using Web Audio API
+                if (isAudioEnabled && !audioError && audioContextRef.current) {
+                    audioDest = audioContextRef.current.createMediaStreamDestination();
+                    // Connect audio source to this destination
+                    playAudio(audioDest);
+                    tracks.push(...audioDest.stream.getAudioTracks());
+                } else {
+                     playAudio(); // Just play locally if not recording audio or disabled
                 }
                 
                 const combinedStream = new MediaStream(tracks);
-                const recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+                const recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm; codecs=vp9' });
                 mediaRecorderRef.current = recorder;
                 chunksRef.current = [];
 
@@ -459,11 +633,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                     a.click();
                     setIsRecording(false);
                     setIsPlaying(false);
-                    // Stop audio on record stop
-                    if (audioRef.current) {
-                        audioRef.current.pause();
-                        audioRef.current.currentTime = 0;
-                    }
+                    stopAudio();
                 };
 
                 recorder.start();
@@ -475,6 +645,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             }
         } else {
             setIsPlaying(true);
+            playAudio();
         }
 
         requestRef.current = requestAnimationFrame(animate);
@@ -484,10 +655,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         if (requestRef.current) cancelAnimationFrame(requestRef.current);
         if (isRecording) stopRecording();
         setIsPlaying(false);
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-        }
+        stopAudio();
     };
 
     const stopRecording = () => {
@@ -502,11 +670,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             drawMatchFrame(matches[0], 0);
         }
     }, [step, matches, assetsLoaded]);
-
-    // Stop audio if modal closed
-    useEffect(() => {
-        if (!isOpen) stopPlayback();
-    }, [isOpen]);
 
 
     return (
@@ -567,9 +730,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
                     {step === 3 && (
                         <div className="flex flex-col items-center animate-fade-in">
-                            {/* Audio Element */}
-                            <audio ref={audioRef} src={AUDIO_SRC} loop crossOrigin="anonymous" />
-
+                            
                             {/* Monitor */}
                             <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-700 bg-black mb-6 w-full max-w-[600px] aspect-video">
                                 <canvas ref={canvasRef} width={800} height={450} className="w-full h-full object-contain" />
@@ -584,20 +745,35 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                             </div>
 
                             {/* Controls */}
-                            <div className="flex gap-4 items-center w-full justify-center flex-wrap">
+                            <div className="flex gap-4 items-center w-full justify-center flex-wrap bg-gray-800 p-4 rounded-xl border border-gray-700">
                                 <Button onClick={() => { stopPlayback(); setStep(1); }} className="bg-gray-700 hover:bg-gray-600 text-white px-4">
                                     Back
                                 </Button>
                                 
-                                {/* Audio Toggle */}
-                                <button 
-                                    onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded font-bold transition-colors ${isAudioEnabled ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
-                                    disabled={isRecording || isPlaying}
-                                    title="Toggle Background Music"
-                                >
-                                    <RadioIcon className="w-5 h-5" /> {isAudioEnabled ? 'Music ON' : 'Music OFF'}
-                                </button>
+                                {/* Audio Controls */}
+                                <div className="flex items-center gap-2 border-l border-r border-gray-600 px-4 mx-2">
+                                    <button 
+                                        onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded font-bold transition-colors text-sm ${isAudioEnabled && !audioError ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                                        disabled={isRecording || isPlaying || audioError}
+                                        title={audioError ? "Audio Failed" : "Toggle Music"}
+                                    >
+                                        <RadioIcon className="w-4 h-4" /> {isAudioEnabled ? 'ON' : 'OFF'}
+                                    </button>
+                                    
+                                    <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium transition-colors">
+                                        <UploadIcon className="w-4 h-4" />
+                                        <span>{customAudioName ? 'Change Music' : 'Upload Music'}</span>
+                                        <input 
+                                            type="file" 
+                                            accept="audio/*" 
+                                            className="hidden" 
+                                            ref={audioInputRef}
+                                            onChange={handleAudioUpload}
+                                        />
+                                    </label>
+                                    {customAudioName && <span className="text-xs text-green-400 truncate max-w-[100px]" title={customAudioName}>{customAudioName}</span>}
+                                </div>
 
                                 {!isPlaying && !isRecording ? (
                                     <Button onClick={() => startPlayback(false)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 flex items-center gap-2">
@@ -618,9 +794,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                     {isRecording ? 'Recording...' : 'Record Video'}
                                 </Button>
                             </div>
-                            <p className="text-xs text-gray-500 mt-6 max-w-md text-center">
-                                Note: To prevent security errors, some images may not appear in the recorded video if the source website blocks access. 
-                                Audio recording requires browser support (best in Chrome/Edge).
+                            <p className="text-xs text-gray-500 mt-4 max-w-md text-center">
+                                Note: Audio recording relies on browser capabilities. If you hear silence in the exported video, ensure your system audio is not muted.
                             </p>
                         </div>
                     )}

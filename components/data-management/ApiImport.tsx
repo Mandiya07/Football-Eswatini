@@ -40,7 +40,7 @@ interface ReviewedFixture {
     time: string;
     venue: string;
     matchday: string;
-    status: 'new' | 'duplicate' | 'importing' | 'imported' | 'error';
+    status: 'new' | 'duplicate' | 'importing' | 'imported' | 'error' | 'update';
     selected: boolean;
     fixtureData: CompetitionFixture;
     error?: string;
@@ -276,11 +276,36 @@ const ApiImportPage: React.FC = () => {
         const officialTeamNames = (currentCompetition.teams || []).map(t => t.name);
 
         const processedFixtures: ReviewedFixture[] = fixturesToProcess.map((fixture) => {
-            const isDuplicate = existingMatches.some(f => 
+            // Look for an existing match with same Teams and Date
+            const existingMatch = existingMatches.find(f => 
                 f.teamA === fixture.teamA &&
                 f.teamB === fixture.teamB &&
                 f.fullDate === fixture.fullDate
             );
+
+            const isDuplicate = !!existingMatch;
+            let status: ReviewedFixture['status'] = 'new';
+            let isBetterData = false;
+
+            if (isDuplicate && existingMatch) {
+                // Check if import has more/better data than what's in DB
+                const dbTime = existingMatch.time || '00:00';
+                const newTime = fixture.time || '00:00';
+                const dbVenue = existingMatch.venue || '';
+                const newVenue = fixture.venue || '';
+                
+                // Improved if time is specific vs generic, or venue added, or score added
+                const timeImproved = (dbTime === '00:00' && newTime !== '00:00') || (dbTime.length < 5 && newTime.length >= 5);
+                const venueImproved = (!dbVenue && !!newVenue);
+                const statusUpdated = existingMatch.status !== 'finished' && fixture.status === 'finished';
+                
+                if (timeImproved || venueImproved || statusUpdated) {
+                    isBetterData = true;
+                    status = 'update';
+                } else {
+                    status = 'duplicate';
+                }
+            }
 
             // Validate team names
             const isValidA = officialTeamNames.includes(fixture.teamA);
@@ -292,6 +317,10 @@ const ApiImportPage: React.FC = () => {
             else if (!isValidA) errorMsg = `Invalid: ${fixture.teamA}`;
             else if (!isValidB) errorMsg = `Invalid: ${fixture.teamB}`;
 
+            if (hasError) {
+                status = 'error';
+            }
+
             return {
                 id: String(fixture.id),
                 title: `${fixture.teamA} vs ${fixture.teamB}`,
@@ -299,8 +328,8 @@ const ApiImportPage: React.FC = () => {
                 time: fixture.time,
                 venue: fixture.venue || 'N/A',
                 matchday: String(fixture.matchday),
-                status: hasError ? 'error' : (isDuplicate ? 'duplicate' : 'new'),
-                selected: !isDuplicate && !hasError,
+                status: status,
+                selected: (!isDuplicate || isBetterData) && !hasError, // Select new or updates, ignore exact duplicates
                 fixtureData: fixture,
                 error: errorMsg
             };
@@ -444,28 +473,64 @@ const ApiImportPage: React.FC = () => {
                 const competitionData = docSnap.data() as Competition;
                 const newItems = fixturesToSave.map(f => f.fixtureData);
 
+                let existingResults = competitionData.results || [];
+                let existingFixtures = competitionData.fixtures || [];
+
                 if (importType === 'results') {
-                    const existingResults = competitionData.results || [];
-                    let existingFixtures = competitionData.fixtures || [];
-                    
-                    const newResultIdentifiers = new Set(newItems.map(item => `${item.teamA}-${item.teamB}-${item.fullDate}`));
-                    const updatedFixtures = existingFixtures.filter(fixture => {
-                        const fixtureIdentifier = `${fixture.teamA}-${fixture.teamB}-${fixture.fullDate}`;
-                        return !newResultIdentifiers.has(fixtureIdentifier);
+                    // Upsert Results
+                    newItems.forEach(newItem => {
+                        // Find existing by logic
+                        const existingIndex = existingResults.findIndex(r => 
+                            r.teamA === newItem.teamA && r.teamB === newItem.teamB && r.fullDate === newItem.fullDate
+                        );
+
+                        if (existingIndex !== -1) {
+                            // UPDATE: Merge new details but keep existing ID to preserve any links
+                            existingResults[existingIndex] = { 
+                                ...existingResults[existingIndex], 
+                                ...newItem, 
+                                id: existingResults[existingIndex].id // Keep original ID
+                            };
+                        } else {
+                            // INSERT
+                            existingResults.push(newItem);
+                        }
+                        
+                        // Clean up from Fixtures if it exists there (as it's now a result)
+                        existingFixtures = existingFixtures.filter(f => 
+                            !(f.teamA === newItem.teamA && f.teamB === newItem.teamB && f.fullDate === newItem.fullDate)
+                        );
                     });
 
-                    const finalResults = [...existingResults, ...newItems];
-                    const updatedTeams = calculateStandings(competitionData.teams || [], finalResults, updatedFixtures);
+                    const updatedTeams = calculateStandings(competitionData.teams || [], existingResults, existingFixtures);
                     
                     transaction.update(docRef, removeUndefinedProps({ 
-                        fixtures: updatedFixtures,
-                        results: finalResults,
+                        fixtures: existingFixtures,
+                        results: existingResults,
                         teams: updatedTeams
                     }));
+
                 } else {
-                    const existingFixtures = competitionData.fixtures || [];
-                    const finalFixtures = [...existingFixtures, ...newItems];
-                    transaction.update(docRef, { fixtures: removeUndefinedProps(finalFixtures) });
+                    // Upsert Fixtures
+                    newItems.forEach(newItem => {
+                        const existingIndex = existingFixtures.findIndex(f => 
+                            f.teamA === newItem.teamA && f.teamB === newItem.teamB && f.fullDate === newItem.fullDate
+                        );
+                        
+                        if (existingIndex !== -1) {
+                             // UPDATE
+                             existingFixtures[existingIndex] = { 
+                                 ...existingFixtures[existingIndex], 
+                                 ...newItem,
+                                 id: existingFixtures[existingIndex].id 
+                             };
+                        } else {
+                             // INSERT
+                             existingFixtures.push(newItem);
+                        }
+                    });
+
+                    transaction.update(docRef, { fixtures: removeUndefinedProps(existingFixtures) });
                 }
             });
             return true;
@@ -531,19 +596,20 @@ const ApiImportPage: React.FC = () => {
 
                 // --- AUTO-IMPORT LOGIC ---
                 if (autoImport) {
-                    const validNewItems = processed.filter(f => f.status === 'new');
-                    if (validNewItems.length > 0) {
-                        setReviewedFixtures(prev => prev.map(f => f.status === 'new' ? { ...f, status: 'importing' } : f));
-                        const success = await saveFixtures(validNewItems);
+                    // Auto import anything selected (which includes New and Update)
+                    const validItems = processed.filter(f => f.selected);
+                    if (validItems.length > 0) {
+                        setReviewedFixtures(prev => prev.map(f => f.selected ? { ...f, status: 'importing' } : f));
+                        const success = await saveFixtures(validItems);
                         if (success) {
-                            setSuccessMessage(`Auto-Import: Successfully saved ${validNewItems.length} new ${importType}.`);
+                            setSuccessMessage(`Auto-Import: Successfully processed ${validItems.length} ${importType}.`);
                             setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? { ...f, status: 'imported', selected: false } : f));
                         } else {
                             // Revert statuses if auto-save failed
                             setReviewedFixtures(prev => prev.map(f => f.status === 'importing' ? { ...f, status: 'new' } : f));
                         }
                     } else {
-                        setSuccessMessage('Auto-Import enabled, but no valid new items were found to import.');
+                        setSuccessMessage('Auto-Import enabled, but no valid new or updated items were found.');
                     }
                 }
             }
@@ -570,7 +636,7 @@ const ApiImportPage: React.FC = () => {
     };
 
     const handleImportSelected = async () => {
-        const fixturesToImport = reviewedFixtures.filter(f => f.selected && (f.status === 'new' || f.status === 'error'));
+        const fixturesToImport = reviewedFixtures.filter(f => f.selected && (f.status === 'new' || f.status === 'update' || f.status === 'error'));
         
         const invalidSelections = fixturesToImport.filter(f => f.status === 'error');
         if (invalidSelections.length > 0) {
@@ -579,7 +645,7 @@ const ApiImportPage: React.FC = () => {
         }
 
         if (fixturesToImport.length === 0) {
-            setError("No valid new items selected for import.");
+            setError("No items selected for import.");
             return;
         }
 
@@ -627,7 +693,7 @@ const ApiImportPage: React.FC = () => {
                     return {
                         ...f,
                         fixtureData: updatedFixtureData,
-                        status: hasError ? 'error' : 'new', 
+                        status: hasError ? 'error' : f.status, // Keep 'update' or 'new' status unless error
                         error: errorMsg,
                         selected: !hasError 
                     } as ReviewedFixture;
@@ -856,8 +922,9 @@ const ApiImportPage: React.FC = () => {
                                                         {importType === 'results' && <td className="p-2 font-bold">{f.fixtureData.scoreA ?? '-'} : {f.fixtureData.scoreB ?? '-'}</td>}
                                                         <td className="p-2">
                                                             {f.status === 'new' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">New</span>}
+                                                            {f.status === 'update' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700" title="Updates existing match with better data">Update</span>}
                                                             {f.status === 'duplicate' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Duplicate</span>}
-                                                            {f.status === 'imported' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">Imported</span>}
+                                                            {f.status === 'imported' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-200 text-gray-700">Imported</span>}
                                                             {f.status === 'importing' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">Saving...</span>}
                                                             {f.status === 'error' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Action Req</span>}
                                                         </td>

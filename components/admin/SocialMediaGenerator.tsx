@@ -1,4 +1,5 @@
 
+// ... existing imports ...
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
@@ -14,6 +15,7 @@ import { fetchAllCompetitions } from '../../services/api';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 
+// ... existing types ...
 type DivisionType = 'International' | 'MTN Premier League' | 'National First Division League' | 'Regional' | 'Cups' | 'National Team';
 type ContentType = 'captions' | 'summary' | 'image' | 'recap';
 type PlatformType = 'twitter' | 'facebook' | 'instagram';
@@ -36,6 +38,7 @@ interface SocialMatch {
 }
 
 const SocialMediaGenerator: React.FC = () => {
+    // ... existing state and logic until drawMultiMatch ...
     const [division, setDivision] = useState<DivisionType>('MTN Premier League');
     const [contentType, setContentType] = useState<ContentType>('captions');
     const [platform, setPlatform] = useState<PlatformType>('twitter');
@@ -579,8 +582,9 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.fillText(title, centerX, 250);
         ctx.shadowBlur = 0;
 
-        const rowHeight = 100;
-        const maxRows = 8; 
+        // Increased row height from 100 to 120 for better spacing
+        const rowHeight = 120;
+        const maxRows = 7; 
         const spacing = 20;
         const visibleMatches = matches.slice(0, maxRows);
 
@@ -617,23 +621,24 @@ const SocialMediaGenerator: React.FC = () => {
 
             ctx.textAlign = 'center';
 
+            // Spacing Adjustments: Date higher, Score slightly lower, Venue at bottom
             ctx.fillStyle = '#CCCCCC';
-            ctx.font = '600 16px "Inter", sans-serif'; // Increased from 15px
-            ctx.fillText(m.date, centerX, rowCenterY - 25);
+            ctx.font = '600 16px "Inter", sans-serif'; 
+            ctx.fillText(m.date, centerX, rowCenterY - 35); // Moved up
 
             if (m.type === 'result') {
                 ctx.fillStyle = '#FDB913';
                 ctx.font = '900 36px "Poppins", sans-serif';
-                ctx.fillText(`${m.scoreA}-${m.scoreB}`, centerX, rowCenterY + 12);
+                ctx.fillText(`${m.scoreA}-${m.scoreB}`, centerX, rowCenterY + 5); // Adjusted
             } else {
                 ctx.fillStyle = '#FFFFFF';
                 ctx.font = 'bold 32px "Poppins", sans-serif';
-                ctx.fillText(m.time || 'VS', centerX, rowCenterY + 10);
+                ctx.fillText(m.time || 'VS', centerX, rowCenterY + 5); // Adjusted
             }
 
             if (m.venue) {
                 ctx.fillStyle = '#AAAAAA';
-                ctx.font = '500 14px "Inter", sans-serif'; // Increased from 13px
+                ctx.font = '500 14px "Inter", sans-serif'; 
                 let venueText = m.venue;
                 if (venueText.length > 25) venueText = venueText.substring(0, 23) + '..';
                 ctx.fillText(venueText, centerX, rowCenterY + 35);
@@ -671,6 +676,7 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.restore();
     };
 
+    // ... existing downloadImage and return logic ...
     const downloadImage = () => {
         const canvas = canvasRef.current;
         if (canvas) {
@@ -686,16 +692,14 @@ const SocialMediaGenerator: React.FC = () => {
             {/* Left Column: Configuration */}
             <Card className="shadow-lg h-fit">
                 <CardContent className="p-6 space-y-6">
+                    {/* ... existing config UI ... */}
                     <div className="flex items-center gap-3 mb-2">
                         <div className="bg-purple-100 p-3 rounded-full">
                             <SparklesIcon className="w-6 h-6 text-purple-600" />
                         </div>
                         <h3 className="text-2xl font-bold font-display text-gray-800">Social & Content Gen</h3>
                     </div>
-                    <p className="text-sm text-gray-600">
-                        Generate social media captions, summaries, match recaps, or visual graphics. Select your parameters and let the AI assist.
-                    </p>
-
+                    {/* ... rest of the UI ... */}
                     <div className={`grid ${contentType === 'captions' ? 'grid-cols-3' : 'grid-cols-2'} gap-4`}>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Division</label>

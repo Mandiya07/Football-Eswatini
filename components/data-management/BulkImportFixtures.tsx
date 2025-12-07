@@ -22,14 +22,13 @@ interface ParsedFixture extends Partial<CompetitionFixture> {
     teamA: string;
     teamB: string;
     overallConfidence: number;
-    reviewStatus: 'auto-publish' | 'manual-review' | 'reject';
+    reviewStatus: 'auto-publish' | 'manual-review' | 'reject' | 'update';
     normalizedTeamA: string | null;
     normalizedTeamB: string | null;
     isDuplicate: boolean;
     warnings: string[];
 }
 
-// FIX: Define a specific type for the editing form state to handle string inputs for numeric fields.
 interface EditFormData extends Partial<Omit<ParsedFixture, 'scoreA' | 'scoreB'>> {
     scoreA?: string | number;
     scoreB?: string | number;
@@ -37,12 +36,13 @@ interface EditFormData extends Partial<Omit<ParsedFixture, 'scoreA' | 'scoreB'>>
 
 const StatusIndicator: React.FC<{ status: ParsedFixture['reviewStatus'], warnings: string[] }> = ({ status, warnings }) => {
     const details = {
-        'auto-publish': { Icon: CheckCircleIcon, color: 'text-green-500', label: 'Auto-Publish' },
-        'manual-review': { Icon: AlertTriangleIcon, color: 'text-yellow-500', label: 'Review Required' },
+        'auto-publish': { Icon: CheckCircleIcon, color: 'text-green-500', label: 'New' },
+        'update': { Icon: CheckCircleIcon, color: 'text-teal-500', label: 'Update' },
+        'manual-review': { Icon: AlertTriangleIcon, color: 'text-yellow-500', label: 'Review' },
         'reject': { Icon: XCircleIcon, color: 'text-red-500', label: 'Rejected' }
     };
 
-    const { Icon, color, label } = details[status];
+    const { Icon, color, label } = details[status] || details['manual-review'];
     const tooltipText = warnings.length > 0 ? `${label}: ${warnings.join(', ')}` : label;
 
     return (
@@ -101,7 +101,6 @@ const BulkImportFixtures: React.FC = () => {
         if (!pastedText.trim()) return setError('Please paste some text to parse.');
         if (!currentCompetitionData) return setError('Please select a valid competition.');
         
-        // Explicit check for API Key to provide better feedback
         if (!process.env.API_KEY) {
             return setError('System Error: API_KEY is not configured. Please add the API_KEY environment variable in your Vercel project settings.');
         }
@@ -163,19 +162,44 @@ Text to parse:\n\n${pastedText}`;
                 if (!normalizedTeamA) warnings.push(`Could not match Home Team: "${item.teamA}"`);
                 if (!normalizedTeamB) warnings.push(`Could not match Away Team: "${item.teamB}"`);
 
-                const isDuplicate = existingMatches.some(f => f.fullDate === item.fullDate && f.teamA === normalizedTeamA && f.teamB === normalizedTeamB);
-                if (isDuplicate) warnings.push("Potential duplicate of an existing match on the same day.");
-
+                // Look for existing match
+                const existingMatch = existingMatches.find(f => 
+                    f.fullDate === item.fullDate && 
+                    f.teamA === normalizedTeamA && 
+                    f.teamB === normalizedTeamB
+                );
+                
+                const isDuplicate = !!existingMatch;
                 let reviewStatus: ParsedFixture['reviewStatus'] = 'auto-publish';
-                if (overallConfidence < 0.5 || !normalizedTeamA || !normalizedTeamB) {
-                    reviewStatus = 'reject';
-                } else if (overallConfidence < 0.85 || isDuplicate) {
-                    reviewStatus = 'manual-review';
+                let isUpdate = false;
+
+                if (isDuplicate && existingMatch) {
+                    // Check if new data improves existing
+                    const timeImproved = (existingMatch.time === '00:00' && item.time !== '00:00') || (!existingMatch.time && !!item.time);
+                    const venueImproved = (!existingMatch.venue && !!item.venue);
+                    // Status changed to finished?
+                    const statusUpdated = existingMatch.status !== 'finished' && item.status === 'finished';
+                    
+                    if (timeImproved || venueImproved || statusUpdated) {
+                        isUpdate = true;
+                        reviewStatus = 'update';
+                    } else {
+                         reviewStatus = 'manual-review'; // Flag duplicate
+                         warnings.push("Exact duplicate found.");
+                    }
                 }
 
-                if (overallConfidence < 0.85) warnings.unshift(`Low AI confidence (${(overallConfidence * 100).toFixed(0)}%)`);
+                if (overallConfidence < 0.5 || !normalizedTeamA || !normalizedTeamB) {
+                    reviewStatus = 'reject';
+                } else if (overallConfidence < 0.85 && reviewStatus !== 'update') {
+                    reviewStatus = 'manual-review';
+                    warnings.unshift(`Low AI confidence (${(overallConfidence * 100).toFixed(0)}%)`);
+                }
 
-                // Default status if not parsed correctly
+                // Auto-deselect exact duplicates that aren't updates
+                const shouldSelect = reviewStatus !== 'reject' && (reviewStatus === 'update' || !isDuplicate);
+
+                // Default status logic
                 let finalStatus = item.status;
                 if (!finalStatus) {
                      finalStatus = isResultsImport ? 'finished' : 'scheduled';
@@ -184,7 +208,7 @@ Text to parse:\n\n${pastedText}`;
                 return {
                     ...item,
                     tempId: index,
-                    selected: reviewStatus !== 'reject',
+                    selected: shouldSelect,
                     status: finalStatus,
                     overallConfidence,
                     reviewStatus,
@@ -228,9 +252,11 @@ Text to parse:\n\n${pastedText}`;
 
                 const competition = docSnap.data() as Competition;
                 
-                const newItems: CompetitionFixture[] = itemsToSave.map(pf => {
-                    const date = new Date(`${pf.fullDate}T${pf.time || '00:00'}`);
-                    const fixtureData: Partial<CompetitionFixture> = {
+                // Process items to save
+                const newItems = itemsToSave.map(pf => {
+                     const date = new Date(`${pf.fullDate}T${pf.time || '00:00'}`);
+                     const fixtureData: Partial<CompetitionFixture> = {
+                        // Temporarily set a new ID, we might overwrite if updating
                         id: Date.now() + pf.tempId,
                         matchday: parseInt(matchday, 10),
                         teamA: pf.normalizedTeamA!,
@@ -239,32 +265,79 @@ Text to parse:\n\n${pastedText}`;
                         date: date.getDate().toString(),
                         day: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
                         time: pf.time!,
-                        status: pf.status as any, // Using 'any' to bypass strict check for newly added statuses in this context
+                        status: pf.status as any,
                         venue: pf.venue,
-                    };
-                    if (pf.status === 'finished' || pf.status === 'abandoned') {
+                     };
+                     if (pf.status === 'finished' || pf.status === 'abandoned') {
                          if (pf.scoreA !== undefined) fixtureData.scoreA = pf.scoreA;
                          if (pf.scoreB !== undefined) fixtureData.scoreB = pf.scoreB;
                     }
                     return fixtureData as CompetitionFixture;
                 });
 
+                let existingFixtures = competition.fixtures || [];
+                let existingResults = competition.results || [];
+
                 if (importType === 'results') {
-                    const updatedResults = [...(competition.results || []), ...newItems];
-                    const updatedTeams = calculateStandings(competition.teams || [], updatedResults);
+                    // Upsert Results Logic
+                    newItems.forEach(newItem => {
+                        const existingIndex = existingResults.findIndex(r => 
+                             r.teamA === newItem.teamA && r.teamB === newItem.teamB && r.fullDate === newItem.fullDate
+                        );
+                        
+                        if (existingIndex !== -1) {
+                            // Update existing: Merge but keep ID
+                            existingResults[existingIndex] = { 
+                                ...existingResults[existingIndex], 
+                                ...newItem, 
+                                id: existingResults[existingIndex].id 
+                            };
+                        } else {
+                            // Add new
+                            existingResults.push(newItem);
+                        }
+
+                        // Remove corresponding scheduled fixture if exists
+                        existingFixtures = existingFixtures.filter(f => 
+                            !(f.teamA === newItem.teamA && f.teamB === newItem.teamB && f.fullDate === newItem.fullDate)
+                        );
+                    });
+                    
+                    const updatedTeams = calculateStandings(competition.teams || [], existingResults, existingFixtures);
+
                     transaction.update(docRef, removeUndefinedProps({
-                        results: updatedResults,
+                        results: existingResults,
+                        fixtures: existingFixtures,
                         teams: updatedTeams
                     }));
-                } else { // 'fixtures'
-                    const updatedFixtures = [...(competition.fixtures || []), ...newItems];
+
+                } else { 
+                    // Upsert Fixtures Logic
+                    newItems.forEach(newItem => {
+                        const existingIndex = existingFixtures.findIndex(f => 
+                             f.teamA === newItem.teamA && f.teamB === newItem.teamB && f.fullDate === newItem.fullDate
+                        );
+
+                        if (existingIndex !== -1) {
+                            // Update
+                            existingFixtures[existingIndex] = {
+                                ...existingFixtures[existingIndex],
+                                ...newItem,
+                                id: existingFixtures[existingIndex].id
+                            };
+                        } else {
+                            // Add
+                            existingFixtures.push(newItem);
+                        }
+                    });
+
                     transaction.update(docRef, removeUndefinedProps({
-                        fixtures: updatedFixtures
+                        fixtures: existingFixtures
                     }));
                 }
             });
 
-            setSuccessMessage(`${itemsToSave.length} ${importType} saved successfully!`);
+            setSuccessMessage(`${itemsToSave.length} ${importType} processed successfully!`);
             setPastedText('');
             setParsedFixtures([]);
             setMatchday('');
@@ -278,7 +351,6 @@ Text to parse:\n\n${pastedText}`;
 
     const handleEditClick = (fixture: ParsedFixture) => {
         setEditingFixtureId(fixture.tempId);
-        // FIX: Ensure scores are converted to strings for the form, resolving the type mismatch.
         setEditedData({
             ...fixture,
             teamA: fixture.normalizedTeamA || fixture.teamA || '',
@@ -292,7 +364,6 @@ Text to parse:\n\n${pastedText}`;
         const fixtureToApprove = parsedFixtures.find(f => f.tempId === tempId);
         if (!fixtureToApprove) return;
 
-        // Safety check: ensure team names are valid before allowing a manual approval.
         if (!fixtureToApprove.normalizedTeamA || !fixtureToApprove.normalizedTeamB) {
             alert("Cannot approve: One or both team names are not recognized. Please use the Edit button to select valid teams from the list first.");
             return;
@@ -303,7 +374,7 @@ Text to parse:\n\n${pastedText}`;
             reviewStatus: 'auto-publish',
             selected: true,
             warnings: ['Manually approved by user.'],
-            isDuplicate: false, // Override any potential duplicate flag
+            isDuplicate: false, 
         };
 
         setParsedFixtures(prev => prev.map(f => f.tempId === tempId ? approvedFixture : f));
@@ -325,7 +396,6 @@ Text to parse:\n\n${pastedText}`;
     
         const officialTeamNames = (currentCompetitionData.teams || []).map(t => t.name);
     
-        // Combine original fixture with any edits made in the form
         const updatedData: Partial<ParsedFixture> = {
             ...fixtureToUpdate,
             ...editedData,
@@ -333,15 +403,12 @@ Text to parse:\n\n${pastedText}`;
             scoreB: (editedData.scoreB !== '' && editedData.scoreB != null) ? Number(editedData.scoreB) : undefined,
         };
     
-        // Re-normalize based on the final data (original or edited)
         const normalizedTeamA = normalizeTeamName(updatedData.teamA!, officialTeamNames);
         const normalizedTeamB = normalizeTeamName(updatedData.teamB!, officialTeamNames);
     
         let finalFixture: ParsedFixture;
     
-        // Validation step: ONLY check if team names are valid.
         if (!normalizedTeamA || !normalizedTeamB) {
-            // If names are invalid, reject it. This is a hard error.
             const warnings: string[] = [];
             if (!normalizedTeamA) warnings.push(`Invalid Home Team: "${updatedData.teamA}". Please select a valid team.`);
             if (!normalizedTeamB) warnings.push(`Invalid Away Team: "${updatedData.teamB}". Please select a valid team.`);
@@ -351,27 +418,22 @@ Text to parse:\n\n${pastedText}`;
                 normalizedTeamA,
                 normalizedTeamB,
                 warnings,
-                reviewStatus: 'reject', // Hard reject on invalid team name
+                reviewStatus: 'reject', 
                 selected: false,
             };
         } else {
-            // If team names are valid, the save action is a manual override.
-            // We bypass all previous checks (duplicate, confidence) and force approval.
             finalFixture = {
                 ...updatedData as ParsedFixture,
                 normalizedTeamA,
                 normalizedTeamB,
-                warnings: ['Manually approved by user.'], // Clear old warnings and add an approval note
-                reviewStatus: 'auto-publish', // Force status to publishable
-                selected: true, // Auto-select it for import
-                isDuplicate: false, // Override any previous duplicate flag
+                warnings: ['Manually approved by user.'], 
+                reviewStatus: 'auto-publish', 
+                selected: true, 
+                isDuplicate: false, 
             };
         }
         
-        // Update the state with the re-validated/overridden fixture
         setParsedFixtures(prev => prev.map(f => f.tempId === editingFixtureId ? finalFixture : f));
-    
-        // Close the edit form
         handleCancelEdit();
     };
 
@@ -485,7 +547,7 @@ Text to parse:\n\n${pastedText}`;
                                                     <td className="p-2 text-center">
                                                         <div className="flex justify-center gap-1">
                                                             <Button onClick={() => handleEditClick(f)} className="bg-gray-200 text-gray-700 h-7 w-7 p-0 flex items-center justify-center" title="Edit" type="button"><PencilIcon className="w-4 h-4"/></Button>
-                                                            {f.reviewStatus !== 'auto-publish' && (
+                                                            {f.reviewStatus !== 'auto-publish' && f.reviewStatus !== 'update' && (
                                                                 <Button onClick={() => handleApprove(f.tempId)} className="bg-green-100 text-green-700 hover:bg-green-200 h-7 w-7 p-0 flex items-center justify-center" title="Manually Approve" type="button"><CheckCircleIcon className="w-4 h-4" /></Button>
                                                             )}
                                                             <Button 

@@ -11,6 +11,20 @@ import SecondaryNavigation from './SecondaryNavigation';
 import Logo from './Logo';
 import ShieldIcon from './icons/ShieldIcon';
 import ChevronDownIcon from './icons/ChevronDownIcon';
+import { fetchNews, fetchAllCompetitions, fetchDirectoryEntries } from '../services/api';
+import { NewsItem } from '../data/news';
+import { DirectoryEntity } from '../data/directory';
+import TrophyIcon from './icons/TrophyIcon';
+import CalendarIcon from './icons/CalendarIcon';
+import NewspaperIcon from './icons/NewspaperIcon';
+
+interface SearchResult {
+    type: 'news' | 'team' | 'match';
+    title: string;
+    subtitle?: string;
+    link: string;
+    id: string;
+}
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,10 +32,18 @@ const Navigation: React.FC = () => {
   const [isClubMenuOpen, setIsClubMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Search State
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [cachedData, setCachedData] = useState<{ news: NewsItem[], teams: DirectoryEntity[], competitions: any } | null>(null);
+
   const { isLoggedIn, user, openAuthModal, logout } = useAuth();
   const { cartCount } = useCart();
   const profileRef = useRef<HTMLDivElement>(null);
   const clubMenuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const navItems = [
@@ -46,16 +68,103 @@ const Navigation: React.FC = () => {
       if (clubMenuRef.current && !clubMenuRef.current.contains(event.target as Node)) {
         setIsClubMenuOpen(false);
       }
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Lazy load data on first search interaction
+  const loadSearchData = async () => {
+      if (dataLoaded || cachedData) return;
+      
+      try {
+          const [newsData, competitionsData, directoryData] = await Promise.all([
+              fetchNews(),
+              fetchAllCompetitions(),
+              fetchDirectoryEntries()
+          ]);
+          setCachedData({ news: newsData, teams: directoryData, competitions: competitionsData });
+          setDataLoaded(true);
+      } catch (err) {
+          console.error("Failed to load search data", err);
+      }
+  };
+
+  const handleSearchFocus = () => {
+      loadSearchData();
+      if (searchQuery.trim().length > 0) setShowSuggestions(true);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const query = e.target.value;
+      setSearchQuery(query);
+      
+      if (query.trim().length === 0) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+          return;
+      }
+      
+      setShowSuggestions(true);
+      
+      if (cachedData) {
+          const term = query.toLowerCase();
+          const results: SearchResult[] = [];
+          
+          // 1. Filter News (Limit 3)
+          const newsMatches = cachedData.news.filter(n => n.title.toLowerCase().includes(term)).slice(0, 3);
+          newsMatches.forEach(n => results.push({ type: 'news', title: n.title, subtitle: n.date, link: n.url, id: n.id }));
+
+          // 2. Filter Teams (Limit 3)
+          // Search in Directory for cleaner data, fallback to competitions if needed
+          const teamMatches = cachedData.teams.filter(t => t.name.toLowerCase().includes(term) && t.category === 'Club').slice(0, 3);
+          teamMatches.forEach(t => results.push({ 
+              type: 'team', 
+              title: t.name, 
+              subtitle: t.tier || t.region, 
+              link: t.competitionId && t.teamId ? `/competitions/${t.competitionId}/teams/${t.teamId}` : '/directory', 
+              id: t.id 
+          }));
+
+          // 3. Filter Fixtures (Limit 3) - Search upcoming fixtures in competitions
+          let fixtureCount = 0;
+          Object.values(cachedData.competitions).forEach((comp: any) => {
+              if (fixtureCount >= 3) return;
+              (comp.fixtures || []).forEach((f: any) => {
+                  if (fixtureCount >= 3) return;
+                  if (f.status !== 'finished' && (f.teamA.toLowerCase().includes(term) || f.teamB.toLowerCase().includes(term))) {
+                      results.push({
+                          type: 'match',
+                          title: `${f.teamA} vs ${f.teamB}`,
+                          subtitle: `${f.date} • ${comp.name}`,
+                          link: '/fixtures',
+                          id: `fix-${f.id}`
+                      });
+                      fixtureCount++;
+                  }
+              });
+          });
+
+          setSuggestions(results);
+      }
+  };
+
+  const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       navigate(`/news?q=${encodeURIComponent(searchQuery.trim())}`);
-      setIsOpen(false); // Close mobile menu if open
+      setIsOpen(false);
+      setShowSuggestions(false);
     }
+  };
+  
+  const handleSuggestionClick = (link: string) => {
+      navigate(link);
+      setIsOpen(false);
+      setShowSuggestions(false);
+      setSearchQuery('');
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
@@ -68,6 +177,13 @@ const Navigation: React.FC = () => {
     const baseClass = "text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium";
     const activeClass = "bg-primary-dark text-white";
     return `${baseClass} ${isActive ? activeClass : ''}`;
+  };
+
+  const ResultIcon = ({ type }: { type: SearchResult['type'] }) => {
+      if (type === 'news') return <NewspaperIcon className="w-4 h-4 text-gray-500" />;
+      if (type === 'team') return <ShieldIcon className="w-4 h-4 text-blue-500" />;
+      if (type === 'match') return <CalendarIcon className="w-4 h-4 text-green-500" />;
+      return null;
   };
 
   return (
@@ -104,7 +220,7 @@ const Navigation: React.FC = () => {
                           <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-50 animate-fade-in-fast ring-1 ring-black ring-opacity-5">
                                <div className="px-4 py-2 text-xs font-bold text-gray-500 uppercase border-b bg-gray-50 truncate">
                                   {user.club || 'My Club'}
-                               </div>
+                                </div>
                                <Link to="/club-management?tab=scores" onClick={() => setIsClubMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary font-medium">Update Scores</Link>
                                <Link to="/club-management?tab=news" onClick={() => setIsClubMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary font-medium">Post News</Link>
                                <Link to="/club-management?tab=squad" onClick={() => setIsClubMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-primary font-medium">Manage Squad</Link>
@@ -116,7 +232,7 @@ const Navigation: React.FC = () => {
                   </div>
                 )}
 
-                <div className="relative">
+                <div className="relative" ref={searchRef}>
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                     <SearchIcon className="h-4 w-4 text-gray-300" />
                   </span>
@@ -125,11 +241,47 @@ const Navigation: React.FC = () => {
                     placeholder="Search..."
                     aria-label="Search"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleSearch}
-                    className="bg-white/20 text-white placeholder-gray-300 rounded-full py-1.5 pl-9 pr-4 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent focus:w-48 transition-all duration-300"
+                    onChange={handleSearchChange}
+                    onFocus={handleSearchFocus}
+                    onKeyDown={handleSearchSubmit}
+                    className="bg-white/20 text-white placeholder-gray-300 rounded-full py-1.5 pl-9 pr-4 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent focus:w-64 transition-all duration-300"
                   />
+                  
+                  {/* Search Suggestions Dropdown */}
+                  {showSuggestions && searchQuery.trim() && (
+                      <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-50 overflow-hidden ring-1 ring-black ring-opacity-5 animate-fade-in-fast">
+                          {suggestions.length > 0 ? (
+                              <ul>
+                                  {suggestions.map((result, idx) => (
+                                      <li key={`${result.type}-${result.id}-${idx}`} className="border-b last:border-b-0 border-gray-100">
+                                          <button 
+                                              onClick={() => handleSuggestionClick(result.link)}
+                                              className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3 transition-colors"
+                                          >
+                                              <div className="mt-0.5"><ResultIcon type={result.type} /></div>
+                                              <div className="min-w-0">
+                                                  <p className="text-sm font-semibold text-gray-800 truncate">{result.title}</p>
+                                                  {result.subtitle && <p className="text-xs text-gray-500 truncate">{result.subtitle}</p>}
+                                              </div>
+                                          </button>
+                                      </li>
+                                  ))}
+                                  <li className="bg-gray-50">
+                                      <button 
+                                          onClick={() => handleSuggestionClick(`/news?q=${encodeURIComponent(searchQuery)}`)}
+                                          className="w-full text-center py-2 text-xs font-bold text-primary hover:underline"
+                                      >
+                                          View all results for "{searchQuery}"
+                                      </button>
+                                  </li>
+                              </ul>
+                          ) : (
+                              <div className="p-4 text-center text-sm text-gray-500">No matches found.</div>
+                          )}
+                      </div>
+                  )}
                 </div>
+
                 {/* Cart Icon */}
                 <button 
                   onClick={() => setIsCartOpen(true)}
@@ -223,10 +375,30 @@ const Navigation: React.FC = () => {
                     placeholder="Search..."
                     aria-label="Search"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleSearch}
+                    onChange={handleSearchChange}
+                    onKeyDown={handleSearchSubmit}
                     className="block w-full bg-primary-dark text-white placeholder-gray-400 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent"
                   />
+                  {/* Mobile Search Suggestions - Inline */}
+                  {showSuggestions && searchQuery.trim() && suggestions.length > 0 && (
+                      <div className="mt-2 bg-white rounded-md shadow-lg overflow-hidden">
+                          <ul>
+                              {suggestions.map((result, idx) => (
+                                  <li key={`${result.type}-${result.id}-${idx}`} className="border-b last:border-b-0 border-gray-100">
+                                      <button 
+                                          onClick={() => handleSuggestionClick(result.link)}
+                                          className="w-full text-left px-4 py-3 flex items-start gap-3 active:bg-gray-100"
+                                      >
+                                          <div className="mt-0.5"><ResultIcon type={result.type} /></div>
+                                          <div className="min-w-0">
+                                              <p className="text-sm font-semibold text-gray-800 truncate">{result.title}</p>
+                                          </div>
+                                      </button>
+                                  </li>
+                              ))}
+                          </ul>
+                      </div>
+                  )}
                 </div>
               {navItems.map((item) => (
                 <NavLink to={item.to} key={item.name} onClick={() => setIsOpen(false)} className={getMobileNavLinkClass}>

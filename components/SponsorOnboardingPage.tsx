@@ -13,6 +13,7 @@ import Spinner from './ui/Spinner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import BuildingIcon from './icons/BuildingIcon';
 import PromoCodeInput from './ui/PromoCodeInput';
+import { SponsorEcosystemInfographic } from './ui/Infographics';
 
 const SponsorOnboardingPage: React.FC = () => {
     const navigate = useNavigate();
@@ -70,7 +71,7 @@ const SponsorOnboardingPage: React.FC = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-5xl mx-auto">
                 <div className="text-center mb-12">
                     <BriefcaseIcon className="w-12 h-12 mx-auto text-green-700 mb-4" />
                     <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">Become a Partner</h1>
@@ -79,7 +80,12 @@ const SponsorOnboardingPage: React.FC = () => {
                     </p>
                 </div>
 
-                <Card className="shadow-xl">
+                {/* Infographic Placement */}
+                <div className="mb-12 animate-fade-in">
+                    <SponsorEcosystemInfographic />
+                </div>
+
+                <Card className="shadow-xl max-w-3xl mx-auto">
                     <CardContent className="p-8">
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
