@@ -61,7 +61,7 @@ const SocialMediaGenerator: React.FC = () => {
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
             
-            let relevantText = `CONTEXT REPORT for ${division}\n================================\n`;
+            let relevantText = `CONTEXT REPORT for ${division}\nGenerated: ${new Date().toLocaleString()}\n================================\n`;
             let foundData = false;
             const extractedMatches: SocialMatch[] = [];
 
@@ -81,14 +81,22 @@ const SocialMediaGenerator: React.FC = () => {
                     foundData = true;
                     relevantText += `\nCOMPETITION: ${comp.name}\n`;
 
-                    // 1. CALCULATE AND ADD STANDINGS
+                    // 1. CALCULATE AND ADD STANDINGS WITH MARKDOWN TABLE
                     if (comp.teams && comp.teams.length > 0) {
-                        const standings = calculateStandings(comp.teams, comp.results || [], comp.fixtures || []);
-                        relevantText += `\nCURRENT STANDINGS (Pos. Team - Points - GD):\n`;
+                        // Ensure we are using valid arrays
+                        const results = Array.isArray(comp.results) ? comp.results : [];
+                        const fixtures = Array.isArray(comp.fixtures) ? comp.fixtures : [];
+                        
+                        const standings = calculateStandings(comp.teams, results, fixtures);
+                        
+                        relevantText += `\n### LEAGUE TABLE: ${comp.name}\n`;
+                        relevantText += `| Pos | Team | P | W | D | L | GF | GA | GD | Pts | Form |\n`;
+                        relevantText += `|---|---|---|---|---|---|---|---|---|---|---|\n`;
+                        
                         standings.forEach((team, index) => {
-                            relevantText += `${index + 1}. ${team.name} - ${team.stats.pts}pts (GD ${team.stats.gd}, Form: ${team.stats.form})\n`;
+                            relevantText += `| ${index + 1} | ${team.name} | ${team.stats.p} | ${team.stats.w} | ${team.stats.d} | ${team.stats.l} | ${team.stats.gs} | ${team.stats.gc} | ${team.stats.gd} | ${team.stats.pts} | ${team.stats.form} |\n`;
                         });
-                        relevantText += `\n--------------------------------\n`;
+                        relevantText += `\n`;
                     }
 
                     // 2. ADD RECENT & UPCOMING MATCHES
@@ -115,44 +123,50 @@ const SocialMediaGenerator: React.FC = () => {
                     };
 
                     if (recentResults.length > 0 || upcomingFixtures.length > 0) {
-                        relevantText += `\nRECENT ACTIVITY (Last 7 Days & Next 7 Days):\n`;
+                        relevantText += `\n### ACTIVITY LOG (Last 7 Days & Next 7 Days)\n`;
                         
-                        recentResults.forEach((r: any) => {
-                            relevantText += `[RESULT] ${r.teamA} ${r.scoreA}-${r.scoreB} ${r.teamB} (${r.fullDate})\n`;
-                            extractedMatches.push({
-                                id: `res-${r.id}`,
-                                type: 'result',
-                                teamA: r.teamA,
-                                teamB: r.teamB,
-                                teamACrest: getCrest(r.teamA),
-                                teamBCrest: getCrest(r.teamB),
-                                scoreA: r.scoreA,
-                                scoreB: r.scoreB,
-                                date: formatMatchDate(r.fullDate || ''),
-                                competition: comp.name,
-                                competitionLogoUrl: comp.logoUrl,
-                                venue: r.venue,
-                                matchday: r.matchday
+                        if (recentResults.length > 0) {
+                            relevantText += `**Recent Results:**\n`;
+                            recentResults.forEach((r: any) => {
+                                relevantText += `- ${r.teamA} ${r.scoreA}-${r.scoreB} ${r.teamB} (${r.fullDate})\n`;
+                                extractedMatches.push({
+                                    id: `res-${r.id}`,
+                                    type: 'result',
+                                    teamA: r.teamA,
+                                    teamB: r.teamB,
+                                    teamACrest: getCrest(r.teamA),
+                                    teamBCrest: getCrest(r.teamB),
+                                    scoreA: r.scoreA,
+                                    scoreB: r.scoreB,
+                                    date: formatMatchDate(r.fullDate || ''),
+                                    competition: comp.name,
+                                    competitionLogoUrl: comp.logoUrl,
+                                    venue: r.venue,
+                                    matchday: r.matchday
+                                });
                             });
-                        });
+                        }
                         
-                        upcomingFixtures.forEach((f: any) => {
-                            relevantText += `[FIXTURE] ${f.teamA} vs ${f.teamB} (${f.fullDate} @ ${f.time})\n`;
-                            extractedMatches.push({
-                                id: `fix-${f.id}`,
-                                type: 'fixture',
-                                teamA: f.teamA,
-                                teamB: f.teamB,
-                                teamACrest: getCrest(f.teamA),
-                                teamBCrest: getCrest(f.teamB),
-                                date: formatMatchDate(f.fullDate || ''),
-                                time: f.time,
-                                competition: comp.name,
-                                competitionLogoUrl: comp.logoUrl,
-                                venue: f.venue,
-                                matchday: f.matchday
+                        if (upcomingFixtures.length > 0) {
+                            relevantText += `\n**Upcoming Fixtures:**\n`;
+                            upcomingFixtures.forEach((f: any) => {
+                                relevantText += `- ${f.teamA} vs ${f.teamB} (${f.fullDate} @ ${f.time})\n`;
+                                extractedMatches.push({
+                                    id: `fix-${f.id}`,
+                                    type: 'fixture',
+                                    teamA: f.teamA,
+                                    teamB: f.teamB,
+                                    teamACrest: getCrest(f.teamA),
+                                    teamBCrest: getCrest(f.teamB),
+                                    date: formatMatchDate(f.fullDate || ''),
+                                    time: f.time,
+                                    competition: comp.name,
+                                    competitionLogoUrl: comp.logoUrl,
+                                    venue: f.venue,
+                                    matchday: f.matchday
+                                });
                             });
-                        });
+                        }
                     }
                 }
             });
@@ -170,7 +184,7 @@ const SocialMediaGenerator: React.FC = () => {
             }
         } catch (error) {
             console.error("Error fetching data:", error);
-            alert("Failed to auto-fetch data.");
+            alert("Failed to auto-fetch data. Please ensure the database is accessible.");
         } finally {
             setIsFetchingData(false);
         }
@@ -202,7 +216,8 @@ const SocialMediaGenerator: React.FC = () => {
                     ${contextData}
                     
                     Instructions:
-                    - Use the Standings data to correctly contextualize results (e.g., "League leaders Green Mamba extend lead" or "Swallows drop points in title race").
+                    - **CRITICAL:** Use the provided LEAGUE TABLE to accurately describe team standings. Do not hallucinate title contenders if the points difference is large.
+                    - Mention specific scores from the 'Recent Results' section.
                     - Style: Short, exciting, use emojis, and use 2-3 relevant hashtags like #FootballEswatini #${division.replace(/\s/g, '')}.
                     Output format: Just the 5 captions separated by a "|||" delimiter. Do not number them.`;
                 } else if (platform === 'facebook') {
@@ -212,7 +227,7 @@ const SocialMediaGenerator: React.FC = () => {
                     ${contextData}
                     
                     Instructions:
-                    - Use the Standings to accurately describe team positions (e.g. "Bottom of the table...", "Top 4 clash...").
+                    - **CRITICAL:** Reference the LEAGUE TABLE positions to add context (e.g., "Top of the table clash", "Relegation battle"). Ensure accuracy of points/positions.
                     - Style: Slightly more descriptive than Twitter. Ask a question to encourage comments and engagement. Use emojis and 1-2 relevant hashtags.
                     Output format: Just the 3 captions separated by a "|||" delimiter. Do not number them.`;
                 } else { // instagram
@@ -222,7 +237,7 @@ const SocialMediaGenerator: React.FC = () => {
                     ${contextData}
                     
                     Instructions:
-                    - Reference the league table positions where relevant to add stakes to the matches.
+                    - **CRITICAL:** Use the provided LEAGUE TABLE to ensure any claims about "Title Races" or "Leaders" are mathematically accurate based on the Points column.
                     - Style: Storytelling and descriptive, as if accompanying a photo or video. End each caption with a block of 5-7 relevant hashtags.
                     Output format: Just the 3 captions separated by a "|||" delimiter. Do not number them.`;
                 }
@@ -248,8 +263,8 @@ const SocialMediaGenerator: React.FC = () => {
                 ${contextData}
                 
                 Instructions:
-                - Use the standings to explain the implication of this result (e.g., did the winner move up? did the loser drop into the relegation zone?).
-                - If specific match details (scorers/events) are missing, use creative sports writing to describe a plausible flow based on the scoreline and team stature, OR focus heavily on the league implications.
+                - **CRITICAL:** Analyze the LEAGUE TABLE provided. Explain the implication of this result on the table (e.g., did the winner move up? did the loser drop into the relegation zone?).
+                - If specific match details (scorers/events) are missing in the data, use generic but professional sports writing to describe the result's impact, focusing heavily on the league implications.
                 - Style: Engaging, professional sports journalism. Title the recap appropriately.
                 Output format: A single markdown-formatted article body.`;
             } else { // summary
@@ -259,8 +274,8 @@ const SocialMediaGenerator: React.FC = () => {
                 ${contextData}
                 
                 Instructions:
-                - accurately reflect current league positions using the provided Standings section. Do NOT invent positions.
-                - Highlight big wins, upsets, and movement in the table.
+                - **CRITICAL:** Accurately reflect current league positions using the provided LEAGUE TABLE. Do NOT invent positions or points.
+                - Highlight big wins, upsets, and movement in the table based on the Points and Goal Difference columns.
                 - Mention upcoming key fixtures.
                 - Style: Professional, engaging, journalistic. Length: 150-250 words.
                 Output format: A single markdown-formatted article body.`;
@@ -278,9 +293,10 @@ const SocialMediaGenerator: React.FC = () => {
                 setGeneratedContent(text);
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("AI Error:", error);
-            alert("Failed to generate content. Please try again.");
+            // Detailed error reporting for debugging
+            alert(`Failed to generate content. Error: ${error.message || error}`);
         } finally {
             setIsGenerating(false);
         }
@@ -328,7 +344,7 @@ const SocialMediaGenerator: React.FC = () => {
                                 value={contextData} 
                                 onChange={(e) => setContextData(e.target.value)} 
                                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs font-mono h-40"
-                                placeholder="Fetched data will appear here. You can also paste your own match stats, lineups, or notes..."
+                                placeholder="Fetched data (Standings, Results) will appear here. You can also paste your own stats..."
                             />
                         </div>
                         
