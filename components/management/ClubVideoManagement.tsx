@@ -47,6 +47,15 @@ const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            // FIX: Use Blob URL for local video file handling to prevent crash
+            const objectUrl = URL.createObjectURL(file);
+            setFormData(prev => ({ ...prev, url: objectUrl }));
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.url.trim() || !formData.title.trim()) return;
@@ -134,8 +143,7 @@ const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
                     <h3 className="text-2xl font-bold font-display">Video Hub Integration</h3>
                 </div>
                 <p className="text-gray-600 mb-6 text-sm">
-                    Paste a link from YouTube or Facebook to embed it directly on your club profile. 
-                    Great for highlights, interviews, or training clips.
+                    Paste a link from YouTube/Facebook OR upload a video file directly (e.g. AI Recap).
                 </p>
 
                 {successMessage && (
@@ -155,20 +163,33 @@ const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
                             onChange={handleChange} 
                             required 
                             className={inputClass} 
-                            placeholder="e.g. Match Highlights vs Highlanders" 
+                            placeholder="e.g. Weekly Match Recap" 
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Video Link (YouTube / Facebook)</label>
-                        <input 
-                            type="url" 
-                            name="url" 
-                            value={formData.url} 
-                            onChange={handleChange} 
-                            required 
-                            className={inputClass} 
-                            placeholder="https://www.youtube.com/watch?v=..." 
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Video Link OR Upload File</label>
+                        <div className="flex gap-2">
+                             <input 
+                                type="url" 
+                                name="url" 
+                                value={formData.url} 
+                                onChange={handleChange} 
+                                className={inputClass} 
+                                placeholder="https://..." 
+                            />
+                            <div className="relative">
+                                <input 
+                                    type="file" 
+                                    accept="video/*" 
+                                    onChange={handleFileChange}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                />
+                                <Button type="button" className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                    Upload File
+                                </Button>
+                            </div>
+                        </div>
+                         {formData.url.startsWith('blob:') && <p className="text-xs text-green-600 mt-1">File selected (Local upload)</p>}
                     </div>
                     <div className="text-right">
                         <Button type="submit" disabled={isSubmitting} className="bg-red-600 text-white hover:bg-red-700">

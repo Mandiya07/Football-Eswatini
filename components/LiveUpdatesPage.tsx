@@ -49,23 +49,36 @@ interface MergedLiveMatch {
 const LiveUpdatesPage: React.FC = () => {
     const [activeFixtures, setActiveFixtures] = useState<{ fixture: CompetitionFixture, competitionName: string, competitionId: string }[]>([]);
     const [updates, setUpdates] = useState<LiveUpdate[]>([]);
-    const [upcomingMatches, setUpcomingMatches] = useState<{ fixture: CompetitionFixture, competitionId: string }[]>([]);
-    const [recentResults, setRecentResults] = useState<{ fixture: CompetitionFixture, competitionId: string }[]>([]);
+    const [upcomingMatches, setUpcomingMatches] = useState<{ fixture: CompetitionFixture, competitionId: string, competitionName: string }[]>([]);
+    const [recentResults, setRecentResults] = useState<{ fixture: CompetitionFixture, competitionId: string, competitionName: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'live' | 'upcoming' | 'results'>('live');
     
     // Fake empty directory map for FixtureItem since we don't need full linking functionality in the fallback view
     const emptyMap = useMemo(() => new Map<string, DirectoryEntity>(), []);
 
+    // Helper to parse dates robustly for sorting
+    const getMatchTimestamp = (fixture: CompetitionFixture) => {
+        if (!fixture.fullDate) return 0;
+        try {
+            // Append time if available, otherwise assume start of day (or end of day for sorting logic if needed)
+            const dateStr = fixture.fullDate + (fixture.time ? 'T' + fixture.time : 'T00:00');
+            const timestamp = new Date(dateStr).getTime();
+            return isNaN(timestamp) ? 0 : timestamp;
+        } catch (e) {
+            return 0;
+        }
+    };
+
     // Fetch active fixtures from competitions (Source of Truth for Match Status)
     const fetchActiveFixtures = async () => {
         try {
             const allCompetitions = await fetchAllCompetitions();
             const active: { fixture: CompetitionFixture, competitionName: string, competitionId: string }[] = [];
-            const upcoming: { fixture: CompetitionFixture, competitionId: string }[] = [];
-            const results: { fixture: CompetitionFixture, competitionId: string }[] = [];
+            const upcoming: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
+            const results: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
             const now = new Date();
-
+            
             Object.entries(allCompetitions).forEach(([compId, comp]) => {
                 if (comp.fixtures) {
                     comp.fixtures.forEach(f => {
@@ -73,7 +86,7 @@ const LiveUpdatesPage: React.FC = () => {
                         if (f.status === 'live' || f.status === 'suspended') {
                             active.push({ fixture: f, competitionName: comp.name, competitionId: compId });
                         }
-                        // 2. Scheduled but start time has passed (Auto-Live detection)
+                        // 2. Scheduled but start time has passed (Auto-Live detection for recent starts)
                         else if (f.status === 'scheduled' && f.fullDate) {
                             const matchDateTime = new Date(f.fullDate + 'T' + (f.time || '00:00'));
                             
@@ -84,39 +97,42 @@ const LiveUpdatesPage: React.FC = () => {
                                 // Auto-promote to active list for display
                                 active.push({ fixture: f, competitionName: comp.name, competitionId: compId });
                             } else if (matchDateTime > now) {
-                                upcoming.push({ fixture: f, competitionId: compId });
+                                upcoming.push({ fixture: f, competitionId: compId, competitionName: comp.name });
+                            } else {
+                                // Past scheduled matches that aren't finished/live? 
+                                // Treat as upcoming (or maybe "pending result") but keep in upcoming list for now so they don't vanish
+                                upcoming.push({ fixture: f, competitionId: compId, competitionName: comp.name });
                             }
                         } else if (f.status === 'scheduled') {
-                            // Standard future scheduled
-                             upcoming.push({ fixture: f, competitionId: compId });
+                             upcoming.push({ fixture: f, competitionId: compId, competitionName: comp.name });
                         }
                     });
                 }
+                
+                // Aggregate Results from ALL competitions
                 if (comp.results) {
                     comp.results.forEach(r => {
-                        results.push({ fixture: r, competitionId: compId });
+                        results.push({ fixture: r, competitionId: compId, competitionName: comp.name });
                     });
                 }
             });
 
-            // Sort upcoming by date ascending
-            upcoming.sort((a, b) => 
-                new Date(a.fixture.fullDate + 'T' + (a.fixture.time || '00:00')).getTime() - 
-                new Date(b.fixture.fullDate + 'T' + (b.fixture.time || '00:00')).getTime()
-            );
+            // Sort upcoming by date ascending (soonest first)
+            upcoming.sort((a, b) => getMatchTimestamp(a.fixture) - getMatchTimestamp(b.fixture));
 
-            // Sort results by date descending
-            results.sort((a, b) => 
-                new Date(b.fixture.fullDate + 'T' + (b.fixture.time || '00:00')).getTime() - 
-                new Date(a.fixture.fullDate + 'T' + (a.fixture.time || '00:00')).getTime()
-            );
+            // Sort results by date descending (newest first)
+            results.sort((a, b) => getMatchTimestamp(b.fixture) - getMatchTimestamp(a.fixture));
             
             setActiveFixtures(active);
-            setUpcomingMatches(upcoming.slice(0, 20));
-            setRecentResults(results.slice(0, 20));
+            
+            // Set limits high enough to show all matches
+            setUpcomingMatches(upcoming.slice(0, 500)); 
+            setRecentResults(results.slice(0, 500));
 
         } catch (err) {
             console.error("Error fetching fixtures:", err);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -175,7 +191,7 @@ const LiveUpdatesPage: React.FC = () => {
             if (matchKey && matchesMap.has(matchKey)) {
                 // Match found, attach event
                 matchesMap.get(matchKey)!.events.push(u);
-                // Update scores from most recent event if needed (though polling handles this mostly)
+                // Update scores from most recent event if needed
                 if (u.score_home !== undefined && u.score_away !== undefined) {
                      const match = matchesMap.get(matchKey)!;
                      match.scoreA = u.score_home;
@@ -183,7 +199,7 @@ const LiveUpdatesPage: React.FC = () => {
                      match.liveMinute = u.minute;
                 }
             } else {
-                // Orphaned event: Create a new entry for it so it displays, but mark it clearly
+                // Orphaned event: Create a new entry for it so it displays
                 const newKey = u.fixture_id || `${u.home_team}-${u.away_team}`;
                 if (!matchesMap.has(newKey)) {
                     matchesMap.set(newKey, {
@@ -221,7 +237,7 @@ const LiveUpdatesPage: React.FC = () => {
                 </div>
 
                 <AdBanner placement="live-scoreboard-banner" className="mb-8" />
-
+                
                 {/* Filter Tabs */}
                 <div className="flex justify-center mb-8">
                     <div className="bg-white p-1 rounded-full shadow-sm border border-gray-200 inline-flex">
@@ -230,7 +246,7 @@ const LiveUpdatesPage: React.FC = () => {
                             className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${filter === 'live' ? 'bg-red-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
                         >
                             <div className={`w-2 h-2 rounded-full ${filter === 'live' ? 'bg-white' : 'bg-red-500 animate-pulse'}`}></div>
-                            Live
+                            Live <span className="ml-1 text-[10px] bg-white/20 px-1.5 rounded-full">{liveMatches.length}</span>
                         </button>
                         <button 
                             onClick={() => setFilter('upcoming')} 
@@ -313,7 +329,7 @@ const LiveUpdatesPage: React.FC = () => {
                                     <Card className="mb-8 text-center p-8 bg-blue-50 border border-blue-100 shadow-md">
                                         <ClockIcon className="w-12 h-12 mx-auto text-blue-300 mb-4" />
                                         <h3 className="text-xl font-bold text-blue-800">No Live Matches</h3>
-                                        <p className="text-blue-600 mt-2">There are no games active right now. Check the "Upcoming" tab for scheduled matches.</p>
+                                        <p className="text-blue-600 mt-2">There are no live games right now.</p>
                                     </Card>
                                 </div>
                             )
@@ -325,21 +341,26 @@ const LiveUpdatesPage: React.FC = () => {
                                 <h3 className="text-xl font-bold font-display mb-4 flex items-center gap-2 text-blue-800">
                                     Scheduled Matches
                                 </h3>
-                                {upcomingMatches.length > 0 ? upcomingMatches.map(({ fixture, competitionId }) => (
-                                    <Card key={fixture.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                                         <FixtureItem
-                                            fixture={fixture}
-                                            isExpanded={false}
-                                            onToggleDetails={() => {}} 
-                                            teams={[]} 
-                                            onDeleteFixture={() => {}} 
-                                            isDeleting={false}
-                                            directoryMap={emptyMap}
-                                            competitionId={competitionId}
-                                        />
-                                    </Card>
+                                {upcomingMatches.length > 0 ? upcomingMatches.map(({ fixture, competitionId, competitionName }) => (
+                                    <div key={fixture.id} className="relative group">
+                                         <div className="absolute top-0 left-4 z-10 bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-b-md shadow-sm uppercase tracking-wide border border-blue-200 border-t-0">
+                                            {competitionName}
+                                         </div>
+                                        <Card className="overflow-hidden hover:shadow-md transition-shadow pt-2">
+                                            <FixtureItem
+                                                fixture={fixture}
+                                                isExpanded={false}
+                                                onToggleDetails={() => {}} 
+                                                teams={[]} 
+                                                onDeleteFixture={() => {}} 
+                                                isDeleting={false}
+                                                directoryMap={emptyMap}
+                                                competitionId={competitionId}
+                                            />
+                                        </Card>
+                                    </div>
                                 )) : (
-                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No upcoming matches found in the schedule.</p>
+                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No upcoming matches found.</p>
                                 )}
                             </div>
                         )}
@@ -350,19 +371,24 @@ const LiveUpdatesPage: React.FC = () => {
                                 <h3 className="text-xl font-bold font-display mb-4 flex items-center gap-2 text-green-800">
                                     Recent Results
                                 </h3>
-                                {recentResults.length > 0 ? recentResults.map(({ fixture, competitionId }) => (
-                                    <Card key={fixture.id} className="overflow-hidden hover:shadow-md transition-shadow border-l-4 border-gray-400">
-                                         <FixtureItem
-                                            fixture={fixture}
-                                            isExpanded={false}
-                                            onToggleDetails={() => {}} 
-                                            teams={[]} 
-                                            onDeleteFixture={() => {}} 
-                                            isDeleting={false}
-                                            directoryMap={emptyMap}
-                                            competitionId={competitionId}
-                                        />
-                                    </Card>
+                                {recentResults.length > 0 ? recentResults.map(({ fixture, competitionId, competitionName }) => (
+                                    <div key={fixture.id} className="relative group">
+                                        <div className="absolute top-0 left-4 z-10 bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-b-md shadow-sm uppercase tracking-wide border border-green-200 border-t-0">
+                                            {competitionName}
+                                        </div>
+                                        <Card className="overflow-hidden hover:shadow-md transition-shadow border-l-4 border-gray-400 pt-2">
+                                            <FixtureItem
+                                                fixture={fixture}
+                                                isExpanded={false}
+                                                onToggleDetails={() => {}} 
+                                                teams={[]} 
+                                                onDeleteFixture={() => {}} 
+                                                isDeleting={false}
+                                                directoryMap={emptyMap}
+                                                competitionId={competitionId}
+                                            />
+                                        </Card>
+                                    </div>
                                 )) : (
                                     <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No recent results available.</p>
                                 )}

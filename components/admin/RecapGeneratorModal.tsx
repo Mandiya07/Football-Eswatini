@@ -10,7 +10,8 @@ import PlayIcon from '../icons/PlayIcon';
 import FilmIcon from '../icons/FilmIcon';
 import RadioIcon from '../icons/RadioIcon';
 import UploadIcon from '../icons/UploadIcon';
-import { fetchAllCompetitions } from '../../services/api';
+import CheckCircleIcon from '../icons/CheckCircleIcon';
+import { fetchAllCompetitions, addVideo, handleFirestoreError } from '../../services/api';
 
 interface MatchSummary {
     id: string;
@@ -32,9 +33,6 @@ interface RecapGeneratorModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
-
-// Default fallback audio
-const AUDIO_SRC = "https://cdn.pixabay.com/download/audio/2022/03/24/audio_07823f9586.mp3";
 
 const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClose }) => {
     // Configuration State
@@ -58,10 +56,15 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const [isPlaying, setIsPlaying] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [progress, setProgress] = useState(0);
-    const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+    const [isAudioEnabled, setIsAudioEnabled] = useState(false);
     const [audioError, setAudioError] = useState(false);
     const [customAudioName, setCustomAudioName] = useState<string | null>(null);
     
+    // Video Generation State
+    const [generatedBlobUrl, setGeneratedBlobUrl] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+
     // Refs
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number>(0);
@@ -137,10 +140,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 arrayBuffer = await file.arrayBuffer();
                 setCustomAudioName(file.name);
             } else {
-                 if (audioBufferRef.current && !customAudioName) return; // Already loaded default
-                 const response = await fetch(AUDIO_SRC);
-                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                 arrayBuffer = await response.arrayBuffer();
+                 return; // Don't load default automatically if it fails, wait for user upload
             }
 
             const decodedBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
@@ -152,6 +152,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             console.warn("Failed to load audio.", error);
             setAudioError(true);
             setIsAudioEnabled(false);
+            alert("Could not load audio file. Please try a different MP3/WAV.");
         }
     };
 
@@ -198,15 +199,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
     const handlePrepare = async () => {
         if (selectedCompIds.length === 0) return alert("Please select a league.");
-        if (!process.env.API_KEY) return alert("API Key missing.");
-
+        
         setLoading(true);
         setStatusText("Fetching match data...");
-        
-        // Load default audio if no custom audio set
-        if (!customAudioName) {
-            loadAudio();
-        }
 
         try {
             const allCompsData = await fetchAllCompetitions();
@@ -261,22 +256,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 return alert("No matches found for criteria.");
             }
 
-            // 2. Generate Headlines (Kept for internal use, though hidden in UI now)
-            setStatusText("Processing text...");
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            
-            const processedMatches = await Promise.all(limitedMatches.map(async (match) => {
-                try {
-                    const prompt = `Write a short, punchy broadcast headline (max 6 words) for this match: ${match.home} vs ${match.away}, Score: ${match.scoreA}-${match.scoreB}.`;
-                    const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-                    const headline = result.text.trim().replace(/['"]/g, '').replace(/\*\*/g, '');
-                    return { ...match, headline };
-                } catch (e) {
-                    return { ...match, headline: "Matchday Action" };
-                }
-            }));
-
-            setMatches(processedMatches);
+            setMatches(limitedMatches);
             setStep(2); // Move to Asset Loading
             
             // 3. Load Assets
@@ -284,7 +264,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             const cache = new Map<string, HTMLImageElement>();
             const imageUrls = new Set<string>();
             
-            processedMatches.forEach(m => {
+            limitedMatches.forEach(m => {
                 if (m.teamACrest) imageUrls.add(m.teamACrest);
                 if (m.teamBCrest) imageUrls.add(m.teamBCrest);
                 if (m.competitionLogoUrl) imageUrls.add(m.competitionLogoUrl);
@@ -404,7 +384,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         const slideUp = (1 - fadeIn) * 30;
         
         // --- TOP SECTION (League Info) ---
-        // Restricted to top 25% area
+        // Restricted to top 15%
         const topSectionY = 20; 
         const logoH = 60; 
 
@@ -433,7 +413,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.fillText(match.competition.toUpperCase(), width / 2, textStartY + slideUp);
         
         // --- CENTER SECTION (Teams & Score) ---
-        // Center of the canvas is height / 2. We position elements around there.
         // Approx 55% down the screen
         const centerY = height * 0.55; 
         const crestSize = 100; 
@@ -508,7 +487,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = 'bold 48px "Poppins", sans-serif';
-        const centerText = mode === 'results' ? `${match.scoreA}-${match.scoreB}` : (match.time || 'VS');
+        const centerText = mode === 'results' ? `${match.scoreA}-${match.scoreB}` : 'VS';
         ctx.shadowColor = 'rgba(0,0,0,0.3)';
         ctx.shadowBlur = 5;
         // Center text vertically in scorebox
@@ -517,7 +496,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
 
         // --- INFO PILL (Date/Venue/Time) ---
-        // Moved to bottom area (bottom 25%)
+        // Moved to bottom area (85% height)
         const infoY = height - 90; 
         const infoBoxW = 450;
         const infoBoxH = 45;
@@ -529,7 +508,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         
         const infoParts = [];
         if (match.date) infoParts.push(match.date);
-        if (match.time) infoParts.push(match.time); // Always show time if available
+        if (match.time) infoParts.push(match.time); // Added Time
         if (match.venue) infoParts.push(match.venue);
         
         ctx.fillText(infoParts.join('  •  '), width/2, infoY + 28);
@@ -586,6 +565,10 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const startPlayback = async (record: boolean = false) => {
         if (isRecording || isPlaying) return;
         
+        // Reset save state
+        setGeneratedBlobUrl(null);
+        setSaveSuccess(false);
+
         // IMPORTANT: Resume audio context on user gesture
         if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
             await audioContextRef.current.resume();
@@ -627,10 +610,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 recorder.onstop = () => {
                     const blob = new Blob(chunksRef.current, { type: 'video/webm' });
                     const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `fe-recap-${mode}-${Date.now()}.webm`;
-                    a.click();
+                    setGeneratedBlobUrl(url); // Store the blob URL for saving/downloading
+                    
                     setIsRecording(false);
                     setIsPlaying(false);
                     stopAudio();
@@ -661,6 +642,31 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const stopRecording = () => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop();
+        }
+    };
+    
+    const handleSaveToHub = async () => {
+        if (!generatedBlobUrl) return;
+        setIsSaving(true);
+        try {
+            await addVideo({
+                title: `AI Recap: ${mode === 'results' ? 'Match Results' : 'Upcoming Fixtures'} - ${new Date().toLocaleDateString()}`,
+                description: `Generated video recap of recent ${mode === 'results' ? 'results' : 'fixtures'} for selected leagues.`,
+                thumbnailUrl: 'https://via.placeholder.com/600x400/002B7F/FFFFFF?text=Recap', 
+                videoUrl: generatedBlobUrl, // Using Blob URL locally
+                duration: `${matches.length * 4}s`,
+                category: 'recap'
+            });
+            setSaveSuccess(true);
+            setTimeout(() => {
+                setSaveSuccess(false);
+                setGeneratedBlobUrl(null); // Clear after save to encourage new generation
+            }, 3000);
+        } catch (err) {
+            handleFirestoreError(err, 'save generated recap');
+            alert("Failed to save to Hub.");
+        } finally {
+            setIsSaving(false);
         }
     };
     
@@ -746,7 +752,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
                             {/* Controls */}
                             <div className="flex gap-4 items-center w-full justify-center flex-wrap bg-gray-800 p-4 rounded-xl border border-gray-700">
-                                <Button onClick={() => { stopPlayback(); setStep(1); }} className="bg-gray-700 hover:bg-gray-600 text-white px-4">
+                                <Button onClick={() => { stopPlayback(); setStep(1); setGeneratedBlobUrl(null); }} className="bg-gray-700 hover:bg-gray-600 text-white px-4">
                                     Back
                                 </Button>
                                 
@@ -794,6 +800,24 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                     {isRecording ? 'Recording...' : 'Record Video'}
                                 </Button>
                             </div>
+                            
+                            {/* Save Actions */}
+                            {generatedBlobUrl && !isRecording && !isPlaying && (
+                                <div className="mt-4 p-4 bg-green-900/30 border border-green-700 rounded-lg flex flex-col sm:flex-row items-center gap-4 animate-fade-in">
+                                    <p className="text-sm text-green-300 font-bold flex items-center gap-2">
+                                        <CheckCircleIcon className="w-5 h-5"/> Video Ready!
+                                    </p>
+                                    <div className="flex gap-2">
+                                         <a href={generatedBlobUrl} download={`fe-recap-${Date.now()}.webm`} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-bold transition-colors">
+                                            Download File
+                                         </a>
+                                         <Button onClick={handleSaveToHub} disabled={isSaving || saveSuccess} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-sm font-bold flex items-center gap-2">
+                                            {isSaving ? <Spinner className="w-4 h-4 border-2"/> : saveSuccess ? 'Saved!' : 'Save to Video Hub'}
+                                         </Button>
+                                    </div>
+                                </div>
+                            )}
+
                             <p className="text-xs text-gray-500 mt-4 max-w-md text-center">
                                 Note: Audio recording relies on browser capabilities. If you hear silence in the exported video, ensure your system audio is not muted.
                             </p>

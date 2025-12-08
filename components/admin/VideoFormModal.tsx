@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Video } from '../../data/videos';
 import { Card, CardContent } from '../ui/Card';
@@ -14,13 +15,11 @@ interface VideoFormModalProps {
 const VideoFormModal: React.FC<VideoFormModalProps> = ({ isOpen, onClose, onSave, video }) => {
     const [formData, setFormData] = useState({
         title: '', description: '', thumbnailUrl: '', videoUrl: '',
-        // FIX: Cast initial value to the broader Video['category'] type to prevent type errors on update.
         duration: '', category: 'highlight' as Video['category']
     });
 
     useEffect(() => {
         if (video) {
-            // FIX: The `video` object now correctly assigns to the state because the state's type is compatible.
             setFormData(video);
         } else {
              setFormData({
@@ -39,14 +38,21 @@ const VideoFormModal: React.FC<VideoFormModalProps> = ({ isOpen, onClose, onSave
         const { name, files } = e.target;
         if (files && files[0]) {
             const file = files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') {
-                    const fieldName = name === 'thumbnailUpload' ? 'thumbnailUrl' : 'videoUrl';
-                    setFormData(prev => ({ ...prev, [fieldName]: reader.result as string }));
-                }
-            };
-            reader.readAsDataURL(file);
+
+            if (name === 'videoUpload') {
+                // FIX: Use Blob URL for videos to avoid 1MB Firestore limit / Base64 crash
+                const objectUrl = URL.createObjectURL(file);
+                setFormData(prev => ({ ...prev, videoUrl: objectUrl }));
+            } else {
+                // Keep Base64 for images (thumbnails) as they are usually small
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (typeof reader.result === 'string') {
+                        setFormData(prev => ({ ...prev, thumbnailUrl: reader.result }));
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
         }
     };
 
@@ -72,15 +78,20 @@ const VideoFormModal: React.FC<VideoFormModalProps> = ({ isOpen, onClose, onSave
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail URL or Upload</label>
-                                <input name="thumbnailUrl" value={formData.thumbnailUrl} onChange={handleChange} placeholder="Thumbnail URL" required className={inputClass} />
+                                <input name="thumbnailUrl" value={formData.thumbnailUrl} onChange={handleChange} placeholder="Thumbnail URL" className={inputClass} />
                                 <input name="thumbnailUpload" type="file" onChange={handleFileChange} accept="image/*" className={`${inputClass} mt-2 p-1.5`} />
                                 {formData.thumbnailUrl && <img src={formData.thumbnailUrl} alt="Thumbnail preview" className="mt-2 h-24 object-contain border rounded" />}
                             </div>
                              <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Video URL or Upload</label>
-                                <input name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder="Video URL" required className={inputClass} />
+                                <input name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder="Video URL" className={inputClass} />
                                 <input name="videoUpload" type="file" onChange={handleFileChange} accept="video/*" className={`${inputClass} mt-2 p-1.5`} />
-                                {formData.videoUrl && <video src={formData.videoUrl} controls className="mt-2 h-24 rounded w-full object-contain border bg-gray-100"></video>}
+                                {formData.videoUrl && (
+                                    <>
+                                        <video src={formData.videoUrl} controls className="mt-2 h-24 rounded w-full object-contain border bg-gray-100"></video>
+                                        {formData.videoUrl.startsWith('blob:') && <p className="text-[10px] text-orange-600 mt-1">* Local file selected. Works in this session only.</p>}
+                                    </>
+                                )}
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
