@@ -152,15 +152,16 @@ export const normalizeTeamName = (inputName: string, officialNames: string[]): s
 
 /**
  * Calculates league standings from a list of teams and finished matches.
- * It resets all stats, processes all finished matches to calculate new stats,
- * and then sorts the teams based on standard football league rules.
- * 
- * IMPROVED: Uses fuzzy matching to map fixture team names to the official team list,
- * preventing creation of duplicate "Ghost" teams for minor spelling variations.
+ * Implements Official Rules 8.1 & 8.2:
+ * 1. Points
+ * 2. Head-to-Head Points (if tied on points)
+ * 3. Head-to-Head Away Goals (if tied on H2H points)
+ * 4. Goal Difference (Overall)
+ * 5. Goals Scored (Overall)
  * 
  * @param baseTeams The original list of teams.
  * @param allResults The list of all finished matches for the competition.
- * @param allFixtures The list of all scheduled matches, to check for any misplaced finished matches.
+ * @param allFixtures The list of all scheduled matches.
  * @returns A new array of teams with updated and sorted standings.
  */
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
@@ -272,20 +273,20 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
 
         if (scoreA > scoreB) {
             teamA.stats.w += 1;
-            teamA.stats.pts += 3;
+            teamA.stats.pts += 3; // Rule 8.1
             teamB.stats.l += 1;
             formA = 'W';
             formB = 'L';
         } else if (scoreB > scoreA) {
             teamB.stats.w += 1;
-            teamB.stats.pts += 3;
+            teamB.stats.pts += 3; // Rule 8.1
             teamA.stats.l += 1;
             formB = 'W';
             formA = 'L';
         } else {
             teamA.stats.d += 1;
             teamB.stats.d += 1;
-            teamA.stats.pts += 1;
+            teamA.stats.pts += 1; // Rule 8.1
             teamB.stats.pts += 1;
             formA = 'D';
             formB = 'D';
@@ -297,12 +298,113 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
 
     const updatedTeams = Array.from(teamsMap.values());
 
+    // 5. Sort Teams based on Rules 8.2(a) - 8.2(d)
     updatedTeams.sort((a, b) => {
-        if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
-        if (b.stats.gd !== a.stats.gd) return b.stats.gd - a.stats.gd;
-        if (b.stats.gs !== a.stats.gs) return b.stats.gs - a.stats.gs;
+        // Rule 8.2(a): Points obtained in all matches
+        if (b.stats.pts !== a.stats.pts) {
+            return b.stats.pts - a.stats.pts;
+        }
+
+        // Rule 8.2(b): Head-to-Head (H2H)
+        // Find all finished matches between Team A and Team B
+        const normA = normalize(a.name);
+        const normB = normalize(b.name);
+
+        const h2hMatches = sortedFinishedMatches.filter(m => {
+            const mNormA = normalize(m.teamA);
+            const mNormB = normalize(m.teamB);
+            return (mNormA === normA && mNormB === normB) || (mNormA === normB && mNormB === normA);
+        });
+
+        if (h2hMatches.length > 0) {
+            let ptsA = 0;
+            let ptsB = 0;
+            let awayGoalsA = 0;
+            let awayGoalsB = 0;
+
+            h2hMatches.forEach(m => {
+                const mNormA = normalize(m.teamA);
+                const sA = m.scoreA ?? 0;
+                const sB = m.scoreB ?? 0;
+
+                // Determine if 'a' is Home or Away in this match
+                const isAHome = mNormA === normA;
+
+                if (isAHome) {
+                    // Match: A (Home) vs B (Away)
+                    if (sA > sB) ptsA += 3;
+                    else if (sB > sA) ptsB += 3;
+                    else { ptsA += 1; ptsB += 1; }
+                    
+                    // B scored 'sB' away goals
+                    awayGoalsB += sB;
+                } else {
+                    // Match: B (Home) vs A (Away)
+                    if (sB > sA) ptsB += 3;
+                    else if (sA > sB) ptsA += 3;
+                    else { ptsB += 1; ptsA += 1; }
+                    
+                    // A scored 'sA' away goals
+                    awayGoalsA += sA;
+                }
+            });
+
+            // 1. H2H Points
+            if (ptsA !== ptsB) return ptsB - ptsA;
+
+            // 2. H2H Away Goals Rule (inherent in 8.2(b))
+            if (awayGoalsA !== awayGoalsB) return awayGoalsB - awayGoalsA;
+        }
+
+        // Rule 8.2(c): Goal Difference (Overall)
+        if (b.stats.gd !== a.stats.gd) {
+            return b.stats.gd - a.stats.gd;
+        }
+
+        // Rule 8.2(d): Most Goals Scored (Overall)
+        if (b.stats.gs !== a.stats.gs) {
+            return b.stats.gs - a.stats.gs;
+        }
+
+        // Fallback: Alphabetical order
         return a.name.localeCompare(b.name);
     });
 
     return updatedTeams;
+};
+
+/**
+ * Compresses an image file to a JPEG Base64 string with specified max width and quality.
+ * @param file The image file to compress
+ * @param maxWidth Maximum width in pixels
+ * @param quality JPEG quality (0 to 1)
+ * @returns Promise resolving to the base64 string
+ */
+export const compressImage = (file: File, maxWidth: number = 1000, quality: number = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth) {
+                    height = Math.round((maxWidth / width) * height);
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = (error) => reject(error);
+        };
+        reader.onerror = (error) => reject(error);
+    });
 };

@@ -9,6 +9,7 @@ import ShareIcon from '../icons/ShareIcon';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { handleFirestoreError } from '../../services/api';
+import { compressImage } from '../../services/utils';
 
 const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [formData, setFormData] = useState({
@@ -18,6 +19,7 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
         imageUrl: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [imageProcessing, setImageProcessing] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
@@ -25,16 +27,20 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') {
-                    setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
-                }
-            };
-            reader.readAsDataURL(file);
+            setImageProcessing(true);
+            try {
+                // Compress image to ensure it's under Firestore limit (1000px max width, 0.7 quality)
+                const compressedBase64 = await compressImage(file, 1000, 0.7);
+                setFormData(prev => ({ ...prev, imageUrl: compressedBase64 }));
+            } catch (error) {
+                console.error("Error compressing image:", error);
+                alert("Failed to process image. Please try another file.");
+            } finally {
+                setImageProcessing(false);
+            }
         }
     };
 
@@ -130,16 +136,16 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Image URL or Upload</label>
                         <div className="flex items-center gap-2">
                             <input type="url" name="imageUrl" value={formData.imageUrl} onChange={handleChange} className={inputClass} placeholder="https://..." />
-                            <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
-                                Upload Photo
-                                <input type="file" onChange={handleFileChange} accept="image/*" className="sr-only" />
+                            <label className={`cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap ${imageProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                {imageProcessing ? 'Compressing...' : 'Upload Photo'}
+                                <input type="file" onChange={handleFileChange} accept="image/*" className="sr-only" disabled={imageProcessing} />
                             </label>
                         </div>
                         {formData.imageUrl && <img src={formData.imageUrl} alt="Preview" className="mt-2 h-32 object-cover rounded border p-1" />}
                         <p className="text-xs text-gray-500 mt-1">Leave blank to use a default placeholder.</p>
                     </div>
                     <div className="text-right">
-                        <Button type="submit" disabled={isSubmitting} className="bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-2">
+                        <Button type="submit" disabled={isSubmitting || imageProcessing} className="bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-2">
                             {isSubmitting ? <Spinner className="w-4 h-4 border-2" /> : <><PlusCircleIcon className="w-5 h-5" /> Publish Announcement</>}
                         </Button>
                     </div>

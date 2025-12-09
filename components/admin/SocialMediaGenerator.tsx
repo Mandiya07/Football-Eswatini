@@ -330,8 +330,8 @@ const SocialMediaGenerator: React.FC = () => {
             const selectedMatches = rawMatches.filter(m => selectedMatchIds.includes(m.id));
             if (selectedMatches.length === 0) return;
 
-            // Compress to JPEG 0.7 to fit in Firestore 1MB doc limit
-            const imageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            // Compress to JPEG 0.4 to fit in Firestore 1MB doc limit
+            const imageBase64 = canvas.toDataURL('image/jpeg', 0.4);
 
             let title = "Official Match Graphic";
             let summary = `Latest ${division} update.`;
