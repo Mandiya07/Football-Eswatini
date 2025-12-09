@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { Team, Competition } from '../../data/teams';
-import { fetchCompetition, addCup, updateCup, handleFirestoreError, fetchAllCompetitions, fetchCups } from '../../services/api';
+import { fetchCompetition, addCup, updateCup, handleFirestoreError, fetchAllCompetitions, fetchCups, fetchDirectoryEntries } from '../../services/api';
 import { Tournament as DisplayTournament, BracketMatch as ApiBracketMatch } from '../../data/cups';
 import Spinner from '../ui/Spinner';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
@@ -223,13 +223,17 @@ const TournamentBracket: React.FC = () => {
     const [competitions, setCompetitions] = useState<{id: string, name: string}[]>([]);
     const [selectedSource, setSelectedSource] = useState('');
     const [showPreview, setShowPreview] = useState(false);
+    
+    // Store directory crests to allow dynamic lookup when switching sources
+    const [directoryCrests, setDirectoryCrests] = useState<Map<string, string>>(new Map());
 
     const loadInitialData = async () => {
         setLoading(true);
         try {
-            const [allComps, allCups] = await Promise.all([
+            const [allComps, allCups, dirEntries] = await Promise.all([
                 fetchAllCompetitions(),
                 fetchCups(),
+                fetchDirectoryEntries()
             ]);
             
             const compList = Object.entries(allComps).map(([id, c]) => ({ id, name: c.name }));
@@ -237,8 +241,23 @@ const TournamentBracket: React.FC = () => {
             
             setExistingTournaments(allCups);
             
+            // Build map of directory crests (source of truth)
+            const crestMap = new Map<string, string>();
+            dirEntries.forEach(entry => {
+                if (entry.crestUrl) {
+                    crestMap.set(entry.name.trim().toLowerCase(), entry.crestUrl);
+                }
+            });
+            setDirectoryCrests(crestMap);
+
             const teamMap = new Map<number, Team>();
-            Object.values(allComps).flatMap(c => c.teams || []).forEach(t => teamMap.set(t.id, t));
+            Object.values(allComps).flatMap(c => c.teams || []).forEach(t => {
+                // Apply directory crest if available
+                const dirCrest = crestMap.get(t.name.trim().toLowerCase());
+                const teamWithCrest = dirCrest ? { ...t, crestUrl: dirCrest } : t;
+                teamMap.set(t.id, teamWithCrest);
+            });
+            
             const allTeamsList = Array.from(teamMap.values()).sort((a,b) => a.name.localeCompare(b.name));
             setAllTeams(allTeamsList);
             setAvailableTeamsForBracket(allTeamsList); // Initially, all teams are available.
@@ -296,7 +315,15 @@ const TournamentBracket: React.FC = () => {
             const comp = await fetchCompetition(compId);
             if (comp) {
                 setTournamentName(`${comp.name} Cup`);
-                setAvailableTeamsForBracket(comp.teams?.sort((a, b) => a.name.localeCompare(b.name)) || []);
+                const compTeams = comp.teams || [];
+                
+                // Override crests from directory map
+                const teamsWithCrests = compTeams.map(t => {
+                    const dirCrest = directoryCrests.get(t.name.trim().toLowerCase());
+                    return dirCrest ? { ...t, crestUrl: dirCrest } : t;
+                });
+                
+                setAvailableTeamsForBracket(teamsWithCrests.sort((a, b) => a.name.localeCompare(b.name)));
             } else {
                 setAvailableTeamsForBracket([]);
             }

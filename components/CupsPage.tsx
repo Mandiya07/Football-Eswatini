@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import TournamentBracketDisplay from './TournamentBracketDisplay';
 import { Tournament, cupData as localCupData } from '../data/cups';
-import { fetchCups, fetchAllTeams } from '../services/api';
+import { fetchCups, fetchAllTeams, fetchDirectoryEntries } from '../services/api';
 import SectionLoader from './SectionLoader';
 import InfoIcon from './icons/InfoIcon';
 import { Card, CardContent } from './ui/Card';
@@ -23,7 +23,17 @@ const CupsPage: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-          const [fetchedCups, fetchedTeams] = await Promise.all([fetchCups(), fetchAllTeams()]);
+          const [fetchedCups, fetchedTeams, dirEntries] = await Promise.all([
+              fetchCups(), 
+              fetchAllTeams(),
+              fetchDirectoryEntries()
+          ]);
+          
+          // Create crest map from directory (Source of Truth)
+          const crestMap = new Map<string, string>();
+          dirEntries.forEach(e => {
+             if (e.crestUrl) crestMap.set(e.name.trim().toLowerCase(), e.crestUrl);
+          });
           
           // Create a map starting with local data as fallback
           const cupsMap = new Map<string, Tournament>();
@@ -42,11 +52,11 @@ const CupsPage: React.FC = () => {
                           matches: round.matches.map((m: any) => {
                               const t1 = fetchedTeams.find(t => t.id === m.team1Id);
                               const t1Name = t1 ? t1.name : (m.round > 1 ? 'Winner Previous' : 'TBD');
-                              const t1Crest = t1 ? t1.crestUrl : undefined;
+                              const t1Crest = crestMap.get(t1Name.trim().toLowerCase()) || (t1 ? t1.crestUrl : undefined);
                               
                               const t2 = fetchedTeams.find(t => t.id === m.team2Id);
                               const t2Name = t2 ? t2.name : (m.round > 1 ? 'Winner Previous' : 'TBD');
-                              const t2Crest = t2 ? t2.crestUrl : undefined;
+                              const t2Crest = crestMap.get(t2Name.trim().toLowerCase()) || (t2 ? t2.crestUrl : undefined);
 
                               let winner: 'team1' | 'team2' | undefined;
                               if (m.winnerId) {
@@ -68,6 +78,24 @@ const CupsPage: React.FC = () => {
                           })
                       }));
                       processedCup = { ...cup, rounds: newRounds };
+                  } else {
+                       // Apply directory crests to non-ID based cups too
+                       const newRounds = cup.rounds.map((round: any) => ({
+                          title: round.title,
+                          matches: round.matches.map((m: any) => {
+                              const t1Name = m.team1?.name || 'TBD';
+                              const t2Name = m.team2?.name || 'TBD';
+                              const t1Crest = crestMap.get(t1Name.trim().toLowerCase()) || m.team1?.crestUrl;
+                              const t2Crest = crestMap.get(t2Name.trim().toLowerCase()) || m.team2?.crestUrl;
+                              
+                              return {
+                                  ...m,
+                                  team1: { ...m.team1, crestUrl: t1Crest },
+                                  team2: { ...m.team2, crestUrl: t2Crest }
+                              };
+                          })
+                       }));
+                       processedCup = { ...cup, rounds: newRounds };
                   }
                   
                   // Robust matching for admin-created tournament names to map to UI cards

@@ -57,19 +57,6 @@ const LiveUpdatesPage: React.FC = () => {
     // Fake empty directory map for FixtureItem since we don't need full linking functionality in the fallback view
     const emptyMap = useMemo(() => new Map<string, DirectoryEntity>(), []);
 
-    // Helper to parse dates robustly for sorting
-    const getMatchTimestamp = (fixture: CompetitionFixture) => {
-        if (!fixture.fullDate) return 0;
-        try {
-            // Append time if available, otherwise assume start of day (or end of day for sorting logic if needed)
-            const dateStr = fixture.fullDate + (fixture.time ? 'T' + fixture.time : 'T00:00');
-            const timestamp = new Date(dateStr).getTime();
-            return isNaN(timestamp) ? 0 : timestamp;
-        } catch (e) {
-            return 0;
-        }
-    };
-
     // Fetch active fixtures from competitions (Source of Truth for Match Status)
     const fetchActiveFixtures = async () => {
         try {
@@ -86,7 +73,7 @@ const LiveUpdatesPage: React.FC = () => {
                         if (f.status === 'live' || f.status === 'suspended') {
                             active.push({ fixture: f, competitionName: comp.name, competitionId: compId });
                         }
-                        // 2. Scheduled but start time has passed (Auto-Live detection for recent starts)
+                        // 2. Scheduled but start time has passed (Auto-Live detection)
                         else if (f.status === 'scheduled' && f.fullDate) {
                             const matchDateTime = new Date(f.fullDate + 'T' + (f.time || '00:00'));
                             
@@ -98,18 +85,13 @@ const LiveUpdatesPage: React.FC = () => {
                                 active.push({ fixture: f, competitionName: comp.name, competitionId: compId });
                             } else if (matchDateTime > now) {
                                 upcoming.push({ fixture: f, competitionId: compId, competitionName: comp.name });
-                            } else {
-                                // Past scheduled matches that aren't finished/live? 
-                                // Treat as upcoming (or maybe "pending result") but keep in upcoming list for now so they don't vanish
-                                upcoming.push({ fixture: f, competitionId: compId, competitionName: comp.name });
                             }
                         } else if (f.status === 'scheduled') {
+                            // Standard future scheduled
                              upcoming.push({ fixture: f, competitionId: compId, competitionName: comp.name });
                         }
                     });
                 }
-                
-                // Aggregate Results from ALL competitions
                 if (comp.results) {
                     comp.results.forEach(r => {
                         results.push({ fixture: r, competitionId: compId, competitionName: comp.name });
@@ -117,22 +99,26 @@ const LiveUpdatesPage: React.FC = () => {
                 }
             });
 
-            // Sort upcoming by date ascending (soonest first)
-            upcoming.sort((a, b) => getMatchTimestamp(a.fixture) - getMatchTimestamp(b.fixture));
+            // Sort upcoming by date ascending
+            upcoming.sort((a, b) => 
+                new Date(a.fixture.fullDate + 'T' + (a.fixture.time || '00:00')).getTime() - 
+                new Date(b.fixture.fullDate + 'T' + (b.fixture.time || '00:00')).getTime()
+            );
 
-            // Sort results by date descending (newest first)
-            results.sort((a, b) => getMatchTimestamp(b.fixture) - getMatchTimestamp(a.fixture));
+            // Sort results by date descending
+            results.sort((a, b) => 
+                new Date(b.fixture.fullDate + 'T' + (b.fixture.time || '00:00')).getTime() - 
+                new Date(a.fixture.fullDate + 'T' + (a.fixture.time || '00:00')).getTime()
+            );
             
             setActiveFixtures(active);
             
-            // Set limits high enough to show all matches
-            setUpcomingMatches(upcoming.slice(0, 500)); 
-            setRecentResults(results.slice(0, 500));
+            // Set limits high enough to show all relevant recent matches without pagination
+            setUpcomingMatches(upcoming.slice(0, 200)); 
+            setRecentResults(results.slice(0, 200));
 
         } catch (err) {
             console.error("Error fetching fixtures:", err);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -199,7 +185,7 @@ const LiveUpdatesPage: React.FC = () => {
                      match.liveMinute = u.minute;
                 }
             } else {
-                // Orphaned event: Create a new entry for it so it displays
+                // Orphaned event: Create a new entry for it so it displays, but mark it clearly
                 const newKey = u.fixture_id || `${u.home_team}-${u.away_team}`;
                 if (!matchesMap.has(newKey)) {
                     matchesMap.set(newKey, {
@@ -329,7 +315,7 @@ const LiveUpdatesPage: React.FC = () => {
                                     <Card className="mb-8 text-center p-8 bg-blue-50 border border-blue-100 shadow-md">
                                         <ClockIcon className="w-12 h-12 mx-auto text-blue-300 mb-4" />
                                         <h3 className="text-xl font-bold text-blue-800">No Live Matches</h3>
-                                        <p className="text-blue-600 mt-2">There are no live games right now.</p>
+                                        <p className="text-blue-600 mt-2">There are no live games for the selected league right now.</p>
                                     </Card>
                                 </div>
                             )
@@ -360,7 +346,7 @@ const LiveUpdatesPage: React.FC = () => {
                                         </Card>
                                     </div>
                                 )) : (
-                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No upcoming matches found.</p>
+                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No upcoming matches found for the selected league.</p>
                                 )}
                             </div>
                         )}
@@ -390,7 +376,7 @@ const LiveUpdatesPage: React.FC = () => {
                                         </Card>
                                     </div>
                                 )) : (
-                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No recent results available.</p>
+                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No recent results available for the selected league.</p>
                                 )}
                             </div>
                         )}
