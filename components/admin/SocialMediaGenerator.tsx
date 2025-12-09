@@ -10,6 +10,7 @@ import RefreshIcon from '../icons/RefreshIcon';
 import SaveIcon from '../icons/SaveIcon';
 import PhotoIcon from '../icons/PhotoIcon';
 import DownloadIcon from '../icons/DownloadIcon';
+import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -321,6 +322,49 @@ const SocialMediaGenerator: React.FC = () => {
     };
 
     const saveAsNews = async () => {
+        // Image Handling
+        if (contentType === 'image') {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            
+            const selectedMatches = rawMatches.filter(m => selectedMatchIds.includes(m.id));
+            if (selectedMatches.length === 0) return;
+
+            // Compress to JPEG 0.7 to fit in Firestore 1MB doc limit
+            const imageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
+            let title = "Official Match Graphic";
+            let summary = `Latest ${division} update.`;
+
+            if (selectedMatches.length === 1) {
+                const m = selectedMatches[0];
+                title = `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB}`;
+                summary = `${m.competition} - ${m.date}`;
+            } else {
+                title = `${division} Round-Up`;
+                summary = `Matchday summary for ${division}.`;
+            }
+
+            try {
+                await addDoc(collection(db, "news"), {
+                    title: title,
+                    date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+                    content: 'Visual update.', 
+                    summary: summary,
+                    image: imageBase64,
+                    category: ['Social Media', division],
+                    url: `/news/graphic-${Date.now()}`
+                });
+                setSavedAsNews(true);
+                alert("Graphic successfully published to News Feed!");
+            } catch (error) {
+                console.error("Error saving news:", error);
+                alert("Failed to save. The image might be too large for the database.");
+            }
+            return;
+        }
+
+        // Text Handling
         if (generatedContent.length === 0) return;
         
         try {
@@ -849,14 +893,19 @@ const SocialMediaGenerator: React.FC = () => {
                     {contentType === 'image' ? (
                         <div className="flex flex-col items-center gap-4 h-full">
                             {selectedMatchIds.length > 0 ? (
-                                <>
-                                    <div className="relative w-full bg-gray-900 rounded shadow-sm overflow-hidden max-w-[400px]" style={{ aspectRatio: '1080/1920' }}>
+                                <div className="flex flex-col gap-3 w-full max-w-[400px]">
+                                    <div className="relative w-full bg-gray-900 rounded shadow-sm overflow-hidden" style={{ aspectRatio: '1080/1920' }}>
                                         <canvas ref={canvasRef} className="w-full h-full object-contain" />
                                     </div>
-                                    <Button onClick={downloadImage} className="bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2">
-                                        <DownloadIcon className="w-5 h-5" /> Download Portrait PNG
-                                    </Button>
-                                </>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button onClick={downloadImage} className="bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-2 text-sm">
+                                            <DownloadIcon className="w-4 h-4" /> Download
+                                        </Button>
+                                        <Button onClick={saveAsNews} disabled={savedAsNews} className={`text-white flex items-center justify-center gap-2 text-sm ${savedAsNews ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-700'}`}>
+                                            {savedAsNews ? <><CheckCircleIcon className="w-4 h-4" /> Published</> : <><SaveIcon className="w-4 h-4" /> Post to News</>}
+                                        </Button>
+                                    </div>
+                                </div>
                             ) : (
                                 <div className="flex-grow flex flex-col items-center justify-center text-gray-400">
                                     <PhotoIcon className="w-12 h-12 mb-2 opacity-20" />
