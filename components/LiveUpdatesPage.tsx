@@ -46,6 +46,44 @@ interface MergedLiveMatch {
     events: LiveUpdate[];
 }
 
+// Helper to safely parse dates for sorting
+// Returns a timestamp (number). Higher number = Newer date.
+const getMatchTimestamp = (fixture: CompetitionFixture): number => {
+    let timestamp = 0;
+
+    // 1. Try ISO Full Date + Time (Most accurate)
+    if (fixture.fullDate) {
+        let time = fixture.time ? fixture.time.trim() : '00:00';
+        // Normalize time formatting
+        if (time.length === 5) time += ':00'; 
+        if (time.length === 4) time = '0' + time + ':00';
+        
+        try {
+            const dateStr = `${fixture.fullDate}T${time}`;
+            const ts = new Date(dateStr).getTime();
+            if (!isNaN(ts)) timestamp = ts;
+        } catch (e) {
+            // ignore parse errors
+        }
+    }
+
+    // 2. If failed, try ISO Full Date only (Midnight)
+    if (timestamp === 0 && fixture.fullDate) {
+        const ts = new Date(fixture.fullDate).getTime();
+        if (!isNaN(ts)) timestamp = ts;
+    }
+
+    // 3. Fallback for Manual Entries: Use ID if it looks like a timestamp
+    // Manual IDs created via Date.now() are large numbers (> 1.6 trillion)
+    // API IDs are usually smaller integers.
+    // This ensures manually added results (which might have bad date formatting) are treated as "recent" based on creation time.
+    if (timestamp === 0 && typeof fixture.id === 'number' && fixture.id > 1600000000000) {
+         timestamp = fixture.id;
+    }
+
+    return timestamp;
+};
+
 const LiveUpdatesPage: React.FC = () => {
     const [activeFixtures, setActiveFixtures] = useState<{ fixture: CompetitionFixture, competitionName: string, competitionId: string }[]>([]);
     const [updates, setUpdates] = useState<LiveUpdate[]>([]);
@@ -67,58 +105,74 @@ const LiveUpdatesPage: React.FC = () => {
             const now = new Date();
             
             Object.entries(allCompetitions).forEach(([compId, comp]) => {
+                const compName = comp.displayName || comp.name;
+
                 if (comp.fixtures) {
                     comp.fixtures.forEach(f => {
                         // 1. Explicitly Live or Suspended
                         if (f.status === 'live' || f.status === 'suspended') {
-                            active.push({ fixture: f, competitionName: comp.name, competitionId: compId });
+                            active.push({ fixture: f, competitionName: compName, competitionId: compId });
                         }
-                        // 2. Scheduled but start time has passed (Auto-Live detection)
+                        // 2. Scheduled but start time has passed (Auto-Live detection fallback)
                         else if (f.status === 'scheduled' && f.fullDate) {
-                            const matchDateTime = new Date(f.fullDate + 'T' + (f.time || '00:00'));
-                            
-                            // If match started within the last 3 hours but isn't marked finished yet, treat as live
-                            const threeHoursFromStart = new Date(matchDateTime.getTime() + 3 * 60 * 60 * 1000);
-                            
-                            if (now >= matchDateTime && now < threeHoursFromStart) {
-                                // Auto-promote to active list for display
-                                active.push({ fixture: f, competitionName: comp.name, competitionId: compId });
-                            } else if (matchDateTime > now) {
-                                upcoming.push({ fixture: f, competitionId: compId, competitionName: comp.name });
+                            const ts = getMatchTimestamp(f);
+                            if (ts > 0) {
+                                const matchDateTime = new Date(ts);
+                                // If match started within the last 3 hours but isn't marked finished yet, treat as live
+                                const threeHoursFromStart = new Date(matchDateTime.getTime() + 3 * 60 * 60 * 1000);
+                                
+                                if (now >= matchDateTime && now < threeHoursFromStart) {
+                                    active.push({ fixture: f, competitionName: compName, competitionId: compId });
+                                } else if (matchDateTime > now) {
+                                    upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
+                                }
+                            } else {
+                                // If date parsing failed but status is scheduled, assume upcoming
+                                upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
                             }
                         } else if (f.status === 'scheduled') {
-                            // Standard future scheduled
-                             upcoming.push({ fixture: f, competitionId: compId, competitionName: comp.name });
+                             upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
                         }
                     });
                 }
                 if (comp.results) {
                     comp.results.forEach(r => {
-                        results.push({ fixture: r, competitionId: compId, competitionName: comp.name });
+                        results.push({ fixture: r, competitionId: compId, competitionName: compName });
                     });
                 }
             });
 
-            // Sort upcoming by date ascending
-            upcoming.sort((a, b) => 
-                new Date(a.fixture.fullDate + 'T' + (a.fixture.time || '00:00')).getTime() - 
-                new Date(b.fixture.fullDate + 'T' + (b.fixture.time || '00:00')).getTime()
-            );
+            // Sort upcoming: ASCENDING (Oldest/Soonest first)
+            upcoming.sort((a, b) => getMatchTimestamp(a.fixture) - getMatchTimestamp(b.fixture));
 
-            // Sort results by date descending
-            results.sort((a, b) => 
-                new Date(b.fixture.fullDate + 'T' + (b.fixture.time || '00:00')).getTime() - 
-                new Date(a.fixture.fullDate + 'T' + (a.fixture.time || '00:00')).getTime()
-            );
+            // Sort results: DESCENDING (Newest first)
+            results.sort((a, b) => {
+                const tsA = getMatchTimestamp(a.fixture);
+                const tsB = getMatchTimestamp(b.fixture);
+                
+                // Primary Sort: By Date (Timestamp)
+                if (tsA !== tsB) {
+                    return tsB - tsA;
+                }
+                
+                // Secondary Sort: By ID (Descending)
+                // This puts the most recently *created* entries first if dates are identical or invalid (0).
+                // Crucial for manual entries which have high numeric IDs.
+                const idA = typeof a.fixture.id === 'number' ? a.fixture.id : 0;
+                const idB = typeof b.fixture.id === 'number' ? b.fixture.id : 0;
+                return idB - idA;
+            });
             
             setActiveFixtures(active);
             
-            // Set limits high enough to show all relevant recent matches without pagination
-            setUpcomingMatches(upcoming.slice(0, 200)); 
-            setRecentResults(results.slice(0, 200));
+            // Limit to 500 to ensure performance but catch all relevant leagues
+            setUpcomingMatches(upcoming.slice(0, 500)); 
+            setRecentResults(results.slice(0, 500));
 
         } catch (err) {
             console.error("Error fetching fixtures:", err);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -133,7 +187,6 @@ const LiveUpdatesPage: React.FC = () => {
     useEffect(() => {
         const unsubscribe = listenToLiveUpdates((newUpdates) => {
             setUpdates(newUpdates);
-            setLoading(false);
         });
         return () => unsubscribe();
     }, []);
@@ -185,7 +238,7 @@ const LiveUpdatesPage: React.FC = () => {
                      match.liveMinute = u.minute;
                 }
             } else {
-                // Orphaned event: Create a new entry for it so it displays, but mark it clearly
+                // Orphaned event: Create a new entry for it so it displays
                 const newKey = u.fixture_id || `${u.home_team}-${u.away_team}`;
                 if (!matchesMap.has(newKey)) {
                     matchesMap.set(newKey, {
@@ -328,7 +381,7 @@ const LiveUpdatesPage: React.FC = () => {
                                     Scheduled Matches
                                 </h3>
                                 {upcomingMatches.length > 0 ? upcomingMatches.map(({ fixture, competitionId, competitionName }) => (
-                                    <div key={fixture.id} className="relative group">
+                                    <div key={`${competitionId}-${fixture.id}`} className="relative group">
                                          <div className="absolute top-0 left-4 z-10 bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-b-md shadow-sm uppercase tracking-wide border border-blue-200 border-t-0">
                                             {competitionName}
                                          </div>
@@ -346,7 +399,7 @@ const LiveUpdatesPage: React.FC = () => {
                                         </Card>
                                     </div>
                                 )) : (
-                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No upcoming matches found for the selected league.</p>
+                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No upcoming matches found.</p>
                                 )}
                             </div>
                         )}
@@ -358,7 +411,7 @@ const LiveUpdatesPage: React.FC = () => {
                                     Recent Results
                                 </h3>
                                 {recentResults.length > 0 ? recentResults.map(({ fixture, competitionId, competitionName }) => (
-                                    <div key={fixture.id} className="relative group">
+                                    <div key={`${competitionId}-${fixture.id}`} className="relative group">
                                         <div className="absolute top-0 left-4 z-10 bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-b-md shadow-sm uppercase tracking-wide border border-green-200 border-t-0">
                                             {competitionName}
                                         </div>
@@ -376,7 +429,7 @@ const LiveUpdatesPage: React.FC = () => {
                                         </Card>
                                     </div>
                                 )) : (
-                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No recent results available for the selected league.</p>
+                                    <p className="text-center text-gray-500 py-12 bg-white rounded-lg shadow-sm border">No recent results available.</p>
                                 )}
                             </div>
                         )}
