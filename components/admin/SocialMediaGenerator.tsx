@@ -16,7 +16,7 @@ import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { calculateStandings } from '../../services/utils';
 
-type DivisionType = 'International' | 'MTN Premier League' | 'National First Division League' | 'Regional' | 'Cups' | 'National Team';
+type DivisionType = 'International' | 'MTN Premier League' | 'National First Division League' | 'Regional' | 'Cups' | 'National Team' | 'Womens Football';
 type ContentType = 'captions' | 'summary' | 'image' | 'recap';
 type PlatformType = 'twitter' | 'facebook' | 'instagram';
 
@@ -100,6 +100,7 @@ const SocialMediaGenerator: React.FC = () => {
                 else if (division === 'Cups' && (nameLower.includes('cup') || nameLower.includes('tournament'))) isRelevant = true;
                 else if (division === 'National Team' && (catLower === 'national-teams' || nameLower.includes('sihlangu'))) isRelevant = true;
                 else if (division === 'International' && (nameLower.includes('caf') || nameLower.includes('cosafa'))) isRelevant = true;
+                else if (division === 'Womens Football' && (nameLower.includes('women') || nameLower.includes('ladies'))) isRelevant = true;
 
                 if (isRelevant) {
                     // Include Standings Data for Context
@@ -298,9 +299,18 @@ const SocialMediaGenerator: React.FC = () => {
                 Output format: A single markdown-formatted article body.`;
             }
 
+            // Using relaxed safety settings to prevent blocks on team names like "Killers", "Pirates", "Gunners"
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
+                config: {
+                    safetySettings: [
+                        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+                        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+                        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+                        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+                    ]
+                }
             });
 
             const text = response.text || "";
@@ -310,7 +320,7 @@ const SocialMediaGenerator: React.FC = () => {
 
         } catch (error) {
             console.error("AI Generation failed:", error);
-            alert("Failed to generate content. Check API key and content format.");
+            alert("Failed to generate content. " + (error as Error).message);
         } finally {
             setIsGenerating(false);
         }
@@ -784,6 +794,7 @@ const SocialMediaGenerator: React.FC = () => {
                                 <option value="MTN Premier League">MTN Premier League</option>
                                 <option value="National First Division League">NFD</option>
                                 <option value="Regional">Regional</option>
+                                <option value="Womens Football">Women's Football</option>
                                 <option value="Cups">Cups</option>
                                 <option value="National Team">National Team</option>
                             </select>
