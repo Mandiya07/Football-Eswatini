@@ -8,6 +8,7 @@ import PhotoIcon from '../icons/PhotoIcon';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { handleFirestoreError } from '../../services/api';
+import { compressImage } from '../../services/utils';
 
 const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [formData, setFormData] = useState({
@@ -18,37 +19,44 @@ const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => 
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [imageProcessing, setImageProcessing] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') {
-                    setFormData(prev => ({ ...prev, coverUrl: reader.result as string }));
-                }
-            };
-            reader.readAsDataURL(file);
+            setImageProcessing(true);
+            try {
+                const compressed = await compressImage(file, 800, 0.7);
+                setFormData(prev => ({ ...prev, coverUrl: compressed }));
+            } catch (e) { 
+                console.error(e);
+                alert("Failed to process cover image.");
+            } finally {
+                setImageProcessing(false);
+            }
         }
     };
 
-    const handleGalleryImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleGalleryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') {
-                    setFormData(prev => ({ 
-                        ...prev, 
-                        imageUrls: prev.imageUrls ? `${prev.imageUrls},${reader.result}` : reader.result as string 
-                    }));
-                }
-            };
-            reader.readAsDataURL(file);
+            setImageProcessing(true);
+             try {
+                const compressed = await compressImage(file, 800, 0.7);
+                setFormData(prev => ({ 
+                    ...prev, 
+                    imageUrls: prev.imageUrls ? `${prev.imageUrls},${compressed}` : compressed 
+                }));
+            } catch (e) { 
+                console.error(e);
+                alert("Failed to process gallery image.");
+            } finally {
+                setImageProcessing(false);
+            }
         }
     };
 
@@ -116,9 +124,9 @@ const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => 
                         <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image URL or Upload</label>
                         <div className="flex items-center gap-2">
                             <input type="url" name="coverUrl" value={formData.coverUrl} onChange={handleChange} className={inputClass} placeholder="https://..." />
-                            <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
-                                Upload Cover
-                                <input type="file" onChange={handleCoverFileChange} accept="image/*" className="sr-only" />
+                            <label className={`cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap ${imageProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                {imageProcessing ? 'Processing...' : 'Upload Cover'}
+                                <input type="file" onChange={handleCoverFileChange} accept="image/*" className="sr-only" disabled={imageProcessing} />
                             </label>
                         </div>
                         {formData.coverUrl && <img src={formData.coverUrl} alt="Cover Preview" className="mt-2 h-20 object-cover rounded border p-1" />}
@@ -129,9 +137,9 @@ const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => 
                         <label className="block text-sm font-medium text-gray-700 mb-1">Gallery Images</label>
                         <div className="flex items-center gap-2 mb-2">
                             <input type="text" name="imageUrls" value={formData.imageUrls} onChange={handleChange} required className={inputClass} placeholder="Paste comma separated URLs..." />
-                            <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
-                                Add Image
-                                <input type="file" onChange={handleGalleryImageUpload} accept="image/*" className="sr-only" />
+                            <label className={`cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap ${imageProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                {imageProcessing ? 'Processing...' : 'Add Image'}
+                                <input type="file" onChange={handleGalleryImageUpload} accept="image/*" className="sr-only" disabled={imageProcessing} />
                             </label>
                         </div>
                         <p className="text-xs text-gray-500">Add images by uploading or pasting URLs separated by commas.</p>
@@ -146,7 +154,7 @@ const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => 
                     </div>
 
                     <div className="text-right">
-                        <Button type="submit" disabled={isSubmitting} className="bg-blue-600 text-white hover:bg-blue-700">
+                        <Button type="submit" disabled={isSubmitting || imageProcessing} className="bg-blue-600 text-white hover:bg-blue-700">
                             {isSubmitting ? <Spinner className="w-4 h-4 border-2" /> : 'Create Gallery'}
                         </Button>
                     </div>

@@ -13,6 +13,7 @@ import {
 import PencilIcon from '../icons/PencilIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
+import { compressImage } from '../../services/utils';
 
 type FeatureType = 'coaching' | 'exclusive' | 'team-yam' | 'archive' | 'behind-the-scenes';
 
@@ -102,7 +103,7 @@ const FeatureManagement: React.FC = () => {
             loadData();
         } catch (error) {
             console.error("Save failed", error);
-            alert("Failed to save item.");
+            alert("Failed to save item. Content might be too large.");
         }
     };
 
@@ -111,16 +112,29 @@ const FeatureManagement: React.FC = () => {
         setFormData((prev: any) => ({ ...prev, [name]: value }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') {
-                    setFormData((prev: any) => ({ ...prev, [fieldName]: reader.result as string }));
+            
+            if (file.type.startsWith('image/')) {
+                try {
+                    // Compress image to ensure it fits in database (800px max width, 0.7 quality)
+                    const compressedBase64 = await compressImage(file, 800, 0.7);
+                    setFormData((prev: any) => ({ ...prev, [fieldName]: compressedBase64 }));
+                } catch (error) {
+                    console.error("Image compression error", error);
+                    alert("Failed to process image.");
                 }
-            };
-            reader.readAsDataURL(file);
+            } else {
+                // For video/audio, we still use basic reader, but note large files may fail in Firestore
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (typeof reader.result === 'string') {
+                        setFormData((prev: any) => ({ ...prev, [fieldName]: reader.result as string }));
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
         }
     };
     
@@ -204,9 +218,6 @@ const FeatureManagement: React.FC = () => {
                         <textarea name="description" value={formData.description || ''} onChange={handleInputChange} placeholder="Description" className={inputClass} required />
                         {formData.type === 'photo' && renderUploadField('Photo (Image)', 'imageUrl', 'image/*')}
                         {formData.type === 'clip' && renderUploadField('Clip (Video)', 'videoUrl', 'video/*')}
-                        {/* Simplified handling: mapping flat form fields back to complex 'details' object happens implicitly or needs logic. 
-                            For this demo, we'll just save flat fields and let the display component handle fallbacks or direct access if key exists. 
-                            Ideally, handleSave would reconstruct the 'details' object. */}
                     </>
                 );
             case 'behind-the-scenes':

@@ -4,6 +4,7 @@ import { YouthArticle } from '../../data/youth';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
+import { compressImage } from '../../services/utils';
 
 interface YouthArticleFormModalProps {
     isOpen: boolean;
@@ -21,6 +22,7 @@ const YouthArticleFormModal: React.FC<YouthArticleFormModalProps> = ({ isOpen, o
         imageUrl: '',
         date: new Date().toISOString().split('T')[0],
     });
+    const [imageProcessing, setImageProcessing] = useState(false);
 
     useEffect(() => {
         if (article) {
@@ -42,16 +44,19 @@ const YouthArticleFormModal: React.FC<YouthArticleFormModalProps> = ({ isOpen, o
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') {
-                    setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
-                }
-            };
-            reader.readAsDataURL(file);
+            setImageProcessing(true);
+            try {
+                const compressed = await compressImage(file, 800, 0.7);
+                setFormData(prev => ({ ...prev, imageUrl: compressed }));
+            } catch (error) {
+                console.error("Image processing error", error);
+                alert("Failed to process image.");
+            } finally {
+                setImageProcessing(false);
+            }
         }
     };
 
@@ -95,9 +100,9 @@ const YouthArticleFormModal: React.FC<YouthArticleFormModalProps> = ({ isOpen, o
                             <label className="block text-sm font-medium text-gray-700 mb-1">Image URL or Upload</label>
                             <div className="flex items-center gap-2">
                                 <input name="imageUrl" value={formData.imageUrl} onChange={handleChange} placeholder="Image URL" className={inputClass} />
-                                <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
-                                    Upload
-                                    <input type="file" onChange={handleFileChange} accept="image/*" className="sr-only" />
+                                <label className={`cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap ${imageProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    {imageProcessing ? 'Processing...' : 'Upload'}
+                                    <input type="file" onChange={handleFileChange} accept="image/*" className="sr-only" disabled={imageProcessing} />
                                 </label>
                             </div>
                             {formData.imageUrl && <img src={formData.imageUrl} alt="Preview" className="mt-2 h-32 object-cover rounded border" />}
@@ -105,7 +110,7 @@ const YouthArticleFormModal: React.FC<YouthArticleFormModalProps> = ({ isOpen, o
                         
                         <div className="flex justify-end gap-2 pt-4">
                             <Button type="button" onClick={onClose} className="bg-gray-200 text-gray-800">Cancel</Button>
-                            <Button type="submit" className="bg-primary text-white">Save Article</Button>
+                            <Button type="submit" className="bg-primary text-white" disabled={imageProcessing}>Save Article</Button>
                         </div>
                     </form>
                 </CardContent>
