@@ -94,7 +94,8 @@ const SocialMediaGenerator: React.FC = () => {
                 const nameLower = comp.name.toLowerCase();
                 const catLower = (comp.categoryId || '').toLowerCase();
                 
-                if (division === 'MTN Premier League' && (nameLower.includes('premier') || nameLower.includes('mtn'))) isRelevant = true;
+                // Strict check for MTN Premier League to avoid English Premier League matches
+                if (division === 'MTN Premier League' && (nameLower.includes('mtn premier') || (nameLower.includes('premier') && !nameLower.includes('english') && !nameLower.includes('epl') && !nameLower.includes('barclays')))) isRelevant = true;
                 else if (division === 'National First Division League' && (nameLower.includes('first division') || nameLower.includes('nfd'))) isRelevant = true;
                 else if (division === 'Regional' && (nameLower.includes('regional') || nameLower.includes('super league'))) isRelevant = true;
                 else if (division === 'Cups' && (nameLower.includes('cup') || nameLower.includes('tournament'))) isRelevant = true;
@@ -552,12 +553,19 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.restore();
         }
 
-        ctx.fillStyle = '#FDB913';
+        // League Name Badge
+        const leagueName = match.competition.toUpperCase();
         ctx.font = 'bold 36px "Poppins", sans-serif';
+        const leagueTextWidth = ctx.measureText(leagueName).width;
+        
+        ctx.fillStyle = 'rgba(253, 185, 19, 0.2)'; // FDB913 with opacity
+        fillRoundedRect(ctx, centerX - (leagueTextWidth/2) - 20, 250, leagueTextWidth + 40, 60, 30);
+        
+        ctx.fillStyle = '#FDB913';
         ctx.textAlign = 'center';
         ctx.shadowColor = 'rgba(0,0,0,0.5)';
         ctx.shadowBlur = 4;
-        ctx.fillText(match.competition.toUpperCase(), centerX, 300);
+        ctx.fillText(leagueName, centerX, 292);
         ctx.shadowBlur = 0;
 
         const crestSize = 340;
@@ -662,12 +670,36 @@ const SocialMediaGenerator: React.FC = () => {
         const centerX = width / 2;
         const leagueName = matches[0].competition.toUpperCase();
         
-        // Header
+        // --- HEADER SECTION ---
+        let headerY = 80;
+
+        // Draw League Logo if available
+        const leagueLogo = matches[0].competitionLogoUrl ? imageCache.get(matches[0].competitionLogoUrl) : null;
+        if (leagueLogo) {
+             const lSize = 140;
+             const ratio = Math.min(lSize / leagueLogo.width, lSize / leagueLogo.height);
+             const lw = leagueLogo.width * ratio;
+             const lh = leagueLogo.height * ratio;
+             
+             ctx.save();
+             ctx.shadowColor = 'rgba(0,0,0,0.3)';
+             ctx.shadowBlur = 15;
+             ctx.drawImage(leagueLogo, centerX - lw/2, headerY, lw, lh);
+             ctx.restore();
+             
+             headerY += lh + 30; // Move down
+        } else {
+            headerY += 50; // Default spacing if no logo
+        }
+
+        // League Name Text
         ctx.textAlign = 'center';
         ctx.font = 'bold 32px "Poppins", sans-serif';
         ctx.fillStyle = '#FDB913';
-        ctx.fillText(leagueName, centerX, 120);
+        ctx.fillText(leagueName, centerX, headerY);
         
+        headerY += 60; // Spacing for Title
+
         const distinctMatchdays = new Set(matches.map(m => m.matchday).filter(Boolean));
         let title = matches[0].type === 'result' ? 'MATCH RESULTS' : 'UPCOMING FIXTURES';
         if (distinctMatchdays.size === 1) {
@@ -678,15 +710,31 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.fillStyle = '#FFFFFF';
         ctx.shadowColor = 'rgba(0,0,0,0.5)';
         ctx.shadowBlur = 10;
-        ctx.fillText(title, centerX, 200);
+        ctx.fillText(title, centerX, headerY);
         ctx.shadowBlur = 0;
+        
+        headerY += 40; // Approximate bottom of header text area
 
-        // List Logic
+        // --- LIST SECTION ---
         const rowHeight = 150;
-        const startY = 300;
-        const maxRows = 9; 
         const spacing = 30;
+        const maxRows = 9; 
         const visibleMatches = matches.slice(0, maxRows);
+        
+        const totalContentHeight = visibleMatches.length * (rowHeight + spacing) - spacing;
+        
+        // Available area calculation
+        const footerHeight = 120;
+        const canvasHeight = height;
+        const contentAreaStart = headerY + 20; 
+        const contentAreaEnd = canvasHeight - footerHeight - 20;
+        const contentAreaHeight = contentAreaEnd - contentAreaStart;
+
+        // Calculate Start Y to center vertically
+        let startY = contentAreaStart + (contentAreaHeight - totalContentHeight) / 2;
+        
+        // Safety check if content is too big (shouldn't be with maxRows=9, but good practice)
+        if (startY < contentAreaStart) startY = contentAreaStart;
 
         visibleMatches.forEach((m, i) => {
             const y = startY + (i * (rowHeight + spacing));
