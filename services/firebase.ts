@@ -18,9 +18,8 @@ export const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with memory cache settings.
 // We use memoryLocalCache instead of persistentLocalCache to avoid initialization timeouts
-// in environments where IndexedDB is slow or restricted (fixing "Backend didn't respond within 10 seconds").
-// experimentalForceLongPolling is enabled to support environments without WebSocket access.
+// in environments where IndexedDB is slow or restricted.
+// We allow the SDK to auto-detect the best connection method (WebSockets/Long Polling).
 export const db = initializeFirestore(app, {
   localCache: memoryLocalCache(),
-  experimentalForceLongPolling: true,
 });
