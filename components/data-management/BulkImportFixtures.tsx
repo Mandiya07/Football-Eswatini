@@ -16,7 +16,7 @@ import PencilIcon from '../icons/PencilIcon';
 import TrashIcon from '../icons/TrashIcon';
 import { Competition, CompetitionFixture, Team } from '../../data/teams';
 
-interface ParsedFixture extends Partial<CompetitionFixture> {
+interface ParsedFixture extends Omit<Partial<CompetitionFixture>, 'status'> {
     tempId: number;
     selected: boolean;
     teamA: string;
@@ -27,6 +27,7 @@ interface ParsedFixture extends Partial<CompetitionFixture> {
     normalizedTeamB: string | null;
     isDuplicate: boolean;
     warnings: string[];
+    status?: CompetitionFixture['status'] | 'error';
 }
 
 interface EditFormData extends Partial<Omit<ParsedFixture, 'scoreA' | 'scoreB'>> {
@@ -174,7 +175,7 @@ Text to parse:\n\n${pastedText}`;
                 let isUpdate = false;
 
                 if (isDuplicate && existingMatch) {
-                    // Check if new data improves existing
+                    // Check if import has more/better data than what's in DB
                     const timeImproved = (existingMatch.time === '00:00' && item.time !== '00:00') || (!existingMatch.time && !!item.time);
                     const venueImproved = (!existingMatch.venue && !!item.venue);
                     // Status changed to finished?
@@ -507,7 +508,7 @@ Text to parse:\n\n${pastedText}`;
                                                             </div>
                                                             <div>
                                                                 <label className="text-xs font-bold">Away Team</label>
-                                                                <select name="teamB" value={editedData.teamB} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md"><option value="" disabled>-- Select --</option>{(currentCompetitionData?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select>
+                                                                <select name="teamB" value={editedData.teamB} onChange={handleEditChange} name="teamB" className="block w-full text-sm p-1 border-gray-300 rounded-md"><option value="" disabled>-- Select --</option>{(currentCompetitionData?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select>
                                                             </div>
                                                             {importType === 'results' && <>
                                                                 <div><label className="text-xs font-bold">Home Score</label><input type="number" name="scoreA" value={editedData.scoreA} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md"/></div>

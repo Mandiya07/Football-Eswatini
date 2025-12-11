@@ -75,7 +75,7 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
                                 <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-500 mt-0.5">
                                     <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-medium">{entity.category}</span>
                                     <span>&bull;</span>
-                                    <span>{entity.region}</span>
+                                    <span>{entity.region || 'National'}</span>
                                     {entity.tier && <>
                                         <span>&bull;</span>
                                         <span className="text-blue-600 font-semibold">{entity.tier}</span>
@@ -220,15 +220,9 @@ const DirectoryPage: React.FC = () => {
 
                     // Rule B: Name Cross-Check
                     // If the name is known as an International Team AND is NOT known as a Local Team
-                    // This handles cases where data was imported/seeded without a competitionId but matches an int'l team name
                     if (internationalTeamNames.has(name) && !localTeamNames.has(name)) {
                         return false;
                     }
-
-                    // Rule C: Strict Region Filter
-                    // Ensure only valid Eswatini regions are shown.
-                    const validRegions = ['hhohho', 'manzini', 'lubombo', 'shiselweni'];
-                    if (!validRegions.includes(entity.region.toLowerCase())) return false;
 
                     return true;
                 });

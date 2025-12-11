@@ -165,7 +165,11 @@ const RefereeManagement: React.FC = () => {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <p className="font-bold text-gray-900">{referee.name}</p>
-                                            {referee.isSpotlight && <StarIcon className="w-4 h-4 text-yellow-500" title="Spotlight Referee"/>}
+                                            {referee.isSpotlight && (
+                                                <span title="Spotlight Referee">
+                                                    <StarIcon className="w-4 h-4 text-yellow-500" />
+                                                </span>
+                                            )}
                                         </div>
                                         <p className="text-xs text-gray-500">{referee.level} &bull; {referee.stats.matches} Matches</p>
                                     </div>

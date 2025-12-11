@@ -48,7 +48,7 @@ const VideoFormModal: React.FC<VideoFormModalProps> = ({ isOpen, onClose, onSave
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     if (typeof reader.result === 'string') {
-                        setFormData(prev => ({ ...prev, thumbnailUrl: reader.result }));
+                        setFormData(prev => ({ ...prev, thumbnailUrl: reader.result as string }));
                     }
                 };
                 reader.readAsDataURL(file);

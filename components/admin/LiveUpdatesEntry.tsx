@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
-import { addLiveUpdate, fetchAllCompetitions, handleFirestoreError } from '../../services/api';
+import { addLiveUpdate, fetchAllCompetitions, handleFirestoreError, LiveUpdate } from '../../services/api';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { GoogleGenAI, Type } from '@google/genai';
 import SparklesIcon from '../icons/SparklesIcon';
@@ -15,14 +16,26 @@ import Edit3Icon from '../icons/Edit3Icon';
 import ClockIcon from '../icons/ClockIcon';
 
 const LiveUpdatesEntry: React.FC = () => {
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        fixture_id: string;
+        competition: string;
+        competitionId: string;
+        home_team: string;
+        away_team: string;
+        minute: string;
+        type: LiveUpdate['type'];
+        player: string;
+        description: string;
+        score_home: string;
+        score_away: string;
+    }>({
         fixture_id: '',
         competition: '',
         competitionId: '', // Hidden field to store the doc ID
         home_team: '',
         away_team: '',
         minute: '',
-        type: 'goal' as const,
+        type: 'goal',
         player: '',
         description: '',
         score_home: '',
