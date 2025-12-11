@@ -1,8 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { Team } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
+import BookIcon from '../icons/BookIcon';
+import CheckCircleIcon from '../icons/CheckCircleIcon';
+import { fetchDirectoryEntries } from '../../services/api';
 
 type TeamFormData = {
     name: string;
@@ -14,32 +18,65 @@ type TeamFormData = {
 interface TeamFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number) => void;
+    // Updated signature: accept addToDirectory boolean instead of linkedDirectoryId string
+    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number, addToDirectory?: boolean) => void;
     team: Team | null;
+    competitionId: string;
 }
 
-const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, team }) => {
+const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, team, competitionId }) => {
     const [formData, setFormData] = useState<TeamFormData>({
         name: '',
         crestUrl: '',
         kitSponsorName: '',
         kitSponsorLogoUrl: '',
     });
+    
+    const [addToDirectory, setAddToDirectory] = useState(false);
+    const [alreadyInDirectory, setAlreadyInDirectory] = useState(false);
+    const [checkingDirectory, setCheckingDirectory] = useState(false);
 
     useEffect(() => {
-        if (team) {
-            setFormData({
-                name: team.name,
-                crestUrl: team.crestUrl,
-                kitSponsorName: team.kitSponsor?.name || '',
-                kitSponsorLogoUrl: team.kitSponsor?.logoUrl || '',
-            });
-        } else {
-            setFormData({ name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '' });
-        }
-    }, [team, isOpen]);
+        const checkDirectory = async () => {
+            if (!team) {
+                setFormData({ name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '' });
+                setAddToDirectory(true); // Default check for new teams
+                return;
+            }
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            setCheckingDirectory(true);
+            try {
+                // Pre-fill form
+                setFormData({
+                    name: team.name,
+                    crestUrl: team.crestUrl,
+                    kitSponsorName: team.kitSponsor?.name || '',
+                    kitSponsorLogoUrl: team.kitSponsor?.logoUrl || '',
+                });
+
+                // Check directory status
+                const entries = await fetchDirectoryEntries();
+                const exists = entries.some(e => 
+                    (e.teamId === team.id && e.competitionId === competitionId) || 
+                    (e.name.toLowerCase() === team.name.toLowerCase())
+                );
+                
+                setAlreadyInDirectory(exists);
+                setAddToDirectory(exists); // If exists, check the box to show it's linked (user can uncheck to unlink)
+
+            } catch (error) {
+                console.error("Error checking directory status", error);
+            } finally {
+                setCheckingDirectory(false);
+            }
+        };
+
+        if (isOpen) {
+            checkDirectory();
+        }
+    }, [team, isOpen, competitionId]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
@@ -73,7 +110,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
             dataToSave.kitSponsor = undefined;
         }
 
-        onSave(dataToSave, team?.id);
+        onSave(dataToSave, team?.id, addToDirectory);
     };
 
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
@@ -87,6 +124,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                 <CardContent className="p-8">
                     <h2 className="text-2xl font-bold font-display mb-6">{team ? 'Edit Team' : 'Create New Team'}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        
                         <div>
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
                             <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required className={inputClass} />
@@ -101,6 +139,30 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                                 </label>
                             </div>
                             {formData.crestUrl && <img src={formData.crestUrl} alt="Crest preview" className="mt-4 h-24 w-24 object-contain border rounded-full p-2 mx-auto" />}
+                        </div>
+
+                        {/* Directory Add Option */}
+                        <div className={`p-3 rounded-md border flex items-start gap-3 mt-2 ${addToDirectory ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-center h-5">
+                                <input
+                                    id="addToDirectory"
+                                    name="addToDirectory"
+                                    type="checkbox"
+                                    checked={addToDirectory}
+                                    onChange={(e) => setAddToDirectory(e.target.checked)}
+                                    className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                                />
+                            </div>
+                            <div className="text-sm">
+                                <label htmlFor="addToDirectory" className={`font-medium flex items-center gap-2 ${addToDirectory ? 'text-green-800' : 'text-gray-700'}`}>
+                                    {alreadyInDirectory ? <><CheckCircleIcon className="w-4 h-4"/> Linked to Directory</> : <><BookIcon className="w-4 h-4"/> Add to Football Directory</>}
+                                </label>
+                                <p className={`text-xs mt-1 ${addToDirectory ? 'text-green-700' : 'text-gray-500'}`}>
+                                    {alreadyInDirectory 
+                                     ? "Uncheck to remove this team's link to the public directory." 
+                                     : "Check to create a public profile for this team in the Directory."}
+                                </p>
+                            </div>
                         </div>
                         
                         <div className="space-y-4 pt-4 border-t">

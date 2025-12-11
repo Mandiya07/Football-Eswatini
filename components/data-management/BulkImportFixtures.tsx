@@ -508,7 +508,7 @@ Text to parse:\n\n${pastedText}`;
                                                             </div>
                                                             <div>
                                                                 <label className="text-xs font-bold">Away Team</label>
-                                                                <select name="teamB" value={editedData.teamB} onChange={handleEditChange} name="teamB" className="block w-full text-sm p-1 border-gray-300 rounded-md"><option value="" disabled>-- Select --</option>{(currentCompetitionData?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select>
+                                                                <select name="teamB" value={editedData.teamB} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md"><option value="" disabled>-- Select --</option>{(currentCompetitionData?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select>
                                                             </div>
                                                             {importType === 'results' && <>
                                                                 <div><label className="text-xs font-bold">Home Score</label><input type="number" name="scoreA" value={editedData.scoreA} onChange={handleEditChange} className="block w-full text-sm p-1 border-gray-300 rounded-md"/></div>

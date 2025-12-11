@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { Team, Competition } from '../../data/teams';
-import { fetchAllCompetitions } from '../../services/api';
+import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry, deleteDirectoryEntry } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -12,10 +12,11 @@ import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import UsersIcon from '../icons/UsersIcon';
 import CalendarIcon from '../icons/CalendarIcon';
-import TeamFormModal from './TeamFormModal';
-import TeamRosterModal from './TeamRosterModal';
+import TeamFormModal from '../admin/TeamFormModal';
+import TeamRosterModal from '../admin/TeamRosterModal';
 import TeamFixturesModal from '../admin/TeamFixturesModal';
 import { calculateStandings, removeUndefinedProps } from '../../services/utils';
+import { Region, DirectoryEntity } from '../../data/directory';
 
 const ManageTeams: React.FC = () => {
     const [competitions, setCompetitions] = useState<{ id: string, name: string }[]>([]);
@@ -135,6 +136,13 @@ const ManageTeams: React.FC = () => {
                 transaction.update(compDocRef, removeUndefinedProps({ teams: recalculatedTeams, fixtures: updatedFixtures, results: updatedResults }));
             });
             
+            // Cleanup directory link if exists
+            const directoryEntries = await fetchDirectoryEntries();
+            const linkedEntry = directoryEntries.find(e => e.teamId === teamId && e.competitionId === selectedCompId);
+            if (linkedEntry) {
+                await updateDirectoryEntry(linkedEntry.id, { teamId: null, competitionId: null });
+            }
+
             await loadData();
 
         } catch (error) {
@@ -145,14 +153,17 @@ const ManageTeams: React.FC = () => {
         }
     };
 
-    const handleSaveTeam = async (data: Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>, id?: number) => {
+    const handleSaveTeam = async (data: Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>, id?: number, addToDirectory?: boolean) => {
         setLoading(true);
         setIsFormModalOpen(false);
         
         try {
             const compDocRef = doc(db, 'competitions', selectedCompId);
+            let finalTeamId = id;
+            let teamName = data.name.trim();
     
-            if (id) { // --- EDITING ---
+            // --- 1. SAVE TEAM TO COMPETITION ---
+            if (id) { // EDITING
                 await runTransaction(db, async (transaction) => {
                     const compDocSnap = await transaction.get(compDocRef);
                     if (!compDocSnap.exists()) throw new Error("Competition not found");
@@ -201,11 +212,12 @@ const ManageTeams: React.FC = () => {
                         transaction.update(compDocRef, removeUndefinedProps({ teams: updatedCompTeams }));
                     }
                 });
-            } else { // --- ADDING ---
+            } else { // ADDING
                 const allComps = await fetchAllCompetitions();
                 const allTeams = Object.values(allComps).flatMap(comp => comp.teams || []);
                 const maxId = allTeams.reduce((max, team) => Math.max(max, team.id), 0);
                 const newTeamId = maxId > 0 ? maxId + 1 : 1;
+                finalTeamId = newTeamId;
     
                 await runTransaction(db, async (transaction) => {
                     const compDocSnap = await transaction.get(compDocRef);
@@ -224,6 +236,82 @@ const ManageTeams: React.FC = () => {
                     transaction.update(compDocRef, removeUndefinedProps({ teams: updatedCompTeams }));
                 });
             }
+            
+            // --- 2. HANDLE DIRECTORY ADDITION / LINKING ---
+            if (finalTeamId) {
+                try {
+                    const directoryEntries = await fetchDirectoryEntries();
+                    // Robust lookup: check exact name AND cleaned name (ignoring case)
+                    const existingEntry = directoryEntries.find(e => 
+                        e.name.trim().toLowerCase() === teamName.toLowerCase() ||
+                        e.teamId === finalTeamId // Also check if already linked by ID
+                    );
+
+                    if (addToDirectory) {
+                        // User WANTS it in directory
+                        
+                        // Re-fetch comps to get fresh name data for intelligent defaults
+                        const allComps = await fetchAllCompetitions(); 
+                        const compName = allComps[selectedCompId]?.name.toLowerCase() || '';
+                        
+                        let region: Region = 'Hhohho';
+                        if (compName.includes('manzini')) region = 'Manzini';
+                        else if (compName.includes('lubombo')) region = 'Lubombo';
+                        else if (compName.includes('shiselweni')) region = 'Shiselweni';
+
+                        let tier: DirectoryEntity['tier'] = 'Regional';
+                        if (compName.includes('premier')) tier = 'Premier League';
+                        else if (compName.includes('first division') || compName.includes('nfd')) tier = 'NFD';
+                        else if (compName.includes('women') || compName.includes('ladies')) tier = 'Womens League';
+                        else if (compName.includes('school')) tier = 'Schools';
+
+                        const directoryPayload: Omit<DirectoryEntity, 'id'> = {
+                            name: teamName,
+                            category: 'Club',
+                            region: region,
+                            crestUrl: data.crestUrl,
+                            teamId: finalTeamId,
+                            competitionId: selectedCompId,
+                            tier: tier,
+                            location: { lat: -26.5, lng: 31.5, address: `Eswatini` },
+                            contact: { email: '', phone: '' },
+                            founded: 0,
+                            stadium: ''
+                        };
+
+                        if (existingEntry) {
+                            // Update existing
+                             await updateDirectoryEntry(existingEntry.id, {
+                                ...directoryPayload,
+                                // Preserve existing valuable data if present
+                                location: existingEntry.location || directoryPayload.location,
+                                contact: existingEntry.contact || directoryPayload.contact,
+                                founded: existingEntry.founded || directoryPayload.founded,
+                                stadium: existingEntry.stadium || directoryPayload.stadium,
+                                crestUrl: data.crestUrl || existingEntry.crestUrl // Prefer new crest if provided
+                             });
+                             console.log(`Updated directory entry for ${teamName}`);
+                        } else {
+                            // Create New
+                            await addDirectoryEntry(directoryPayload);
+                            console.log(`Created new directory entry for ${teamName}`);
+                        }
+                    } else if (existingEntry) {
+                        // User UNCHECKED the box, but entry exists.
+                        // We should UNLINK it (remove teamId/competitionId) but keep the directory entry
+                        // OR if it was auto-created, maybe delete it? For safety, we just unlink.
+                        await updateDirectoryEntry(existingEntry.id, { 
+                            teamId: null, 
+                            competitionId: null 
+                        });
+                        console.log(`Unlinked directory entry for ${teamName}`);
+                    }
+                } catch (dirError) {
+                    console.error("Failed to update directory:", dirError);
+                    alert("Team saved, but failed to update Directory listing. Please try adding it manually via the Directory Manager.");
+                }
+            }
+
             await loadData();
         } catch (error) {
             console.error("Error saving team:", error);
@@ -306,7 +394,8 @@ const ManageTeams: React.FC = () => {
                     isOpen={isFormModalOpen} 
                     onClose={() => setIsFormModalOpen(false)} 
                     onSave={handleSaveTeam} 
-                    team={editingTeam} 
+                    team={editingTeam}
+                    competitionId={selectedCompId} // Pass the current competition ID
                 />
             )}
             

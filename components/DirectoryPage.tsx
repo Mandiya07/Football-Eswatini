@@ -173,61 +173,10 @@ const DirectoryPage: React.FC = () => {
         const loadData = async () => {
             setLoading(true);
             try {
-                // Fetch Directory, Competitions, and Categories to perform cross-reference filtering
-                const [directoryData, competitionsData, categoriesData] = await Promise.all([
-                    fetchDirectoryEntries(),
-                    fetchAllCompetitions(),
-                    fetchCategories()
-                ]);
-
-                // 1. Identify International Competitions and Teams
-                const internationalCompIds = new Set<string>();
-                const internationalTeamNames = new Set<string>();
-                const localTeamNames = new Set<string>();
-
-                // Helper to check if a category is considered "International"
-                const isIntlCategory = (catId: string) => {
-                    const cat = categoriesData.find(c => c.id === catId);
-                    const name = cat ? cat.name.toLowerCase() : catId.toLowerCase();
-                    return name.includes('international') || name.includes('caf') || name.includes('uefa') || name.includes('fifa');
-                };
-
-                Object.entries(competitionsData).forEach(([id, comp]) => {
-                    const isIntl = comp.categoryId ? isIntlCategory(comp.categoryId) : false;
-                    
-                    if (isIntl) {
-                        internationalCompIds.add(id);
-                        comp.teams?.forEach(t => internationalTeamNames.add(t.name.trim()));
-                    } else {
-                        // Classify as Local: Premier, NFD, Regional, Women, Youth, Cups
-                        comp.teams?.forEach(t => localTeamNames.add(t.name.trim()));
-                    }
-                });
-
-                // 2. Filter Directory Entries
-                const filteredData = directoryData.filter(entity => {
-                    // Always keep non-clubs (Referees, Associations, Academies)
-                    if (entity.category !== 'Club') return true;
-
-                    const name = entity.name.trim();
-
-                    // Rule A: If entity is linked explicitly to an International Competition via ID
-                    if (entity.competitionId && internationalCompIds.has(entity.competitionId)) {
-                        // EXCEPTION: Keep it if it ALSO plays in a local league (e.g. Mbabane Swallows in CAF)
-                        if (localTeamNames.has(name)) return true;
-                        return false; // Hide if ONLY international
-                    }
-
-                    // Rule B: Name Cross-Check
-                    // If the name is known as an International Team AND is NOT known as a Local Team
-                    if (internationalTeamNames.has(name) && !localTeamNames.has(name)) {
-                        return false;
-                    }
-
-                    return true;
-                });
-
-                setAllEntries(filteredData);
+                // Fetch Directory Entries. We display exactly what is in this collection.
+                // We assume the Directory collection is curated by Admin/ManageTeams and contains valid entries.
+                const directoryData = await fetchDirectoryEntries();
+                setAllEntries(directoryData);
             } catch (error) {
                 console.error("Error fetching directory data:", error);
                 setAllEntries([]);
@@ -266,7 +215,7 @@ const DirectoryPage: React.FC = () => {
                     ? true
                     : (() => {
                         if (selectedCategory.toLowerCase() === 'club') {
-                            return entityCategoryLower.startsWith('club') || !!entity.tier;
+                            return entityCategoryLower.startsWith('club');
                         }
                         return entityCategoryLower.startsWith(selectedCategory.toLowerCase());
                     })();
