@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { addDirectoryEntry, deleteDirectoryEntry, fetchDirectoryEntries, updateDirectoryEntry } from '../../services/api';
-import { DirectoryEntity } from '../../data/directory';
+import { addDirectoryEntry, deleteDirectoryEntry, fetchDirectoryEntries, updateDirectoryEntry, fetchAllCompetitions, handleFirestoreError } from '../../services/api';
+import { DirectoryEntity, DirectoryEntity as DirectoryEntityType } from '../../data/directory';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -10,6 +10,7 @@ import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import SearchIcon from '../icons/SearchIcon';
 import FilterIcon from '../icons/FilterIcon';
+import RefreshIcon from '../icons/RefreshIcon';
 import DirectoryFormModal from './DirectoryFormModal';
 
 const DirectoryManagement: React.FC = () => {
@@ -69,6 +70,85 @@ const DirectoryManagement: React.FC = () => {
         loadEntries();
     };
 
+    const handleSyncTeams = async () => {
+        if (!window.confirm("This will scan all competitions (Premier League, NFD, Super Leagues) and add any missing teams to the directory. This helps keep the directory up to date.\n\nProceed?")) return;
+
+        setLoading(true);
+        try {
+            const [competitionsData, existingDirectory] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchDirectoryEntries()
+            ]);
+
+            // Create a set of normalized existing names for duplicate checking
+            const existingNames = new Set(existingDirectory.map(e => e.name.trim().toLowerCase()));
+            let addedCount = 0;
+
+            const newEntries: Omit<DirectoryEntity, 'id'>[] = [];
+
+            Object.entries(competitionsData).forEach(([compId, comp]) => {
+                let tier: DirectoryEntityType['tier'] = undefined;
+                let region: DirectoryEntityType['region'] = 'Hhohho'; // Default
+                const compNameLower = comp.name.toLowerCase();
+
+                // Determine Tier based on competition name
+                if (compNameLower.includes('premier')) tier = 'Premier League';
+                else if (compNameLower.includes('first division') || compNameLower.includes('nfd')) tier = 'NFD';
+                else if (compNameLower.includes('women') || compNameLower.includes('ladies')) tier = 'Womens League';
+                else if (compNameLower.includes('school') || compNameLower.includes('student')) tier = 'Schools';
+                else if (compNameLower.includes('regional') || compNameLower.includes('super league')) tier = 'Regional';
+
+                // Determine Region based on competition name
+                if (compNameLower.includes('manzini')) region = 'Manzini';
+                else if (compNameLower.includes('lubombo')) region = 'Lubombo';
+                else if (compNameLower.includes('shiselweni')) region = 'Shiselweni';
+                else if (compNameLower.includes('hhohho')) region = 'Hhohho';
+
+                if (comp.teams) {
+                    comp.teams.forEach(team => {
+                        const teamNameClean = team.name.trim();
+                        const teamNameLower = teamNameClean.toLowerCase();
+
+                        if (!existingNames.has(teamNameLower)) {
+                            // Avoid adding duplicates within the same batch
+                            if (!newEntries.find(e => e.name.toLowerCase() === teamNameLower)) {
+                                newEntries.push({
+                                    name: teamNameClean,
+                                    category: 'Club',
+                                    region: region,
+                                    tier: tier,
+                                    crestUrl: team.crestUrl,
+                                    teamId: team.id,
+                                    competitionId: compId
+                                });
+                                existingNames.add(teamNameLower);
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Process additions
+            for (const entry of newEntries) {
+                await addDirectoryEntry(entry);
+                addedCount++;
+            }
+
+            if (addedCount > 0) {
+                alert(`Successfully synced! Added ${addedCount} new teams to the Directory.`);
+                loadEntries(); // Refresh
+            } else {
+                alert("Directory is already up to date. No new teams found.");
+            }
+
+        } catch (error) {
+            console.error("Sync failed", error);
+            handleFirestoreError(error, "sync directory teams");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const categories = ['All', 'Club', 'Academy', 'Referee', 'Association'];
 
     return (
@@ -77,9 +157,14 @@ const DirectoryManagement: React.FC = () => {
                 <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <h3 className="text-2xl font-bold font-display">Directory Management</h3>
-                        <Button onClick={handleAddNew} className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2">
-                            <PlusCircleIcon className="w-5 h-5" /> Add Entry
-                        </Button>
+                        <div className="flex gap-2 flex-wrap">
+                             <Button onClick={handleSyncTeams} disabled={loading} className="bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-2">
+                                <RefreshIcon className="w-5 h-5" /> Sync Teams from Leagues
+                            </Button>
+                            <Button onClick={handleAddNew} className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2">
+                                <PlusCircleIcon className="w-5 h-5" /> Add Entry
+                            </Button>
+                        </div>
                     </div>
                     
                     {/* Filters */}
@@ -124,10 +209,16 @@ const DirectoryManagement: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="font-semibold text-gray-900">{entry.name}</p>
-                                            <div className="flex gap-2 text-xs text-gray-500">
+                                            <div className="flex flex-wrap gap-2 text-xs text-gray-500">
                                                 <span className="bg-gray-200 px-1.5 py-0.5 rounded text-gray-700">{entry.category}</span>
                                                 <span>•</span>
                                                 <span>{entry.region}</span>
+                                                {entry.tier && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="text-blue-600 font-medium">{entry.tier}</span>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
