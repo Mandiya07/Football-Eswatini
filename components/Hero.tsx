@@ -12,36 +12,49 @@ const Hero: React.FC = () => {
     const [nextMatch, setNextMatch] = useState<CompetitionFixture | null>(null);
     const [teams, setTeams] = useState<Team[]>([]);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
-    const competitionId = 'mtn-premier-league';
     const heroImageUrl = "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1935&auto=format&fit=crop";
 
     useEffect(() => {
         const getNextMatch = async () => {
-            const [premierLeagueData, directoryEntries] = await Promise.all([
-                fetchCompetition(competitionId),
-                fetchDirectoryEntries()
-            ]);
+            try {
+                const directoryEntries = await fetchDirectoryEntries();
+                const map = new Map<string, DirectoryEntity>();
+                directoryEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
+                setDirectoryMap(map);
 
-            const map = new Map<string, DirectoryEntity>();
-            directoryEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
-            setDirectoryMap(map);
-
-            if (premierLeagueData) {
-                setTeams(premierLeagueData.teams || []);
-                if (premierLeagueData.fixtures) {
+                const findUpcoming = (fixtures: CompetitionFixture[]) => {
                     const now = new Date();
-                    const upcoming = premierLeagueData.fixtures
+                    return fixtures
                         .filter(f => f.status === 'scheduled' && f.fullDate)
                         .sort((a, b) => {
-                             // Sort by date ascending, but only future dates
-                             return new Date(a.fullDate! + 'T' + (a.time || '00:00')).getTime() - new Date(b.fullDate! + 'T' + (b.time || '00:00')).getTime();
+                            return new Date(a.fullDate! + 'T' + (a.time || '00:00')).getTime() - new Date(b.fullDate! + 'T' + (b.time || '00:00')).getTime();
                         })
                         .filter(f => new Date(f.fullDate! + 'T' + (f.time || '00:00')).getTime() > now.getTime());
+                };
+
+                // 1. Try Premier League
+                let compData = await fetchCompetition('mtn-premier-league');
+                let upcoming = compData?.fixtures ? findUpcoming(compData.fixtures) : [];
+
+                // 2. Try NFD if no Premier League matches
+                if (upcoming.length === 0) {
+                    const nfdData = await fetchCompetition('national-first-division');
+                    const nfdUpcoming = nfdData?.fixtures ? findUpcoming(nfdData.fixtures) : [];
                     
+                    if (nfdUpcoming.length > 0) {
+                        compData = nfdData;
+                        upcoming = nfdUpcoming;
+                    }
+                }
+
+                if (compData) {
+                    setTeams(compData.teams || []);
                     if (upcoming.length > 0) {
                         setNextMatch(upcoming[0]);
                     }
                 }
+            } catch (error) {
+                console.error("Error fetching hero match:", error);
             }
         };
 
@@ -118,7 +131,7 @@ const Hero: React.FC = () => {
                 <Link to="/fixtures" className="bg-accent text-neutral-dark font-bold py-3 px-6 rounded-lg hover:bg-yellow-300 transition-colors">
                     View Fixtures
                 </Link>
-                <a href="#matches" onClick={handleScroll} className="bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-lg hover:bg-white/30 transition-colors">
+                <a href="#matches-and-logs" onClick={handleScroll} className="bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-lg hover:bg-white/30 transition-colors">
                     Live Scores
                 </a>
             </div>
