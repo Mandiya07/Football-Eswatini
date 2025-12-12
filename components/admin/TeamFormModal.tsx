@@ -7,12 +7,22 @@ import XIcon from '../icons/XIcon';
 import BookIcon from '../icons/BookIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { fetchDirectoryEntries } from '../../services/api';
+import FacebookIcon from '../icons/FacebookIcon';
+import TwitterIcon from '../icons/TwitterIcon';
+import InstagramIcon from '../icons/InstagramIcon';
+import YouTubeIcon from '../icons/YouTubeIcon';
+import GlobeIcon from '../icons/GlobeIcon';
 
 type TeamFormData = {
     name: string;
     crestUrl: string;
     kitSponsorName: string;
     kitSponsorLogoUrl: string;
+    facebook: string;
+    twitter: string;
+    instagram: string;
+    youtube: string;
+    website: string;
 };
 
 interface TeamFormModalProps {
@@ -30,6 +40,11 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
         crestUrl: '',
         kitSponsorName: '',
         kitSponsorLogoUrl: '',
+        facebook: '',
+        twitter: '',
+        instagram: '',
+        youtube: '',
+        website: '',
     });
     
     const [addToDirectory, setAddToDirectory] = useState(false);
@@ -39,7 +54,10 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
     useEffect(() => {
         const checkDirectory = async () => {
             if (!team) {
-                setFormData({ name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '' });
+                setFormData({ 
+                    name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '',
+                    facebook: '', twitter: '', instagram: '', youtube: '', website: ''
+                });
                 setAddToDirectory(true); // Default check for new teams
                 return;
             }
@@ -52,6 +70,11 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                     crestUrl: team.crestUrl,
                     kitSponsorName: team.kitSponsor?.name || '',
                     kitSponsorLogoUrl: team.kitSponsor?.logoUrl || '',
+                    facebook: team.socialMedia?.facebook || '',
+                    twitter: team.socialMedia?.twitter || '',
+                    instagram: team.socialMedia?.instagram || '',
+                    youtube: team.socialMedia?.youtube || '',
+                    website: team.socialMedia?.website || '',
                 });
 
                 // Check directory status
@@ -99,6 +122,13 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
         const dataToSave: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>> = {
             name: formData.name,
             crestUrl: formData.crestUrl || `https://via.placeholder.com/128/CCCCCC/FFFFFF?text=${formData.name.substring(0, 2).toUpperCase()}`,
+            socialMedia: {
+                facebook: formData.facebook,
+                twitter: formData.twitter,
+                instagram: formData.instagram,
+                youtube: formData.youtube,
+                website: formData.website,
+            }
         };
 
         if (formData.kitSponsorName.trim() && formData.kitSponsorLogoUrl.trim()) {
@@ -114,6 +144,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
     };
 
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+    const socialInputClass = "block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
 
     if (!isOpen) return null;
 
@@ -162,6 +193,43 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                                      ? "Uncheck to remove this team's link to the public directory." 
                                      : "Check to create a public profile for this team in the Directory."}
                                 </p>
+                            </div>
+                        </div>
+
+                        {/* Social Media Links */}
+                        <div className="space-y-4 pt-4 border-t">
+                            <h3 className="text-lg font-semibold text-gray-700">Social Media</h3>
+                            <div className="grid grid-cols-1 gap-3">
+                                <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <FacebookIcon className="w-4 h-4 text-gray-400" />
+                                    </span>
+                                    <input type="url" name="facebook" value={formData.facebook} onChange={handleChange} className={socialInputClass} placeholder="Facebook URL" />
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <TwitterIcon className="w-4 h-4 text-gray-400" />
+                                    </span>
+                                    <input type="url" name="twitter" value={formData.twitter} onChange={handleChange} className={socialInputClass} placeholder="Twitter/X URL" />
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <InstagramIcon className="w-4 h-4 text-gray-400" />
+                                    </span>
+                                    <input type="url" name="instagram" value={formData.instagram} onChange={handleChange} className={socialInputClass} placeholder="Instagram URL" />
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <YouTubeIcon className="w-4 h-4 text-gray-400" />
+                                    </span>
+                                    <input type="url" name="youtube" value={formData.youtube} onChange={handleChange} className={socialInputClass} placeholder="YouTube URL" />
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                        <GlobeIcon className="w-4 h-4 text-gray-400" />
+                                    </span>
+                                    <input type="url" name="website" value={formData.website} onChange={handleChange} className={socialInputClass} placeholder="Website URL" />
+                                </div>
                             </div>
                         </div>
                         

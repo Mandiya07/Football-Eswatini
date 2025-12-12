@@ -49,6 +49,14 @@ const TIER_OPTIONS: { value: string, label: string }[] = [
     { value: 'Schools', label: 'Schools' },
 ];
 
+// Define explicitly which club tiers are allowed to be shown in the directory
+const ALLOWED_CLUB_TIERS = [
+    'Premier League', 
+    'NFD', 
+    'Regional', 
+    'Womens League',
+    'Schools'
+];
 
 const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -173,10 +181,24 @@ const DirectoryPage: React.FC = () => {
         const loadData = async () => {
             setLoading(true);
             try {
-                // Fetch Directory Entries. We display exactly what is in this collection.
-                // We assume the Directory collection is curated by Admin/ManageTeams and contains valid entries.
+                // Fetch Directory Entries. 
                 const directoryData = await fetchDirectoryEntries();
-                setAllEntries(directoryData);
+                
+                // Filter entries to ensure only specific club tiers are shown
+                const validEntries = directoryData.filter(entity => {
+                    // Always show non-club entities (Associations, Referees, Academies)
+                    if (entity.category !== 'Club') return true;
+
+                    // For Clubs, strictly check against the allowed tiers
+                    // This excludes any unassigned tiers
+                    if (entity.tier && ALLOWED_CLUB_TIERS.includes(entity.tier)) {
+                        return true;
+                    }
+
+                    return false;
+                });
+
+                setAllEntries(validEntries);
             } catch (error) {
                 console.error("Error fetching directory data:", error);
                 setAllEntries([]);
