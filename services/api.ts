@@ -892,7 +892,8 @@ export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
     try {
         const querySnapshot = await getDocs(collection(db, "archive"));
         querySnapshot.forEach((doc) => {
-            items.push({ id: Number(doc.id), ...doc.data() } as ArchiveItem);
+            // Using ID directly as string or number from doc.id, do not force convert if it might be string UUID
+            items.push({ id: doc.id, ...doc.data() } as ArchiveItem);
         });
     } catch (error) {
         handleFirestoreError(error, 'fetch archive data');

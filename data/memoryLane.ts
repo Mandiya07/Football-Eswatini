@@ -26,7 +26,7 @@ export interface ArchiveClip {
 }
 
 export interface ArchiveItem {
-  id: number;
+  id: number | string;
   type: 'match' | 'photo' | 'clip';
   title: string;
   year: number;
