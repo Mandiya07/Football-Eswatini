@@ -48,14 +48,23 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
 
     const getLinkProps = (teamObj: Team | undefined, teamName: string) => {
+        // 1. Direct match in current competition context -> Link to Profile
         if (teamObj?.id) {
-            return { isLinkable: true, competitionId, teamId: teamObj.id };
+            return { type: 'profile', url: `/competitions/${competitionId}/teams/${teamObj.id}` };
         }
+        
+        // 2. Check Directory for cross-linked ID -> Link to Profile
         const entity = findInMap(teamName || '', directoryMap);
         if (entity?.teamId && entity.competitionId) {
-            return { isLinkable: true, competitionId: entity.competitionId, teamId: entity.teamId };
+             return { type: 'profile', url: `/competitions/${entity.competitionId}/teams/${entity.teamId}` };
         }
-        return { isLinkable: false, competitionId: null, teamId: null };
+        
+        // 3. Fallback: Found in Directory but no profile ID -> Link to Directory Search
+        if (entity) {
+             return { type: 'directory', url: `/directory?q=${encodeURIComponent(entity.name)}` };
+        }
+
+        return { type: 'none', url: '' };
     };
 
     const teamALink = getLinkProps(teamA, fixture.teamA);
@@ -171,6 +180,22 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 
     const isScoreVisible = fixture.status === 'live' || fixture.status === 'finished' || (fixture.status === 'abandoned' && fixture.scoreA !== undefined);
 
+    const renderTeamName = (name: string, linkProps: { type: string, url: string }) => {
+        if (linkProps.type === 'profile' || linkProps.type === 'directory') {
+            return (
+                <Link 
+                    to={linkProps.url} 
+                    onClick={(e) => e.stopPropagation()} 
+                    className="font-semibold text-gray-800 hover:underline hover:text-primary transition-colors text-sm sm:text-base truncate block w-full"
+                    title={linkProps.type === 'directory' ? 'View in Directory' : 'View Team Profile'}
+                >
+                    {name}
+                </Link>
+            );
+        }
+        return <p className="font-semibold text-gray-800 truncate text-sm sm:text-base block w-full">{name}</p>;
+    };
+
     return (
         <div className={`flex items-stretch hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${getStatusBorder()}`}>
             <div 
@@ -190,12 +215,10 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                 </div>
 
                 <div className="flex-grow grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
-                    <div className="flex justify-end items-center gap-2 pr-1 overflow-hidden">
-                        {teamALink.isLinkable ? (
-                            <Link to={`/competitions/${teamALink.competitionId}/teams/${teamALink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-right truncate hover:underline text-sm sm:text-base">{fixture.teamA}</Link>
-                        ) : (
-                            <p className="font-semibold text-gray-800 text-right truncate text-sm sm:text-base">{fixture.teamA}</p>
-                        )}
+                    <div className="flex justify-end items-center gap-2 pr-1 overflow-hidden w-full">
+                        <div className="text-right truncate flex-grow">
+                             {renderTeamName(fixture.teamA, teamALink)}
+                        </div>
                         {crestA && <img src={crestA} alt={`${fixture.teamA} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
                     </div>
                     
@@ -224,13 +247,11 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                         </div>
                     )}
 
-                    <div className="flex justify-start items-center gap-2 pl-1 overflow-hidden">
+                    <div className="flex justify-start items-center gap-2 pl-1 overflow-hidden w-full">
                         {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
-                        {teamBLink.isLinkable ? (
-                            <Link to={`/competitions/${teamBLink.competitionId}/teams/${teamBLink.teamId}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 text-left truncate hover:underline text-sm sm:text-base">{fixture.teamB}</Link>
-                        ) : (
-                            <p className="font-semibold text-gray-800 text-left truncate text-sm sm:text-base">{fixture.teamB}</p>
-                        )}
+                        <div className="text-left truncate flex-grow">
+                             {renderTeamName(fixture.teamB, teamBLink)}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -415,7 +436,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
         const todayStr = new Date().toISOString().split('T')[0];
 
         if (!isResults) {
-            // FIX: Strictly hide past dates. Keep today's matches.
             sourceData = sourceData.filter(f => {
                 const isFinished = f.status === 'finished';
                 const hasScore = f.scoreA !== undefined && f.scoreB !== undefined;

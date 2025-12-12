@@ -46,7 +46,6 @@ const TIER_OPTIONS: { value: string, label: string }[] = [
     { value: 'NFD', label: 'National First Division' },
     { value: 'Regional', label: 'Super League / Regional' },
     { value: 'Womens League', label: 'Women\'s League' },
-    { value: 'Schools', label: 'Schools' },
 ];
 
 // Define explicitly which club tiers are allowed to be shown in the directory
@@ -54,14 +53,24 @@ const ALLOWED_CLUB_TIERS = [
     'Premier League', 
     'NFD', 
     'Regional', 
-    'Womens League',
-    'Schools'
+    'Womens League'
 ];
 
 const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const Icon = categoryIcons[entity.category] || ShieldIcon;
     const isClickable = entity.category === 'Club' && entity.teamId && entity.competitionId;
+
+    const renderName = () => {
+        if (isClickable) {
+            return (
+                <Link to={`/competitions/${entity.competitionId}/teams/${entity.teamId}`} className="font-bold text-gray-900 truncate hover:text-blue-600 hover:underline">
+                    {entity.name}
+                </Link>
+            );
+        }
+        return <h3 className="font-bold text-gray-900 truncate">{entity.name}</h3>;
+    };
 
     return (
         <Card className={`border transition-all duration-200 ${isExpanded ? 'shadow-md border-primary/30' : 'hover:shadow-sm'}`}>
@@ -79,7 +88,7 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
                     <div className="flex-grow min-w-0">
                         <div className="flex justify-between items-start">
                             <div>
-                                <h3 className="font-bold text-gray-900 truncate">{entity.name}</h3>
+                                {renderName()}
                                 <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-500 mt-0.5">
                                     <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-medium">{entity.category}</span>
                                     <span>&bull;</span>
@@ -190,7 +199,7 @@ const DirectoryPage: React.FC = () => {
                     if (entity.category !== 'Club') return true;
 
                     // For Clubs, strictly check against the allowed tiers
-                    // This excludes any unassigned tiers
+                    // This excludes any unassigned tiers or disallowed tiers (like Schools)
                     if (entity.tier && ALLOWED_CLUB_TIERS.includes(entity.tier)) {
                         return true;
                     }
