@@ -16,12 +16,14 @@ import { PhotoAlbum, BehindTheScenesContent } from '../data/media';
 import { Referee, Rule, refereeData as defaultRefereeData } from '../data/referees';
 import { calculateStandings, normalizeTeamName } from './utils';
 import { User } from '../contexts/AuthContext';
+import { ExclusiveItem, TeamYamVideo } from '../data/features';
 
 // NOTE: All data fetching functions now use Firebase Firestore.
 // For this to work, you must seed your Firestore database with collections
 // ('competitions', 'news', 'users', etc.) that match the structure of your mock data.
 
 export { type Competition }; // Re-export to maintain compatibility
+export { type ExclusiveItem, type TeamYamVideo }; // Re-export feature types
 
 export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
@@ -154,33 +156,6 @@ export interface LiveUpdate {
     score_home: number;
     score_away: number;
     timestamp: { seconds: number, nanoseconds: number };
-}
-
-// New Interface for Exclusive Content
-export interface ExclusiveItem {
-    id: string;
-    title: string;
-    summary: string;
-    content: string; // Full text or link
-    imageUrl: string;
-    videoUrl?: string;
-    audioUrl?: string;
-    author: string;
-    role: string; // e.g., "FIFA Representative", "PLE CEO"
-    date: string;
-}
-
-// New Interface for Team Yam
-export interface TeamYamVideo {
-    id: string;
-    title: string;
-    description: string;
-    videoUrl: string;
-    thumbnailUrl: string;
-    teamName: string;
-    uploadedBy: string;
-    date: string;
-    likes: number;
 }
 
 // Interface for Community Football Hub

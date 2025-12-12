@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
-import { TeamYamVideo, addTeamYamVideo, fetchTeamYamVideos } from '../services/api';
+import { addTeamYamVideo, fetchTeamYamVideos } from '../services/api';
+import { TeamYamVideo } from '../data/features';
 import Button from './ui/Button';
 import ShirtIcon from './icons/ShirtIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';

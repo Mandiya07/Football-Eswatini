@@ -21,6 +21,7 @@ import { scoutingData } from '../../data/scouting';
 import { products } from '../../data/shop';
 import { refereeData } from '../../data/referees';
 import { Team, CompetitionFixture } from '../../data/teams';
+import { initialExclusiveContent, initialTeamYamVideos } from '../../data/features';
 
 // --- DYNAMIC DATES ---
 const today = new Date();
@@ -220,6 +221,16 @@ const SeedDatabase: React.FC = () => {
             for (const item of products) {
                 batch.set(doc(db, 'products', item.id), item);
             }
+
+            // Seed Exclusive Content
+            for (const item of initialExclusiveContent) {
+                batch.set(doc(db, 'exclusiveContent', item.id), item);
+            }
+            
+            // Seed Team Yam Videos
+            for (const item of initialTeamYamVideos) {
+                batch.set(doc(db, 'teamYamVideos', item.id), item);
+            }
             
             // Seed Promo Codes
             for (const code of initialPromoCodes) {
@@ -315,7 +326,7 @@ const SeedDatabase: React.FC = () => {
             seedLeagueGroup(nationalCompetitions, 'national-teams');
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database seeded successfully! Shop Discounts, Leagues, and content updated.' });
+            setStatus({ type: 'success', msg: 'Database seeded successfully! Shop Discounts, Leagues, Features, and Exclusive Content updated.' });
         } catch (error) {
             console.error("Seeding failed:", error);
             setStatus({ type: 'error', msg: 'Failed to seed database. Check console for errors.' });
@@ -332,7 +343,7 @@ const SeedDatabase: React.FC = () => {
                     <h3 className="text-2xl font-bold font-display text-gray-800">Seed Database</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
-                    Initialize or reset the database with default content, including the <strong>National Team</strong> competitions, <strong>Regional</strong> leagues, and <strong>Shop Promo Codes</strong>.
+                    Initialize or reset the database with default content, including the <strong>National Team</strong> competitions, <strong>Regional</strong> leagues, <strong>Exclusive Content</strong>, <strong>Team Yam</strong> videos, and <strong>Shop Promo Codes</strong>.
                     Use this if the app is empty or you want to restore default demo data.
                 </p>
 

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
-import { ExclusiveItem, fetchExclusiveContent } from '../services/api';
+import { fetchExclusiveContent } from '../services/api';
+import { ExclusiveItem } from '../data/features';
 import FileTextIcon from './icons/FileTextIcon';
 import Spinner from './ui/Spinner';
 
