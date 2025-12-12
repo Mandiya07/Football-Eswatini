@@ -73,19 +73,28 @@ const FeatureManagement: React.FC = () => {
 
     const handleAdd = () => {
         setEditingItem(null);
-        setFormData({}); // Reset form
+        // Initialize defaults based on activeType
+        if (activeType === 'archive') {
+            setFormData({ type: 'photo', year: new Date().getFullYear() });
+        } else if (activeType === 'coaching') {
+            setFormData({ type: 'Tactic' });
+        } else if (activeType === 'behind-the-scenes') {
+            setFormData({ type: 'photo' });
+        } else {
+            setFormData({});
+        }
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (id: string | number) => {
         if (!window.confirm("Delete this item?")) return;
         try {
             switch (activeType) {
-                case 'coaching': await deleteCoachingContent(id); break;
-                case 'exclusive': await deleteExclusiveContent(id); break;
-                case 'team-yam': await deleteTeamYamVideo(id); break;
-                case 'archive': await deleteArchiveItem(id); break;
-                case 'behind-the-scenes': await deleteBehindTheScenesContent(id); break;
+                case 'coaching': await deleteCoachingContent(String(id)); break;
+                case 'exclusive': await deleteExclusiveContent(String(id)); break;
+                case 'team-yam': await deleteTeamYamVideo(String(id)); break;
+                case 'archive': await deleteArchiveItem(String(id)); break;
+                case 'behind-the-scenes': await deleteBehindTheScenesContent(String(id)); break;
             }
             loadData();
         } catch (error) {
@@ -99,8 +108,8 @@ const FeatureManagement: React.FC = () => {
             if (activeType === 'archive') {
                 const archivePayload = {
                     title: formData.title,
-                    year: parseInt(formData.year),
-                    type: formData.type,
+                    year: formData.year ? parseInt(formData.year) : new Date().getFullYear(),
+                    type: formData.type || 'photo',
                     description: formData.description,
                     details: {} as any
                 };
@@ -128,7 +137,7 @@ const FeatureManagement: React.FC = () => {
                 }
                 
                 if (editingItem) {
-                     await updateArchiveItem(editingItem.id, archivePayload);
+                     await updateArchiveItem(String(editingItem.id), archivePayload);
                 } else {
                      await addArchiveItem(archivePayload);
                 }
@@ -136,10 +145,10 @@ const FeatureManagement: React.FC = () => {
                 // Standard handling for other types
                 if (editingItem) {
                     switch (activeType) {
-                        case 'coaching': await updateCoachingContent(editingItem.id, formData); break;
-                        case 'exclusive': await updateExclusiveContent(editingItem.id, formData); break;
-                        case 'team-yam': await updateTeamYamVideo(editingItem.id, formData); break;
-                        case 'behind-the-scenes': await updateBehindTheScenesContent(editingItem.id, formData); break;
+                        case 'coaching': await updateCoachingContent(String(editingItem.id), formData); break;
+                        case 'exclusive': await updateExclusiveContent(String(editingItem.id), formData); break;
+                        case 'team-yam': await updateTeamYamVideo(String(editingItem.id), formData); break;
+                        case 'behind-the-scenes': await updateBehindTheScenesContent(String(editingItem.id), formData); break;
                     }
                 } else {
                      switch (activeType) {

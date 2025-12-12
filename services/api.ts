@@ -202,9 +202,6 @@ export const addLiveUpdate = async (data: Omit<LiveUpdate, 'id' | 'timestamp'>) 
 };
 
 export const listenToLiveUpdates = (callback: (updates: LiveUpdate[]) => void): (() => void) => {
-    // console.log(`API: Setting up listener for live updates.`);
-    // Query for the 50 most recent updates, ordered by timestamp.
-    // This requires a Firestore index on the 'timestamp' field (descending).
     const q = query(
         collection(db, "live_updates"),
         orderBy("timestamp", "desc"),
@@ -216,10 +213,8 @@ export const listenToLiveUpdates = (callback: (updates: LiveUpdate[]) => void): 
         querySnapshot.forEach((doc) => {
             updates.push({ id: doc.id, ...doc.data() } as LiveUpdate);
         });
-        // The data is already sorted and limited by Firestore.
         callback(updates);
     }, (error) => {
-        // console.error(`Error listening to live updates:`, error);
         handleFirestoreError(error, `listen to live updates`);
         callback([]);
     });
@@ -245,11 +240,9 @@ export const addFixtureComment = async (fixtureId: number, text: string, user: U
 };
 
 export const listenToFixtureComments = (fixtureId: number, callback: (comments: FixtureComment[]) => void): (() => void) => {
-    // console.log(`API: Setting up listener for comments on fixture '${fixtureId}'.`);
     const q = query(
         collection(db, "fixture_comments"),
         where("fixtureId", "==", fixtureId)
-        // orderBy("timestamp", "asc") // Removed to prevent needing a composite index
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -257,11 +250,9 @@ export const listenToFixtureComments = (fixtureId: number, callback: (comments: 
         querySnapshot.forEach((doc) => {
             comments.push({ id: doc.id, ...doc.data() } as FixtureComment);
         });
-        // Sort comments on the client-side
         comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
         callback(comments);
     }, (error) => {
-        // console.error(`Error listening to comments for fixture '${fixtureId}':`, error);
         handleFirestoreError(error, `listen to comments for fixture ${fixtureId}`);
         callback([]);
     });
@@ -287,7 +278,6 @@ export const addYouthArticleComment = async (articleId: string, text: string, us
 };
 
 export const listenToYouthArticleComments = (articleId: string, callback: (comments: YouthArticleComment[]) => void): (() => void) => {
-    // console.log(`API: Setting up listener for comments on youth article '${articleId}'.`);
     const q = query(
         collection(db, "youth_article_comments"),
         where("articleId", "==", articleId)
@@ -298,11 +288,9 @@ export const listenToYouthArticleComments = (articleId: string, callback: (comme
         querySnapshot.forEach((doc) => {
             comments.push({ id: doc.id, ...doc.data() } as YouthArticleComment);
         });
-        // Sort comments on the client-side
         comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
         callback(comments);
     }, (error) => {
-        // console.error(`Error listening to comments for article '${articleId}':`, error);
         handleFirestoreError(error, `listen to comments for article ${articleId}`);
         callback([]);
     });
@@ -328,7 +316,6 @@ export const addNewsComment = async (articleId: string, text: string, user: User
 };
 
 export const listenToNewsComments = (articleId: string, callback: (comments: NewsComment[]) => void): (() => void) => {
-    // console.log(`API: Setting up listener for comments on news article '${articleId}'.`);
     const q = query(
         collection(db, "news_comments"),
         where("articleId", "==", articleId)
@@ -339,11 +326,9 @@ export const listenToNewsComments = (articleId: string, callback: (comments: New
         querySnapshot.forEach((doc) => {
             comments.push({ id: doc.id, ...doc.data() } as NewsComment);
         });
-        // Sort comments on the client-side
         comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
         callback(comments);
     }, (error) => {
-        // console.error(`Error listening to comments for news article '${articleId}':`, error);
         handleFirestoreError(error, `listen to comments for news article ${articleId}`);
         callback([]);
     });
@@ -352,7 +337,6 @@ export const listenToNewsComments = (articleId: string, callback: (comments: New
 };
 
 export const fetchNationalTeams = async (): Promise<NationalTeam[]> => {
-    console.log("API: Fetching all national teams from Firestore.");
     const items: NationalTeam[] = [];
     try {
         const querySnapshot = await getDocs(collection(db, "national_teams"));
@@ -366,7 +350,6 @@ export const fetchNationalTeams = async (): Promise<NationalTeam[]> => {
 };
 
 export const listenToCompetition = (competitionId: string, callback: (data: Competition | undefined) => void): (() => void) => {
-    console.log(`API: Setting up listener for competition '${competitionId}'.`);
     const docRef = doc(db, "competitions", competitionId);
     
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -389,16 +372,14 @@ export const listenToCompetition = (competitionId: string, callback: (data: Comp
             callback(undefined);
         }
     }, (error) => {
-        // console.error(`Error listening to competition '${competitionId}':`, error);
         handleFirestoreError(error, `listen to competition ${competitionId}`);
         callback(undefined);
     });
 
-    return unsubscribe; // Return the unsubscribe function for cleanup
+    return unsubscribe; 
 };
 
 export const fetchAllCompetitions = async (): Promise<Record<string, Competition>> => {
-    console.log("API: Fetching all competitions from Firestore.");
     const firestoreCompetitions: Record<string, Competition> = {};
     try {
         const querySnapshot = await getDocs(collection(db, "competitions"));
@@ -424,7 +405,6 @@ export const fetchAllCompetitions = async (): Promise<Record<string, Competition
 };
 
 export const fetchCompetition = async (competitionId: string): Promise<Competition | null> => {
-    console.log(`API: Fetching competition '${competitionId}' from Firestore.`);
     try {
         const docRef = doc(db, 'competitions', competitionId);
         const docSnap = await getDoc(docRef);
@@ -452,7 +432,6 @@ export const fetchCompetition = async (competitionId: string): Promise<Competiti
 };
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
-    console.log("API: Fetching news from Firestore.");
     const items: NewsItem[] = [];
     try {
         const q = query(collection(db, "news"));
@@ -460,7 +439,6 @@ export const fetchNews = async (): Promise<NewsItem[]> => {
         querySnapshot.forEach((doc) => {
             items.push({ id: doc.id, ...doc.data() } as NewsItem);
         });
-        // Sort on the client to avoid needing a Firestore index
         items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     } catch (error) {
         handleFirestoreError(error, 'fetch news');
@@ -469,7 +447,6 @@ export const fetchNews = async (): Promise<NewsItem[]> => {
 };
 
 export const fetchNewsArticleByUrl = async (url: string): Promise<NewsItem | null> => {
-    console.log(`API: Fetching news article by URL '${url}' from Firestore.`);
     try {
         const q = query(collection(db, "news"), where("url", "==", url), limit(1));
         const querySnapshot = await getDocs(q);
@@ -486,15 +463,13 @@ export const fetchNewsArticleByUrl = async (url: string): Promise<NewsItem | nul
 };
 
 export const fetchCategories = async (): Promise<Category[]> => {
-    console.log("API: Fetching categories from Firestore.");
     const items: Category[] = [];
     try {
-        const q = query(collection(db, "categories")); // Removed orderBy to avoid index requirement
+        const q = query(collection(db, "categories"));
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             items.push({ id: doc.id, ...doc.data() } as Category);
         });
-        // Sort client-side for resilience
         items.sort((a, b) => (a.order || 99) - (b.order || 99));
     } catch (error) {
         handleFirestoreError(error, 'fetch categories');
@@ -503,7 +478,6 @@ export const fetchCategories = async (): Promise<Category[]> => {
 };
 
 export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
-    console.log("API: Fetching directory entries from Firestore.");
     const items: DirectoryEntity[] = [];
     try {
         const q = query(collection(db, "directory"));
@@ -511,7 +485,6 @@ export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
         querySnapshot.forEach((doc) => {
             items.push({ id: doc.id, ...doc.data() } as DirectoryEntity);
         });
-        // Sort on the client to avoid needing a Firestore index
         items.sort((a, b) => a.name.localeCompare(b.name));
     } catch (error) {
         handleFirestoreError(error, 'fetch directory entries');
@@ -606,7 +579,6 @@ export const fetchPhotoGalleries = async (): Promise<PhotoAlbum[]> => {
     return items;
 };
 
-// --- BEHIND THE SCENES ---
 export const fetchBehindTheScenesData = async (): Promise<BehindTheScenesContent[]> => {
     const items: BehindTheScenesContent[] = [];
     try {
@@ -619,10 +591,11 @@ export const fetchBehindTheScenesData = async (): Promise<BehindTheScenesContent
     }
     return items;
 };
-export const addBehindTheScenesContent = (data: Omit<BehindTheScenesContent, 'id'>) => addDoc(collection(db, 'behindTheScenes'), data);
-export const updateBehindTheScenesContent = (id: string, data: Partial<BehindTheScenesContent>) => updateDoc(doc(db, 'behindTheScenes', id), data);
-export const deleteBehindTheScenesContent = (id: string) => deleteDoc(doc(db, 'behindTheScenes', id));
 
+// Generic Content Management: Ensure ID is string when updating/deleting
+export const addBehindTheScenesContent = (data: Omit<BehindTheScenesContent, 'id'>) => addDoc(collection(db, 'behindTheScenes'), data);
+export const updateBehindTheScenesContent = (id: string | number, data: Partial<BehindTheScenesContent>) => updateDoc(doc(db, 'behindTheScenes', String(id)), data);
+export const deleteBehindTheScenesContent = (id: string | number) => deleteDoc(doc(db, 'behindTheScenes', String(id)));
 
 export const fetchSponsors = async (): Promise<{ spotlight: Sponsor; kitPartner: KitPartner; }> => {
     try {
@@ -637,16 +610,13 @@ export const fetchSponsors = async (): Promise<{ spotlight: Sponsor; kitPartner:
     return defaultSponsors;
 };
 
-// Implement missing advertisement API functions.
 export const fetchAllAds = async (): Promise<Record<string, Ad>> => {
-    console.log("API: Fetching all ads from Firestore.");
     try {
         const docRef = doc(db, "ads", "main");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
             return docSnap.data() as Record<string, Ad>;
         }
-        console.warn("Ads document 'ads/main' not found.");
         return {};
     } catch (error) {
         handleFirestoreError(error, 'fetch all ads');
@@ -655,24 +625,21 @@ export const fetchAllAds = async (): Promise<Record<string, Ad>> => {
 };
 
 export const fetchAd = async (placement: string): Promise<Ad | null> => {
-    console.log(`API: Fetching ad for placement '${placement}'.`);
     try {
         const adsData = await fetchAllAds();
         return adsData[placement] || null;
     } catch (error) {
-        // fetchAllAds already handles error logging
         return null;
     }
 };
 
 export const updateAd = async (placement: string, data: Ad) => {
-    console.log(`API: Updating ad for placement '${placement}'.`);
     try {
         const docRef = doc(db, "ads", "main");
         await setDoc(docRef, { [placement]: data }, { merge: true });
     } catch (error) {
         handleFirestoreError(error, `update ad '${placement}'`);
-        throw error; // re-throw to be caught by UI
+        throw error;
     }
 };
 
@@ -712,8 +679,6 @@ export const deleteScoutedPlayer = (id: string) => deleteDoc(doc(db, 'scouting',
 
 export const addDirectoryEntry = (data: Omit<DirectoryEntity, 'id'>) => addDoc(collection(db, 'directory'), data);
 export const updateDirectoryEntry = (id: string, data: Partial<DirectoryEntity>) => {
-    // Explicitly type cleanedData to allow for dynamic property assignment
-    // including Firestore's `deleteField()` which is a special FieldValue type.
     const cleanedData: { [key: string]: any } = { ...data };
     Object.keys(cleanedData).forEach(key => {
         if ((cleanedData as any)[key] === null) {
@@ -726,8 +691,8 @@ export const deleteDirectoryEntry = (id: string) => deleteDoc(doc(db, 'directory
 
 
 export const addVideo = (data: Omit<Video, 'id'>) => addDoc(collection(db, 'videos'), data);
-export const updateVideo = (id: string, data: Partial<Video>) => updateDoc(doc(db, 'videos', id), data);
-export const deleteVideo = (id: string) => deleteDoc(doc(db, 'videos', id));
+export const updateVideo = (id: string | number, data: Partial<Video>) => updateDoc(doc(db, 'videos', String(id)), data);
+export const deleteVideo = (id: string | number) => deleteDoc(doc(db, 'videos', String(id)));
 
 
 export const fetchPendingChanges = async (): Promise<PendingChange[]> => {
@@ -793,14 +758,11 @@ export const fetchClubRequests = async (): Promise<ClubRegistrationRequest[]> =>
 export const approveClubRequest = async (request: ClubRegistrationRequest) => {
     try {
         await runTransaction(db, async (transaction) => {
-            // 1. Update the User profile
             const userRef = doc(db, 'users', request.userId);
             transaction.update(userRef, {
                 role: 'club_admin',
                 club: request.clubName
             });
-
-            // 2. Delete the request (or update status to approved)
             const requestRef = doc(db, 'club_requests', request.id);
             transaction.delete(requestRef);
         });
@@ -818,8 +780,6 @@ export const rejectClubRequest = async (requestId: string) => {
         throw error;
     }
 };
-
-// --- ADVERTISER & SPONSOR REQUESTS ---
 
 export const submitAdvertiserRequest = async (request: Omit<AdvertiserRequest, 'status' | 'submittedAt'>) => {
     try {
@@ -867,8 +827,8 @@ export const fetchCoachingContent = async (): Promise<CoachingContent[]> => {
 
 // Generic Content Management for Features (Coaching, etc.)
 export const addCoachingContent = (data: Omit<CoachingContent, 'id'>) => addDoc(collection(db, 'coaching'), data);
-export const updateCoachingContent = (id: string, data: Partial<CoachingContent>) => updateDoc(doc(db, 'coaching', id), data);
-export const deleteCoachingContent = (id: string) => deleteDoc(doc(db, 'coaching', id));
+export const updateCoachingContent = (id: string | number, data: Partial<CoachingContent>) => updateDoc(doc(db, 'coaching', String(id)), data);
+export const deleteCoachingContent = (id: string | number) => deleteDoc(doc(db, 'coaching', String(id)));
 
 
 export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
@@ -884,8 +844,8 @@ export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
     return items;
 };
 export const addOnThisDayEvent = (data: Omit<OnThisDayEvent, 'id'>) => addDoc(collection(db, 'onThisDay'), data);
-export const updateOnThisDayEvent = (id: string, data: Partial<OnThisDayEvent>) => updateDoc(doc(db, 'onThisDay', id), data);
-export const deleteOnThisDayEvent = (id: string) => deleteDoc(doc(db, 'onThisDay', id));
+export const updateOnThisDayEvent = (id: string | number, data: Partial<OnThisDayEvent>) => updateDoc(doc(db, 'onThisDay', String(id)), data);
+export const deleteOnThisDayEvent = (id: string | number) => deleteDoc(doc(db, 'onThisDay', String(id)));
 
 export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
     const items: ArchiveItem[] = [];
@@ -900,9 +860,11 @@ export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
     }
     return items;
 };
+
+// Ensure ID is string when updating/deleting
 export const addArchiveItem = (data: Omit<ArchiveItem, 'id'>) => addDoc(collection(db, 'archive'), data);
-export const updateArchiveItem = (id: string, data: Partial<ArchiveItem>) => updateDoc(doc(db, 'archive', id), data);
-export const deleteArchiveItem = (id: string) => deleteDoc(doc(db, 'archive', id));
+export const updateArchiveItem = (id: string | number, data: Partial<ArchiveItem>) => updateDoc(doc(db, 'archive', String(id)), data);
+export const deleteArchiveItem = (id: string | number) => deleteDoc(doc(db, 'archive', String(id)));
 
 // --- EXCLUSIVE CONTENT ---
 export const fetchExclusiveContent = async (): Promise<ExclusiveItem[]> => {
@@ -918,8 +880,8 @@ export const fetchExclusiveContent = async (): Promise<ExclusiveItem[]> => {
     return items;
 };
 export const addExclusiveContent = (data: Omit<ExclusiveItem, 'id'>) => addDoc(collection(db, 'exclusiveContent'), data);
-export const updateExclusiveContent = (id: string, data: Partial<ExclusiveItem>) => updateDoc(doc(db, 'exclusiveContent', id), data);
-export const deleteExclusiveContent = (id: string) => deleteDoc(doc(db, 'exclusiveContent', id));
+export const updateExclusiveContent = (id: string | number, data: Partial<ExclusiveItem>) => updateDoc(doc(db, 'exclusiveContent', String(id)), data);
+export const deleteExclusiveContent = (id: string | number) => deleteDoc(doc(db, 'exclusiveContent', String(id)));
 
 // --- TEAM YAM VIDEOS ---
 export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
@@ -935,8 +897,8 @@ export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
     return items;
 };
 export const addTeamYamVideo = (data: Omit<TeamYamVideo, 'id'>) => addDoc(collection(db, 'teamYamVideos'), data);
-export const updateTeamYamVideo = (id: string, data: Partial<TeamYamVideo>) => updateDoc(doc(db, 'teamYamVideos', id), data);
-export const deleteTeamYamVideo = (id: string) => deleteDoc(doc(db, 'teamYamVideos', id));
+export const updateTeamYamVideo = (id: string | number, data: Partial<TeamYamVideo>) => updateDoc(doc(db, 'teamYamVideos', String(id)), data);
+export const deleteTeamYamVideo = (id: string | number) => deleteDoc(doc(db, 'teamYamVideos', String(id)));
 
 
 export const fetchCups = async (): Promise<Tournament[]> => {
@@ -969,7 +931,6 @@ export const deleteCategory = (id: string) => deleteDoc(doc(db, 'categories', id
 
 export const resetAllCompetitionData = async () => {
     try {
-        // We process deletion in chunks to avoid the 500 writes/batch limit
         const collectionsToReset = ['competitions', 'cups', 'live_updates', 'fixture_comments'];
         const CHUNK_SIZE = 400;
         
@@ -977,32 +938,26 @@ export const resetAllCompetitionData = async () => {
             const snapshot = await getDocs(collection(db, colName));
             const docs = snapshot.docs;
             
-            // Process chunks
             for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
                 const batch = writeBatch(db);
                 const chunk = docs.slice(i, i + CHUNK_SIZE);
                 
                 chunk.forEach(doc => {
                     if (colName === 'competitions') {
-                        // For competitions, we just empty the arrays instead of deleting the doc
-                        // to preserve the ID and config
                         batch.update(doc.ref, {
                             teams: [],
                             fixtures: [],
                             results: [],
                         });
                     } else if (colName === 'cups') {
-                        // Similar logic for cups
                          batch.update(doc.ref, {
                             rounds: []
                         });
                     } else {
-                        // For other collections, delete the document entirely
                         batch.delete(doc.ref);
                     }
                 });
                 
-                // Commit this chunk
                 await batch.commit();
             }
         }
@@ -1047,7 +1002,6 @@ export const fetchFootballDataOrg = async (
     const statusQuery = importType === 'fixtures' ? 'SCHEDULED' : 'FINISHED';
     let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=${statusQuery}`;
 
-    // Extract year for football-data (it expects YYYY)
     const year = season.split('-')[0].trim();
     if (year && year.length === 4 && !isNaN(Number(year))) {
         url += `&season=${year}`;
@@ -1104,7 +1058,6 @@ export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {
         querySnapshot.forEach((doc) => {
             items.push({ id: doc.id, ...doc.data() } as CommunityEvent);
         });
-        // Sort client-side
         items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } catch (error) {
         handleFirestoreError(error, 'fetch community events');
