@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import SchoolIcon from './icons/SchoolIcon';
 import UsersIcon from './icons/UsersIcon';
-import { fetchYouthData, fetchCups } from '../services/api';
+import { fetchYouthData, fetchCups, fetchAllCompetitions } from '../services/api';
 import { YouthLeague } from '../data/youth';
 import { Tournament, cupData as localCupData } from '../data/cups';
 import Spinner from './ui/Spinner';
@@ -11,19 +11,26 @@ import TournamentBracketDisplay from './TournamentBracketDisplay';
 import RisingStars from './RisingStars';
 import Fixtures from './Fixtures';
 import YouthArticleSection from './YouthArticleSection';
+import NewsSection from './News';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 
 const SchoolsPage: React.FC = () => {
   const [schoolsData, setSchoolsData] = useState<YouthLeague | null>(null);
   const [instacashBracket, setInstacashBracket] = useState<Tournament | null>(null);
+  const [competitionId, setCompetitionId] = useState<string>('schools');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const youthLeagues = await fetchYouthData();
+        const [youthLeagues, allCups, allCompetitions] = await Promise.all([
+            fetchYouthData(),
+            fetchCups(),
+            fetchAllCompetitions()
+        ]);
+        
         const schoolsLeague = youthLeagues.find(l => {
             const name = l.name.toLowerCase();
             const id = l.id.toLowerCase();
@@ -35,12 +42,24 @@ const SchoolsPage: React.FC = () => {
         });
         setSchoolsData(schoolsLeague || null);
 
-        const allCups = await fetchCups();
         let foundBracket = allCups.find(c => c.id === 'instacash-schools-tournament');
         if (!foundBracket) {
             foundBracket = localCupData.find(c => c.id === 'instacash-schools-tournament');
         }
         setInstacashBracket(foundBracket || null);
+
+        // Resolve ID dynamically
+        const compList = Object.entries(allCompetitions).map(([id, c]) => ({ id, name: c.name }));
+        const match = compList.find(c => 
+            c.id === 'schools' || 
+            c.name.toLowerCase().includes('schools') ||
+            c.name.toLowerCase().includes('instacash')
+        );
+
+        if (match) {
+            setCompetitionId(match.id);
+        }
+
       } catch (error) {
         console.error("Failed to load schools data", error);
       } finally {
@@ -51,8 +70,6 @@ const SchoolsPage: React.FC = () => {
   }, []);
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
-
-  const competitionId = schoolsData?.id || "instacash-schools-tournament";
 
   return (
     <div className="bg-gray-50 py-12">
@@ -77,12 +94,14 @@ const SchoolsPage: React.FC = () => {
           </p>
         </div>
 
-        {schoolsData?.articles && schoolsData.articles.length > 0 && (
-            <div className="mb-16 border-t pt-8">
-                <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Tournament Updates</h2>
+        <div className="mb-16 border-t pt-8">
+            <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Tournament Updates</h2>
+            {schoolsData?.articles && schoolsData.articles.length > 0 ? (
                 <YouthArticleSection articles={schoolsData.articles} />
-            </div>
-        )}
+            ) : (
+                <NewsSection category="Schools" />
+            )}
+        </div>
 
         <div className="mb-16 max-w-5xl mx-auto">
             <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Progress</h2>

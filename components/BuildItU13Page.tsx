@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
 import UsersIcon from './icons/UsersIcon';
-import { fetchYouthData } from '../services/api';
+import { fetchYouthData, fetchAllCompetitions } from '../services/api';
 import { YouthLeague } from '../data/youth';
 import Spinner from './ui/Spinner';
 import Fixtures from './Fixtures';
@@ -11,32 +11,36 @@ import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 import YouthArticleSection from './YouthArticleSection';
 import RisingStars from './RisingStars';
+import NewsSection from './News';
 
 const BuildItU13Page: React.FC = () => {
   const [data, setData] = useState<YouthLeague | null>(null);
+  const [competitionId, setCompetitionId] = useState<string>('build-it-u13');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const youthLeagues = await fetchYouthData();
-        // Robust finding logic
-        const league = youthLeagues.find(l => {
-            const name = l.name.toLowerCase();
-            const id = l.id.toLowerCase();
-            return (
-                id === 'build-it-u13' || 
-                id === 'u13' ||
-                id === 'under-13' ||
-                name.includes('build it') ||
-                name.includes('under-13') ||
-                name.includes('under 13') ||
-                name.includes('u13') ||
-                name.includes('u-13')
-            );
-        });
+        const [youthLeagues, allCompetitions] = await Promise.all([
+             fetchYouthData(),
+             fetchAllCompetitions()
+        ]);
+        
+        const league = youthLeagues.find(l => l.id === 'build-it-u13');
         setData(league || null);
+
+        // Resolve ID dynamically
+        const compList = Object.entries(allCompetitions).map(([id, c]) => ({ id, name: c.name }));
+        const match = compList.find(c => 
+            c.id === 'build-it-u13' || 
+            c.name.toLowerCase().includes('build it') ||
+            c.name.toLowerCase().includes('u-13 national')
+        );
+
+        if (match) {
+            setCompetitionId(match.id);
+        }
       } catch (error) {
         console.error("Failed to load Build It U13 data", error);
       } finally {
@@ -47,9 +51,6 @@ const BuildItU13Page: React.FC = () => {
   }, []);
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
-
-  // Use the ID of the found document, or fallback to the default if not found
-  const competitionId = data?.id || "build-it-u13";
 
   return (
     <div className="bg-gray-50 py-12">
@@ -75,12 +76,14 @@ const BuildItU13Page: React.FC = () => {
 
         <div className="space-y-16">
             {/* 1. League-Specific Articles (Direct from Youth Document) */}
-            {data?.articles && data.articles.length > 0 && (
-                <div className="border-t pt-8">
-                    <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Tournament Highlights</h2>
+            <div className="border-t pt-8">
+                <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Tournament Highlights</h2>
+                {data?.articles && data.articles.length > 0 ? (
                     <YouthArticleSection articles={data.articles} />
-                </div>
-            )}
+                ) : (
+                    <NewsSection category="National" />
+                )}
+            </div>
             
             <div className="max-w-5xl mx-auto">
                 <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Schedule</h2>

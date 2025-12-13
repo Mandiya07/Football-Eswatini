@@ -299,8 +299,32 @@ const SeedDatabase: React.FC = () => {
                     teamNames: ['Eswatini Women', 'Burkina Faso Women', 'South Africa Women', 'Zambia Women']
                 }
             ];
+            
+            // 7. Youth Development Competitions Setup (Ensures Fixtures/Results work)
+            const youthCompetitions = [
+                {
+                    id: 'u20-elite-league',
+                    name: 'U-20 Elite League',
+                    teamNames: ['Mbabane Swallows U-20', 'Manzini Wanderers U-20', 'Mbabane Highlanders U-20', 'Green Mamba U-20', 'Royal Leopards U-20', 'Young Buffaloes U-20']
+                },
+                {
+                    id: 'hub-hardware-u17',
+                    name: 'Hub Hardware U-17',
+                    teamNames: ['Hhohho Eagles U-17', 'Lubombo Leopards U-17', 'Manzini Dynamos U-17', 'Shiselweni Saints U-17']
+                },
+                {
+                    id: 'schools',
+                    name: 'Instacash Schools Tournament',
+                    teamNames: ['Salesian High', 'St. Marks High', 'Mbabane Central', 'Sifundzani High', 'Waterford Kamhlaba', 'Manzini Nazarene']
+                },
+                {
+                    id: 'build-it-u13',
+                    name: 'Build It U-13 National',
+                    teamNames: ['Mbabane Future Stars', 'Manzini Youngsters', 'Siteki Pros U-13', 'Nhlangano Football Kids']
+                }
+            ];
 
-            const seedLeagueGroup = (comps: typeof regionalCompetitions, categoryId: string) => {
+            const seedLeagueGroup = (comps: any[], categoryId: string) => {
                 comps.forEach(comp => {
                     const teams = generateTeams(comp.teamNames);
                     const results = generateMatches(teams, 'results'); // Populate logs
@@ -324,9 +348,10 @@ const SeedDatabase: React.FC = () => {
 
             seedLeagueGroup(regionalCompetitions, 'regional-leagues');
             seedLeagueGroup(nationalCompetitions, 'national-teams');
+            seedLeagueGroup(youthCompetitions, 'development');
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database seeded successfully! Shop Discounts, Leagues, Features, and Exclusive Content updated.' });
+            setStatus({ type: 'success', msg: 'Database seeded successfully! Youth leagues, regional, and national data populated.' });
         } catch (error) {
             console.error("Seeding failed:", error);
             setStatus({ type: 'error', msg: 'Failed to seed database. Check console for errors.' });
@@ -343,7 +368,7 @@ const SeedDatabase: React.FC = () => {
                     <h3 className="text-2xl font-bold font-display text-gray-800">Seed Database</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
-                    Initialize or reset the database with default content, including the <strong>National Team</strong> competitions, <strong>Regional</strong> leagues, <strong>Exclusive Content</strong>, <strong>Team Yam</strong> videos, and <strong>Shop Promo Codes</strong>.
+                    Initialize or reset the database with default content, including the <strong>National Team</strong>, <strong>Youth & Development</strong>, <strong>Regional</strong> leagues, and <strong>Exclusive Content</strong>.
                     Use this if the app is empty or you want to restore default demo data.
                 </p>
 

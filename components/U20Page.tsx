@@ -5,36 +5,45 @@ import Fixtures from './Fixtures';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import UsersIcon from './icons/UsersIcon';
 import { Link } from 'react-router-dom';
-import { fetchYouthData } from '../services/api';
+import { fetchYouthData, fetchAllCompetitions } from '../services/api';
 import { YouthLeague } from '../data/youth';
 import YouthArticleSection from './YouthArticleSection';
 import Spinner from './ui/Spinner';
 import RisingStars from './RisingStars';
 import { Card, CardContent } from './ui/Card';
+import NewsSection from './News';
 
 const U20Page: React.FC = () => {
-  const U20_LEAGUE_ID = 'u20-elite-league';
   const [leagueData, setLeagueData] = useState<YouthLeague | null>(null);
+  const [competitionId, setCompetitionId] = useState<string>('u20-elite-league'); // Default fallback
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
         setLoading(true);
         try {
-            const data = await fetchYouthData();
-            const target = data.find(l => {
-                const name = l.name.toLowerCase();
-                const id = l.id.toLowerCase();
-                return (
-                    id === U20_LEAGUE_ID || 
-                    name.includes('u-20') || 
-                    name.includes('u20') ||
-                    name.includes('under 20') ||
-                    name.includes('under-20') ||
-                    name.includes('elite')
-                );
-            });
+            // 1. Fetch Youth Content (Articles, Rising Stars)
+            const youthData = await fetchYouthData();
+            // Try strict ID first, then loose name matching
+            let target = youthData.find(l => l.id === 'u20-elite-league');
+            if (!target) {
+                target = youthData.find(l => l.name.includes('U-20') || l.name.includes('Elite'));
+            }
             setLeagueData(target || null);
+
+            // 2. Fetch Actual Competition ID for Fixtures (Resolution Strategy)
+            const allCompetitions = await fetchAllCompetitions();
+            const compList = Object.entries(allCompetitions).map(([id, c]) => ({ id, name: c.name }));
+            
+            const match = compList.find(c => 
+                c.id === 'u20-elite-league' || 
+                c.name.toLowerCase().trim() === 'u-20 elite league' ||
+                c.name.toLowerCase().includes('u-20 elite')
+            );
+
+            if (match) {
+                setCompetitionId(match.id);
+            }
         } catch (e) {
             console.error("Failed to load U20 data", e);
         } finally {
@@ -45,8 +54,6 @@ const U20Page: React.FC = () => {
   }, []);
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
-
-  const competitionId = leagueData?.id || U20_LEAGUE_ID;
 
   return (
     <div className="bg-gray-50 py-12">
@@ -68,12 +75,14 @@ const U20Page: React.FC = () => {
         </div>
 
         <div className="space-y-16">
-          {leagueData?.articles && leagueData.articles.length > 0 && (
-             <div className="border-t pt-8">
-                <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">League News</h2>
+          <div className="border-t pt-8">
+             <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">League News</h2>
+             {leagueData?.articles && leagueData.articles.length > 0 ? (
                 <YouthArticleSection articles={leagueData.articles} />
-             </div>
-          )}
+             ) : (
+                <NewsSection category="National" />
+             )}
+          </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="w-full">

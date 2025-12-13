@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchYouthData, handleFirestoreError } from '../../services/api';
 import { YouthLeague, RisingStarPlayer, YouthArticle, YouthTeam } from '../../data/youth';
+import { Team } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -9,12 +10,12 @@ import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import { db } from '../../services/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import XIcon from '../icons/XIcon';
 import YouthArticleFormModal from './YouthArticleFormModal';
 import FileTextIcon from '../icons/FileTextIcon';
 import ShieldIcon from '../icons/ShieldIcon';
-import { compressImage } from '../../services/utils';
+import { compressImage, removeUndefinedProps } from '../../services/utils';
 
 const YouthManagement: React.FC = () => {
     const [leagues, setLeagues] = useState<YouthLeague[]>([]);
@@ -84,11 +85,59 @@ const YouthManagement: React.FC = () => {
         setIsTeamModalOpen(true);
     };
 
-    const handleDeleteTeam = async (teamId: number) => {
+    // Helper to sync changes to the main competitions collection so Fixtures can use these teams
+    const syncTeamToCompetition = async (leagueId: string, leagueName: string, team: YouthTeam, operation: 'add' | 'remove') => {
+        try {
+            const compRef = doc(db, 'competitions', leagueId);
+            const compSnap = await getDoc(compRef);
+            
+            let currentTeams: Team[] = [];
+
+            if (compSnap.exists()) {
+                const compData = compSnap.data();
+                currentTeams = compData.teams || [];
+            } else if (operation === 'add') {
+                // If competition doc doesn't exist, create it (Bridging Gap)
+                await setDoc(compRef, {
+                    name: leagueName,
+                    displayName: leagueName,
+                    categoryId: 'development',
+                    teams: [],
+                    fixtures: [],
+                    results: []
+                });
+            }
+            
+            if (operation === 'add') {
+                // Check if exists to avoid duplicates
+                if (!currentTeams.find(t => t.id === team.id)) {
+                    const newFullTeam: Team = {
+                        id: team.id,
+                        name: team.name,
+                        crestUrl: team.crestUrl,
+                        stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+                        players: [], fixtures: [], results: [], staff: []
+                    };
+                    currentTeams.push(newFullTeam);
+                    await updateDoc(compRef, { teams: currentTeams });
+                }
+            } else if (operation === 'remove') {
+                currentTeams = currentTeams.filter(t => t.id !== team.id);
+                await updateDoc(compRef, { teams: currentTeams });
+            }
+        } catch (error) {
+            console.warn(`Failed to sync team to competition collection for ${leagueId}. You may need to add it manually in Manage Teams.`, error);
+        }
+    };
+
+    const handleDeleteTeam = async (team: YouthTeam) => {
         if (!activeLeague || !window.confirm("Delete this team from the league?")) return;
         try {
-            const updatedTeams = (activeLeague.teams || []).filter(t => t.id !== teamId);
+            const updatedTeams = (activeLeague.teams || []).filter(t => t.id !== team.id);
+            // 1. Update Youth Doc
             await updateDoc(doc(db, 'youth', activeLeague.id), { teams: updatedTeams });
+            // 2. Sync to Competitions Doc
+            await syncTeamToCompetition(activeLeague.id, activeLeague.name, team, 'remove');
             loadData();
         } catch (err) {
             handleFirestoreError(err, 'delete youth team');
@@ -119,7 +168,11 @@ const YouthManagement: React.FC = () => {
         const updatedTeams = [...(activeLeague.teams || []), newTeam];
 
         try {
+            // 1. Update Youth Doc
             await updateDoc(doc(db, 'youth', activeLeague.id), { teams: updatedTeams });
+            // 2. Sync to Competitions Doc
+            await syncTeamToCompetition(activeLeague.id, activeLeague.name, newTeam, 'add');
+            
             setIsTeamModalOpen(false);
             loadData();
         } catch (err) {
@@ -295,7 +348,7 @@ const YouthManagement: React.FC = () => {
                                                     <span className="text-xs font-bold text-gray-800 truncate">{team.name}</span>
                                                 </div>
                                                 <button 
-                                                    onClick={() => handleDeleteTeam(team.id)} 
+                                                    onClick={() => handleDeleteTeam(team)} 
                                                     className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0"
                                                     title="Remove Team"
                                                 >

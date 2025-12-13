@@ -7,26 +7,45 @@ import { doc, setDoc, updateDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { CompetitionFixture } from '../../data/teams';
 import Spinner from '../ui/Spinner';
 // FIX: Import 'fetchCategories' which is now correctly exported from the API service.
-import { fetchCategories, Category, handleFirestoreError } from '../../services/api';
+import { fetchCategories, Category, handleFirestoreError, fetchAllCompetitions } from '../../services/api';
 
 const CreateEntities: React.FC = () => {
     const [leagueName, setLeagueName] = useState('');
     const [externalApiId, setExternalApiId] = useState('');
     const [seasonYear, setSeasonYear] = useState('');
+    
+    // Fixture Form State
     const [fixture, setFixture] = useState({ home: '', away: '', date: '' });
+    const [targetCompetitionId, setTargetCompetitionId] = useState('');
+    const [competitions, setCompetitions] = useState<{id: string, name: string}[]>([]);
+
     const [submitting, setSubmitting] = useState<string | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('');
 
     useEffect(() => {
-        const loadCategories = async () => {
-            const cats = await fetchCategories();
+        const loadData = async () => {
+            const [cats, comps] = await Promise.all([
+                fetchCategories(),
+                fetchAllCompetitions()
+            ]);
+            
             setCategories(cats);
             if (cats.length > 0) {
                 setSelectedCategory(cats[0].id);
             }
+            
+            const compList = Object.entries(comps).map(([id, c]) => ({ id, name: c.name }));
+            setCompetitions(compList.sort((a,b) => a.name.localeCompare(b.name)));
+            
+            // Default to Premier League if exists, else first available
+            if (compList.find(c => c.id === 'mtn-premier-league')) {
+                setTargetCompetitionId('mtn-premier-league');
+            } else if (compList.length > 0) {
+                setTargetCompetitionId(compList[0].id);
+            }
         };
-        loadCategories();
+        loadData();
     }, []);
 
 
@@ -51,11 +70,18 @@ const CreateEntities: React.FC = () => {
                     });
                     setLeagueName('');
                     setExternalApiId('');
+                    // Refresh competitions list
+                    const updatedComps = await fetchAllCompetitions();
+                    const compList = Object.entries(updatedComps).map(([id, c]) => ({ id, name: c.name }));
+                    setCompetitions(compList.sort((a,b) => a.name.localeCompare(b.name)));
                     break;
                 case 'fixture':
-                    // For simplicity, this adds to premier-league. A real app would need a league selector.
-                    const competitionId = 'mtn-premier-league';
-                    const docRef = doc(db, 'competitions', competitionId);
+                    if (!targetCompetitionId) {
+                        alert("Please select a competition.");
+                        setSubmitting(null);
+                        return;
+                    }
+                    const docRef = doc(db, 'competitions', targetCompetitionId);
                     const matchDate = new Date(data.date);
                     const newFixture: CompetitionFixture = {
                         id: Date.now(),
@@ -74,8 +100,6 @@ const CreateEntities: React.FC = () => {
                     break;
                 case 'season':
                      console.log(`Creating new ${type}:`, data);
-                     // This is a complex operation (archiving old data, resetting stats)
-                     // and is beyond the scope of a simple form.
                      alert("'Create Season' is a placeholder for a more complex workflow.");
                      setSeasonYear('');
                      break;
@@ -147,18 +171,29 @@ const CreateEntities: React.FC = () => {
             <Card className="shadow-lg">
                 <CardContent className="p-6">
                     <h3 className="text-2xl font-bold font-display mb-1">Add Single Fixture</h3>
-                    <p className="text-sm text-gray-600 mb-4">Quickly add a one-off fixture to the Premier League.</p>
+                    <p className="text-sm text-gray-600 mb-4">Quickly add a one-off fixture to any league.</p>
                     <form onSubmit={handleSubmit('fixture', fixture)} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="md:col-span-2">
+                                <label htmlFor="targetComp" className={labelClass}>Select Competition</label>
+                                <select 
+                                    id="targetComp" 
+                                    value={targetCompetitionId} 
+                                    onChange={e => setTargetCompetitionId(e.target.value)} 
+                                    className={inputClass}
+                                >
+                                    {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
                             <div>
                                 <label htmlFor="home" className={labelClass}>Home Team</label>
-                                <input type="text" id="home" value={fixture.home} onChange={e => setFixture({...fixture, home: e.target.value})} required className={inputClass} />
+                                <input type="text" id="home" value={fixture.home} onChange={e => setFixture({...fixture, home: e.target.value})} required className={inputClass} placeholder="Team A" />
                             </div>
                             <div>
                                 <label htmlFor="away" className={labelClass}>Away Team</label>
-                                <input type="text" id="away" value={fixture.away} onChange={e => setFixture({...fixture, away: e.target.value})} required className={inputClass} />
+                                <input type="text" id="away" value={fixture.away} onChange={e => setFixture({...fixture, away: e.target.value})} required className={inputClass} placeholder="Team B" />
                             </div>
-                            <div>
+                            <div className="md:col-span-2">
                                 <label htmlFor="date" className={labelClass}>Date & Time</label>
                                 <input type="datetime-local" id="date" value={fixture.date} onChange={e => setFixture({...fixture, date: e.target.value})} required className={inputClass} />
                             </div>

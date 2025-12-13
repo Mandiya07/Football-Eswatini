@@ -86,7 +86,24 @@ export const youthData: YouthLeague[] = [
                 bio: "A composed and intelligent defender who reads the game exceptionally well. Linda is known for his perfectly-timed tackles and ability to organize the backline. Comfortable playing out from the back under pressure."
             },
         ],
-        articles: []
+        articles: [
+            {
+                id: 'y1',
+                title: "Young Buffaloes U20 Maintain Unbeaten Streak",
+                date: "2023-11-05",
+                summary: "The young army side proved too strong for Moneni Pirates, securing a 3-0 victory to stay top of the table.",
+                content: "Young Buffaloes U20 continued their dominance in the Elite League with a convincing win. Their tactical discipline and physical fitness were on full display...",
+                imageUrl: "https://images.unsplash.com/photo-1517466787929-bc90951d64b8?auto=format&fit=crop&w=800&q=80"
+            },
+            {
+                id: 'y2',
+                title: "Swallows U20 Unearth New Gem",
+                date: "2023-11-02",
+                summary: "16-year-old midfielder Sipho Dlamini was the star of the show in the Mbabane Derby, providing two assists.",
+                content: "In a tense derby match against Highlanders, it was the youngest player on the pitch who made the difference...",
+                imageUrl: "https://images.unsplash.com/photo-1599058945522-28d584b6f0ff?auto=format&fit=crop&w=800&q=80"
+            }
+        ]
     },
     {
         id: 'hub-hardware-u17',
@@ -129,7 +146,16 @@ export const youthData: YouthLeague[] = [
                 bio: "The anchor of his team's midfield. Jabu is a tenacious ball-winner with an impressive tactical understanding of the game. He breaks up opposition attacks and initiates his own team's forward movements with simple, intelligent passes."
             }
         ],
-        articles: []
+        articles: [
+            {
+                id: 'h1',
+                title: "Regional Qualifiers: Hhohho Eagles Soar",
+                date: "2023-10-30",
+                summary: "The Eagles dominated the northern qualifiers, scoring 12 goals in 3 games.",
+                content: "It was a weekend of high scores and attacking football as the Hub Hardware U-17 tournament kicked off...",
+                imageUrl: "https://images.unsplash.com/photo-1511886929837-354d827aae26?auto=format&fit=crop&w=800&q=80"
+            }
+        ]
     },
      {
         id: 'schools',
@@ -156,7 +182,16 @@ export const youthData: YouthLeague[] = [
                 bio: "A versatile and incredibly fast player who dominates the entire left flank. Sandziso's blistering recovery speed makes him a formidable defender, while his attacking overlaps and crossing ability create numerous scoring chances. A standout in the recent schools championship."
             }
         ],
-        articles: []
+        articles: [
+            {
+                id: 's1',
+                title: "Instacash Schools Final: Salesian vs Central",
+                date: "2023-11-14",
+                summary: "A preview of the highly anticipated final at Somhlolo Stadium this weekend.",
+                content: "The stage is set for a thrilling encounter between two of the country's footballing powerhouses...",
+                imageUrl: "https://images.unsplash.com/photo-1543351611-58f69d7c1781?auto=format&fit=crop&w=800&q=80"
+            }
+        ]
     },
     {
         id: 'build-it-u13',
@@ -171,6 +206,15 @@ export const youthData: YouthLeague[] = [
             { id: 1306, name: "Simunye Colts", crestUrl: "https://via.placeholder.com/64/6D28D9/FFFFFF?text=SC" },
         ],
         risingStars: [], // No rising stars for U-13 to emphasize development over individual accolades
-        articles: []
+        articles: [
+            {
+                id: 'b1',
+                title: "Build It U13: Festival of Football",
+                date: "2023-11-10",
+                summary: "Over 50 teams participated in the regional playoffs this weekend.",
+                content: "Grassroots football is alive and well in Eswatini, as demonstrated by the massive turnout...",
+                imageUrl: "https://images.unsplash.com/photo-1516733725897-1aa73b87c8e8?auto=format&fit=crop&w=800&q=80"
+            }
+        ]
     }
 ];

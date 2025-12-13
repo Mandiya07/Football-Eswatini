@@ -8,7 +8,17 @@ import UsersIcon from './icons/UsersIcon';
 import CalendarIcon from './icons/CalendarIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
-import { CommunityEvent, fetchCommunityEvents, submitCommunityEvent, fetchNews } from '../services/api';
+import { 
+    CommunityEvent, 
+    fetchCommunityEvents, 
+    submitCommunityEvent, 
+    fetchNews, 
+    submitCommunityResult,
+    toggleCommunityEventLike,
+    addCommunityEventComment,
+    listenToCommunityEventComments,
+    CommunityEventComment
+} from '../services/api';
 import StarIcon from './icons/StarIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
 import InfoIcon from './icons/InfoIcon';
@@ -16,6 +26,182 @@ import { NewsItem } from '../data/news';
 import { NewsCard } from './News';
 import NewspaperIcon from './icons/NewspaperIcon';
 import AdBanner from './AdBanner';
+import XIcon from './icons/XIcon';
+import MessageSquareIcon from './icons/MessageSquareIcon';
+import HeartIcon from './icons/HeartIcon';
+import { useAuth } from '../contexts/AuthContext';
+
+function formatTimeAgo(timestamp: { seconds: number } | null): string {
+    if (!timestamp) return '';
+    const now = new Date();
+    const commentDate = new Date(timestamp.seconds * 1000);
+    const seconds = Math.floor((now.getTime() - commentDate.getTime()) / 1000);
+  
+    if (seconds < 0) return 'just now';
+  
+    let interval = seconds / 31536000;
+    if (interval > 1) {
+      const years = Math.floor(interval);
+      return years + (years === 1 ? "y ago" : "y ago");
+    }
+    interval = seconds / 2592000;
+    if (interval > 1) {
+      const months = Math.floor(interval);
+      return months + (months === 1 ? "mo ago" : "mo ago");
+    }
+    interval = seconds / 86400;
+    if (interval > 1) {
+      const days = Math.floor(interval);
+      return days + (days === 1 ? "d ago" : "d ago");
+    }
+    interval = seconds / 3600;
+    if (interval > 1) {
+      const hours = Math.floor(interval);
+      return hours + (hours === 1 ? "h ago" : "h ago");
+    }
+    interval = seconds / 60;
+    if (interval > 1) {
+      const minutes = Math.floor(interval);
+      return minutes + (minutes === 1 ? "m ago" : "m ago");
+    }
+    if (seconds < 10) return "just now";
+    return Math.floor(seconds) + "s ago";
+}
+
+const CommunityEventCard: React.FC<{ event: CommunityEvent }> = ({ event }) => {
+    const { user, isLoggedIn, openAuthModal } = useAuth();
+    const [likes, setLikes] = useState(event.likes || 0);
+    const [likedBy, setLikedBy] = useState<string[]>(event.likedBy || []);
+    const [showComments, setShowComments] = useState(false);
+    const [comments, setComments] = useState<CommunityEventComment[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+    const isLiked = user ? likedBy.includes(user.id) : false;
+
+    // Listen for comments when the section is expanded
+    useEffect(() => {
+        if (showComments) {
+            const unsubscribe = listenToCommunityEventComments(event.id, setComments);
+            return () => unsubscribe();
+        }
+    }, [showComments, event.id]);
+
+    const handleToggleLike = async () => {
+        if (!isLoggedIn || !user) {
+            openAuthModal();
+            return;
+        }
+
+        // Optimistic Update
+        const newIsLiked = !isLiked;
+        setLikes(prev => newIsLiked ? prev + 1 : prev - 1);
+        setLikedBy(prev => newIsLiked ? [...prev, user.id] : prev.filter(id => id !== user.id));
+
+        try {
+            await toggleCommunityEventLike(event.id, user.id, isLiked);
+        } catch (error) {
+            // Revert on error
+            setLikes(prev => newIsLiked ? prev - 1 : prev + 1);
+            setLikedBy(prev => newIsLiked ? prev.filter(id => id !== user.id) : [...prev, user.id]);
+            console.error("Failed to toggle like", error);
+        }
+    };
+
+    const handlePostComment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newComment.trim() || !user) return;
+        
+        setIsSubmittingComment(true);
+        try {
+            await addCommunityEventComment(event.id, newComment.trim(), user);
+            setNewComment('');
+        } catch (error) {
+            console.error("Failed to post comment", error);
+            alert("Failed to post comment.");
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+
+    return (
+        <Card className="hover:shadow-md transition-all h-full flex flex-col">
+            <CardContent className="p-5 flex flex-col h-full">
+                <div className="flex justify-between items-start mb-2">
+                    <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded uppercase">{event.eventType}</span>
+                    <span className="text-xs text-gray-500">{event.date}</span>
+                </div>
+                <h4 className="font-bold text-lg mb-2 line-clamp-1 text-gray-900">{event.title}</h4>
+                <p className="text-sm text-gray-500 mb-3 flex items-center gap-1"><MapPinIcon className="w-3 h-3"/> {event.venue}</p>
+                <p className="text-sm text-gray-600 line-clamp-2 mb-4 flex-grow">{event.description}</p>
+                <div className="text-xs text-gray-500 border-t pt-2 mb-3">
+                    Contact: {event.contactName}
+                </div>
+
+                {/* Interactions Bar */}
+                <div className="flex items-center gap-4 mt-auto pt-2 border-t border-gray-100">
+                    <button 
+                        onClick={handleToggleLike}
+                        className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${isLiked ? 'text-red-600' : 'text-gray-500 hover:text-red-600'}`}
+                    >
+                        <HeartIcon className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                        <span>{likes}</span>
+                    </button>
+                    <button 
+                        onClick={() => setShowComments(!showComments)}
+                        className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${showComments ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                    >
+                        <MessageSquareIcon className="w-4 h-4" />
+                        <span>{showComments ? 'Hide Comments' : 'Comments'}</span>
+                    </button>
+                </div>
+
+                {/* Comments Section */}
+                {showComments && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 animate-fade-in">
+                        <div className="space-y-3 mb-3 max-h-40 overflow-y-auto pr-1">
+                            {comments.length > 0 ? (
+                                comments.map(comment => (
+                                    <div key={comment.id} className="flex gap-2 text-xs">
+                                        <img src={comment.userAvatar} alt="" className="w-6 h-6 rounded-full flex-shrink-0" />
+                                        <div className="bg-gray-50 p-2 rounded-lg flex-grow">
+                                            <div className="flex justify-between items-baseline mb-0.5">
+                                                <span className="font-bold text-gray-800">{comment.userName}</span>
+                                                <span className="text-[10px] text-gray-400">{formatTimeAgo(comment.timestamp)}</span>
+                                            </div>
+                                            <p className="text-gray-700">{comment.text}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-xs text-gray-400 italic text-center py-2">No comments yet.</p>
+                            )}
+                        </div>
+
+                        {isLoggedIn ? (
+                            <form onSubmit={handlePostComment} className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={newComment}
+                                    onChange={e => setNewComment(e.target.value)}
+                                    placeholder="Write a comment..."
+                                    className="flex-grow text-xs border border-gray-300 rounded-md px-2 py-1 focus:ring-green-500 focus:border-green-500"
+                                />
+                                <Button type="submit" disabled={isSubmittingComment || !newComment.trim()} className="bg-green-600 text-white text-xs px-2 py-1 h-auto">
+                                    {isSubmittingComment ? <Spinner className="w-3 h-3 border-2" /> : 'Post'}
+                                </Button>
+                            </form>
+                        ) : (
+                            <button onClick={openAuthModal} className="w-full text-xs text-blue-600 hover:underline text-center">
+                                Log in to comment
+                            </button>
+                        )}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
 
 const CommunityHub: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'news' | 'results' | 'submit'>('news');
@@ -23,7 +209,7 @@ const CommunityHub: React.FC = () => {
     const [communityNews, setCommunityNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
     
-    // Form State
+    // Create Event Form State
     const [formData, setFormData] = useState({
         title: '',
         eventType: 'Knockout' as CommunityEvent['eventType'],
@@ -42,28 +228,34 @@ const CommunityHub: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
 
-    useEffect(() => {
-        const loadEvents = async () => {
-            setLoading(true);
-            try {
-                const [eventsData, newsData] = await Promise.all([
-                    fetchCommunityEvents(),
-                    fetchNews()
-                ]);
-                setEvents(eventsData);
+    // Report Result Form State
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportForm, setReportForm] = useState({ eventId: '', resultsSummary: '' });
+    const [isReporting, setIsReporting] = useState(false);
 
-                // Filter news for Community Hub category
-                const hubNews = newsData.filter(item => {
-                    const cats = Array.isArray(item.category) ? item.category : [item.category];
-                    return cats.includes('Community Football Hub');
-                });
-                setCommunityNews(hubNews);
-            } catch (error) {
-                console.error("Error loading community data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const loadEvents = async () => {
+        setLoading(true);
+        try {
+            const [eventsData, newsData] = await Promise.all([
+                fetchCommunityEvents(),
+                fetchNews()
+            ]);
+            setEvents(eventsData);
+
+            // Filter news for Community Hub category
+            const hubNews = newsData.filter(item => {
+                const cats = Array.isArray(item.category) ? item.category : [item.category];
+                return cats.includes('Community Football Hub');
+            });
+            setCommunityNews(hubNews);
+        } catch (error) {
+            console.error("Error loading community data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         loadEvents();
     }, []);
 
@@ -78,6 +270,10 @@ const CommunityHub: React.FC = () => {
 
     const pastEvents = useMemo(() => {
         return events.filter(e => e.resultsSummary).sort((a,b) => b.date.localeCompare(a.date));
+    }, [events]);
+    
+    const eventsPendingResults = useMemo(() => {
+        return events.filter(e => !e.resultsSummary).sort((a, b) => b.date.localeCompare(a.date));
     }, [events]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -114,6 +310,25 @@ const CommunityHub: React.FC = () => {
             alert("Failed to submit event. Please try again.");
         } finally {
             setIsSubmitting(false);
+        }
+    };
+    
+    const handleReportSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!reportForm.eventId || !reportForm.resultsSummary) return;
+        
+        setIsReporting(true);
+        try {
+            await submitCommunityResult(reportForm.eventId, reportForm.resultsSummary);
+            alert("Results submitted successfully!");
+            setShowReportModal(false);
+            setReportForm({ eventId: '', resultsSummary: '' });
+            loadEvents(); // Refresh list
+        } catch (error) {
+            console.error(error);
+            alert("Failed to submit results.");
+        } finally {
+            setIsReporting(false);
         }
     };
 
@@ -204,20 +419,7 @@ const CommunityHub: React.FC = () => {
                             {loading ? <Spinner /> : upcomingEvents.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {upcomingEvents.map(event => (
-                                        <Card key={event.id} className="hover:shadow-md transition-all">
-                                            <CardContent className="p-5">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded uppercase">{event.eventType}</span>
-                                                    <span className="text-xs text-gray-500">{event.date}</span>
-                                                </div>
-                                                <h4 className="font-bold text-lg mb-2 line-clamp-1">{event.title}</h4>
-                                                <p className="text-sm text-gray-500 mb-3 flex items-center gap-1"><MapPinIcon className="w-3 h-3"/> {event.venue}</p>
-                                                <p className="text-sm text-gray-600 line-clamp-2 mb-4">{event.description}</p>
-                                                <div className="text-xs text-gray-500 border-t pt-2">
-                                                    Contact: {event.contactName}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                        <CommunityEventCard key={event.id} event={event} />
                                     ))}
                                 </div>
                             ) : (
@@ -229,10 +431,16 @@ const CommunityHub: React.FC = () => {
 
                 {activeTab === 'results' && (
                     <div className="space-y-6">
-                        <div className="text-center mb-8">
-                            <h3 className="text-2xl font-bold font-display text-gray-800">Community Results</h3>
-                            <p className="text-gray-600">Scores and winners from recent local tournaments.</p>
+                        <div className="flex flex-col sm:flex-row justify-between items-center mb-8">
+                            <div className="text-center sm:text-left mb-4 sm:mb-0">
+                                <h3 className="text-2xl font-bold font-display text-gray-800">Community Results</h3>
+                                <p className="text-gray-600">Scores and winners from recent local tournaments.</p>
+                            </div>
+                            <Button onClick={() => setShowReportModal(true)} className="bg-green-600 text-white hover:bg-green-700 shadow-md">
+                                Report Score / Outcome
+                            </Button>
                         </div>
+                        
                         {loading ? <Spinner /> : pastEvents.length > 0 ? (
                             <div className="space-y-4">
                                 {pastEvents.map(event => (
@@ -244,8 +452,10 @@ const CommunityHub: React.FC = () => {
                                                     <div className="text-xs text-gray-500 mb-2">{event.date} &bull; {event.venue}</div>
                                                     <p className="text-gray-700 bg-gray-50 p-3 rounded text-sm">{event.resultsSummary}</p>
                                                 </div>
-                                                <div className="text-right flex-shrink-0">
+                                                <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
                                                     <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">COMPLETED</span>
+                                                    {/* Like button for results */}
+                                                    <CommunityEventCard event={event} />
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -256,6 +466,9 @@ const CommunityHub: React.FC = () => {
                             <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                                 <TrophyIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
                                 <p className="text-gray-500">No recent results available.</p>
+                                <Button onClick={() => setShowReportModal(true)} className="mt-4 text-sm bg-white border border-green-600 text-green-600 hover:bg-green-50">
+                                    Be the first to submit a result
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -370,6 +583,52 @@ const CommunityHub: React.FC = () => {
                     </Card>
                 )}
             </div>
+
+            {/* Report Result Modal */}
+            {showReportModal && (
+                <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowReportModal(false)}>
+                    <Card className="w-full max-w-md relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowReportModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><XIcon className="w-6 h-6"/></button>
+                        <CardContent className="p-8">
+                            <h2 className="text-2xl font-bold font-display mb-4 text-green-900">Report Score / Result</h2>
+                            <p className="text-sm text-gray-600 mb-6">Select a community event and tell us the outcome.</p>
+                            
+                            <form onSubmit={handleReportSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Select Active Event</label>
+                                    <select 
+                                        value={reportForm.eventId} 
+                                        onChange={e => setReportForm({...reportForm, eventId: e.target.value})} 
+                                        className={inputClass}
+                                        required
+                                    >
+                                        <option value="" disabled>-- Choose Event --</option>
+                                        {eventsPendingResults.map(e => (
+                                            <option key={e.id} value={e.id}>{e.title} ({e.date})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Result Summary</label>
+                                    <textarea 
+                                        value={reportForm.resultsSummary} 
+                                        onChange={e => setReportForm({...reportForm, resultsSummary: e.target.value})} 
+                                        className={inputClass} 
+                                        rows={4} 
+                                        placeholder="e.g. Mhlume Youngsters won 2-1 against Vuvulane Stars. Goals by..."
+                                        required
+                                    />
+                                </div>
+                                <div className="text-right">
+                                    <Button type="submit" disabled={isReporting} className="w-full bg-green-600 text-white hover:bg-green-700">
+                                        {isReporting ? <Spinner className="w-4 h-4 border-2" /> : 'Submit Result'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </section>
     );
 };

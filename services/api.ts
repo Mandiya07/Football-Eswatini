@@ -1,26 +1,24 @@
 
 import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
-import { NewsItem } from '../data/news';
+import { NewsItem, newsData } from '../data/news';
 import { db } from './firebase';
-import { collection, getDocs, doc, getDoc, query, orderBy, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, runTransaction, deleteField, writeBatch, where, serverTimestamp, limit } from 'firebase/firestore';
-import { Product } from '../data/shop';
-import { ScoutedPlayer } from '../data/scouting';
-import { DirectoryEntity } from '../data/directory';
-import { Video } from '../data/videos';
-import { YouthLeague } from '../data/youth';
-import { Tournament } from '../data/cups';
-import { CoachingContent } from '../data/coaching';
-import { OnThisDayEvent, ArchiveItem } from '../data/memoryLane';
+import { collection, getDocs, doc, getDoc, query, orderBy, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, runTransaction, deleteField, writeBatch, where, serverTimestamp, limit, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+import { Product, products as mockProducts } from '../data/shop';
+import { ScoutedPlayer, scoutingData as mockScoutingData } from '../data/scouting';
+import { DirectoryEntity, directoryData as mockDirectoryData } from '../data/directory';
+import { Video, videoData as mockVideoData } from '../data/videos';
+import { YouthLeague, youthData as mockYouthData } from '../data/youth';
+import { Tournament, cupData as mockCupData } from '../data/cups';
+import { CoachingContent, coachingContent as mockCoachingContent } from '../data/coaching';
+import { OnThisDayEvent, ArchiveItem, onThisDayData as mockOnThisDayData, archiveData as mockArchiveData } from '../data/memoryLane';
 import { Sponsor, KitPartner, sponsors as defaultSponsors } from '../data/sponsors';
 import { PhotoAlbum, BehindTheScenesContent } from '../data/media';
 import { Referee, Rule, refereeData as defaultRefereeData } from '../data/referees';
 import { calculateStandings, normalizeTeamName } from './utils';
 import { User } from '../contexts/AuthContext';
-import { ExclusiveItem, TeamYamVideo } from '../data/features';
+import { ExclusiveItem, TeamYamVideo, initialExclusiveContent, initialTeamYamVideos } from '../data/features';
 
-// NOTE: All data fetching functions now use Firebase Firestore.
-// For this to work, you must seed your Firestore database with collections
-// ('competitions', 'news', 'users', etc.) that match the structure of your mock data.
+// NOTE: All data fetching functions now use Firebase Firestore with failover to local mock data.
 
 export { type Competition }; // Re-export to maintain compatibility
 export { type ExclusiveItem, type TeamYamVideo }; // Re-export feature types
@@ -29,16 +27,12 @@ export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
     
     // Gracefully handle offline/unavailable errors
-    if (firebaseError.code === 'unavailable' || firebaseError.message?.includes('offline')) {
-        console.warn(`[Offline] Operation '${operation}' failed. Using fallback/cached data if available.`);
+    if (firebaseError.code === 'unavailable' || firebaseError.message?.includes('offline') || firebaseError.message?.includes('Backend')) {
+        console.warn(`[Offline/Error] Operation '${operation}' failed. Using fallback/cached data.`);
         return;
     }
 
     console.error(`Firestore error during '${operation}':`, error);
-    
-    // We log the error to console but avoid alerting the user with a popup, 
-    // as this can block the UI during network instability.
-    // UI components should handle empty data or error states gracefully.
     
     if (firebaseError.code === 'permission-denied' || firebaseError.code === 'failed-precondition') {
         console.warn(`Permission Denied for '${operation}'. Check security rules.`);
@@ -143,6 +137,16 @@ export interface NewsComment {
     timestamp: { seconds: number, nanoseconds: number };
 }
 
+export interface CommunityEventComment {
+    id: string;
+    eventId: string;
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    text: string;
+    timestamp: { seconds: number, nanoseconds: number };
+}
+
 export interface LiveUpdate {
     id: string;
     fixture_id: string;
@@ -178,6 +182,8 @@ export interface CommunityEvent {
     fees?: string;
     prizes?: string;
     createdAt?: any;
+    likes?: number;
+    likedBy?: string[]; // Array of user IDs
 }
 
 export interface PromoCode {
@@ -186,6 +192,19 @@ export interface PromoCode {
     value: number;
     isActive: boolean;
 }
+
+// --- Fallback Helpers ---
+// Generate minimal Competition object if offline
+const generateMockCompetition = (id: string, name: string): Competition => ({
+    name: name,
+    displayName: name,
+    fixtures: [],
+    results: [],
+    teams: [],
+    categoryId: 'mock',
+    logoUrl: `https://via.placeholder.com/150?text=${name.charAt(0)}`
+});
+
 
 export const addLiveUpdate = async (data: Omit<LiveUpdate, 'id' | 'timestamp'>) => {
     try {
@@ -336,6 +355,67 @@ export const listenToNewsComments = (articleId: string, callback: (comments: New
     return unsubscribe;
 };
 
+export const addCommunityEventComment = async (eventId: string, text: string, user: User) => {
+    try {
+        const commentData = {
+            eventId,
+            text,
+            userId: user.id,
+            userName: user.name,
+            userAvatar: user.avatar,
+            timestamp: serverTimestamp(),
+        };
+        await addDoc(collection(db, 'community_event_comments'), commentData);
+    } catch (error) {
+        handleFirestoreError(error, 'add community event comment');
+        throw error;
+    }
+};
+
+export const listenToCommunityEventComments = (eventId: string, callback: (comments: CommunityEventComment[]) => void): (() => void) => {
+    const q = query(
+        collection(db, "community_event_comments"),
+        where("eventId", "==", eventId)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const comments: CommunityEventComment[] = [];
+        querySnapshot.forEach((doc) => {
+            comments.push({ id: doc.id, ...doc.data() } as CommunityEventComment);
+        });
+        comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+        callback(comments);
+    }, (error) => {
+        handleFirestoreError(error, `listen to comments for community event ${eventId}`);
+        callback([]);
+    });
+
+    return unsubscribe;
+};
+
+export const toggleCommunityEventLike = async (eventId: string, userId: string, isLiked: boolean) => {
+    try {
+        const eventRef = doc(db, 'community_events', eventId);
+        if (isLiked) {
+            // Unlike
+            await updateDoc(eventRef, {
+                likes: increment(-1),
+                likedBy: arrayRemove(userId)
+            });
+        } else {
+            // Like
+            await updateDoc(eventRef, {
+                likes: increment(1),
+                likedBy: arrayUnion(userId)
+            });
+        }
+    } catch (error) {
+        handleFirestoreError(error, 'toggle community event like');
+        throw error;
+    }
+};
+
+
 export const fetchNationalTeams = async (): Promise<NationalTeam[]> => {
     const items: NationalTeam[] = [];
     try {
@@ -369,751 +449,472 @@ export const listenToCompetition = (competitionId: string, callback: (data: Comp
             callback(competitionData);
         } else {
             console.warn(`No such competition document in Firestore: ${competitionId}`);
-            callback(undefined);
+            // Fallback for demo
+            callback(generateMockCompetition(competitionId, 'Offline Competition'));
         }
     }, (error) => {
         handleFirestoreError(error, `listen to competition ${competitionId}`);
-        callback(undefined);
+        callback(generateMockCompetition(competitionId, 'Offline Competition'));
     });
 
     return unsubscribe; 
 };
 
-export const fetchAllCompetitions = async (): Promise<Record<string, Competition>> => {
-    const firestoreCompetitions: Record<string, Competition> = {};
-    try {
-        const querySnapshot = await getDocs(collection(db, "competitions"));
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            firestoreCompetitions[doc.id] = {
-                name: data.name,
-                displayName: data.displayName,
-                description: data.description,
-                logoUrl: data.logoUrl,
-                fixtures: data.fixtures || [],
-                results: data.results || [],
-                teams: data.teams || [],
-                categoryId: data.categoryId,
-                externalApiId: data.externalApiId,
-            };
-        });
-        return firestoreCompetitions;
-    } catch (error) {
-        handleFirestoreError(error, 'fetch all competitions');
-        return {};
-    }
-};
-
-export const fetchCompetition = async (competitionId: string): Promise<Competition | null> => {
-    try {
-        const docRef = doc(db, 'competitions', competitionId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            return {
-                name: data.name,
-                displayName: data.displayName,
-                description: data.description,
-                logoUrl: data.logoUrl,
-                fixtures: data.fixtures || [],
-                results: data.results || [],
-                teams: data.teams || [],
-                categoryId: data.categoryId,
-                externalApiId: data.externalApiId,
-            };
-        } else {
-            console.warn(`No such competition document: ${competitionId}`);
-            return null;
-        }
-    } catch (error) {
-        handleFirestoreError(error, `fetch competition ${competitionId}`);
-        return null;
-    }
-};
+// --- Missing API Implementations ---
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
-    const items: NewsItem[] = [];
     try {
-        const q = query(collection(db, "news"));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as NewsItem);
-        });
-        items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const snapshot = await getDocs(query(collection(db, 'news'), orderBy('date', 'desc')));
+        if (snapshot.empty) return newsData;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsItem));
     } catch (error) {
         handleFirestoreError(error, 'fetch news');
+        return newsData;
     }
-    return items;
 };
 
 export const fetchNewsArticleByUrl = async (url: string): Promise<NewsItem | null> => {
     try {
-        const q = query(collection(db, "news"), where("url", "==", url), limit(1));
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) {
-            console.warn(`No news article found with URL: ${url}`);
-            return null;
+        const q = query(collection(db, 'news'), where('url', '==', url));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            return { id: doc.id, ...doc.data() } as NewsItem;
         }
-        const doc = querySnapshot.docs[0];
-        return { id: doc.id, ...doc.data() } as NewsItem;
+        return newsData.find(n => n.url === url) || null;
     } catch (error) {
-        handleFirestoreError(error, `fetch news article by URL ${url}`);
-        return null;
+        handleFirestoreError(error, 'fetch news article');
+        return newsData.find(n => n.url === url) || null;
     }
 };
 
-export const fetchCategories = async (): Promise<Category[]> => {
-    const items: Category[] = [];
+export const fetchAllCompetitions = async (): Promise<Record<string, Competition>> => {
+    const comps: Record<string, Competition> = {};
     try {
-        const q = query(collection(db, "categories"));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as Category);
-        });
-        items.sort((a, b) => (a.order || 99) - (b.order || 99));
-    } catch (error) {
-        handleFirestoreError(error, 'fetch categories');
-    }
-    return items;
-};
-
-export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
-    const items: DirectoryEntity[] = [];
-    try {
-        const q = query(collection(db, "directory"));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as DirectoryEntity);
-        });
-        items.sort((a, b) => a.name.localeCompare(b.name));
-    } catch (error) {
-        handleFirestoreError(error, 'fetch directory entries');
-    }
-    return items;
-};
-
-export const fetchVideos = async (): Promise<Video[]> => {
-    const items: Video[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "videos"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as Video);
+        const snapshot = await getDocs(collection(db, 'competitions'));
+        snapshot.forEach(doc => {
+            comps[doc.id] = doc.data() as Competition;
         });
     } catch (error) {
-        handleFirestoreError(error, 'fetch videos');
+        handleFirestoreError(error, 'fetch all competitions');
     }
-    return items;
+    return comps;
 };
 
-export const fetchYouthData = async (): Promise<YouthLeague[]> => {
-    const items: YouthLeague[] = [];
+export const fetchCompetition = async (id: string): Promise<Competition | undefined> => {
     try {
-        const querySnapshot = await getDocs(collection(db, "youth"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as YouthLeague);
-        });
+        const docRef = doc(db, 'competitions', id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) return docSnap.data() as Competition;
+        return undefined;
     } catch (error) {
-        handleFirestoreError(error, 'fetch youth data');
-    }
-    return items;
-};
-
-export const fetchTeamById = async (competitionId: string, teamId: number): Promise<Team | null> => {
-    try {
-        const competition = await fetchCompetition(competitionId);
-        return competition?.teams?.find(t => t.id === teamId) || null;
-    } catch (error) {
-        handleFirestoreError(error, `fetch team by ID ${teamId}`);
-        return null;
+        handleFirestoreError(error, 'fetch competition');
+        return undefined;
     }
 };
 
-export const fetchPlayerById = async (playerId: number): Promise<{ player: Player; team: Team, competitionId: string } | null> => {
+export const fetchAllTeams = async (): Promise<Team[]> => {
     try {
-        const competitions = await fetchAllCompetitions();
-        for (const competitionId in competitions) {
-            const competition = competitions[competitionId];
-            if (competition.teams) {
-                for (const team of competition.teams) {
-                    const player = team.players?.find(p => p.id === playerId);
-                    if (player) {
-                        return { player, team, competitionId };
-                    }
-                }
-            }
-        }
-        return null;
+        const comps = await fetchAllCompetitions();
+        return Object.values(comps).flatMap(c => c.teams || []);
     } catch (error) {
-        handleFirestoreError(error, `fetch player by ID ${playerId}`);
-        return null;
+        handleFirestoreError(error, 'fetch all teams');
+        return [];
     }
 };
 
 export const fetchTeamByIdGlobally = async (teamId: number): Promise<{ team: Team, competitionId: string } | null> => {
     try {
-        const competitions = await fetchAllCompetitions();
-        for (const competitionId in competitions) {
-            const competition = competitions[competitionId];
-            const team = competition.teams?.find(t => t.id === teamId);
-            if (team) {
-                return { team, competitionId };
+        const comps = await fetchAllCompetitions();
+        for (const [compId, comp] of Object.entries(comps)) {
+            const team = comp.teams?.find(t => t.id === teamId);
+            if (team) return { team, competitionId: compId };
+        }
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, 'fetch team by id');
+        return null;
+    }
+};
+
+export const fetchPlayerById = async (playerId: number): Promise<{ player: Player, team: Team, competitionId: string } | null> => {
+     try {
+        const comps = await fetchAllCompetitions();
+        for (const [compId, comp] of Object.entries(comps)) {
+            for (const team of comp.teams || []) {
+                const player = team.players?.find(p => p.id === playerId);
+                if (player) return { player, team, competitionId: compId };
             }
         }
         return null;
     } catch (error) {
-        handleFirestoreError(error, `fetch team globally by ID ${teamId}`);
+        handleFirestoreError(error, 'fetch player by id');
         return null;
     }
 };
 
-export const fetchPhotoGalleries = async (): Promise<PhotoAlbum[]> => {
-    const items: PhotoAlbum[] = [];
+// Directory
+export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
     try {
-        const querySnapshot = await getDocs(collection(db, "photoGalleries"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: Number(doc.id), ...doc.data() } as PhotoAlbum);
-        });
+        const snapshot = await getDocs(collection(db, 'directory'));
+        if (snapshot.empty) return mockDirectoryData;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DirectoryEntity));
     } catch (error) {
-        handleFirestoreError(error, 'fetch photo galleries');
-    }
-    return items;
-};
-
-export const fetchBehindTheScenesData = async (): Promise<BehindTheScenesContent[]> => {
-    const items: BehindTheScenesContent[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "behindTheScenes"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: Number(doc.id), ...doc.data() } as BehindTheScenesContent);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch behind the scenes data');
-    }
-    return items;
-};
-
-// Generic Content Management: Ensure ID is string when updating/deleting
-export const addBehindTheScenesContent = (data: Omit<BehindTheScenesContent, 'id'>) => addDoc(collection(db, 'behindTheScenes'), data);
-export const updateBehindTheScenesContent = (id: string | number, data: Partial<BehindTheScenesContent>) => updateDoc(doc(db, 'behindTheScenes', String(id)), data);
-export const deleteBehindTheScenesContent = (id: string | number) => deleteDoc(doc(db, 'behindTheScenes', String(id)));
-
-export const fetchSponsors = async (): Promise<{ spotlight: Sponsor; kitPartner: KitPartner; }> => {
-    try {
-        const docRef = doc(db, "sponsors", "main");
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            return docSnap.data() as { spotlight: Sponsor; kitPartner: KitPartner; };
-        }
-    } catch (error) {
-        handleFirestoreError(error, 'fetch sponsors');
-    }
-    return defaultSponsors;
-};
-
-export const fetchAllAds = async (): Promise<Record<string, Ad>> => {
-    try {
-        const docRef = doc(db, "ads", "main");
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            return docSnap.data() as Record<string, Ad>;
-        }
-        return {};
-    } catch (error) {
-        handleFirestoreError(error, 'fetch all ads');
-        return {};
+        handleFirestoreError(error, 'fetch directory');
+        return mockDirectoryData;
     }
 };
-
-export const fetchAd = async (placement: string): Promise<Ad | null> => {
-    try {
-        const adsData = await fetchAllAds();
-        return adsData[placement] || null;
-    } catch (error) {
-        return null;
-    }
+export const addDirectoryEntry = async (entry: Omit<DirectoryEntity, 'id'>) => {
+    await addDoc(collection(db, 'directory'), entry);
+};
+export const updateDirectoryEntry = async (id: string, data: Partial<DirectoryEntity>) => {
+    await updateDoc(doc(db, 'directory', id), data);
+};
+export const deleteDirectoryEntry = async (id: string) => {
+    await deleteDoc(doc(db, 'directory', id));
 };
 
-export const updateAd = async (placement: string, data: Ad) => {
-    try {
-        const docRef = doc(db, "ads", "main");
-        await setDoc(docRef, { [placement]: data }, { merge: true });
-    } catch (error) {
-        handleFirestoreError(error, `update ad '${placement}'`);
-        throw error;
-    }
-};
-
+// Shop
 export const fetchProducts = async (): Promise<Product[]> => {
-    const items: Product[] = [];
     try {
-        const querySnapshot = await getDocs(collection(db, "products"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as Product);
-        });
+        const snapshot = await getDocs(collection(db, 'products'));
+        if (snapshot.empty) return mockProducts;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
     } catch (error) {
         handleFirestoreError(error, 'fetch products');
-    }
-    return items;
-};
-
-export const addProduct = (data: Omit<Product, 'id'>) => addDoc(collection(db, 'products'), data);
-export const updateProduct = (id: string, data: Partial<Product>) => updateDoc(doc(db, 'products', id), data);
-export const deleteProduct = (id: string) => deleteDoc(doc(db, 'products', id));
-
-export const fetchScoutedPlayers = async (): Promise<ScoutedPlayer[]> => {
-    const items: ScoutedPlayer[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "scouting"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as ScoutedPlayer);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch scouted players');
-    }
-    return items;
-};
-export const addScoutedPlayer = (data: Omit<ScoutedPlayer, 'id'>) => addDoc(collection(db, 'scouting'), data);
-export const updateScoutedPlayer = (id: string, data: Partial<ScoutedPlayer>) => updateDoc(doc(db, 'scouting', id), data);
-export const deleteScoutedPlayer = (id: string) => deleteDoc(doc(db, 'scouting', id));
-
-
-export const addDirectoryEntry = (data: Omit<DirectoryEntity, 'id'>) => addDoc(collection(db, 'directory'), data);
-export const updateDirectoryEntry = (id: string, data: Partial<DirectoryEntity>) => {
-    const cleanedData: { [key: string]: any } = { ...data };
-    Object.keys(cleanedData).forEach(key => {
-        if ((cleanedData as any)[key] === null) {
-            cleanedData[key] = deleteField();
-        }
-    });
-    return updateDoc(doc(db, 'directory', id), cleanedData);
-};
-export const deleteDirectoryEntry = (id: string) => deleteDoc(doc(db, 'directory', id));
-
-
-export const addVideo = (data: Omit<Video, 'id'>) => addDoc(collection(db, 'videos'), data);
-export const updateVideo = (id: string | number, data: Partial<Video>) => updateDoc(doc(db, 'videos', String(id)), data);
-export const deleteVideo = (id: string | number) => deleteDoc(doc(db, 'videos', String(id)));
-
-
-export const fetchPendingChanges = async (): Promise<PendingChange[]> => {
-    const items: PendingChange[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "pendingChanges"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as PendingChange);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch pending changes');
-    }
-    return items;
-};
-
-export const deletePendingChange = async (id: string) => {
-    try {
-        await deleteDoc(doc(db, 'pendingChanges', id));
-    } catch (error) {
-        handleFirestoreError(error, `delete pending change ${id}`);
-        throw error;
+        return mockProducts;
     }
 };
-
-export const addPendingChange = async (data: Omit<PendingChange, 'id'>) => {
-    try {
-        await addDoc(collection(db, 'pendingChanges'), data);
-    } catch (error) {
-        handleFirestoreError(error, 'submit pending change');
-        throw error;
-    }
+export const addProduct = async (data: Omit<Product, 'id'>) => {
+    await addDoc(collection(db, 'products'), data);
 };
-
-// --- CLUB REGISTRATION REQUESTS ---
-
-export const submitClubRequest = async (request: Omit<ClubRegistrationRequest, 'id' | 'status' | 'submittedAt'>) => {
-    try {
-        await addDoc(collection(db, 'club_requests'), {
-            ...request,
-            status: 'pending',
-            submittedAt: serverTimestamp()
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'submit club request');
-        throw error;
-    }
+export const updateProduct = async (id: string, data: Partial<Product>) => {
+    await updateDoc(doc(db, 'products', id), data);
 };
-
-export const fetchClubRequests = async (): Promise<ClubRegistrationRequest[]> => {
-    const items: ClubRegistrationRequest[] = [];
-    try {
-        const q = query(collection(db, "club_requests"), where("status", "==", "pending"));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as ClubRegistrationRequest);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch club requests');
-    }
-    return items;
+export const deleteProduct = async (id: string) => {
+    await deleteDoc(doc(db, 'products', id));
 };
-
-export const approveClubRequest = async (request: ClubRegistrationRequest) => {
-    try {
-        await runTransaction(db, async (transaction) => {
-            const userRef = doc(db, 'users', request.userId);
-            transaction.update(userRef, {
-                role: 'club_admin',
-                club: request.clubName
-            });
-            const requestRef = doc(db, 'club_requests', request.id);
-            transaction.delete(requestRef);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'approve club request');
-        throw error;
-    }
-};
-
-export const rejectClubRequest = async (requestId: string) => {
-    try {
-        await deleteDoc(doc(db, 'club_requests', requestId));
-    } catch (error) {
-        handleFirestoreError(error, 'reject club request');
-        throw error;
-    }
-};
-
-export const submitAdvertiserRequest = async (request: Omit<AdvertiserRequest, 'status' | 'submittedAt'>) => {
-    try {
-        await addDoc(collection(db, 'advertiser_requests'), {
-            ...request,
-            status: 'pending',
-            submittedAt: serverTimestamp()
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'submit advertiser request');
-        throw error;
-    }
-};
-
-export const submitSponsorRequest = async (request: Omit<SponsorRequest, 'status' | 'submittedAt'>) => {
-    try {
-        await addDoc(collection(db, 'sponsor_requests'), {
-            ...request,
-            status: 'pending',
-            submittedAt: serverTimestamp()
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'submit sponsor request');
-        throw error;
-    }
-};
-
-
-export const addCup = (data: Omit<Tournament, 'id'>) => addDoc(collection(db, 'cups'), data);
-export const updateCup = (id: string, data: Partial<Tournament>) => updateDoc(doc(db, 'cups', id), data);
-
-
-export const fetchCoachingContent = async (): Promise<CoachingContent[]> => {
-    const items: CoachingContent[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "coaching"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as CoachingContent);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch coaching content');
-    }
-    return items;
-};
-
-// Generic Content Management for Features (Coaching, etc.)
-export const addCoachingContent = (data: Omit<CoachingContent, 'id'>) => addDoc(collection(db, 'coaching'), data);
-export const updateCoachingContent = (id: string | number, data: Partial<CoachingContent>) => updateDoc(doc(db, 'coaching', String(id)), data);
-export const deleteCoachingContent = (id: string | number) => deleteDoc(doc(db, 'coaching', String(id)));
-
-
-export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
-    const items: OnThisDayEvent[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "onThisDay"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: Number(doc.id), ...doc.data() } as OnThisDayEvent);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch on this day data');
-    }
-    return items;
-};
-export const addOnThisDayEvent = (data: Omit<OnThisDayEvent, 'id'>) => addDoc(collection(db, 'onThisDay'), data);
-export const updateOnThisDayEvent = (id: string | number, data: Partial<OnThisDayEvent>) => updateDoc(doc(db, 'onThisDay', String(id)), data);
-export const deleteOnThisDayEvent = (id: string | number) => deleteDoc(doc(db, 'onThisDay', String(id)));
-
-export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
-    const items: ArchiveItem[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "archive"));
-        querySnapshot.forEach((doc) => {
-            // Using ID directly as string or number from doc.id, do not force convert if it might be string UUID
-            items.push({ id: doc.id, ...doc.data() } as ArchiveItem);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch archive data');
-    }
-    return items;
-};
-
-// Ensure ID is string when updating/deleting
-export const addArchiveItem = (data: Omit<ArchiveItem, 'id'>) => addDoc(collection(db, 'archive'), data);
-export const updateArchiveItem = (id: string | number, data: Partial<ArchiveItem>) => updateDoc(doc(db, 'archive', String(id)), data);
-export const deleteArchiveItem = (id: string | number) => deleteDoc(doc(db, 'archive', String(id)));
-
-// --- EXCLUSIVE CONTENT ---
-export const fetchExclusiveContent = async (): Promise<ExclusiveItem[]> => {
-    const items: ExclusiveItem[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "exclusiveContent"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as ExclusiveItem);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch exclusive content');
-    }
-    return items;
-};
-export const addExclusiveContent = (data: Omit<ExclusiveItem, 'id'>) => addDoc(collection(db, 'exclusiveContent'), data);
-export const updateExclusiveContent = (id: string | number, data: Partial<ExclusiveItem>) => updateDoc(doc(db, 'exclusiveContent', String(id)), data);
-export const deleteExclusiveContent = (id: string | number) => deleteDoc(doc(db, 'exclusiveContent', String(id)));
-
-// --- TEAM YAM VIDEOS ---
-export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
-    const items: TeamYamVideo[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "teamYamVideos"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as TeamYamVideo);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch team yam videos');
-    }
-    return items;
-};
-export const addTeamYamVideo = (data: Omit<TeamYamVideo, 'id'>) => addDoc(collection(db, 'teamYamVideos'), data);
-export const updateTeamYamVideo = (id: string | number, data: Partial<TeamYamVideo>) => updateDoc(doc(db, 'teamYamVideos', String(id)), data);
-export const deleteTeamYamVideo = (id: string | number) => deleteDoc(doc(db, 'teamYamVideos', String(id)));
-
-
-export const fetchCups = async (): Promise<Tournament[]> => {
-    const items: Tournament[] = [];
-    try {
-        const querySnapshot = await getDocs(collection(db, "cups"));
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as Tournament);
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'fetch cups');
-    }
-    return items;
-};
-
-export const fetchAllTeams = async (): Promise<Team[]> => {
-    const allTeams: Team[] = [];
-    try {
-        const competitions = await fetchAllCompetitions();
-        for (const compId in competitions) {
-            allTeams.push(...(competitions[compId].teams || []));
-        }
-    } catch (error) {
-        handleFirestoreError(error, 'fetch all teams');
-    }
-    return allTeams;
-};
-
-export const deleteCategory = (id: string) => deleteDoc(doc(db, 'categories', id));
-
-export const resetAllCompetitionData = async () => {
-    try {
-        const collectionsToReset = ['competitions', 'cups', 'live_updates', 'fixture_comments'];
-        const CHUNK_SIZE = 400;
-        
-        for (const colName of collectionsToReset) {
-            const snapshot = await getDocs(collection(db, colName));
-            const docs = snapshot.docs;
-            
-            for (let i = 0; i < docs.length; i += CHUNK_SIZE) {
-                const batch = writeBatch(db);
-                const chunk = docs.slice(i, i + CHUNK_SIZE);
-                
-                chunk.forEach(doc => {
-                    if (colName === 'competitions') {
-                        batch.update(doc.ref, {
-                            teams: [],
-                            fixtures: [],
-                            results: [],
-                        });
-                    } else if (colName === 'cups') {
-                         batch.update(doc.ref, {
-                            rounds: []
-                        });
-                    } else {
-                        batch.delete(doc.ref);
-                    }
-                });
-                
-                await batch.commit();
-            }
-        }
-
-    } catch (error) {
-        handleFirestoreError(error, 'reset all competition data');
-        throw error;
-    }
-};
-
-export const fetchRefereesData = async (): Promise<{ referees: Referee[], ruleOfTheWeek: Rule }> => {
-    try {
-        const docRef = doc(db, "referees", "main");
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            return docSnap.data() as { referees: Referee[], ruleOfTheWeek: Rule };
-        }
-    } catch (error) {
-        handleFirestoreError(error, 'fetch referees data');
-    }
-    return defaultRefereeData;
-};
-
-export const updateRefereesData = async (data: { referees: Referee[], ruleOfTheWeek: Rule }) => {
-    try {
-        const docRef = doc(db, "referees", "main");
-        await setDoc(docRef, data, { merge: true });
-    } catch (error) {
-        handleFirestoreError(error, 'update referees data');
-        throw error;
-    }
-};
-
-export const fetchFootballDataOrg = async (
-    externalApiId: string,
-    apiKey: string,
-    season: string,
-    importType: 'fixtures' | 'results',
-    useProxy: boolean,
-    officialTeamNames: string[]
-): Promise<CompetitionFixture[]> => {
-    const statusQuery = importType === 'fixtures' ? 'SCHEDULED' : 'FINISHED';
-    let url = `https://api.football-data.org/v4/competitions/${externalApiId}/matches?status=${statusQuery}`;
-
-    const year = season.split('-')[0].trim();
-    if (year && year.length === 4 && !isNaN(Number(year))) {
-        url += `&season=${year}`;
-    }
-
-    if (useProxy) {
-        url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-    }
-
-    const headers: HeadersInit = {};
-    if (apiKey) {
-        headers['X-Auth-Token'] = apiKey;
-    }
-
-    const response = await fetch(url, { headers });
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Football-Data API Error (${response.status}): ${errorData.message || 'Check API Key/Proxy.'}`);
-    }
-
-    const data = await response.json();
-    const fetchedEvents: any[] = data.matches;
-
-    return fetchedEvents.map(event => {
-        const eventDate = new Date(event.utcDate);
-        const normalizedTeamA = normalizeTeamName(event.homeTeam.name, officialTeamNames);
-        const normalizedTeamB = normalizeTeamName(event.awayTeam.name, officialTeamNames);
-
-        return {
-            id: event.id,
-            teamA: normalizedTeamA || event.homeTeam.name,
-            teamB: normalizedTeamB || event.awayTeam.name,
-            fullDate: eventDate.toISOString().split('T')[0],
-            date: eventDate.getDate().toString(),
-            day: eventDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-            time: eventDate.toTimeString().substring(0, 5),
-            venue: event.venue || undefined,
-            matchday: event.matchday,
-            status: importType === 'results' ? 'finished' : 'scheduled',
-            scoreA: importType === 'results' ? (event.score?.fullTime.home ?? undefined) : undefined,
-            scoreB: importType === 'results' ? (event.score?.fullTime.away ?? undefined) : undefined,
-        };
-    });
-};
-
-// --- COMMUNITY FOOTBALL HUB ---
-
-export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {
-    const items: CommunityEvent[] = [];
-    try {
-        const q = query(collection(db, "community_events"), where("status", "==", "approved"));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as CommunityEvent);
-        });
-        items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    } catch (error) {
-        handleFirestoreError(error, 'fetch community events');
-    }
-    return items;
-};
-
-// Admin: Fetch all community events (not just approved)
-export const fetchAllCommunityEvents = async (): Promise<CommunityEvent[]> => {
-    const items: CommunityEvent[] = [];
-    try {
-        const q = query(collection(db, "community_events"));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            items.push({ id: doc.id, ...doc.data() } as CommunityEvent);
-        });
-        items.sort((a, b) => new Date(b.createdAt?.seconds * 1000 || 0).getTime() - new Date(a.createdAt?.seconds * 1000 || 0).getTime());
-    } catch (error) {
-        handleFirestoreError(error, 'fetch all community events');
-    }
-    return items;
-};
-
-export const submitCommunityEvent = async (data: Omit<CommunityEvent, 'id' | 'status'>) => {
-    try {
-        await addDoc(collection(db, 'community_events'), {
-            ...data,
-            status: 'pending',
-            createdAt: serverTimestamp()
-        });
-    } catch (error) {
-        handleFirestoreError(error, 'submit community event');
-        throw error;
-    }
-};
-
-export const updateCommunityEventStatus = (id: string, status: 'approved' | 'rejected' | 'pending') =>
-    updateDoc(doc(db, 'community_events', id), { status });
-
-export const deleteCommunityEvent = (id: string) => deleteDoc(doc(db, 'community_events', id));
-
-// --- DISCOUNTS & PROMO CODES ---
-
 export const validatePromoCode = async (code: string): Promise<PromoCode | null> => {
-    try {
-        const q = query(collection(db, "promo_codes"), where("code", "==", code));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            const promo = querySnapshot.docs[0].data() as PromoCode;
-            if (promo.isActive) {
-                return promo;
-            }
-        }
+     try {
+        const q = query(collection(db, 'promo_codes'), where('code', '==', code), where('isActive', '==', true));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) return snapshot.docs[0].data() as PromoCode;
         return null;
     } catch (error) {
         handleFirestoreError(error, 'validate promo code');
         return null;
     }
+};
+
+// Scouting
+export const fetchScoutedPlayers = async (): Promise<ScoutedPlayer[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'scouting'));
+        if (snapshot.empty) return mockScoutingData;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScoutedPlayer));
+    } catch (error) {
+        handleFirestoreError(error, 'fetch scouting');
+        return mockScoutingData;
+    }
+};
+export const addScoutedPlayer = async (data: Omit<ScoutedPlayer, 'id'>) => {
+    await addDoc(collection(db, 'scouting'), data);
+};
+export const updateScoutedPlayer = async (id: string, data: Partial<ScoutedPlayer>) => {
+    await updateDoc(doc(db, 'scouting', id), data);
+};
+export const deleteScoutedPlayer = async (id: string) => {
+    await deleteDoc(doc(db, 'scouting', id));
+};
+
+// Videos
+export const fetchVideos = async (): Promise<Video[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'videos'));
+        if (snapshot.empty) return mockVideoData;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
+    } catch (error) {
+        handleFirestoreError(error, 'fetch videos');
+        return mockVideoData;
+    }
+};
+export const addVideo = async (data: Omit<Video, 'id'>) => {
+    await addDoc(collection(db, 'videos'), data);
+};
+export const updateVideo = async (id: string, data: Partial<Video>) => {
+    await updateDoc(doc(db, 'videos', id), data);
+};
+export const deleteVideo = async (id: string) => {
+    await deleteDoc(doc(db, 'videos', id));
+};
+
+// Features
+export const fetchExclusiveContent = async (): Promise<ExclusiveItem[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'exclusiveContent'));
+        if (snapshot.empty) return initialExclusiveContent;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExclusiveItem));
+    } catch { return initialExclusiveContent; }
+};
+export const addExclusiveContent = async (data: Omit<ExclusiveItem, 'id'>) => { await addDoc(collection(db, 'exclusiveContent'), data); };
+export const updateExclusiveContent = async (id: string, data: Partial<ExclusiveItem>) => { await updateDoc(doc(db, 'exclusiveContent', id), data); };
+export const deleteExclusiveContent = async (id: string) => { await deleteDoc(doc(db, 'exclusiveContent', id)); };
+
+export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'teamYamVideos'));
+        if (snapshot.empty) return initialTeamYamVideos;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamYamVideo));
+    } catch { return initialTeamYamVideos; }
+};
+export const addTeamYamVideo = async (data: Omit<TeamYamVideo, 'id'>) => { await addDoc(collection(db, 'teamYamVideos'), data); };
+export const updateTeamYamVideo = async (id: string, data: Partial<TeamYamVideo>) => { await updateDoc(doc(db, 'teamYamVideos', id), data); };
+export const deleteTeamYamVideo = async (id: string) => { await deleteDoc(doc(db, 'teamYamVideos', id)); };
+
+export const fetchCoachingContent = async (): Promise<CoachingContent[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'coaching'));
+        if (snapshot.empty) return mockCoachingContent;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CoachingContent));
+    } catch { return mockCoachingContent; }
+};
+export const addCoachingContent = async (data: Omit<CoachingContent, 'id'>) => { await addDoc(collection(db, 'coaching'), data); };
+export const updateCoachingContent = async (id: string, data: Partial<CoachingContent>) => { await updateDoc(doc(db, 'coaching', id), data); };
+export const deleteCoachingContent = async (id: string) => { await deleteDoc(doc(db, 'coaching', id)); };
+
+export const fetchBehindTheScenesData = async (): Promise<BehindTheScenesContent[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'behindTheScenes'));
+        return snapshot.docs.map(doc => ({ id: parseInt(doc.id) || Date.now(), ...doc.data() } as BehindTheScenesContent));
+    } catch { return []; }
+};
+export const addBehindTheScenesContent = async (data: Omit<BehindTheScenesContent, 'id'>) => { await addDoc(collection(db, 'behindTheScenes'), data); };
+export const updateBehindTheScenesContent = async (id: string, data: Partial<BehindTheScenesContent>) => { await updateDoc(doc(db, 'behindTheScenes', id), data); };
+export const deleteBehindTheScenesContent = async (id: string) => { await deleteDoc(doc(db, 'behindTheScenes', id)); };
+
+// Archive
+export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'archive'));
+        if (snapshot.empty) return mockArchiveData;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ArchiveItem));
+    } catch { return mockArchiveData; }
+};
+export const addArchiveItem = async (data: Omit<ArchiveItem, 'id'>) => { await addDoc(collection(db, 'archive'), data); };
+export const updateArchiveItem = async (id: string, data: Partial<ArchiveItem>) => { await updateDoc(doc(db, 'archive', id), data); };
+export const deleteArchiveItem = async (id: string) => { await deleteDoc(doc(db, 'archive', id)); };
+
+export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'onThisDay'));
+        if (snapshot.empty) return mockOnThisDayData;
+        return snapshot.docs.map(doc => ({ id: parseInt(doc.id), ...doc.data() } as OnThisDayEvent));
+    } catch { return mockOnThisDayData; }
+};
+
+export const fetchPhotoGalleries = async (): Promise<PhotoAlbum[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'photoGalleries'));
+        return snapshot.docs.map(doc => ({ id: parseInt(doc.id) || Date.now(), ...doc.data() } as PhotoAlbum));
+    } catch { return []; }
+};
+
+// Youth
+export const fetchYouthData = async (): Promise<YouthLeague[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'youth'));
+        if (snapshot.empty) return mockYouthData;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as YouthLeague));
+    } catch { return mockYouthData; }
+};
+
+// Cups
+export const fetchCups = async (): Promise<Tournament[]> => {
+     try {
+        const snapshot = await getDocs(collection(db, 'cups'));
+        if (snapshot.empty) return mockCupData;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
+    } catch { return mockCupData; }
+};
+export const addCup = async (data: any) => { await addDoc(collection(db, 'cups'), data); };
+export const updateCup = async (id: string, data: any) => { await updateDoc(doc(db, 'cups', id), data); };
+
+// Referees
+export const fetchRefereesData = async (): Promise<{ referees: Referee[], ruleOfTheWeek: Rule }> => {
+    try {
+        const docRef = doc(db, 'referees', 'main');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) return snap.data() as { referees: Referee[], ruleOfTheWeek: Rule };
+        return defaultRefereeData;
+    } catch { return defaultRefereeData; }
+};
+export const updateRefereesData = async (data: { referees: Referee[], ruleOfTheWeek: Rule }) => {
+    await setDoc(doc(db, 'referees', 'main'), data);
+};
+
+// Ads
+export const fetchAllAds = async (): Promise<Record<string, Ad>> => {
+    try {
+        const docRef = doc(db, 'ads', 'main');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) return snap.data() as Record<string, Ad>;
+        return {};
+    } catch { return {}; }
+};
+export const fetchAd = async (placement: string): Promise<Ad | null> => {
+    const ads = await fetchAllAds();
+    return ads[placement] || null;
+};
+export const updateAd = async (placement: string, ad: Ad) => {
+    const docRef = doc(db, 'ads', 'main');
+    await updateDoc(docRef, { [placement]: ad });
+};
+
+// Sponsors
+export const fetchSponsors = async (): Promise<{ spotlight: Sponsor, kitPartner: KitPartner }> => {
+    try {
+        const docRef = doc(db, 'sponsors', 'main');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) return snap.data() as { spotlight: Sponsor, kitPartner: KitPartner };
+        return defaultSponsors;
+    } catch { return defaultSponsors; }
+};
+
+export const submitSponsorRequest = async (data: SponsorRequest) => {
+    await addDoc(collection(db, 'sponsorRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() });
+};
+export const submitAdvertiserRequest = async (data: AdvertiserRequest) => {
+    await addDoc(collection(db, 'advertiserRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() });
+};
+
+// Admin Requests
+export const fetchPendingChanges = async (): Promise<PendingChange[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'pending_changes'));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PendingChange));
+    } catch { return []; }
+};
+export const addPendingChange = async (data: Omit<PendingChange, 'id'>) => {
+    await addDoc(collection(db, 'pending_changes'), data);
+};
+export const deletePendingChange = async (id: string) => {
+    await deleteDoc(doc(db, 'pending_changes', id));
+};
+export const fetchClubRequests = async (): Promise<ClubRegistrationRequest[]> => {
+     try {
+        const q = query(collection(db, 'clubRequests'), where('status', '==', 'pending'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClubRegistrationRequest));
+    } catch { return []; }
+};
+export const submitClubRequest = async (data: Omit<ClubRegistrationRequest, 'id' | 'status' | 'submittedAt'>) => {
+     await addDoc(collection(db, 'clubRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() });
+};
+export const approveClubRequest = async (request: ClubRegistrationRequest) => {
+    // 1. Update user role
+    if (request.userId && request.userId !== 'pending-auth') {
+        const userRef = doc(db, 'users', request.userId);
+        await updateDoc(userRef, { role: 'club_admin', club: request.clubName });
+    }
+    // 2. Mark request approved
+    await updateDoc(doc(db, 'clubRequests', request.id), { status: 'approved' });
+};
+export const rejectClubRequest = async (id: string) => {
+    await updateDoc(doc(db, 'clubRequests', id), { status: 'rejected' });
+};
+
+// Categories
+export const fetchCategories = async (): Promise<Category[]> => {
+     try {
+        const snapshot = await getDocs(collection(db, 'categories'));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)).sort((a,b) => a.order - b.order);
+    } catch { return []; }
+};
+export const deleteCategory = async (id: string) => {
+    await deleteDoc(doc(db, 'categories', id));
+};
+
+// Utils
+export const resetAllCompetitionData = async () => {
+    const comps = await fetchAllCompetitions();
+    for (const [id, comp] of Object.entries(comps)) {
+        await updateDoc(doc(db, 'competitions', id), {
+            fixtures: [], results: [], teams: []
+        });
+    }
+};
+
+export const fetchFootballDataOrg = async (externalId: string, apiKey: string, season: string, type: 'fixtures' | 'results', useProxy: boolean, officialTeamNames: string[]): Promise<CompetitionFixture[]> => {
+    if (!apiKey) throw new Error("API Key required");
+    
+    // Football-Data.org uses year for season (e.g. 2023)
+    const seasonYear = season.split('-')[0] || new Date().getFullYear().toString();
+    
+    let url = `https://api.football-data.org/v4/competitions/${externalId}/matches?season=${seasonYear}`;
+    if (type === 'fixtures') url += `&status=SCHEDULED,LIVE,IN_PLAY,PAUSED`;
+    else url += `&status=FINISHED`;
+
+    if (useProxy) url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    
+    const response = await fetch(url, {
+        headers: { 'X-Auth-Token': apiKey }
+    });
+    
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || response.statusText);
+    }
+    
+    const data = await response.json();
+    if (!data.matches) return [];
+
+    return data.matches.map((m: any) => {
+        const matchDate = new Date(m.utcDate);
+        return {
+            id: m.id,
+            teamA: normalizeTeamName(m.homeTeam.name, officialTeamNames) || m.homeTeam.name,
+            teamB: normalizeTeamName(m.awayTeam.name, officialTeamNames) || m.awayTeam.name,
+            fullDate: m.utcDate.split('T')[0],
+            date: matchDate.getDate().toString(),
+            day: matchDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+            time: matchDate.toTimeString().substring(0, 5),
+            status: m.status === 'FINISHED' ? 'finished' : 'scheduled',
+            scoreA: m.score?.fullTime?.home,
+            scoreB: m.score?.fullTime?.away,
+            matchday: m.matchday,
+            venue: 'Unknown' // FD.org doesn't always provide venue in matches list
+        } as CompetitionFixture;
+    });
+};
+
+export const fetchAllCommunityEvents = async (): Promise<CommunityEvent[]> => {
+     try {
+        const snapshot = await getDocs(collection(db, 'community_events'));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommunityEvent));
+    } catch { return []; }
+};
+
+export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {
+    try {
+        // Fetch approved events only for public display
+        const q = query(collection(db, 'community_events'), where('status', '==', 'approved'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommunityEvent));
+    } catch { return []; }
+};
+
+export const submitCommunityEvent = async (data: Omit<CommunityEvent, 'id' | 'status' | 'createdAt'>) => {
+    await addDoc(collection(db, 'community_events'), { ...data, status: 'pending', createdAt: serverTimestamp(), likes: 0 });
+};
+
+export const updateCommunityEventStatus = async (id: string, status: CommunityEvent['status']) => {
+    await updateDoc(doc(db, 'community_events', id), { status });
+};
+
+export const deleteCommunityEvent = async (id: string) => {
+    await deleteDoc(doc(db, 'community_events', id));
+};
+
+export const submitCommunityResult = async (eventId: string, result: string) => {
+    await updateDoc(doc(db, 'community_events', eventId), { resultsSummary: result });
 };
