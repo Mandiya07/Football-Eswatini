@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { fetchYouthData, handleFirestoreError } from '../../services/api';
-import { YouthLeague, RisingStarPlayer, YouthArticle } from '../../data/youth';
+import { YouthLeague, RisingStarPlayer, YouthArticle, YouthTeam } from '../../data/youth';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -13,6 +13,8 @@ import { doc, updateDoc } from 'firebase/firestore';
 import XIcon from '../icons/XIcon';
 import YouthArticleFormModal from './YouthArticleFormModal';
 import FileTextIcon from '../icons/FileTextIcon';
+import ShieldIcon from '../icons/ShieldIcon';
+import { compressImage } from '../../services/utils';
 
 const YouthManagement: React.FC = () => {
     const [leagues, setLeagues] = useState<YouthLeague[]>([]);
@@ -20,6 +22,10 @@ const YouthManagement: React.FC = () => {
     const [activeLeagueId, setActiveLeagueId] = useState<string>('');
     const [isEditingLeague, setIsEditingLeague] = useState(false);
     const [editingLeagueDesc, setEditingLeagueDesc] = useState('');
+
+    // Team Modal State
+    const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+    const [teamFormData, setTeamFormData] = useState({ name: '', crestUrl: '' });
 
     // Player Modal State
     const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
@@ -72,6 +78,55 @@ const YouthManagement: React.FC = () => {
         }
     };
 
+    // --- TEAM HANDLERS ---
+    const handleAddTeam = () => {
+        setTeamFormData({ name: '', crestUrl: '' });
+        setIsTeamModalOpen(true);
+    };
+
+    const handleDeleteTeam = async (teamId: number) => {
+        if (!activeLeague || !window.confirm("Delete this team from the league?")) return;
+        try {
+            const updatedTeams = (activeLeague.teams || []).filter(t => t.id !== teamId);
+            await updateDoc(doc(db, 'youth', activeLeague.id), { teams: updatedTeams });
+            loadData();
+        } catch (err) {
+            handleFirestoreError(err, 'delete youth team');
+        }
+    };
+
+    const handleTeamCrestUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            try {
+                const compressed = await compressImage(e.target.files[0], 200, 0.7);
+                setTeamFormData(prev => ({ ...prev, crestUrl: compressed }));
+            } catch (err) {
+                console.error("Image upload failed", err);
+            }
+        }
+    };
+
+    const handleSaveTeam = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeLeague) return;
+
+        const newTeam: YouthTeam = {
+            id: Date.now(),
+            name: teamFormData.name,
+            crestUrl: teamFormData.crestUrl || 'https://via.placeholder.com/64?text=Team'
+        };
+
+        const updatedTeams = [...(activeLeague.teams || []), newTeam];
+
+        try {
+            await updateDoc(doc(db, 'youth', activeLeague.id), { teams: updatedTeams });
+            setIsTeamModalOpen(false);
+            loadData();
+        } catch (err) {
+            handleFirestoreError(err, 'save youth team');
+        }
+    };
+
     // --- PLAYER HANDLERS ---
     const handleAddPlayer = () => {
         setEditingPlayer(null);
@@ -98,16 +153,14 @@ const YouthManagement: React.FC = () => {
         }
     };
     
-    const handlePlayerPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePlayerPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') {
-                    setPlayerFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
-                }
-            };
-            reader.readAsDataURL(file);
+             try {
+                const compressed = await compressImage(e.target.files[0], 300, 0.7);
+                setPlayerFormData(prev => ({ ...prev, photoUrl: compressed }));
+            } catch (err) {
+                console.error("Image upload failed", err);
+            }
         }
     };
 
@@ -228,6 +281,32 @@ const YouthManagement: React.FC = () => {
                                     )}
                                 </div>
 
+                                {/* TEAMS Management Section */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="text-lg font-bold">Participating Teams ({activeLeague.teams?.length || 0})</h4>
+                                        <Button onClick={handleAddTeam} className="bg-blue-600 text-white text-xs flex items-center gap-1"><PlusCircleIcon className="w-4 h-4"/> Add Team</Button>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        {(activeLeague.teams || []).map(team => (
+                                            <div key={team.id} className="border p-2 rounded-lg flex items-center justify-between bg-white shadow-sm gap-2">
+                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                    <img src={team.crestUrl} alt={team.name} className="w-8 h-8 object-contain" />
+                                                    <span className="text-xs font-bold text-gray-800 truncate">{team.name}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleDeleteTeam(team.id)} 
+                                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0"
+                                                    title="Remove Team"
+                                                >
+                                                    <TrashIcon className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {(!activeLeague.teams || activeLeague.teams.length === 0) && <p className="text-sm text-gray-500 italic mt-2">No teams added to this league yet.</p>}
+                                </div>
+
                                 {/* Rising Stars List */}
                                 <div>
                                     <div className="flex justify-between items-center mb-4">
@@ -279,6 +358,46 @@ const YouthManagement: React.FC = () => {
 
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Team Modal */}
+                {isTeamModalOpen && (
+                    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setIsTeamModalOpen(false)}>
+                         <div className="bg-white w-full max-w-sm rounded-lg shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                                <h3 className="font-bold text-lg">Add Team to League</h3>
+                                <button onClick={() => setIsTeamModalOpen(false)}><XIcon className="w-5 h-5 text-gray-500"/></button>
+                            </div>
+                            <div className="p-6">
+                                <form onSubmit={handleSaveTeam} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
+                                        <input 
+                                            placeholder="e.g. Young Stars FC" 
+                                            value={teamFormData.name} 
+                                            onChange={e => setTeamFormData({...teamFormData, name: e.target.value})} 
+                                            className={inputClass} 
+                                            required 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Crest (Optional)</label>
+                                        <div className="flex items-center gap-2">
+                                            {teamFormData.crestUrl && <img src={teamFormData.crestUrl} alt="Crest" className="w-10 h-10 object-contain border rounded" />}
+                                            <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-xs font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                                Upload Image
+                                                <input type="file" onChange={handleTeamCrestUpload} accept="image/*" className="sr-only" />
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-end pt-2">
+                                        <Button type="submit" className="bg-blue-600 text-white w-full">Add Team</Button>
+                                    </div>
+                                </form>
+                            </div>
+                         </div>
                     </div>
                 )}
 
