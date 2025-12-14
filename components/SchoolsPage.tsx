@@ -1,23 +1,24 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from './ui/Card';
 import SchoolIcon from './icons/SchoolIcon';
 import UsersIcon from './icons/UsersIcon';
-import { fetchYouthData, fetchCups, fetchAllCompetitions } from '../services/api';
-import { YouthLeague } from '../data/youth';
+import { fetchYouthData, fetchCups, fetchAllCompetitions, fetchNews } from '../services/api';
+import { YouthLeague, YouthArticle } from '../data/youth';
+import { NewsItem } from '../data/news';
 import { Tournament, cupData as localCupData } from '../data/cups';
 import Spinner from './ui/Spinner';
 import TournamentBracketDisplay from './TournamentBracketDisplay';
 import RisingStars from './RisingStars';
 import Fixtures from './Fixtures';
 import YouthArticleSection from './YouthArticleSection';
-import NewsSection from './News';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 
 const SchoolsPage: React.FC = () => {
   const [schoolsData, setSchoolsData] = useState<YouthLeague | null>(null);
   const [instacashBracket, setInstacashBracket] = useState<Tournament | null>(null);
+  const [globalNews, setGlobalNews] = useState<NewsItem[]>([]);
   const [competitionId, setCompetitionId] = useState<string>('schools');
   const [loading, setLoading] = useState(true);
 
@@ -25,10 +26,11 @@ const SchoolsPage: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [youthLeagues, allCups, allCompetitions] = await Promise.all([
+        const [youthLeagues, allCups, allCompetitions, newsData] = await Promise.all([
             fetchYouthData(),
             fetchCups(),
-            fetchAllCompetitions()
+            fetchAllCompetitions(),
+            fetchNews()
         ]);
         
         const schoolsLeague = youthLeagues.find(l => {
@@ -41,6 +43,7 @@ const SchoolsPage: React.FC = () => {
             );
         });
         setSchoolsData(schoolsLeague || null);
+        setGlobalNews(newsData);
 
         let foundBracket = allCups.find(c => c.id === 'instacash-schools-tournament');
         if (!foundBracket) {
@@ -69,6 +72,34 @@ const SchoolsPage: React.FC = () => {
     loadData();
   }, []);
 
+  // Merge dedicated youth articles with global news tagged for this section
+  const combinedArticles = useMemo(() => {
+      const specificArticles = schoolsData?.articles || [];
+      
+      const relevantGlobalNews = globalNews.filter(n => {
+          const title = n.title.toLowerCase();
+          const summary = n.summary.toLowerCase();
+          const cats = Array.isArray(n.category) ? n.category : [n.category];
+          
+          return (
+              cats.includes('Schools') ||
+              title.includes('school') || title.includes('instacash') ||
+              summary.includes('school')
+          );
+      }).map(n => ({
+          id: n.id,
+          title: n.title,
+          summary: n.summary,
+          content: n.content,
+          imageUrl: n.image,
+          date: n.date
+      } as YouthArticle));
+
+      return [...specificArticles, ...relevantGlobalNews].sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+  }, [schoolsData, globalNews]);
+
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
   return (
@@ -96,10 +127,12 @@ const SchoolsPage: React.FC = () => {
 
         <div className="mb-16 border-t pt-8">
             <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Tournament Updates</h2>
-            {schoolsData?.articles && schoolsData.articles.length > 0 ? (
-                <YouthArticleSection articles={schoolsData.articles} />
+            {combinedArticles.length > 0 ? (
+                <YouthArticleSection articles={combinedArticles} />
             ) : (
-                <NewsSection category="Schools" />
+                <div className="text-center py-8 text-gray-500 bg-white rounded-lg border border-gray-200">
+                    No recent news articles found for Schools Football.
+                </div>
             )}
         </div>
 

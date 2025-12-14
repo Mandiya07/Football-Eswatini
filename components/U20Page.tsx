@@ -1,20 +1,21 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Logs from './Logs';
 import Fixtures from './Fixtures';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import UsersIcon from './icons/UsersIcon';
 import { Link } from 'react-router-dom';
-import { fetchYouthData, fetchAllCompetitions } from '../services/api';
-import { YouthLeague } from '../data/youth';
+import { fetchYouthData, fetchAllCompetitions, fetchNews } from '../services/api';
+import { YouthLeague, YouthArticle } from '../data/youth';
+import { NewsItem } from '../data/news';
 import YouthArticleSection from './YouthArticleSection';
 import Spinner from './ui/Spinner';
 import RisingStars from './RisingStars';
 import { Card, CardContent } from './ui/Card';
-import NewsSection from './News';
 
 const U20Page: React.FC = () => {
   const [leagueData, setLeagueData] = useState<YouthLeague | null>(null);
+  const [globalNews, setGlobalNews] = useState<NewsItem[]>([]);
   const [competitionId, setCompetitionId] = useState<string>('u20-elite-league'); // Default fallback
   const [loading, setLoading] = useState(true);
 
@@ -23,16 +24,21 @@ const U20Page: React.FC = () => {
         setLoading(true);
         try {
             // 1. Fetch Youth Content (Articles, Rising Stars)
-            const youthData = await fetchYouthData();
+            const [youthData, newsData, allCompetitions] = await Promise.all([
+                fetchYouthData(),
+                fetchNews(),
+                fetchAllCompetitions()
+            ]);
+
             // Try strict ID first, then loose name matching
             let target = youthData.find(l => l.id === 'u20-elite-league');
             if (!target) {
                 target = youthData.find(l => l.name.includes('U-20') || l.name.includes('Elite'));
             }
             setLeagueData(target || null);
+            setGlobalNews(newsData);
 
             // 2. Fetch Actual Competition ID for Fixtures (Resolution Strategy)
-            const allCompetitions = await fetchAllCompetitions();
             const compList = Object.entries(allCompetitions).map(([id, c]) => ({ id, name: c.name }));
             
             const match = compList.find(c => 
@@ -52,6 +58,36 @@ const U20Page: React.FC = () => {
     };
     load();
   }, []);
+
+  // Merge dedicated youth articles with global news tagged for this section
+  const combinedArticles = useMemo(() => {
+      const specificArticles = leagueData?.articles || [];
+      
+      // Filter global news for relevant keywords/categories
+      const relevantGlobalNews = globalNews.filter(n => {
+          const title = n.title.toLowerCase();
+          const summary = n.summary.toLowerCase();
+          const cats = Array.isArray(n.category) ? n.category : [n.category];
+          
+          return (
+              cats.includes('Youth') ||
+              title.includes('u20') || title.includes('u-20') || title.includes('elite league') ||
+              summary.includes('u20') || summary.includes('u-20')
+          );
+      }).map(n => ({
+          id: n.id,
+          title: n.title,
+          summary: n.summary,
+          content: n.content,
+          imageUrl: n.image,
+          date: n.date
+      } as YouthArticle));
+
+      // Combine and deduplicate by ID/Title similarity if needed, sort by date
+      return [...specificArticles, ...relevantGlobalNews].sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+  }, [leagueData, globalNews]);
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
@@ -77,10 +113,12 @@ const U20Page: React.FC = () => {
         <div className="space-y-16">
           <div className="border-t pt-8">
              <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">League News</h2>
-             {leagueData?.articles && leagueData.articles.length > 0 ? (
-                <YouthArticleSection articles={leagueData.articles} />
+             {combinedArticles.length > 0 ? (
+                <YouthArticleSection articles={combinedArticles} />
              ) : (
-                <NewsSection category="National" />
+                <div className="text-center py-8 text-gray-500 bg-white rounded-lg border border-gray-200">
+                    No recent news articles found for U-20 League.
+                </div>
              )}
           </div>
           

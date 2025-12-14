@@ -68,14 +68,28 @@ const YouthManagement: React.FC = () => {
 
     const activeLeague = leagues.find(l => l.id === activeLeagueId);
 
+    // Helper to save entire league state (Ensures creation if doc is missing/mock)
+    const saveLeagueState = async (updatedLeague: YouthLeague) => {
+        try {
+            // Use setDoc to overwrite/create, effectively migrating mock data to Firestore if needed
+            await setDoc(doc(db, 'youth', updatedLeague.id), removeUndefinedProps(updatedLeague));
+            
+            // Update local state immediately to reflect changes without full reload flicker
+            setLeagues(prev => prev.map(l => l.id === updatedLeague.id ? updatedLeague : l));
+        } catch (err) {
+            handleFirestoreError(err, 'save youth league data');
+            throw err;
+        }
+    };
+
     const handleSaveLeagueDesc = async () => {
         if (!activeLeague) return;
         try {
-            await updateDoc(doc(db, 'youth', activeLeague.id), { description: editingLeagueDesc });
+            const updatedLeague = { ...activeLeague, description: editingLeagueDesc };
+            await saveLeagueState(updatedLeague);
             setIsEditingLeague(false);
-            loadData();
         } catch (err) {
-            handleFirestoreError(err, 'update youth league');
+            // Error handled in helper
         }
     };
 
@@ -134,13 +148,12 @@ const YouthManagement: React.FC = () => {
         if (!activeLeague || !window.confirm("Delete this team from the league?")) return;
         try {
             const updatedTeams = (activeLeague.teams || []).filter(t => t.id !== team.id);
-            // 1. Update Youth Doc
-            await updateDoc(doc(db, 'youth', activeLeague.id), { teams: updatedTeams });
-            // 2. Sync to Competitions Doc
+            const updatedLeague = { ...activeLeague, teams: updatedTeams };
+            
+            await saveLeagueState(updatedLeague);
             await syncTeamToCompetition(activeLeague.id, activeLeague.name, team, 'remove');
-            loadData();
         } catch (err) {
-            handleFirestoreError(err, 'delete youth team');
+            // Error handled in helper
         }
     };
 
@@ -166,17 +179,14 @@ const YouthManagement: React.FC = () => {
         };
 
         const updatedTeams = [...(activeLeague.teams || []), newTeam];
+        const updatedLeague = { ...activeLeague, teams: updatedTeams };
 
         try {
-            // 1. Update Youth Doc
-            await updateDoc(doc(db, 'youth', activeLeague.id), { teams: updatedTeams });
-            // 2. Sync to Competitions Doc
+            await saveLeagueState(updatedLeague);
             await syncTeamToCompetition(activeLeague.id, activeLeague.name, newTeam, 'add');
-            
             setIsTeamModalOpen(false);
-            loadData();
         } catch (err) {
-            handleFirestoreError(err, 'save youth team');
+            // Error handled in helper
         }
     };
 
@@ -199,10 +209,10 @@ const YouthManagement: React.FC = () => {
         if (!activeLeague || !window.confirm("Delete this rising star?")) return;
         try {
             const updatedStars = (activeLeague.risingStars || []).filter(p => p.id !== playerId);
-            await updateDoc(doc(db, 'youth', activeLeague.id), { risingStars: updatedStars });
-            loadData();
+            const updatedLeague = { ...activeLeague, risingStars: updatedStars };
+            await saveLeagueState(updatedLeague);
         } catch (err) {
-            handleFirestoreError(err, 'delete youth player');
+           // Error handled
         }
     };
     
@@ -234,11 +244,11 @@ const YouthManagement: React.FC = () => {
         }
 
         try {
-            await updateDoc(doc(db, 'youth', activeLeague.id), { risingStars: updatedStars });
+            const updatedLeague = { ...activeLeague, risingStars: updatedStars };
+            await saveLeagueState(updatedLeague);
             setIsPlayerModalOpen(false);
-            loadData();
         } catch (err) {
-            handleFirestoreError(err, 'save youth player');
+            // Error handled
         }
     };
 
@@ -257,10 +267,10 @@ const YouthManagement: React.FC = () => {
         if (!activeLeague || !window.confirm("Delete this article?")) return;
         try {
             const updatedArticles = (activeLeague.articles || []).filter(a => a.id !== articleId);
-            await updateDoc(doc(db, 'youth', activeLeague.id), { articles: updatedArticles });
-            loadData();
+            const updatedLeague = { ...activeLeague, articles: updatedArticles };
+            await saveLeagueState(updatedLeague);
         } catch (err) {
-            handleFirestoreError(err, 'delete youth article');
+            // Error handled
         }
     };
 
@@ -274,11 +284,13 @@ const YouthManagement: React.FC = () => {
                 updatedArticles.push(article);
             }
             
-            await updateDoc(doc(db, 'youth', activeLeague.id), { articles: updatedArticles });
+            const updatedLeague = { ...activeLeague, articles: updatedArticles };
+            await saveLeagueState(updatedLeague);
+            
             setIsArticleModalOpen(false);
-            loadData();
+            alert("Article saved successfully!");
         } catch (err) {
-            handleFirestoreError(err, 'save youth article');
+            // Error handled
         }
     };
 

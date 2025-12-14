@@ -464,9 +464,21 @@ export const listenToCompetition = (competitionId: string, callback: (data: Comp
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
     try {
-        const snapshot = await getDocs(query(collection(db, 'news'), orderBy('date', 'desc')));
+        // Fetch all news and sort client-side to handle inconsistent date formats
+        const snapshot = await getDocs(collection(db, 'news'));
         if (snapshot.empty) return newsData;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsItem));
+        
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsItem));
+        
+        // Robust sort
+        return items.sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            // Handle invalid dates by treating as old
+            const valA = isNaN(dateA) ? 0 : dateA;
+            const valB = isNaN(dateB) ? 0 : dateB;
+            return valB - valA; // Descending
+        });
     } catch (error) {
         handleFirestoreError(error, 'fetch news');
         return newsData;
@@ -780,10 +792,10 @@ export const fetchSponsors = async (): Promise<{ spotlight: Sponsor, kitPartner:
     } catch { return defaultSponsors; }
 };
 
-export const submitSponsorRequest = async (data: SponsorRequest) => {
+export const submitSponsorRequest = async (data: Omit<SponsorRequest, 'status' | 'submittedAt'>) => {
     await addDoc(collection(db, 'sponsorRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() });
 };
-export const submitAdvertiserRequest = async (data: AdvertiserRequest) => {
+export const submitAdvertiserRequest = async (data: Omit<AdvertiserRequest, 'status' | 'submittedAt'>) => {
     await addDoc(collection(db, 'advertiserRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() });
 };
 

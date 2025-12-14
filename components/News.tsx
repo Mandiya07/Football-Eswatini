@@ -10,6 +10,14 @@ import ArrowRightIcon from './icons/ArrowRightIcon';
 import { fetchNews } from '../services/api';
 import MegaphoneIcon from './icons/MegaphoneIcon';
 
+const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    return dateStr;
+}
+
 export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact' }> = React.memo(({ item, variant = 'default' }) => {
     const [copied, setCopied] = useState(false);
     
@@ -87,7 +95,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
                                 {isSponsored && <MegaphoneIcon className="w-2.5 h-2.5" />}
                                 {mainCategory}
                             </span>
-                            <p className="text-gray-500 text-xs">{item.date}</p>
+                            <p className="text-gray-500 text-xs">{formatDate(item.date)}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -121,7 +129,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
                 <CardContent className={`flex flex-col flex-grow p-4 ${isSponsored ? 'bg-yellow-50/20' : ''}`}>
                     <div className="flex-grow">
                         <div className="flex justify-between items-start mb-2">
-                            <p className="text-sm text-gray-500">{item.date}</p>
+                            <p className="text-sm text-gray-500">{formatDate(item.date)}</p>
                             <div className="relative z-10 -mt-1">
                                 <button
                                     onClick={handleShare}

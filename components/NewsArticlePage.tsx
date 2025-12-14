@@ -146,22 +146,29 @@ const NewsArticlePage: React.FC = () => {
 
     const safeRenderDate = (date: any): string => {
         if (!date) return "Unknown Date";
-        if (typeof date === 'string') return date;
-        if (date && typeof date.toDate === 'function') {
-            return date.toDate().toLocaleDateString('en-US', {
+        
+        // Handle Firestore Timestamp or ISO string conversion
+        let d: Date | null = null;
+
+        if (typeof date === 'string') {
+            d = new Date(date);
+        } else if (date && typeof date.toDate === 'function') {
+            d = date.toDate();
+        } else if (date.seconds && typeof date.seconds === 'number') {
+            d = new Date(date.seconds * 1000);
+        }
+
+        // If we have a valid date object
+        if (d && !isNaN(d.getTime())) {
+            return d.toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',
             });
         }
-        if (date.seconds && typeof date.seconds === 'number') {
-            return new Date(date.seconds * 1000).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-            });
-        }
-        return 'Invalid Date';
+        
+        // Fallback for non-standard strings
+        return typeof date === 'string' ? date : 'Invalid Date';
     };
 
 

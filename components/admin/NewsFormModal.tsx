@@ -46,6 +46,7 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
                 content: article.content || '',
                 image: article.image,
                 categories: cats,
+                // Ensure date is in YYYY-MM-DD for input field
                 date: new Date(article.date).toISOString().split('T')[0],
                 url: article.url,
             });
@@ -114,7 +115,7 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
             image: formData.image,
             url: formData.url,
             category: formData.categories, // Save array
-            date: new Date(formData.date).toDateString().slice(4) // e.g., "Oct 26 2023"
+            date: formData.date // Save YYYY-MM-DD
         };
         onSave(dataToSave as any, article?.id);
     };

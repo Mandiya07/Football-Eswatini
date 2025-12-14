@@ -1,20 +1,21 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
 import UsersIcon from './icons/UsersIcon';
-import { fetchYouthData, fetchAllCompetitions } from '../services/api';
-import { YouthLeague } from '../data/youth';
+import { fetchYouthData, fetchAllCompetitions, fetchNews } from '../services/api';
+import { YouthLeague, YouthArticle } from '../data/youth';
+import { NewsItem } from '../data/news';
 import Spinner from './ui/Spinner';
 import RisingStars from './RisingStars';
 import Fixtures from './Fixtures';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 import YouthArticleSection from './YouthArticleSection';
-import NewsSection from './News';
 
 const HubU17Page: React.FC = () => {
   const [data, setData] = useState<YouthLeague | null>(null);
+  const [globalNews, setGlobalNews] = useState<NewsItem[]>([]);
   const [competitionId, setCompetitionId] = useState<string>('hub-hardware-u17');
   const [loading, setLoading] = useState(true);
 
@@ -22,13 +23,15 @@ const HubU17Page: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [youthLeagues, allCompetitions] = await Promise.all([
+        const [youthLeagues, allCompetitions, newsData] = await Promise.all([
              fetchYouthData(),
-             fetchAllCompetitions()
+             fetchAllCompetitions(),
+             fetchNews()
         ]);
 
         const league = youthLeagues.find(l => l.id === 'hub-hardware-u17');
         setData(league || null);
+        setGlobalNews(newsData);
 
         // Resolve ID dynamically
         const compList = Object.entries(allCompetitions).map(([id, c]) => ({ id, name: c.name }));
@@ -49,6 +52,34 @@ const HubU17Page: React.FC = () => {
     };
     loadData();
   }, []);
+
+  // Merge dedicated youth articles with global news tagged for this section
+  const combinedArticles = useMemo(() => {
+      const specificArticles = data?.articles || [];
+      
+      const relevantGlobalNews = globalNews.filter(n => {
+          const title = n.title.toLowerCase();
+          const summary = n.summary.toLowerCase();
+          const cats = Array.isArray(n.category) ? n.category : [n.category];
+          
+          return (
+              cats.includes('Youth') ||
+              title.includes('hub') || title.includes('u17') || title.includes('u-17') ||
+              summary.includes('hub hardware')
+          );
+      }).map(n => ({
+          id: n.id,
+          title: n.title,
+          summary: n.summary,
+          content: n.content,
+          imageUrl: n.image,
+          date: n.date
+      } as YouthArticle));
+
+      return [...specificArticles, ...relevantGlobalNews].sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+  }, [data, globalNews]);
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
@@ -77,10 +108,12 @@ const HubU17Page: React.FC = () => {
         <div className="space-y-16">
             <div className="border-t pt-8">
                 <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Latest Updates</h2>
-                {data?.articles && data.articles.length > 0 ? (
-                    <YouthArticleSection articles={data.articles} />
+                {combinedArticles.length > 0 ? (
+                    <YouthArticleSection articles={combinedArticles} />
                 ) : (
-                    <NewsSection category="National" />
+                    <div className="text-center py-8 text-gray-500 bg-white rounded-lg border border-gray-200">
+                        No recent news articles found for Hub U-17.
+                    </div>
                 )}
             </div>
 
