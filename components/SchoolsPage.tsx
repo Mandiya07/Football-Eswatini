@@ -74,18 +74,14 @@ const SchoolsPage: React.FC = () => {
 
   // Merge dedicated youth articles with global news tagged for this section
   const combinedArticles = useMemo(() => {
+      // 1. Articles created specifically in the Youth Admin Panel for this league
       const specificArticles = schoolsData?.articles || [];
       
+      // 2. Global news that is EXPLICITLY categorized as 'Schools'
+      // STRICT FILTER: Removed loose keyword matching on title/summary to prevent unrelated news from appearing.
       const relevantGlobalNews = globalNews.filter(n => {
-          const title = n.title.toLowerCase();
-          const summary = n.summary.toLowerCase();
           const cats = Array.isArray(n.category) ? n.category : [n.category];
-          
-          return (
-              cats.includes('Schools') ||
-              title.includes('school') || title.includes('instacash') ||
-              summary.includes('school')
-          );
+          return cats.includes('Schools');
       }).map(n => ({
           id: n.id,
           title: n.title,
