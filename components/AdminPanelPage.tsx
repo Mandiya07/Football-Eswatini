@@ -19,6 +19,7 @@ import FeatureManagement from './admin/FeatureManagement';
 import RefereeManagement from './admin/RefereeManagement';
 import CategoryManagement from './admin/CategoryManagement';
 import CommunityEventManagement from './admin/CommunityEventManagement';
+import NDAGenerator from './admin/NDAGenerator';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -41,6 +42,7 @@ import SparklesIcon from './icons/SparklesIcon';
 import WhistleIcon from './icons/WhistleIcon';
 import ShareIcon from './icons/ShareIcon';
 import ImageIcon from './icons/ImageIcon';
+import ScaleIcon from './icons/ScaleIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
@@ -49,7 +51,7 @@ const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -87,6 +89,7 @@ const AdminPanelPage: React.FC = () => {
       case 'standings': return <RecalculateLogs />;
       case 'tournament': return <TournamentBracket />;
       case 'community': return <CommunityEventManagement />;
+      case 'contracts': return <NDAGenerator />;
       case 'seed': return <SeedDatabase />;
       case 'reset': return <ResetAllData />;
       case 'social': return <SocialMediaGenerator />;
@@ -134,7 +137,7 @@ const AdminPanelPage: React.FC = () => {
                         <TabButton tabName="youth" label="Youth Page" Icon={YouthIcon} />
                         <TabButton tabName="referees" label="Referees" Icon={WhistleIcon} />
                         <TabButton tabName="directory" label="Directory" Icon={BookIcon} />
-                        <TabButton tabName="crests" label="Team Crests" Icon={ImageIcon} />
+                        <TabButton tabName="crests" label="Logos & Crests" Icon={ImageIcon} />
                         <TabButton tabName="videos" label="Videos" Icon={FilmIcon} />
                         <TabButton tabName="ads" label="Ad Management" Icon={MegaphoneIcon} />
 
@@ -149,6 +152,9 @@ const AdminPanelPage: React.FC = () => {
                         <TabButton tabName="merge" label="Merge Teams" Icon={GitMergeIcon} />
                         <TabButton tabName="standings" label="Recalculate Logs" Icon={RefreshIcon} />
                         <TabButton tabName="tournament" label="Tournament Bracket" Icon={BracketIcon} />
+
+                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Legal</h4>
+                        <TabButton tabName="contracts" label="Legal & Contracts" Icon={ScaleIcon} />
 
                         <div className="!mt-6 pt-4 border-t border-red-200">
                             <h4 className="font-bold text-xs uppercase text-red-600 px-4">Danger Zone</h4>
