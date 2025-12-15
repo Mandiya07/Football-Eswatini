@@ -103,34 +103,45 @@ export const normalize = (name: string) =>
     .trim()
     .toLowerCase()
     .replace(/&/g, 'and') // Replace ampersand with 'and'
-    .replace(/\.|fc|football club/g, '') // remove all dots and 'fc' variants
+    .replace(/\.|fc|football club|united|utd/g, '') // remove common football suffixes/prefixes
+    .replace(/[^a-z0-9 ]/g, '') // keep only alphanumeric and spaces
     .replace(/\s+/g, ' ') // collapse multiple spaces
     .trim();
 
   
-// Normalizes a given team name against a list of official names using fuzzy matching.
+// Normalizes a given team name against a list of official names using improved fuzzy matching.
 export const normalizeTeamName = (inputName: string, officialNames: string[]): string | null => {
     if (!inputName || !officialNames || officialNames.length === 0) {
         return (inputName || '').trim() || null;
     }
 
     const trimmedInput = inputName.trim();
+    const lowerInput = trimmedInput.toLowerCase();
     
-    // 1. Try exact match (case-insensitive)
-    for (const officialName of officialNames) {
-        if (officialName.toLowerCase() === trimmedInput.toLowerCase()) {
-            return officialName;
-        }
-    }
+    // 1. Exact match (Case-insensitive)
+    const exactMatch = officialNames.find(n => n.toLowerCase() === lowerInput);
+    if (exactMatch) return exactMatch;
 
-    // 2. Fuzzy Match
+    const normInput = normalize(trimmedInput);
+    if (normInput.length < 2) return null; // Too short to match reliably
+
+    // 2. Fuzzy Match with Substring Bonus
     let bestMatch: string | null = null;
     let minDistance = Infinity;
-    const normalizedInput = normalize(trimmedInput);
 
     for (const officialName of officialNames) {
-        const normalizedOfficial = normalize(officialName);
-        const distance = levenshtein(normalizedInput, normalizedOfficial);
+        const normOfficial = normalize(officialName);
+        
+        let distance = levenshtein(normInput, normOfficial);
+        
+        // Bonus: If one is a substring of the other, reduce distance significantly
+        // This helps match "Swallows" to "Mbabane Swallows"
+        if (normOfficial.includes(normInput) || normInput.includes(normOfficial)) {
+            // Only apply bonus if the match isn't trivial (length > 3)
+            if (Math.min(normInput.length, normOfficial.length) > 3) {
+                 distance = distance * 0.4; // 60% discount on distance
+            }
+        }
         
         if (distance < minDistance) {
             minDistance = distance;
@@ -138,10 +149,14 @@ export const normalizeTeamName = (inputName: string, officialNames: string[]): s
         }
     }
 
-    // Threshold: allow small typos (e.g. 1-2 chars diff)
-    // "Royal Leopard" vs "Royal Leopards" (dist 1) -> Pass
-    // "Mbabane" vs "Manzini" (dist large) -> Fail
-    const threshold = Math.max(2, Math.floor(trimmedInput.length / 4));
+    // Dynamic Threshold:
+    // Allow roughly 1 edit per 3 characters, with a minimum floor of 3 edits for flexibility
+    // e.g. "Royal Leopard" (13 chars) vs "Royal Leopards" (14 chars) -> Dist 1 -> Pass
+    // e.g. "Swallows" (8 chars) vs "Mbabane Swallows" (16 chars) -> Dist 8. 
+    //      With bonus: Dist 8 * 0.4 = 3.2. 
+    //      Threshold: max(3, ceil(8 * 0.4)) = 4. 
+    //      3.2 < 4 -> Pass.
+    const threshold = Math.max(3, Math.ceil(normInput.length * 0.4));
 
     if (bestMatch && minDistance <= threshold) {
         return bestMatch;

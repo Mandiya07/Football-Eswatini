@@ -38,6 +38,26 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const [copied, setCopied] = useState(false);
     const { user } = useAuth();
     
+    // Live Match Simulation State
+    const [displayMinute, setDisplayMinute] = useState<string | number>(fixture.liveMinute || 0);
+
+    useEffect(() => {
+        if (fixture.status === 'live') {
+            setDisplayMinute(fixture.liveMinute || 0);
+            
+            // Only auto-increment if it's a number (not "HT", "FT", "45+2" etc usually handled by manual update)
+            if (typeof fixture.liveMinute === 'number') {
+                const interval = setInterval(() => {
+                    setDisplayMinute(prev => {
+                        if (typeof prev === 'number' && prev < 90) return prev + 1;
+                        return prev;
+                    });
+                }, 60000); // Update every minute
+                return () => clearInterval(interval);
+            }
+        }
+    }, [fixture.status, fixture.liveMinute]);
+
     const teamA = useMemo(() => teams.find(t => t.name.trim() === (fixture.teamA || '').trim()), [teams, fixture.teamA]);
     const teamB = useMemo(() => teams.find(t => t.name.trim() === (fixture.teamB || '').trim()), [teams, fixture.teamB]);
     
@@ -82,8 +102,8 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
             if (fixture.scoreAPen !== undefined && fixture.scoreBPen !== undefined) {
                 text += ` (${fixture.scoreAPen}-${fixture.scoreBPen} on penalties)`;
             }
-            if (fixture.status === 'live' && fixture.liveMinute) {
-                text += ` (Live at ${fixture.liveMinute}')`;
+            if (fixture.status === 'live' && displayMinute) {
+                text += ` (Live at ${displayMinute}')`;
             } else if (fixture.status === 'finished') {
                 text += ' (Full Time)';
             }
@@ -127,8 +147,8 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
         switch (fixture.status) {
             case 'live':
                 return (
-                    <div className="absolute top-1 right-1 flex items-center space-x-1 text-secondary font-bold text-[9px] animate-pulse">
-                        <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
+                    <div className="absolute top-1 right-1 flex items-center space-x-1 text-secondary font-bold text-[9px]">
+                        <span className="w-1.5 h-1.5 bg-secondary rounded-full animate-ping"></span>
                         <span>LIVE</span>
                     </div>
                 );
@@ -169,7 +189,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 
     const getStatusBorder = () => {
         switch (fixture.status) {
-            case 'live': return 'border-secondary';
+            case 'live': return 'border-secondary bg-red-50/10';
             case 'postponed': return 'border-yellow-500';
             case 'cancelled': return 'border-red-600';
             case 'abandoned': return 'border-gray-600';
@@ -209,7 +229,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
             >
                 {getStatusBadge()}
                 
-                <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white animate-pulse' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
+                <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
                     <span className="font-bold text-base leading-tight">{fixture.date}</span>
                     <span className="text-[9px] uppercase font-bold tracking-wider">{fixture.day}</span>
                 </div>
@@ -224,7 +244,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                     
                     {isScoreVisible ? (
                         <div className="text-center min-w-[5rem] flex flex-col justify-center">
-                            <p className={`font-bold text-xl leading-none ${fixture.status === 'live' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}>
+                            <p className={`font-bold text-xl leading-none ${fixture.status === 'live' ? 'text-red-600' : 'text-gray-900'}`}>
                                 {fixture.scoreA ?? '-'} - {fixture.scoreB ?? '-'}
                             </p>
                             {(fixture.scoreAPen !== undefined && fixture.scoreBPen !== undefined) && (
@@ -233,8 +253,8 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                                 </p>
                             )}
                             {fixture.status === 'live' && (
-                                <p className="text-[10px] font-bold text-red-600 mt-1 bg-red-100 px-1.5 py-0.5 rounded-full leading-none">
-                                    {fixture.liveMinute}'
+                                <p className="text-[10px] font-bold text-red-600 mt-1 bg-red-100 px-1.5 py-0.5 rounded-full leading-none flex items-center justify-center gap-1 animate-pulse">
+                                    {displayMinute}'
                                 </p>
                             )}
                         </div>
