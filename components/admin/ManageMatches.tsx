@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, addPendingChange } from '../../services/api';
-import { Competition, CompetitionFixture } from '../../data/teams';
+import { Competition, CompetitionFixture, Team, Player } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -82,21 +82,14 @@ const ManageMatches: React.FC = () => {
                     let filtered = list.filter(item => String(item.id).trim() !== targetId);
                     
                     // Attempt 2: Content Match Fallback
-                    // If nothing was removed by ID, try removing by matching content (Teams + Date)
                     if (filtered.length === initialLen) {
-                        console.warn(`ID delete failed for ${matchLabel}. Attempting content fallback deletion.`);
                         filtered = list.filter(item => {
                              const itemA = item.teamA.trim();
                              const itemB = item.teamB.trim();
                              const matchA = match.teamA.trim();
                              const matchB = match.teamB.trim();
                              const dateMatch = item.fullDate === match.fullDate;
-                             
-                             // Check for exact match OR swapped teams (just in case of data entry error, though less likely for delete)
-                             const teamsMatch = (itemA === matchA && itemB === matchB);
-                             
-                             // We want to keep items that DO NOT match.
-                             return !(teamsMatch && dateMatch);
+                             return !(itemA === matchA && itemB === matchB && dateMatch);
                         });
                     }
                     return filtered;
@@ -104,13 +97,6 @@ const ManageMatches: React.FC = () => {
 
                 const updatedFixtures = filterList(currentFixtures);
                 const updatedResults = filterList(currentResults);
-                
-                const itemsRemovedCount = (currentFixtures.length - updatedFixtures.length) + (currentResults.length - updatedResults.length);
-
-                if (itemsRemovedCount === 0) {
-                     throw new Error(`Could not find match "${matchLabel}" to delete. It may have already been removed.`);
-                }
-
                 const updatedTeams = calculateStandings(currentTeams, updatedResults, updatedFixtures);
 
                 transaction.update(docRef, removeUndefinedProps({
@@ -122,25 +108,14 @@ const ManageMatches: React.FC = () => {
             
             loadMatchData();
         } catch (error: any) {
-            // Handle permission error by submitting a request
             if (error.code === 'permission-denied' || user?.role !== 'super_admin') {
-                console.warn("Permission denied for delete. Submitting request instead.");
-                try {
-                    await addPendingChange({
-                        type: 'Match Delete',
-                        description: `Request to DELETE match: ${matchLabel} (ID: ${match.id}) from ${selectedComp}`,
-                        author: user?.email || 'Unknown User'
-                    });
-                    alert("Permission denied for direct deletion. A request has been submitted to the approval queue.");
-                } catch (reqError) {
-                    alert("Failed to submit deletion request.");
-                }
+                alert("Permission denied. Only super admins can delete matches.");
             } else {
                 console.error("Delete failed:", error);
                 alert(`Failed to delete: ${(error as Error).message}`);
                 handleFirestoreError(error, 'delete match');
             }
-            await loadMatchData(); // Refresh to ensure UI is in sync
+            await loadMatchData(); 
         } finally {
             setDeletingId(null);
         }
@@ -156,7 +131,6 @@ const ManageMatches: React.FC = () => {
         setIsEditModalOpen(false);
         
         try {
-            // Check if user is super_admin. Even if they are, handle potential permission errors gracefully.
             if (user?.role !== 'super_admin') {
                 throw { code: 'permission-denied' };
             }
@@ -167,32 +141,64 @@ const ManageMatches: React.FC = () => {
                 if (!docSnap.exists()) throw new Error("Competition not found");
 
                 const comp = docSnap.data() as Competition;
+                let currentTeams = comp.teams || [];
+                let teamsUpdated = false;
+
+                // --- LOGIC TO AUTO-ADD NEW PLAYERS FROM EVENTS ---
+                if (updatedMatch.events && updatedMatch.events.length > 0) {
+                    updatedMatch.events.forEach(event => {
+                        // Check if event has a player name specified
+                        if (event.playerName && event.teamName) {
+                            const teamIndex = currentTeams.findIndex(t => t.name.trim() === event.teamName?.trim());
+                            
+                            if (teamIndex !== -1) {
+                                const team = currentTeams[teamIndex];
+                                const playerExists = (team.players || []).some(p => p.name.trim().toLowerCase() === event.playerName?.trim().toLowerCase());
+                                
+                                if (!playerExists) {
+                                    // Player not found, create new one
+                                    const newPlayer: Player = {
+                                        id: Date.now() + Math.floor(Math.random() * 1000), // Generate ID
+                                        name: event.playerName.trim(),
+                                        position: 'Forward', // Default to forward if unknown
+                                        number: 0,
+                                        photoUrl: '',
+                                        bio: { age: 0, height: '-', nationality: 'Eswatini' },
+                                        stats: { appearances: 0, goals: 0, assists: 0 },
+                                        transferHistory: []
+                                    };
+                                    
+                                    // Update team in local array
+                                    const updatedPlayers = [...(team.players || []), newPlayer];
+                                    currentTeams[teamIndex] = { ...team, players: updatedPlayers };
+                                    teamsUpdated = true;
+                                    console.log(`Auto-created player: ${newPlayer.name} for ${team.name}`);
+                                }
+                            }
+                        }
+                    });
+                }
                 
-                // 1. Identify and remove the old match entry from both lists to prevent duplicates
+                // 1. Remove old match
                 const allOtherMatches = [...(comp.fixtures || []), ...(comp.results || [])]
                     .filter(f => String(f.id).trim() !== String(updatedMatch.id).trim());
 
-                // 2. Determine where the updated match belongs based on its status
-                // 'finished' matches go to results, everything else to fixtures
+                // 2. Determine destination (Fixtures vs Results)
                 const isFinished = updatedMatch.status === 'finished';
-                
                 const newFixtures = allOtherMatches.filter(f => f.status !== 'finished');
                 const newResults = allOtherMatches.filter(f => f.status === 'finished');
 
-                if (isFinished) {
-                    newResults.push(updatedMatch);
-                } else {
-                    newFixtures.push(updatedMatch);
-                }
+                if (isFinished) newResults.push(updatedMatch);
+                else newFixtures.push(updatedMatch);
 
-                // 3. Recalculate standings with the new state
-                const updatedTeams = calculateStandings(comp.teams || [], newResults, newFixtures);
+                // 3. Recalculate standings
+                const finalTeams = calculateStandings(currentTeams, newResults, newFixtures);
 
-                // 4. Commit updates
+                // 4. Commit updates (including new players if any)
                 transaction.update(docRef, removeUndefinedProps({
                     fixtures: newFixtures,
                     results: newResults,
-                    teams: updatedTeams
+                    teams: finalTeams
                 }));
             });
 
@@ -200,23 +206,11 @@ const ManageMatches: React.FC = () => {
             loadMatchData();
 
         } catch (error: any) {
-            // Handle permission error by submitting a request
             if (error.code === 'permission-denied' || user?.role !== 'super_admin') {
-                console.warn("Permission denied for update. Submitting request instead.");
-                try {
-                    await addPendingChange({
-                        type: 'Match Edit',
-                        description: `Request to UPDATE match: ${updatedMatch.teamA} vs ${updatedMatch.teamB} (ID: ${updatedMatch.id}). New Data: ${JSON.stringify(updatedMatch)}`,
-                        author: user?.email || 'Unknown User'
-                    });
-                    alert("Permission denied for direct update. A request has been submitted to the approval queue.");
-                } catch (reqError) {
-                    alert("Failed to submit update request.");
-                }
+                alert("Permission denied. Only super admins can update matches directly.");
             } else {
                 console.error("Update failed:", error);
                 alert(`Failed to update match: ${(error as Error).message}`);
-                handleFirestoreError(error, 'update match');
             }
         } finally {
             setSavingId(null);
@@ -240,7 +234,6 @@ const ManageMatches: React.FC = () => {
                             <span className="font-bold text-gray-900 bg-gray-200 px-2 py-0.5 rounded">{match.scoreA} - {match.scoreB}</span>
                         )}
                         <span className="text-xs">MD {match.matchday || '?'}</span>
-                        <span className="text-xs text-gray-400">ID: {match.id}</span>
                     </div>
                 </div>
                 <div className="flex-shrink-0 ml-4 flex gap-2">

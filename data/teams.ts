@@ -100,6 +100,9 @@ export interface MatchEvent {
     minute: number;
     type: 'goal' | 'yellow-card' | 'red-card' | 'substitution' | 'info' | 'match_status';
     description: string;
+    playerName?: string;
+    playerID?: number;
+    teamName?: string;
 }
 
 export interface CompetitionFixture {
