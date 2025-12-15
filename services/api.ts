@@ -47,6 +47,19 @@ export interface Ad {
   altText: string;
 }
 
+export interface MatchTicket {
+  id: string;
+  fixtureId: string | number;
+  competitionId: string;
+  teamA: string;
+  teamB: string;
+  date: string; // YYYY-MM-DD
+  time: string;
+  venue: string;
+  price: number;
+  status: 'available' | 'sold_out';
+}
+
 export interface PendingChange {
   id: string; // Firestore doc ID
   type: 'Score Update' | 'New Player' | 'Squad Removal' | 'Match Edit' | 'Match Delete';
@@ -616,6 +629,23 @@ export const validatePromoCode = async (code: string): Promise<PromoCode | null>
         handleFirestoreError(error, 'validate promo code');
         return null;
     }
+};
+
+// Match Tickets
+export const fetchMatchTickets = async (): Promise<MatchTicket[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'match_tickets'));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MatchTicket));
+    } catch (error) {
+        handleFirestoreError(error, 'fetch match tickets');
+        return [];
+    }
+};
+export const addMatchTicket = async (data: Omit<MatchTicket, 'id'>) => {
+    await addDoc(collection(db, 'match_tickets'), data);
+};
+export const deleteMatchTicket = async (id: string) => {
+    await deleteDoc(doc(db, 'match_tickets', id));
 };
 
 // Scouting
