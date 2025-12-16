@@ -149,11 +149,13 @@ const ManageMatches: React.FC = () => {
                     updatedMatch.events.forEach(event => {
                         // Check if event has a player name specified
                         if (event.playerName && event.teamName) {
-                            const teamIndex = currentTeams.findIndex(t => t.name.trim() === event.teamName?.trim());
+                            const teamNameLower = event.teamName.trim().toLowerCase();
+                            const teamIndex = currentTeams.findIndex(t => t.name.trim().toLowerCase() === teamNameLower);
                             
                             if (teamIndex !== -1) {
                                 const team = currentTeams[teamIndex];
-                                const playerExists = (team.players || []).some(p => p.name.trim().toLowerCase() === event.playerName?.trim().toLowerCase());
+                                const playerNameLower = event.playerName.trim().toLowerCase();
+                                const playerExists = (team.players || []).some(p => p.name.trim().toLowerCase() === playerNameLower);
                                 
                                 if (!playerExists) {
                                     // Player not found, create new one
@@ -174,6 +176,8 @@ const ManageMatches: React.FC = () => {
                                     teamsUpdated = true;
                                     console.log(`Auto-created player: ${newPlayer.name} for ${team.name}`);
                                 }
+                            } else {
+                                console.warn(`Team '${event.teamName}' not found in competition to add player.`);
                             }
                         }
                     });
@@ -191,7 +195,7 @@ const ManageMatches: React.FC = () => {
                 if (isFinished) newResults.push(updatedMatch);
                 else newFixtures.push(updatedMatch);
 
-                // 3. Recalculate standings
+                // 3. Recalculate standings (Using updated teams if players were added)
                 const finalTeams = calculateStandings(currentTeams, newResults, newFixtures);
 
                 // 4. Commit updates (including new players if any)
@@ -268,39 +272,35 @@ const ManageMatches: React.FC = () => {
                             <p className="text-sm text-gray-600">View, edit, and delete individual matches to reconcile data issues.</p>
                         </div>
                         <select 
-                            value={selectedComp} 
-                            onChange={(e) => setSelectedComp(e.target.value)} 
-                            className="block w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            value={selectedComp}
+                            onChange={(e) => setSelectedComp(e.target.value)}
+                            className="block w-full max-w-sm pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm"
                         >
                             {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
 
-                    {loading ? <div className="flex justify-center py-12"><Spinner /></div> : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {loading ? <div className="flex justify-center p-8"><Spinner/></div> : (
+                        <div className="space-y-6">
+                            {/* Fixtures */}
                             <div>
-                                <h4 className="font-bold text-lg mb-3 text-gray-700 border-b pb-2 flex justify-between items-center">
-                                    Match Results 
-                                    <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{data?.results?.length || 0}</span>
-                                </h4>
-                                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
-                                    {data?.results?.slice().sort((a, b) => new Date(b.fullDate || '').getTime() - new Date(a.fullDate || '').getTime()).map((m, index) => (
-                                        <MatchRow key={`${m.id}-${index}`} match={m} />
+                                <h4 className="text-lg font-bold text-gray-700 mb-3 border-b pb-2">Upcoming Fixtures ({data?.fixtures?.length || 0})</h4>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                    {(data?.fixtures || []).sort((a,b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime()).map(match => (
+                                        <MatchRow key={match.id} match={match} />
                                     ))}
-                                    {(!data?.results || data.results.length === 0) && <p className="text-sm text-gray-500 italic">No results found.</p>}
+                                    {(!data?.fixtures || data.fixtures.length === 0) && <p className="text-sm text-gray-500 italic">No scheduled fixtures.</p>}
                                 </div>
                             </div>
                             
+                            {/* Results */}
                             <div>
-                                <h4 className="font-bold text-lg mb-3 text-gray-700 border-b pb-2 flex justify-between items-center">
-                                    Scheduled Fixtures
-                                    <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{data?.fixtures?.length || 0}</span>
-                                </h4>
-                                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
-                                    {data?.fixtures?.slice().sort((a, b) => new Date(a.fullDate || '').getTime() - new Date(b.fullDate || '').getTime()).map((m, index) => (
-                                        <MatchRow key={`${m.id}-${index}`} match={m} />
+                                <h4 className="text-lg font-bold text-gray-700 mb-3 border-b pb-2">Completed Results ({data?.results?.length || 0})</h4>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                    {(data?.results || []).sort((a,b) => new Date(b.fullDate!).getTime() - new Date(a.fullDate!).getTime()).map(match => (
+                                        <MatchRow key={match.id} match={match} />
                                     ))}
-                                    {(!data?.fixtures || data.fixtures.length === 0) && <p className="text-sm text-gray-500 italic">No fixtures found.</p>}
+                                    {(!data?.results || data.results.length === 0) && <p className="text-sm text-gray-500 italic">No results found.</p>}
                                 </div>
                             </div>
                         </div>
@@ -308,13 +308,13 @@ const ManageMatches: React.FC = () => {
                 </CardContent>
             </Card>
 
-            {isEditModalOpen && editingMatch && data && (
-                <EditMatchModal 
+            {isEditModalOpen && editingMatch && data?.teams && (
+                <EditMatchModal
                     isOpen={isEditModalOpen}
                     onClose={() => setIsEditModalOpen(false)}
-                    onSave={handleSaveMatch}
                     match={editingMatch}
-                    teams={data.teams || []}
+                    teams={data.teams}
+                    onSave={handleSaveMatch}
                 />
             )}
         </>

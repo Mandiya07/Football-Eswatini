@@ -94,7 +94,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
             
             setNewEvent(prev => ({
                 ...prev,
-                description: `${prefix} ${newEvent.playerName} (${teamName})`
+                description: `${prefix} ${newEvent.playerName.trim()} (${teamName})`
             }));
         }
     }, [newEvent.type, newEvent.teamSide, newEvent.playerName, formData.teamA, formData.teamB]);
@@ -109,14 +109,15 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                          newEvent.teamSide === 'away' ? formData.teamB : undefined;
 
         // Try to find player ID if name matches existing roster
-        const existingPlayer = activeRoster.find(p => p.name.toLowerCase() === newEvent.playerName.toLowerCase());
+        const playerNameTrimmed = newEvent.playerName.trim();
+        const existingPlayer = activeRoster.find(p => p.name.trim().toLowerCase() === playerNameTrimmed.toLowerCase());
 
         const event: MatchEvent = {
             minute: parseInt(newEvent.minute, 10),
             type: newEvent.type,
             description: newEvent.description,
             teamName: teamName,
-            playerName: newEvent.playerName || undefined,
+            playerName: playerNameTrimmed || undefined,
             playerID: existingPlayer?.id
         };
         

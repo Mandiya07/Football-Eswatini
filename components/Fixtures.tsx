@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
-import { CompetitionFixture, Team, Competition } from '../data/teams';
+import { CompetitionFixture, Team, Competition, MatchEvent } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 import FixtureDetail from './FixtureDetail';
@@ -66,6 +66,14 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 
     const crestA = teamADirectory?.crestUrl || teamA?.crestUrl;
     const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
+
+    // Parse Goal Scorers
+    const { homeGoals, awayGoals } = useMemo(() => {
+        const events = fixture.events || [];
+        const home = events.filter(e => e.type === 'goal' && (e.teamName === fixture.teamA || (!e.teamName && !fixture.teamB))).map(e => `${e.playerName || 'Goal'} ${e.minute}'`);
+        const away = events.filter(e => e.type === 'goal' && (e.teamName === fixture.teamB)).map(e => `${e.playerName || 'Goal'} ${e.minute}'`);
+        return { homeGoals: home, awayGoals: away };
+    }, [fixture.events, fixture.teamA, fixture.teamB]);
 
     const getLinkProps = (teamObj: Team | undefined, teamName: string) => {
         // 1. Direct match in current competition context -> Link to Profile
@@ -235,13 +243,20 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                 </div>
 
                 <div className="flex-grow grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
+                    {/* Home Team */}
                     <div className="flex justify-end items-center gap-2 pr-1 overflow-hidden w-full">
-                        <div className="text-right truncate flex-grow">
+                        <div className="text-right flex-grow min-w-0 flex flex-col items-end">
                              {renderTeamName(fixture.teamA, teamALink)}
+                             {isScoreVisible && homeGoals.length > 0 && (
+                                <div className="text-[10px] text-gray-500 leading-tight mt-0.5 hidden sm:block">
+                                    {homeGoals.join(', ')}
+                                </div>
+                             )}
                         </div>
-                        {crestA && <img src={crestA} alt={`${fixture.teamA} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
+                        {crestA && <img src={crestA} alt={`${fixture.teamA} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
                     </div>
                     
+                    {/* Score / Time */}
                     {isScoreVisible ? (
                         <div className="text-center min-w-[5rem] flex flex-col justify-center">
                             <p className={`font-bold text-xl leading-none ${fixture.status === 'live' ? 'text-red-600' : 'text-gray-900'}`}>
@@ -267,10 +282,16 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                         </div>
                     )}
 
+                    {/* Away Team */}
                     <div className="flex justify-start items-center gap-2 pl-1 overflow-hidden w-full">
-                        {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-5 h-5 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
-                        <div className="text-left truncate flex-grow">
+                        {crestB && <img src={crestB} alt={`${fixture.teamB} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
+                        <div className="text-left flex-grow min-w-0 flex flex-col items-start">
                              {renderTeamName(fixture.teamB, teamBLink)}
+                             {isScoreVisible && awayGoals.length > 0 && (
+                                <div className="text-[10px] text-gray-500 leading-tight mt-0.5 hidden sm:block">
+                                    {awayGoals.join(', ')}
+                                </div>
+                             )}
                         </div>
                     </div>
                 </div>
