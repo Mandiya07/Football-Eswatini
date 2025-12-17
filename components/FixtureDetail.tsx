@@ -165,7 +165,7 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                     overflow: hidden;
                 }
             `}</style>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Match Info */}
                 <div className="space-y-3">
                     <h4 className="font-bold text-sm text-gray-800 border-b pb-2">Match Info</h4>
@@ -196,24 +196,6 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                         <span className="font-semibold text-gray-700">{fixture.teamB}</span>
                         {fixture.teamBForm && <FormGuide form={fixture.teamBForm} />}
                      </div>
-                </div>
-
-                {/* Live Stats */}
-                <div className="space-y-3">
-                     <h4 className="font-bold text-sm text-gray-800 border-b pb-2">Match Statistics</h4>
-                     {fixture.status === 'live' || fixture.status === 'finished' ? (
-                        <div className="text-sm space-y-2">
-                           <div className="flex justify-between"><span>Possession</span> <span>{fixture.teamA} 58% - 42% {fixture.teamB}</span></div>
-                           <div className="flex justify-between"><span>Shots on Target</span> <span>4 - 2</span></div>
-                           <div className="flex justify-between"><span>Corners</span> <span>6 - 3</span></div>
-                        </div>
-                     ) : (
-                         <p className="text-sm text-gray-500 italic">
-                            {['postponed', 'cancelled', 'abandoned', 'suspended'].includes(fixture.status || '') 
-                                ? `Match ${fixture.status}. Statistics unavailable.`
-                                : "Statistics will be available when the match starts."}
-                        </p>
-                     )}
                 </div>
             </div>
 

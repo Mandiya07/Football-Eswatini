@@ -248,7 +248,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                         <div className="text-right flex-grow min-w-0 flex flex-col items-end">
                              {renderTeamName(fixture.teamA, teamALink)}
                              {isScoreVisible && homeGoals.length > 0 && (
-                                <div className="text-[10px] text-gray-500 leading-tight mt-0.5 hidden sm:block">
+                                <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
                                     {homeGoals.join(', ')}
                                 </div>
                              )}
@@ -288,7 +288,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                         <div className="text-left flex-grow min-w-0 flex flex-col items-start">
                              {renderTeamName(fixture.teamB, teamBLink)}
                              {isScoreVisible && awayGoals.length > 0 && (
-                                <div className="text-[10px] text-gray-500 leading-tight mt-0.5 hidden sm:block">
+                                <div className="text-[10px] text-gray-500 leading-tight mt-0.5">
                                     {awayGoals.join(', ')}
                                 </div>
                              )}
