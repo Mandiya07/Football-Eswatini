@@ -44,8 +44,8 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
         website: '',
     });
     
-    // Default to true for new teams, false for existing (unless we want to force update)
-    const [addToDirectory, setAddToDirectory] = useState(false);
+    // Default to true for new teams to encourage directory population
+    const [addToDirectory, setAddToDirectory] = useState(true);
     
     useEffect(() => {
         if (!team) {
@@ -53,7 +53,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                 name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '',
                 facebook: '', twitter: '', instagram: '', youtube: '', website: ''
             });
-            setAddToDirectory(true); // Suggest adding to directory by default for new teams
+            setAddToDirectory(true); 
             return;
         }
 
@@ -69,6 +69,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
             youtube: team.socialMedia?.youtube || '',
             website: team.socialMedia?.website || '',
         });
+        // If editing, default to false unless user explicitly checks it
         setAddToDirectory(false);
 
     }, [team, isOpen, competitionId]);
@@ -136,22 +137,24 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                         </div>
                         
                         {/* Directory Option */}
-                        <div className="bg-blue-50 p-3 rounded-md border border-blue-100 flex items-center gap-3">
+                        <div className="bg-blue-50 p-3 rounded-md border border-blue-100 flex items-start gap-3">
                             <input 
                                 type="checkbox" 
                                 id="addToDirectory" 
                                 checked={addToDirectory} 
                                 onChange={(e) => setAddToDirectory(e.target.checked)}
-                                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 mt-1"
                             />
-                            <label htmlFor="addToDirectory" className="text-sm text-blue-800 font-medium cursor-pointer flex items-center gap-2">
-                                <BookIcon className="w-4 h-4" /> 
-                                {team ? 'Update/Link Directory Entry' : 'Add to Football Directory'}
-                            </label>
+                            <div>
+                                <label htmlFor="addToDirectory" className="text-sm text-blue-800 font-medium cursor-pointer flex items-center gap-2">
+                                    <BookIcon className="w-4 h-4" /> 
+                                    {team ? 'Update Directory Entry' : 'Add to Football Directory'}
+                                </label>
+                                <p className="text-xs text-blue-600 mt-0.5">
+                                    Sync this team to the public Directory listing.
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-500 px-1">
-                            Checking this will ensure the team appears in the public directory (e.g., Brave Lions in Lubombo Super League).
-                        </p>
 
                         <div>
                             <label htmlFor="crestUrl" className="block text-sm font-medium text-gray-700 mb-1">Crest URL or Upload</label>
