@@ -4,9 +4,6 @@ import { Team } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
-import BookIcon from '../icons/BookIcon';
-import CheckCircleIcon from '../icons/CheckCircleIcon';
-import { fetchDirectoryEntries } from '../../services/api';
 import FacebookIcon from '../icons/FacebookIcon';
 import TwitterIcon from '../icons/TwitterIcon';
 import InstagramIcon from '../icons/InstagramIcon';
@@ -28,8 +25,8 @@ type TeamFormData = {
 interface TeamFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    // Updated signature: accept addToDirectory boolean instead of linkedDirectoryId string
-    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number, addToDirectory?: boolean) => void;
+    // Updated signature: removed addToDirectory boolean
+    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number) => void;
     team: Team | null;
     competitionId: string;
 }
@@ -47,56 +44,28 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
         website: '',
     });
     
-    const [addToDirectory, setAddToDirectory] = useState(false);
-    const [alreadyInDirectory, setAlreadyInDirectory] = useState(false);
-    const [checkingDirectory, setCheckingDirectory] = useState(false);
-
     useEffect(() => {
-        const checkDirectory = async () => {
-            if (!team) {
-                setFormData({ 
-                    name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '',
-                    facebook: '', twitter: '', instagram: '', youtube: '', website: ''
-                });
-                setAddToDirectory(true); // Default check for new teams
-                return;
-            }
-
-            setCheckingDirectory(true);
-            try {
-                // Pre-fill form
-                setFormData({
-                    name: team.name,
-                    crestUrl: team.crestUrl,
-                    kitSponsorName: team.kitSponsor?.name || '',
-                    kitSponsorLogoUrl: team.kitSponsor?.logoUrl || '',
-                    facebook: team.socialMedia?.facebook || '',
-                    twitter: team.socialMedia?.twitter || '',
-                    instagram: team.socialMedia?.instagram || '',
-                    youtube: team.socialMedia?.youtube || '',
-                    website: team.socialMedia?.website || '',
-                });
-
-                // Check directory status
-                const entries = await fetchDirectoryEntries();
-                const exists = entries.some(e => 
-                    (e.teamId === team.id && e.competitionId === competitionId) || 
-                    (e.name.toLowerCase() === team.name.toLowerCase())
-                );
-                
-                setAlreadyInDirectory(exists);
-                setAddToDirectory(exists); // If exists, check the box to show it's linked (user can uncheck to unlink)
-
-            } catch (error) {
-                console.error("Error checking directory status", error);
-            } finally {
-                setCheckingDirectory(false);
-            }
-        };
-
-        if (isOpen) {
-            checkDirectory();
+        if (!team) {
+            setFormData({ 
+                name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '',
+                facebook: '', twitter: '', instagram: '', youtube: '', website: ''
+            });
+            return;
         }
+
+        // Pre-fill form
+        setFormData({
+            name: team.name,
+            crestUrl: team.crestUrl,
+            kitSponsorName: team.kitSponsor?.name || '',
+            kitSponsorLogoUrl: team.kitSponsor?.logoUrl || '',
+            facebook: team.socialMedia?.facebook || '',
+            twitter: team.socialMedia?.twitter || '',
+            instagram: team.socialMedia?.instagram || '',
+            youtube: team.socialMedia?.youtube || '',
+            website: team.socialMedia?.website || '',
+        });
+
     }, [team, isOpen, competitionId]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -140,7 +109,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
             dataToSave.kitSponsor = undefined;
         }
 
-        onSave(dataToSave, team?.id, addToDirectory);
+        onSave(dataToSave, team?.id);
     };
 
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
@@ -170,30 +139,6 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                                 </label>
                             </div>
                             {formData.crestUrl && <img src={formData.crestUrl} alt="Crest preview" className="mt-4 h-24 w-24 object-contain border rounded-full p-2 mx-auto" />}
-                        </div>
-
-                        {/* Directory Add Option */}
-                        <div className={`p-3 rounded-md border flex items-start gap-3 mt-2 ${addToDirectory ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-                            <div className="flex items-center h-5">
-                                <input
-                                    id="addToDirectory"
-                                    name="addToDirectory"
-                                    type="checkbox"
-                                    checked={addToDirectory}
-                                    onChange={(e) => setAddToDirectory(e.target.checked)}
-                                    className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                                />
-                            </div>
-                            <div className="text-sm">
-                                <label htmlFor="addToDirectory" className={`font-medium flex items-center gap-2 ${addToDirectory ? 'text-green-800' : 'text-gray-700'}`}>
-                                    {alreadyInDirectory ? <><CheckCircleIcon className="w-4 h-4"/> Linked to Directory</> : <><BookIcon className="w-4 h-4"/> Add to Football Directory</>}
-                                </label>
-                                <p className={`text-xs mt-1 ${addToDirectory ? 'text-green-700' : 'text-gray-500'}`}>
-                                    {alreadyInDirectory 
-                                     ? "Uncheck to remove this team's link to the public directory." 
-                                     : "Check to create a public profile for this team in the Directory."}
-                                </p>
-                            </div>
                         </div>
 
                         {/* Social Media Links */}

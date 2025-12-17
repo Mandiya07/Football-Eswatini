@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { Team, Competition } from '../../data/teams';
-import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry, deleteDirectoryEntry } from '../../services/api';
+import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -153,7 +153,7 @@ const ManageTeams: React.FC = () => {
         }
     };
 
-    const handleSaveTeam = async (data: Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>, id?: number, addToDirectory?: boolean) => {
+    const handleSaveTeam = async (data: Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>, id?: number) => {
         setLoading(true);
         setIsFormModalOpen(false);
         
@@ -161,6 +161,7 @@ const ManageTeams: React.FC = () => {
             const compDocRef = doc(db, 'competitions', selectedCompId);
             let finalTeamId = id;
             let teamName = data.name.trim();
+            let crestUrl = data.crestUrl;
     
             // --- 1. SAVE TEAM TO COMPETITION ---
             if (id) { // EDITING
@@ -237,78 +238,69 @@ const ManageTeams: React.FC = () => {
                 });
             }
             
-            // --- 2. HANDLE DIRECTORY ADDITION / LINKING ---
+            // --- 2. INTELLIGENT DIRECTORY LINKING (The Requested Feature) ---
             if (finalTeamId) {
                 try {
                     const directoryEntries = await fetchDirectoryEntries();
-                    // Robust lookup: check exact name AND cleaned name (ignoring case)
-                    const existingEntry = directoryEntries.find(e => 
-                        e.name.trim().toLowerCase() === teamName.toLowerCase() ||
-                        e.teamId === finalTeamId // Also check if already linked by ID
-                    );
+                    // Check if this team ID is already linked
+                    const alreadyLinked = directoryEntries.some(e => e.teamId === finalTeamId && e.competitionId === selectedCompId);
+                    
+                    if (!alreadyLinked) {
+                        // Find matching entry by name (case-insensitive)
+                        const matchingEntry = directoryEntries.find(e => 
+                            e.name.trim().toLowerCase() === teamName.toLowerCase()
+                        );
 
-                    if (addToDirectory) {
-                        // User WANTS it in directory
-                        
-                        // Re-fetch comps to get fresh name data for intelligent defaults
-                        const allComps = await fetchAllCompetitions(); 
-                        const compName = allComps[selectedCompId]?.name.toLowerCase() || '';
-                        
-                        let region: Region = 'Hhohho';
-                        if (compName.includes('manzini')) region = 'Manzini';
-                        else if (compName.includes('lubombo')) region = 'Lubombo';
-                        else if (compName.includes('shiselweni')) region = 'Shiselweni';
-
-                        let tier: DirectoryEntity['tier'] = 'Regional';
-                        if (compName.includes('premier')) tier = 'Premier League';
-                        else if (compName.includes('first division') || compName.includes('nfd')) tier = 'NFD';
-                        else if (compName.includes('women') || compName.includes('ladies')) tier = 'Womens League';
-                        else if (compName.includes('school')) tier = 'Schools';
-
-                        const directoryPayload: Omit<DirectoryEntity, 'id'> = {
-                            name: teamName,
-                            category: 'Club',
-                            region: region,
-                            crestUrl: data.crestUrl,
-                            teamId: finalTeamId,
-                            competitionId: selectedCompId,
-                            tier: tier,
-                            location: { lat: -26.5, lng: 31.5, address: `Eswatini` },
-                            contact: { email: '', phone: '' },
-                            founded: 0,
-                            stadium: ''
-                        };
-
-                        if (existingEntry) {
-                            // Update existing
-                             await updateDirectoryEntry(existingEntry.id, {
-                                ...directoryPayload,
-                                // Preserve existing valuable data if present
-                                location: existingEntry.location || directoryPayload.location,
-                                contact: existingEntry.contact || directoryPayload.contact,
-                                founded: existingEntry.founded || directoryPayload.founded,
-                                stadium: existingEntry.stadium || directoryPayload.stadium,
-                                crestUrl: data.crestUrl || existingEntry.crestUrl // Prefer new crest if provided
-                             });
-                             console.log(`Updated directory entry for ${teamName}`);
+                        if (matchingEntry) {
+                            // Scenario: Match found
+                            if (window.confirm(`Success! A directory entry found for "${matchingEntry.name}".\n\nWould you like to link this team to the existing directory entry?`)) {
+                                await updateDirectoryEntry(matchingEntry.id, { 
+                                    teamId: finalTeamId, 
+                                    competitionId: selectedCompId,
+                                    crestUrl: crestUrl || matchingEntry.crestUrl // Update crest if new one is provided
+                                });
+                                alert("Team successfully linked to Directory.");
+                            }
                         } else {
-                            // Create New
-                            await addDirectoryEntry(directoryPayload);
-                            console.log(`Created new directory entry for ${teamName}`);
+                            // Scenario: No match found
+                            if (window.confirm(`Team saved. No matching directory entry found for "${teamName}".\n\nWould you like to create a new public directory listing for this team?`)) {
+                                // Calculate intelligent defaults based on competition
+                                const allComps = await fetchAllCompetitions(); 
+                                const compName = allComps[selectedCompId]?.name.toLowerCase() || '';
+                                
+                                let region: Region = 'Hhohho';
+                                if (compName.includes('manzini')) region = 'Manzini';
+                                else if (compName.includes('lubombo')) region = 'Lubombo';
+                                else if (compName.includes('shiselweni')) region = 'Shiselweni';
+
+                                let tier: DirectoryEntity['tier'] = 'Regional';
+                                if (compName.includes('premier')) tier = 'Premier League';
+                                else if (compName.includes('first division') || compName.includes('nfd')) tier = 'NFD';
+                                else if (compName.includes('women') || compName.includes('ladies')) tier = 'Womens League';
+                                else if (compName.includes('school')) tier = 'Schools';
+
+                                const newEntry: Omit<DirectoryEntity, 'id'> = {
+                                    name: teamName,
+                                    category: 'Club',
+                                    region: region,
+                                    crestUrl: crestUrl,
+                                    teamId: finalTeamId,
+                                    competitionId: selectedCompId,
+                                    tier: tier,
+                                    location: { lat: -26.5, lng: 31.5, address: `Eswatini` },
+                                    contact: { email: '', phone: '' },
+                                    founded: 0,
+                                    stadium: ''
+                                };
+                                
+                                await addDirectoryEntry(newEntry);
+                                alert("New Directory listing created.");
+                            }
                         }
-                    } else if (existingEntry) {
-                        // User UNCHECKED the box, but entry exists.
-                        // We should UNLINK it (remove teamId/competitionId) but keep the directory entry
-                        // OR if it was auto-created, maybe delete it? For safety, we just unlink.
-                        await updateDirectoryEntry(existingEntry.id, { 
-                            teamId: null, 
-                            competitionId: null 
-                        });
-                        console.log(`Unlinked directory entry for ${teamName}`);
                     }
                 } catch (dirError) {
-                    console.error("Failed to update directory:", dirError);
-                    alert("Team saved, but failed to update Directory listing. Please try adding it manually via the Directory Manager.");
+                    console.error("Directory sync error:", dirError);
+                    // Don't fail the whole operation if directory sync fails, just log it
                 }
             }
 
