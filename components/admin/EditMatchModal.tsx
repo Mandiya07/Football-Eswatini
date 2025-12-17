@@ -7,6 +7,7 @@ import XIcon from '../icons/XIcon';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PhotoIcon from '../icons/PhotoIcon';
+import RefreshIcon from '../icons/RefreshIcon';
 
 interface EditMatchModalProps {
     isOpen: boolean;
@@ -129,6 +130,12 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
         setEvents(prev => prev.filter((_, i) => i !== index));
     };
 
+    const syncScoreFromEvents = () => {
+        const goalsA = events.filter(e => e.type === 'goal' && e.teamName === formData.teamA).length;
+        const goalsB = events.filter(e => e.type === 'goal' && e.teamName === formData.teamB).length;
+        setFormData(prev => ({ ...prev, scoreA: goalsA, scoreB: goalsB }));
+    };
+
     // --- Gallery Logic ---
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -219,14 +226,27 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                         </div>
 
                         {(formData.status === 'finished' || formData.status === 'live' || formData.status === 'abandoned') && (
-                            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-md border">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Home Score</label>
-                                    <input type="number" name="scoreA" value={formData.scoreA ?? ''} onChange={handleNumberChange} className={inputClass} min="0" />
+                            <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-sm font-bold text-gray-700">Scoreline</label>
+                                    <button 
+                                        type="button" 
+                                        onClick={syncScoreFromEvents} 
+                                        className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-semibold"
+                                        title="Updates the score inputs based on the number of Goal events in the list below."
+                                    >
+                                        <RefreshIcon className="w-3 h-3" /> Sync from Events
+                                    </button>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Away Score</label>
-                                    <input type="number" name="scoreB" value={formData.scoreB ?? ''} onChange={handleNumberChange} className={inputClass} min="0" />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-gray-500 mb-1">Home ({formData.teamA})</label>
+                                        <input type="number" name="scoreA" value={formData.scoreA ?? ''} onChange={handleNumberChange} className={inputClass} min="0" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-500 mb-1">Away ({formData.teamB})</label>
+                                        <input type="number" name="scoreB" value={formData.scoreB ?? ''} onChange={handleNumberChange} className={inputClass} min="0" />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -234,7 +254,9 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                         {/* Match Events Section */}
                         <div className="border-t pt-4 mt-4">
                              <h3 className="font-bold text-lg mb-2 text-gray-800">Match Events</h3>
-                             <p className="text-xs text-gray-500 mb-3">Adding a player name here will automatically add them to the team's roster if they don't exist.</p>
+                             <p className="text-xs text-gray-500 mb-3">
+                                 Note: If you add a new player name here, they will be <strong>automatically added</strong> to the team's roster when you save.
+                             </p>
                              
                              <div className="bg-blue-50 p-3 rounded-md mb-4 border border-blue-100">
                                 <div className="grid grid-cols-[60px_1fr_1fr] gap-2 mb-2">

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, addPendingChange } from '../../services/api';
+import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
 import { Competition, CompetitionFixture, Team, Player } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -144,10 +144,10 @@ const ManageMatches: React.FC = () => {
                 let currentTeams = comp.teams || [];
                 let teamsUpdated = false;
 
-                // --- LOGIC TO AUTO-ADD NEW PLAYERS FROM EVENTS ---
+                // --- CRITICAL: AUTO-ADD NEW PLAYERS FROM EVENTS TO ROSTER ---
                 if (updatedMatch.events && updatedMatch.events.length > 0) {
                     updatedMatch.events.forEach(event => {
-                        // Check if event has a player name specified
+                        // We only care if there is a player name and a team name attached to the event
                         if (event.playerName && event.teamName) {
                             const teamNameLower = event.teamName.trim().toLowerCase();
                             const teamIndex = currentTeams.findIndex(t => t.name.trim().toLowerCase() === teamNameLower);
@@ -158,11 +158,11 @@ const ManageMatches: React.FC = () => {
                                 const playerExists = (team.players || []).some(p => p.name.trim().toLowerCase() === playerNameLower);
                                 
                                 if (!playerExists) {
-                                    // Player not found, create new one
+                                    // Player not found in roster, create new entry
                                     const newPlayer: Player = {
-                                        id: Date.now() + Math.floor(Math.random() * 1000), // Generate ID
+                                        id: Date.now() + Math.floor(Math.random() * 10000), // Generate unique ID
                                         name: event.playerName.trim(),
-                                        position: 'Forward', // Default to forward if unknown
+                                        position: 'Forward', // Default position
                                         number: 0,
                                         photoUrl: '',
                                         bio: { age: 0, height: '-', nationality: 'Eswatini' },
@@ -170,24 +170,23 @@ const ManageMatches: React.FC = () => {
                                         transferHistory: []
                                     };
                                     
-                                    // Update team in local array
+                                    // Update team object in our local array copy
                                     const updatedPlayers = [...(team.players || []), newPlayer];
                                     currentTeams[teamIndex] = { ...team, players: updatedPlayers };
                                     teamsUpdated = true;
-                                    console.log(`Auto-created player: ${newPlayer.name} for ${team.name}`);
+                                    console.log(`[Auto-Roster] Created player: ${newPlayer.name} for ${team.name}`);
                                 }
-                            } else {
-                                console.warn(`Team '${event.teamName}' not found in competition to add player.`);
                             }
                         }
                     });
                 }
                 
-                // 1. Remove old match
+                // 1. Remove old version of the match from both lists to avoid duplicates
+                const targetId = String(updatedMatch.id).trim();
                 const allOtherMatches = [...(comp.fixtures || []), ...(comp.results || [])]
-                    .filter(f => String(f.id).trim() !== String(updatedMatch.id).trim());
+                    .filter(f => String(f.id).trim() !== targetId);
 
-                // 2. Determine destination (Fixtures vs Results)
+                // 2. Determine destination (Fixtures vs Results) based on status
                 const isFinished = updatedMatch.status === 'finished';
                 const newFixtures = allOtherMatches.filter(f => f.status !== 'finished');
                 const newResults = allOtherMatches.filter(f => f.status === 'finished');
@@ -195,10 +194,11 @@ const ManageMatches: React.FC = () => {
                 if (isFinished) newResults.push(updatedMatch);
                 else newFixtures.push(updatedMatch);
 
-                // 3. Recalculate standings (Using updated teams if players were added)
+                // 3. Recalculate standings using the UPDATED teams array (which now contains any new players)
+                // This ensures stats can be attributed correctly if we expand stats logic later
                 const finalTeams = calculateStandings(currentTeams, newResults, newFixtures);
 
-                // 4. Commit updates (including new players if any)
+                // 4. Commit all updates transactionally
                 transaction.update(docRef, removeUndefinedProps({
                     fixtures: newFixtures,
                     results: newResults,
@@ -206,7 +206,7 @@ const ManageMatches: React.FC = () => {
                 }));
             });
 
-            alert('Match updated successfully!');
+            alert('Match updated successfully! Scores, events, and rosters have been synchronized.');
             loadMatchData();
 
         } catch (error: any) {
@@ -269,7 +269,7 @@ const ManageMatches: React.FC = () => {
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                         <div>
                             <h3 className="text-2xl font-bold font-display text-gray-800">Manage Matches</h3>
-                            <p className="text-sm text-gray-600">View, edit, and delete individual matches to reconcile data issues.</p>
+                            <p className="text-sm text-gray-600">Update scores, log events, and correct fixture details.</p>
                         </div>
                         <select 
                             value={selectedComp}
