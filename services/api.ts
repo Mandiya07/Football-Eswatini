@@ -178,6 +178,7 @@ export interface LiveUpdate {
 // Interface for Community Football Hub
 export interface CommunityEvent {
     id: string;
+    userId?: string; // ID of the user who submitted
     title: string;
     eventType: 'Knockout' | 'League' | 'Festival' | 'Charity' | 'Trial' | 'Workshop' | 'Other';
     description: string;
@@ -185,8 +186,8 @@ export interface CommunityEvent {
     time: string;
     venue: string;
     organizer: string;
-    contactName: string;
-    contactPhone: string;
+    contactName?: string;
+    contactPhone?: string;
     contactEmail?: string;
     posterUrl?: string; // Base64 or URL
     status: 'pending' | 'approved';
@@ -945,8 +946,12 @@ export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {
     } catch { return []; }
 };
 
-export const submitCommunityEvent = async (data: Omit<CommunityEvent, 'id' | 'status' | 'createdAt'>) => {
+export const submitCommunityEvent = async (data: Omit<CommunityEvent, 'id' | 'status' | 'createdAt'> & { userId?: string }) => {
     await addDoc(collection(db, 'community_events'), { ...data, status: 'pending', createdAt: serverTimestamp(), likes: 0 });
+};
+
+export const updateCommunityEvent = async (id: string, data: Partial<CommunityEvent>) => {
+    await updateDoc(doc(db, 'community_events', id), data);
 };
 
 export const updateCommunityEventStatus = async (id: string, status: CommunityEvent['status']) => {
