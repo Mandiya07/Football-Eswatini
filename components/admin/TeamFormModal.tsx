@@ -9,6 +9,7 @@ import TwitterIcon from '../icons/TwitterIcon';
 import InstagramIcon from '../icons/InstagramIcon';
 import YouTubeIcon from '../icons/YouTubeIcon';
 import GlobeIcon from '../icons/GlobeIcon';
+import BookIcon from '../icons/BookIcon';
 
 type TeamFormData = {
     name: string;
@@ -25,8 +26,7 @@ type TeamFormData = {
 interface TeamFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    // Updated signature: removed addToDirectory boolean
-    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number) => void;
+    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number, addToDirectory?: boolean) => void;
     team: Team | null;
     competitionId: string;
 }
@@ -44,12 +44,16 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
         website: '',
     });
     
+    // Default to true for new teams, false for existing (unless we want to force update)
+    const [addToDirectory, setAddToDirectory] = useState(false);
+    
     useEffect(() => {
         if (!team) {
             setFormData({ 
                 name: '', crestUrl: '', kitSponsorName: '', kitSponsorLogoUrl: '',
                 facebook: '', twitter: '', instagram: '', youtube: '', website: ''
             });
+            setAddToDirectory(true); // Suggest adding to directory by default for new teams
             return;
         }
 
@@ -65,6 +69,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
             youtube: team.socialMedia?.youtube || '',
             website: team.socialMedia?.website || '',
         });
+        setAddToDirectory(false);
 
     }, [team, isOpen, competitionId]);
 
@@ -109,7 +114,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
             dataToSave.kitSponsor = undefined;
         }
 
-        onSave(dataToSave, team?.id);
+        onSave(dataToSave, team?.id, addToDirectory);
     };
 
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
@@ -129,6 +134,25 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Team Name</label>
                             <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required className={inputClass} />
                         </div>
+                        
+                        {/* Directory Option */}
+                        <div className="bg-blue-50 p-3 rounded-md border border-blue-100 flex items-center gap-3">
+                            <input 
+                                type="checkbox" 
+                                id="addToDirectory" 
+                                checked={addToDirectory} 
+                                onChange={(e) => setAddToDirectory(e.target.checked)}
+                                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <label htmlFor="addToDirectory" className="text-sm text-blue-800 font-medium cursor-pointer flex items-center gap-2">
+                                <BookIcon className="w-4 h-4" /> 
+                                {team ? 'Update/Link Directory Entry' : 'Add to Football Directory'}
+                            </label>
+                        </div>
+                        <p className="text-xs text-gray-500 px-1">
+                            Checking this will ensure the team appears in the public directory (e.g., Brave Lions in Lubombo Super League).
+                        </p>
+
                         <div>
                             <label htmlFor="crestUrl" className="block text-sm font-medium text-gray-700 mb-1">Crest URL or Upload</label>
                             <div className="flex items-center gap-2">
