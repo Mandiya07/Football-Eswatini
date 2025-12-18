@@ -13,6 +13,7 @@ import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import GitMergeIcon from '../icons/GitMergeIcon';
 import SparklesIcon from '../icons/SparklesIcon';
+import UsersIcon from '../icons/UsersIcon';
 
 const RecalculateLogs: React.FC = () => {
     const [leagues, setLeagues] = useState<{ id: string, name: string }[]>([]);
@@ -84,21 +85,16 @@ const RecalculateLogs: React.FC = () => {
 
                 const ghosts: string[] = [];
                 foundNames.forEach(name => {
-                    // Simple check first
-                    if (!officialNames.has(name)) {
-                        // Also check fuzzy. If the new calculateStandings handles it, it's not a "true" ghost for the logs,
-                        // but it IS a data inconsistency we should flag.
+                    if (!officialNames.has(name) && name.length > 0) {
                         ghosts.push(name);
                     }
                 });
                 setGhostTeams(ghosts.sort());
 
                 // 2. Detect Zombies (Teams in the list that have NO matches and 0 points)
-                // This usually happens if a team was duplicated/renamed but the old entry remains.
                 const zombies = teams.filter(t => {
                     const name = t.name.trim();
                     const hasMatches = allMatches.some(m => m.teamA.trim() === name || m.teamB.trim() === name);
-                    // A zombie is a team with no matches AND (safeguard) 0 points/games played in stats
                     return !hasMatches && (t.stats.p === 0);
                 });
                 setZombieTeams(zombies);
@@ -107,6 +103,50 @@ const RecalculateLogs: React.FC = () => {
             console.error("Error analyzing league", e);
         }
     };
+
+    const handleAdoptGhosts = async () => {
+        if (ghostTeams.length === 0) return;
+        if (!window.confirm(`This will create ${ghostTeams.length} new team entries in this league using the names found in match records (e.g. Hlathikhulu United). This will make them appear on the league log. Proceed?`)) return;
+
+        setSubmitting(true);
+        try {
+            const docRef = doc(db, 'competitions', selectedLeague);
+            await runTransaction(db, async (transaction) => {
+                const docSnap = await transaction.get(docRef);
+                if (!docSnap.exists()) throw new Error("Competition not found");
+                const data = docSnap.data() as Competition;
+                
+                const currentTeams = [...(data.teams || [])];
+                const allGlobalComps = await fetchAllCompetitions();
+                const allGlobalTeams = Object.values(allGlobalComps).flatMap(c => c.teams || []);
+                let nextId = allGlobalTeams.reduce((max, t) => Math.max(max, t.id), 0) + 1;
+
+                ghostTeams.forEach(name => {
+                    const newTeam: Team = {
+                        id: nextId++,
+                        name: name,
+                        crestUrl: `https://via.placeholder.com/128/333333/FFFFFF?text=${name.charAt(0)}`,
+                        stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+                        players: [], fixtures: [], results: [], staff: []
+                    };
+                    currentTeams.push(newTeam);
+                });
+
+                // Recalculate standings with new teams
+                const finalTeams = calculateStandings(currentTeams, data.results || [], data.fixtures || []);
+
+                transaction.update(docRef, removeUndefinedProps({ teams: finalTeams }));
+            });
+
+            setStatusMessage({ type: 'success', text: `Adopted ${ghostTeams.length} teams successfully! The log is now updated.` });
+            await analyzeLeague(selectedLeague);
+        } catch (error) {
+            handleFirestoreError(error, 'adopt ghost teams');
+            setStatusMessage({ type: 'error', text: 'Failed to adopt teams.' });
+        } finally {
+            setSubmitting(false);
+        }
+    }
 
     const handleAutoCorrectTypos = async () => {
         if (!window.confirm("This will scan all matches. If a team name is very similar to an official team (e.g. 'Leopard' vs 'Leopards'), it will update the match record to the official name. Proceed?")) return;
@@ -121,18 +161,15 @@ const RecalculateLogs: React.FC = () => {
                 if (!docSnap.exists()) throw new Error("Competition not found");
                 const data = docSnap.data() as Competition;
                 
-                // Create map of Normalized Name -> Official Name
                 const officialTeamMap = new Map<string, string>();
                 (data.teams || []).forEach(t => {
                     officialTeamMap.set(normalize(t.name), t.name.trim());
                 });
 
-                // Helper to find best match
                 const findOfficialName = (name: string): string | null => {
                     const norm = normalize(name);
                     if (officialTeamMap.has(norm)) return officialTeamMap.get(norm)!;
 
-                    // Fuzzy search
                     let bestMatch: string | null = null;
                     let minDist = Infinity;
                     for (const key of officialTeamMap.keys()) {
@@ -142,7 +179,6 @@ const RecalculateLogs: React.FC = () => {
                              bestMatch = officialTeamMap.get(key)!;
                          }
                     }
-                    // Strict threshold: 2 edits max
                     if (bestMatch && minDist <= 2) return bestMatch;
                     return null;
                 };
@@ -170,7 +206,6 @@ const RecalculateLogs: React.FC = () => {
                 const updatedFixtures = fixer(data.fixtures || []);
                 const updatedResults = fixer(data.results || []);
                 
-                // Also recalculate standings with clean names
                 const updatedTeams = calculateStandings(data.teams || [], updatedResults, updatedFixtures);
 
                 transaction.update(docRef, removeUndefinedProps({
@@ -274,8 +309,6 @@ const RecalculateLogs: React.FC = () => {
         }
         const sourceId = parseInt(sourceIdStr);
         const sourceTeam = officialTeams.find(t => t.id === sourceId);
-        
-        // Finding the zombie team object for confirmation name
         const targetTeam = zombieTeams.find(t => t.id === targetZombieId);
 
         if (!sourceTeam || !targetTeam) return;
@@ -293,7 +326,6 @@ const RecalculateLogs: React.FC = () => {
                 const oldName = sourceTeam.name.trim();
                 const newName = targetTeam.name.trim();
 
-                // 1. Rename matches
                 const renameMatches = (matches: CompetitionFixture[]) => matches.map(m => ({
                     ...m,
                     teamA: m.teamA.trim() === oldName ? newName : m.teamA,
@@ -303,12 +335,9 @@ const RecalculateLogs: React.FC = () => {
                 const updatedFixtures = renameMatches(data.fixtures || []);
                 const updatedResults = renameMatches(data.results || []);
 
-                // 2. Delete Source Team from list
                 const currentTeams = data.teams || [];
-                const updatedTeamList = currentTeams.filter(t => t.id !== sourceId); // Remove source
-                // Target (Zombie) is already in the list, so we don't add it.
+                const updatedTeamList = currentTeams.filter(t => t.id !== sourceId); 
 
-                // 3. Recalculate Standings (Target team will now pick up the stats from the matches)
                 const finalTeams = calculateStandings(updatedTeamList, updatedResults, updatedFixtures);
 
                 transaction.update(docRef, removeUndefinedProps({
@@ -397,14 +426,12 @@ const RecalculateLogs: React.FC = () => {
                             </select>
                         </div>
                         
-                        {/* NEW: Auto-Correct Section */}
                         <div className="border rounded-lg p-4 bg-purple-50 border-purple-200">
                             <h4 className="font-bold flex items-center gap-2 mb-2 text-purple-800">
                                 <SparklesIcon className="w-5 h-5"/> Auto-Correct Team Name Typos
                             </h4>
                             <p className="text-xs text-purple-700 mb-3">
-                                Use this if you see duplicates like "Royal Leopards" (Correct) vs "Royal Leopard" (Incorrect) in your logs.
-                                It scans all match records and automatically updates misspelled names to match your official team list.
+                                Scans all match records and automatically updates misspelled names to match your official team list.
                             </p>
                             <Button 
                                 onClick={handleAutoCorrectTypos}
@@ -417,14 +444,26 @@ const RecalculateLogs: React.FC = () => {
 
                         {/* GHOST TEAM DETECTOR (Matches -> Teams mismatch) */}
                         <div className={`border rounded-lg p-4 ${ghostTeams.length > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
-                            <h4 className={`font-bold flex items-center gap-2 mb-2 ${ghostTeams.length > 0 ? 'text-orange-800' : 'text-gray-700'}`}>
-                                {ghostTeams.length > 0 ? <AlertTriangleIcon className="w-5 h-5"/> : <span className="text-green-600">✓</span>} 
-                                Match Name Mismatches (Ghosts) - {ghostTeams.length} Detected
-                            </h4>
+                            <div className="flex justify-between items-start mb-2">
+                                <h4 className={`font-bold flex items-center gap-2 ${ghostTeams.length > 0 ? 'text-orange-800' : 'text-gray-700'}`}>
+                                    {ghostTeams.length > 0 ? <AlertTriangleIcon className="w-5 h-5"/> : <span className="text-green-600">✓</span>} 
+                                    Match Name Mismatches (Ghosts) - {ghostTeams.length} Detected
+                                </h4>
+                                {ghostTeams.length > 0 && (
+                                    <Button 
+                                        onClick={handleAdoptGhosts} 
+                                        disabled={submitting}
+                                        className="bg-orange-600 text-white text-[10px] h-7 px-3 flex items-center gap-1 shadow-sm"
+                                    >
+                                        <UsersIcon className="w-3 h-3" /> Adopt All as Teams
+                                    </Button>
+                                )}
+                            </div>
                             {ghostTeams.length > 0 ? (
                                 <>
                                     <p className="text-xs text-orange-700 mb-3">
-                                        These names appear in matches but are NOT in your official team list. This causes duplicates on the log. Map them to the correct team to fix.
+                                        These names appear in matches but are NOT in your official team list (e.g. <b>Hlathikhulu United</b>). 
+                                        Click <b>"Adopt All"</b> above to automatically create entries for them so they show on the log.
                                     </p>
                                     <div className="space-y-2">
                                         {ghostTeams.map(ghost => (
@@ -464,11 +503,7 @@ const RecalculateLogs: React.FC = () => {
                             {zombieTeams.length > 0 ? (
                                 <>
                                     <p className="text-xs text-blue-700 mb-3">
-                                        These teams exist in the list but have <b>0 matches</b> linked to them. This usually happens when a team is duplicated. 
-                                        <br/>
-                                        If this is the <b>Correct</b> team, use the "Merge Stats From" option to pull match history from the duplicate (Old Name).
-                                        <br/>
-                                        If this is the <b>Incorrect</b> duplicate, simply remove it.
+                                        These teams exist in the list but have <b>0 matches</b> linked to them.
                                     </p>
                                     <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                                         {zombieTeams.map(team => (
@@ -513,9 +548,9 @@ const RecalculateLogs: React.FC = () => {
                         </div>
 
                         <div className="pt-4 border-t">
-                            <p className="text-sm text-gray-600 mb-3">If standings are still incorrect (e.g. points didn't update after a result), force a full recalculation:</p>
+                            <p className="text-sm text-gray-600 mb-3">Force a full recalculation of all standings based on current match data:</p>
                             <Button onClick={handleRecalculate} disabled={submitting} className="bg-gray-800 text-white hover:bg-black h-11 w-auto flex justify-center items-center gap-2 px-6">
-                                {submitting ? <Spinner className="w-5 h-5 border-2"/> : <><RefreshIcon className="w-5 h-5" /> Force Recalculation</>}
+                                {submitting ? <Spinner className="w-5 h-5 border-2"/> : <><RefreshIcon className="w-5 h-5" /> Force Recalculate Logs</>}
                             </Button>
                         </div>
                     </div>

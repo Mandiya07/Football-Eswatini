@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -11,15 +10,17 @@ import SecondaryNavigation from './SecondaryNavigation';
 import Logo from './Logo';
 import ShieldIcon from './icons/ShieldIcon';
 import ChevronDownIcon from './icons/ChevronDownIcon';
-import { fetchNews, fetchAllCompetitions, fetchDirectoryEntries } from '../services/api';
+import { fetchNews, fetchAllCompetitions, fetchDirectoryEntries, fetchHybridTournaments } from '../services/api';
 import { NewsItem } from '../data/news';
 import { DirectoryEntity } from '../data/directory';
+import { HybridTournament } from '../data/international';
 import TrophyIcon from './icons/TrophyIcon';
 import CalendarIcon from './icons/CalendarIcon';
 import NewspaperIcon from './icons/NewspaperIcon';
+import GlobeIcon from './icons/GlobeIcon';
 
 interface SearchResult {
-    type: 'news' | 'team' | 'match';
+    type: 'news' | 'team' | 'match' | 'tournament';
     title: string;
     subtitle?: string;
     link: string;
@@ -37,7 +38,12 @@ const Navigation: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [cachedData, setCachedData] = useState<{ news: NewsItem[], teams: DirectoryEntity[], competitions: any } | null>(null);
+  const [cachedData, setCachedData] = useState<{ 
+    news: NewsItem[], 
+    teams: DirectoryEntity[], 
+    competitions: any,
+    hybridTournaments: HybridTournament[]
+  } | null>(null);
 
   const { isLoggedIn, user, openAuthModal, logout } = useAuth();
   const { cartCount } = useCart();
@@ -82,12 +88,18 @@ const Navigation: React.FC = () => {
       if (dataLoaded || cachedData) return;
       
       try {
-          const [newsData, competitionsData, directoryData] = await Promise.all([
+          const [newsData, competitionsData, directoryData, hybridData] = await Promise.all([
               fetchNews(),
               fetchAllCompetitions(),
-              fetchDirectoryEntries()
+              fetchDirectoryEntries(),
+              fetchHybridTournaments()
           ]);
-          setCachedData({ news: newsData, teams: directoryData, competitions: competitionsData });
+          setCachedData({ 
+            news: newsData, 
+            teams: directoryData, 
+            competitions: competitionsData,
+            hybridTournaments: hybridData
+          });
           setDataLoaded(true);
       } catch (err) {
           console.error("Failed to load search data", err);
@@ -120,7 +132,6 @@ const Navigation: React.FC = () => {
           newsMatches.forEach(n => results.push({ type: 'news', title: n.title, subtitle: n.date, link: n.url, id: n.id }));
 
           // 2. Filter Teams (Limit 3)
-          // Search in Directory for cleaner data, fallback to competitions if needed
           const teamMatches = cachedData.teams.filter(t => t.name.toLowerCase().includes(term) && t.category === 'Club').slice(0, 3);
           teamMatches.forEach(t => results.push({ 
               type: 'team', 
@@ -130,7 +141,17 @@ const Navigation: React.FC = () => {
               id: t.id 
           }));
 
-          // 3. Filter Fixtures (Limit 3) - Search upcoming fixtures in competitions
+          // 3. Filter Tournaments (Hybrid/International)
+          const hybridMatches = cachedData.hybridTournaments.filter(t => t.name.toLowerCase().includes(term)).slice(0, 2);
+          hybridMatches.forEach(t => results.push({
+            type: 'tournament',
+            title: t.name,
+            subtitle: 'International Tournament',
+            link: `/international?id=${t.id}`,
+            id: `hybrid-${t.id}`
+          }));
+
+          // 4. Filter Fixtures (Limit 3)
           let fixtureCount = 0;
           Object.values(cachedData.competitions).forEach((comp: any) => {
               if (fixtureCount >= 3) return;
@@ -184,6 +205,7 @@ const Navigation: React.FC = () => {
       if (type === 'news') return <NewspaperIcon className="w-4 h-4 text-gray-500" />;
       if (type === 'team') return <ShieldIcon className="w-4 h-4 text-blue-500" />;
       if (type === 'match') return <CalendarIcon className="w-4 h-4 text-green-500" />;
+      if (type === 'tournament') return <GlobeIcon className="w-4 h-4 text-purple-500" />;
       return null;
   };
 

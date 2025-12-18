@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import TournamentBracketDisplay from './TournamentBracketDisplay';
 import { Tournament, cupData as localCupData } from '../data/cups';
@@ -29,18 +28,18 @@ const CupsPage: React.FC = () => {
               fetchDirectoryEntries()
           ]);
           
-          // Create crest map from directory (Source of Truth)
           const crestMap = new Map<string, string>();
           dirEntries.forEach(e => {
              if (e.crestUrl) crestMap.set(e.name.trim().toLowerCase(), e.crestUrl);
           });
           
-          // Create a map starting with local data as fallback
           const cupsMap = new Map<string, Tournament>();
           localCupData.forEach(cup => cupsMap.set(cup.id, cup));
 
           if (fetchedCups.length > 0) {
               fetchedCups.forEach((cup: any) => {
+                  if (!cup || !cup.rounds) return;
+
                   const sampleMatch = cup.rounds?.[0]?.matches?.[0];
                   const isIdBased = sampleMatch && (sampleMatch.team1Id !== undefined || sampleMatch.team1 === undefined);
                   
@@ -49,7 +48,7 @@ const CupsPage: React.FC = () => {
                   if (isIdBased) {
                       const newRounds = cup.rounds.map((round: any) => ({
                           title: round.title,
-                          matches: round.matches.map((m: any) => {
+                          matches: (round.matches || []).map((m: any) => {
                               const t1 = fetchedTeams.find(t => t.id === m.team1Id);
                               const t1Name = t1 ? t1.name : (m.round > 1 ? 'Winner Previous' : 'TBD');
                               const t1Crest = crestMap.get(t1Name.trim().toLowerCase()) || (t1 ? t1.crestUrl : undefined);
@@ -79,10 +78,9 @@ const CupsPage: React.FC = () => {
                       }));
                       processedCup = { ...cup, rounds: newRounds };
                   } else {
-                       // Apply directory crests to non-ID based cups too
                        const newRounds = cup.rounds.map((round: any) => ({
                           title: round.title,
-                          matches: round.matches.map((m: any) => {
+                          matches: (round.matches || []).map((m: any) => {
                               const t1Name = m.team1?.name || 'TBD';
                               const t2Name = m.team2?.name || 'TBD';
                               const t1Crest = crestMap.get(t1Name.trim().toLowerCase()) || m.team1?.crestUrl;
@@ -98,23 +96,7 @@ const CupsPage: React.FC = () => {
                        processedCup = { ...cup, rounds: newRounds };
                   }
                   
-                  // Robust matching for admin-created tournament names to map to UI cards
-                  const cupNameLower = processedCup.name.toLowerCase();
-                  
-                  if (cupNameLower.includes("manzini") && cupNameLower.includes("ingwenyama")) {
-                      cupsMap.set('ingwenyama-manzini', { ...processedCup, id: 'ingwenyama-manzini' });
-                  } else if (cupNameLower.includes("hhohho") && cupNameLower.includes("ingwenyama")) {
-                      cupsMap.set('ingwenyama-hhohho', { ...processedCup, id: 'ingwenyama-hhohho' });
-                  } else if (cupNameLower.includes("lubombo") && cupNameLower.includes("ingwenyama")) {
-                      cupsMap.set('ingwenyama-lubombo', { ...processedCup, id: 'ingwenyama-lubombo' });
-                  } else if (cupNameLower.includes("shiselweni") && cupNameLower.includes("ingwenyama")) {
-                      cupsMap.set('ingwenyama-shiselweni', { ...processedCup, id: 'ingwenyama-shiselweni' });
-                  } else if (cupNameLower.includes("ingwenyama cup (national finals)") || (cupNameLower.includes("ingwenyama") && cupNameLower.includes("national"))) {
-                      cupsMap.set('ingwenyama-cup', { ...processedCup, id: 'ingwenyama-cup' });
-                  } else {
-                      // Overwrite or add normally using its Firestore ID
-                      cupsMap.set(cup.id, processedCup);
-                  }
+                  cupsMap.set(cup.id, processedCup);
               });
           }
           
@@ -135,6 +117,19 @@ const CupsPage: React.FC = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  /**
+   * ROBUST LOOKUP: 
+   * Finds a cup by name, handling non-breaking spaces and hidden characters.
+   */
+  const findCupIdByExactName = (name: string): string | null => {
+      // Use regex to normalize whitespace (including non-breaking spaces \u00A0)
+      const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+      const searchName = normalize(name);
+      
+      const found = cups.find(c => normalize(c.name) === searchName);
+      return found ? found.id : null;
+  };
+
   const handleIngwenyamaSelect = () => {
       setCurrentView('ingwenyama-hub');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -142,8 +137,10 @@ const CupsPage: React.FC = () => {
 
   const handleBack = () => {
       if (currentView === 'bracket') {
-          // If we were deep in a regional bracket, go back to region hub
-          if (selectedCupId?.startsWith('ingwenyama-')) {
+          const currentCup = cups.find(c => c.id === selectedCupId);
+          const isIngwenyama = currentCup?.name.toLowerCase().includes('ingwenyama cup') || currentCup?.id.startsWith('ingwenyama-');
+          
+          if (isIngwenyama) {
               setCurrentView('ingwenyama-hub');
           } else {
               setCurrentView('hub');
@@ -154,11 +151,8 @@ const CupsPage: React.FC = () => {
       setSelectedCupId(null);
   };
 
-  // --- Render Functions ---
-
   const renderHub = () => (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto animate-fade-in">
-          {/* Ingwenyama Cup Card */}
           <Card 
             className="group cursor-pointer hover:shadow-2xl transition-all duration-300 border-t-4 border-yellow-600 bg-gradient-to-br from-white to-yellow-50"
             onClick={handleIngwenyamaSelect}
@@ -177,7 +171,6 @@ const CupsPage: React.FC = () => {
               </CardContent>
           </Card>
 
-          {/* Trade Fair Cup Card */}
           <Card 
             className="group cursor-pointer hover:shadow-2xl transition-all duration-300 border-t-4 border-blue-600 bg-gradient-to-br from-white to-blue-50"
             onClick={() => handleCupSelect('trade-fair-cup')}
@@ -198,68 +191,78 @@ const CupsPage: React.FC = () => {
       </div>
   );
 
-  const renderIngwenyamaHub = () => (
-      <div className="animate-fade-in">
-          <div className="mb-8">
-              <Card className="bg-yellow-50 border-l-4 border-yellow-600">
-                  <CardContent className="p-6 flex items-start gap-4">
-                      <InfoIcon className="w-6 h-6 text-yellow-700 flex-shrink-0 mt-1"/>
-                      <div>
-                          <h3 className="font-bold text-yellow-900 text-lg">Regional Qualifiers</h3>
-                          <p className="text-yellow-800 text-sm mt-1">
-                              Winners from the four regional qualifiers join the National First Division and Premier League teams in the main knockout draw.
-                          </p>
-                      </div>
-                  </CardContent>
-              </Card>
-          </div>
+  const renderIngwenyamaHub = () => {
+      const regionConfig = [
+          { targetName: 'Hhohho Super League Ingwenyama Cup', label: 'Hhohho Region', sub: 'Hhohho Super League Qualifiers', color: 'text-blue-600', bg: 'bg-blue-50' },
+          { targetName: 'Lubombo Super League Ingwenyama Cup', label: 'Lubombo Region', sub: 'Lubombo Super League Qualifiers', color: 'text-green-600', bg: 'bg-green-50' },
+          { targetName: 'Shiselweni Super League Ingwenyama Cup', label: 'Shiselweni Region', sub: 'Shiselweni Super League Qualifiers', color: 'text-orange-600', bg: 'bg-orange-50' },
+          { targetName: 'Manzini Super League Ingwenyama Cup', label: 'Manzini Region', sub: 'Manzini Super League Qualifiers', color: 'text-red-600', bg: 'bg-red-50' },
+          { targetName: 'Ingwenyama Cup (Women)', label: 'Women\'s Tournament', sub: 'View Ladies Bracket', color: 'text-pink-600', bg: 'bg-pink-50' },
+      ];
 
-          <h2 className="text-2xl font-bold font-display text-center mb-6 text-gray-800">Select a Bracket</h2>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-              {/* National Final */}
-              <Card 
-                className="sm:col-span-2 lg:col-span-3 cursor-pointer hover:shadow-xl transition-shadow bg-gray-900 text-white"
-                onClick={() => handleCupSelect('ingwenyama-cup')}
-              >
-                  <CardContent className="p-6 flex items-center justify-between">
-                      <div>
-                          <h3 className="text-2xl font-bold font-display text-yellow-400">National Finals (Main Draw)</h3>
-                          <p className="text-gray-300 text-sm mt-1">The Last 32 to the Grand Final</p>
-                      </div>
-                      <ArrowRightIcon className="w-8 h-8 text-white" />
-                  </CardContent>
-              </Card>
-
-              {/* Regions */}
-              {[
-                  { id: 'ingwenyama-hhohho', name: 'Hhohho Region', sub: 'Hhohho Super League Qualifiers', color: 'text-blue-600', bg: 'bg-blue-50' },
-                  { id: 'ingwenyama-manzini', name: 'Manzini Region', sub: 'Manzini Super League Qualifiers', color: 'text-red-600', bg: 'bg-red-50' },
-                  { id: 'ingwenyama-lubombo', name: 'Lubombo Region', sub: 'Lubombo Super League Qualifiers', color: 'text-green-600', bg: 'bg-green-50' },
-                  { id: 'ingwenyama-shiselweni', name: 'Shiselweni Region', sub: 'Shiselweni Super League Qualifiers', color: 'text-orange-600', bg: 'bg-orange-50' },
-                  { id: 'ingwenyama-cup-women', name: 'Women\'s Tournament', sub: 'View Ladies Bracket', color: 'text-pink-600', bg: 'bg-pink-50' },
-              ].map(region => (
-                  <Card 
-                    key={region.id} 
-                    className="cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1"
-                    onClick={() => handleCupSelect(region.id)}
-                  >
-                      <CardContent className="p-6 flex flex-col items-center text-center">
-                          <div className={`w-12 h-12 ${region.bg} rounded-full flex items-center justify-center mb-3`}>
-                              <MapPinIcon className={`w-6 h-6 ${region.color}`} />
+      return (
+          <div className="animate-fade-in">
+              <div className="mb-8">
+                  <Card className="bg-yellow-50 border-l-4 border-yellow-600">
+                      <CardContent className="p-6 flex items-start gap-4">
+                          <InfoIcon className="w-6 h-6 text-yellow-700 flex-shrink-0 mt-1"/>
+                          <div>
+                              <h3 className="font-bold text-yellow-900 text-lg">Regional Qualifiers</h3>
+                              <p className="text-yellow-800 text-sm mt-1">
+                                  Winners from the regional qualifiers join the National First Division and Premier League teams in the main knockout draw.
+                              </p>
                           </div>
-                          <h3 className="font-bold text-lg text-gray-800">{region.name}</h3>
-                          <p className="text-xs text-gray-500 mt-1">{region.sub}</p>
                       </CardContent>
                   </Card>
-              ))}
+              </div>
+
+              <h2 className="text-2xl font-bold font-display text-center mb-6 text-gray-800">Select a Bracket</h2>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                  <Card 
+                    className="sm:col-span-2 lg:col-span-3 cursor-pointer hover:shadow-xl transition-shadow bg-gray-900 text-white"
+                    onClick={() => {
+                        const id = findCupIdByExactName('Ingwenyama Cup (National Finals)') || 'ingwenyama-cup';
+                        handleCupSelect(id);
+                    }}
+                  >
+                      <CardContent className="p-6 flex items-center justify-between">
+                          <div>
+                              <h3 className="text-2xl font-bold font-display text-yellow-400">National Finals (Main Draw)</h3>
+                              <p className="text-gray-300 text-sm mt-1">The Last 32 to the Grand Final</p>
+                          </div>
+                          <ArrowRightIcon className="w-8 h-8 text-white" />
+                      </CardContent>
+                  </Card>
+
+                  {regionConfig.map(region => {
+                      const actualId = findCupIdByExactName(region.targetName);
+                      
+                      if (!actualId) return null;
+
+                      return (
+                          <Card 
+                            key={region.targetName} 
+                            className="cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1"
+                            onClick={() => handleCupSelect(actualId)}
+                          >
+                              <CardContent className="p-6 flex flex-col items-center text-center">
+                                  <div className={`w-12 h-12 ${region.bg} rounded-full flex items-center justify-center mb-3`}>
+                                      <MapPinIcon className={`w-6 h-6 ${region.color}`} />
+                                  </div>
+                                  <h3 className="font-bold text-lg text-gray-800">{region.label}</h3>
+                                  <p className="text-xs text-gray-500 mt-1">{region.sub}</p>
+                              </CardContent>
+                          </Card>
+                      );
+                  })}
+              </div>
           </div>
-      </div>
-  );
+      );
+  };
 
   const renderBracketView = () => {
       const selectedCup = cups.find(c => c.id === selectedCupId);
-      
       if (!selectedCup) {
           return (
               <div className="text-center py-12">
@@ -268,7 +271,6 @@ const CupsPage: React.FC = () => {
               </div>
           );
       }
-
       return (
           <div className="animate-slide-up">
               <TournamentBracketDisplay tournament={selectedCup} />
@@ -279,8 +281,6 @@ const CupsPage: React.FC = () => {
   return (
     <div className="bg-gray-50 py-12 min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Header & Navigation */}
         <div className="mb-8">
             {currentView !== 'hub' && (
                 <button 
@@ -291,7 +291,6 @@ const CupsPage: React.FC = () => {
                     {currentView === 'bracket' ? 'Back to Selection' : 'Back to All Cups'}
                 </button>
             )}
-            
             <div className="text-center">
                 <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
                     {currentView === 'hub' ? 'Domestic Cups' : 
@@ -305,7 +304,6 @@ const CupsPage: React.FC = () => {
                 )}
             </div>
         </div>
-        
         {loading ? <SectionLoader /> : (
             <>
                 {currentView === 'hub' && renderHub()}

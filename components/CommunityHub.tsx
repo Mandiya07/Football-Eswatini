@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
@@ -290,21 +289,28 @@ const CommunityHub: React.FC = () => {
         loadEvents();
     }, []);
 
-    const featuredEvent = useMemo(() => {
-        return events.find(e => e.isSpotlight) || events[0];
-    }, [events]);
-
     const upcomingEvents = useMemo(() => {
         const today = new Date().toISOString().split('T')[0];
+        // Strictly filter to only include future or current events that don't have results yet
         return events.filter(e => e.date >= today && !e.resultsSummary).sort((a,b) => a.date.localeCompare(b.date));
     }, [events]);
 
+    const featuredEvent = useMemo(() => {
+        // Featured event must be from the upcoming list only
+        if (upcomingEvents.length === 0) return null;
+        return upcomingEvents.find(e => e.isSpotlight) || upcomingEvents[0];
+    }, [upcomingEvents]);
+
     const pastEvents = useMemo(() => {
-        return events.filter(e => e.resultsSummary).sort((a,b) => b.date.localeCompare(a.date));
+        const today = new Date().toISOString().split('T')[0];
+        // Past events are either those with summaries or those whose dates have passed
+        return events.filter(e => e.resultsSummary || e.date < today).sort((a,b) => b.date.localeCompare(a.date));
     }, [events]);
     
     const eventsPendingResults = useMemo(() => {
-        return events.filter(e => !e.resultsSummary).sort((a, b) => b.date.localeCompare(a.date));
+        const today = new Date().toISOString().split('T')[0];
+        // Allow reporting results for anything today or in the past that doesn't have a summary yet
+        return events.filter(e => !e.resultsSummary && e.date <= today).sort((a, b) => b.date.localeCompare(a.date));
     }, [events]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -399,7 +405,7 @@ const CommunityHub: React.FC = () => {
         }
     };
 
-    const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm";
+    const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-blue-500 sm:text-sm";
 
     return (
         <section className="mt-16 pt-12 border-t border-gray-200">
@@ -445,7 +451,7 @@ const CommunityHub: React.FC = () => {
                         )}
 
                         {/* Featured Spotlight */}
-                        {featuredEvent && (
+                        {featuredEvent ? (
                             <Card className="shadow-lg border-l-4 border-green-500 overflow-hidden bg-gradient-to-r from-green-50 to-white cursor-pointer" onClick={() => setViewEvent(featuredEvent)}>
                                 <CardContent className="p-0 flex flex-col md:flex-row">
                                     <div className="md:w-1/3 bg-gray-200 h-64 md:h-auto relative">
@@ -477,6 +483,10 @@ const CommunityHub: React.FC = () => {
                                     </div>
                                 </CardContent>
                             </Card>
+                        ) : !loading && communityNews.length === 0 && (
+                            <div className="text-center py-12 bg-gray-50 rounded-lg">
+                                <p className="text-gray-500 italic">No spotlight events at the moment.</p>
+                            </div>
                         )}
 
                         {/* Upcoming Grid */}
@@ -523,13 +533,14 @@ const CommunityHub: React.FC = () => {
                                                 <div>
                                                     <h4 className="font-bold text-lg text-gray-900">{event.title}</h4>
                                                     <div className="text-xs text-gray-500 mb-2">{event.date} &bull; {event.venue}</div>
-                                                    <p className="text-gray-700 bg-gray-50 p-3 rounded text-sm">{event.resultsSummary}</p>
+                                                    <p className="text-gray-700 bg-gray-50 p-3 rounded text-sm">
+                                                        {event.resultsSummary || "Results are still being verified for this event."}
+                                                    </p>
                                                 </div>
                                                 <div className="text-right flex-shrink-0 flex flex-col items-end gap-2">
-                                                    <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">COMPLETED</span>
-                                                    <div className="pointer-events-auto">
-                                                         {/* Like button specific logic handled inside generic card usually, here manually calling toggle if needed or just showing likes count */}
-                                                    </div>
+                                                    <span className={`text-xs font-bold px-2 py-1 rounded ${event.resultsSummary ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                                                        {event.resultsSummary ? 'COMPLETED' : 'PAST EVENT'}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </CardContent>

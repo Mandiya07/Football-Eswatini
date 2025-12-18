@@ -1,4 +1,3 @@
-
 export interface BracketMatchTeam {
     id?: number;
     name: string;
@@ -31,7 +30,7 @@ export interface Tournament {
 export const cupData: Tournament[] = [
     {
         id: 'ingwenyama-cup',
-        name: 'Ingwenyama Cup (National Finals)',
+        name: 'Ingwenyama Cup - National Finals',
         logoUrl: 'https://via.placeholder.com/150/8B4513/FFFFFF?text=Ingwenyama',
         rounds: [
             {
@@ -60,31 +59,29 @@ export const cupData: Tournament[] = [
     },
     {
         id: 'ingwenyama-hhohho',
-        name: 'Ingwenyama Cup (Hhohho Region)',
+        name: 'Ingwenyama Cup - Hhohho',
         logoUrl: 'https://via.placeholder.com/150/00008B/FFFFFF?text=Hhohho',
         rounds: [
-             {
+            {
+                title: 'Semi-Finals',
+                matches: [
+                    { id: 'h-sf1', team1: { name: 'Pigg\'s Peak Rangers', score: 1 }, team2: { name: 'Motshane FC', score: 2 }, winner: 'team2', date: '2024-01-13' },
+                    { id: 'h-sf2', team1: { name: 'Ntfonjeni Stars', score: 0 }, team2: { name: 'Mvuma Hotspurs', score: 1 }, winner: 'team2', date: '2024-01-13' },
+                ]
+            },
+            {
                 title: 'Regional Final',
                 matches: [
-                    { id: 'hhohho-f', team1: { name: 'Pigg\'s Peak Rangers' }, team2: { name: 'Motshane FC' }, date: '2024-01-20', venue: 'Rocklands Stadium' }
+                    { id: 'hhohho-f', team1: { name: 'Motshane FC' }, team2: { name: 'Mvuma Hotspurs' }, date: '2024-01-20', venue: 'Rocklands Stadium' }
                 ]
             }
         ]
     },
     {
         id: 'ingwenyama-manzini',
-        name: 'Manzini Super League Ingwenyama Cup',
+        name: 'Ingwenyama Cup - Manzini',
         logoUrl: 'https://via.placeholder.com/150/800000/FFFFFF?text=Manzini',
         rounds: [
-            {
-                title: 'Quarter-Finals',
-                matches: [
-                    { id: 'manz-qf1', team1: { name: 'Manzini Sea Birds II', score: 2 }, team2: { name: 'Malkerns FC', score: 0 }, winner: 'team1', date: '2024-01-06', venue: 'Manzini Club' },
-                    { id: 'manz-qf2', team1: { name: 'Ludzeludze Brothers', score: 1 }, team2: { name: 'Luyengo Foxes', score: 0 }, winner: 'team1', date: '2024-01-06', venue: 'Manzini Club' },
-                    { id: 'manz-qf3', team1: { name: 'Matsapha United', score: 3 }, team2: { name: 'Tinyosi FC', score: 2 }, winner: 'team1', date: '2024-01-07', venue: 'Mavuso Sports Centre' },
-                    { id: 'manz-qf4', team1: { name: 'Moneni Pirates II', score: 1 }, team2: { name: 'Mhubhe United', score: 0 }, winner: 'team1', date: '2024-01-07', venue: 'Mavuso Sports Centre' }
-                ]
-            },
             {
                 title: 'Semi-Finals',
                 matches: [
@@ -102,10 +99,17 @@ export const cupData: Tournament[] = [
     },
     {
         id: 'ingwenyama-lubombo',
-        name: 'Ingwenyama Cup (Lubombo Region)',
+        name: 'Ingwenyama Cup - Lubombo',
         logoUrl: 'https://via.placeholder.com/150/006400/FFFFFF?text=Lubombo',
         rounds: [
-             {
+            {
+                title: 'Semi-Finals',
+                matches: [
+                    { id: 'l-sf1', team1: { name: 'Siteki Scouts', score: 3 }, team2: { name: 'Tshaneni City', score: 1 }, winner: 'team1', date: '2024-01-13' },
+                    { id: 'l-sf2', team1: { name: 'Big Bend United', score: 2 }, team2: { name: 'Siteki Pros', score: 0 }, winner: 'team1', date: '2024-01-13' },
+                ]
+            },
+            {
                 title: 'Regional Final',
                 matches: [
                     { id: 'lub-f', team1: { name: 'Siteki Scouts' }, team2: { name: 'Big Bend United' }, date: '2024-01-21', venue: 'Mayaluka Stadium' }
@@ -115,10 +119,17 @@ export const cupData: Tournament[] = [
     },
     {
         id: 'ingwenyama-shiselweni',
-        name: 'Ingwenyama Cup (Shiselweni Region)',
+        name: 'Ingwenyama Cup - Shiselweni',
         logoUrl: 'https://via.placeholder.com/150/FF4500/FFFFFF?text=Shiselweni',
         rounds: [
-             {
+            {
+                title: 'Semi-Finals',
+                matches: [
+                    { id: 's-sf1', team1: { name: 'Nhlangano Sun', score: 1 }, team2: { name: 'Sigwe FC', score: 0 }, winner: 'team1', date: '2024-01-13' },
+                    { id: 's-sf2', team1: { name: 'Zombodze Eels', score: 2 }, team2: { name: 'Sandleni United', score: 1 }, winner: 'team1', date: '2024-01-13' },
+                ]
+            },
+            {
                 title: 'Regional Final',
                 matches: [
                     { id: 'shis-f', team1: { name: 'Nhlangano Sun' }, team2: { name: 'Zombodze Eels' }, date: '2024-01-21', venue: 'King Sobhuza II Stadium' }
@@ -147,46 +158,10 @@ export const cupData: Tournament[] = [
         ]
     },
     {
-        id: 'trade-fair-cup',
-        name: 'Trade Fair Cup',
-        logoUrl: 'https://via.placeholder.com/150/4682B4/FFFFFF?text=Trade+Fair',
-        rounds: [
-            {
-                title: 'Semi-Finals',
-                matches: [
-                    { id: 1, team1: { id: 5, name: 'Mbabane Highlanders', score: 2, crestUrl: 'https://via.placeholder.com/128/000000/FFFFFF?text=MH' }, team2: { id: 9, name: 'Manzini Sea Birds', score: 0, crestUrl: 'https://via.placeholder.com/128/87CEEB/000000?text=MSB' }, winner: 'team1', date: '2024-08-20', time: '13:00', venue: 'Mavuso' },
-                    { id: 2, team1: { id: 6, name: 'Manzini Wanderers', score: 1, crestUrl: 'https://via.placeholder.com/128/800080/FFFFFF?text=MW' }, team2: { id: 7, name: 'Moneni Pirates', score: 0, crestUrl: 'https://via.placeholder.com/128/FF4500/000000?text=MP' }, winner: 'team1', date: '2024-08-20', time: '15:30', venue: 'Mavuso' },
-                ]
-            },
-            {
-                title: 'Final',
-                matches: [
-                    { id: 3, team1: { id: 5, name: 'Mbabane Highlanders', score: 2, crestUrl: 'https://via.placeholder.com/128/000000/FFFFFF?text=MH' }, team2: { id: 6, name: 'Manzini Wanderers', score: 1, crestUrl: 'https://via.placeholder.com/128/800080/FFFFFF?text=MW' }, winner: 'team1', date: '2024-08-27', time: '15:00', venue: 'Mavuso Sports Centre' },
-                ]
-            }
-        ]
-    },
-    {
         id: 'instacash-schools-tournament',
         name: 'Instacash Schools Tournament',
         logoUrl: 'https://via.placeholder.com/150/F59E0B/FFFFFF?text=Instacash',
         rounds: [
-            {
-                title: 'Quarter-Finals',
-                matches: [
-                    { id: 1, team1: { name: 'Salesian High', score: 3, crestUrl: 'https://via.placeholder.com/64/6B7280/FFFFFF?text=SH' }, team2: { name: 'Evelyn Baring', score: 1, crestUrl: 'https://via.placeholder.com/64/34D399/000000?text=EBH' }, winner: 'team1', date: '2023-10-10', venue: 'King Sobhuza II' },
-                    { id: 2, team1: { name: 'St. Francis High', score: 0, crestUrl: 'https://via.placeholder.com/64/EF4444/FFFFFF?text=SFH' }, team2: { name: 'Manzini Nazarene', score: 1, crestUrl: 'https://via.placeholder.com/64/3B82F6/FFFFFF?text=MNH' }, winner: 'team2', date: '2023-10-10', venue: 'King Sobhuza II' },
-                    { id: 3, team1: { name: 'St. Marks High', score: '2 (4)', crestUrl: 'https://via.placeholder.com/64/14B8A6/FFFFFF?text=SMH' }, team2: { name: 'Sifundzani High', score: '2 (3)', crestUrl: 'https://via.placeholder.com/64/D63031/FFFFFF?text=SHS' }, winner: 'team1', date: '2023-10-11', venue: 'Mavuso' },
-                    { id: 4, team1: { name: 'Mbabane Central', score: 1, crestUrl: 'https://via.placeholder.com/64/FBBF24/000000?text=MCH' }, team2: { name: 'Waterford Kamhlaba', score: 0, crestUrl: 'https://via.placeholder.com/64/1E3A8A/FFFFFF?text=WK' }, winner: 'team1', date: '2023-10-11', venue: 'Mavuso' },
-                ]
-            },
-            {
-                title: 'Semi-Finals',
-                matches: [
-                    { id: 5, team1: { name: 'Salesian High', score: 2, crestUrl: 'https://via.placeholder.com/64/6B7280/FFFFFF?text=SH' }, team2: { name: 'Manzini Nazarene', score: 0, crestUrl: 'https://via.placeholder.com/64/3B82F6/FFFFFF?text=MNH' }, winner: 'team1', date: '2023-10-24', venue: 'Somhlolo Stadium' },
-                    { id: 6, team1: { name: 'St. Marks High', score: 1, crestUrl: 'https://via.placeholder.com/64/14B8A6/FFFFFF?text=SMH' }, team2: { name: 'Mbabane Central', score: 3, crestUrl: 'https://via.placeholder.com/64/FBBF24/000000?text=MCH' }, winner: 'team2', date: '2023-10-24', venue: 'Somhlolo Stadium' },
-                ]
-            },
             {
                 title: 'Final',
                 matches: [

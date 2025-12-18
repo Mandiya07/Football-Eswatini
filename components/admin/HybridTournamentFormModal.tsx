@@ -20,6 +20,7 @@ interface HybridTournamentFormModalProps {
 }
 
 const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ isOpen, onClose, onSave, tournament }) => {
+    const [id, setId] = useState('');
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
@@ -45,6 +46,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
 
     useEffect(() => {
         if (tournament) {
+            setId(tournament.id || '');
             setName(tournament.name || '');
             setDescription(tournament.description || '');
             setLogoUrl(tournament.logoUrl || '');
@@ -53,6 +55,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             setMatches(tournament.matches || []);
             setBracketId(tournament.bracketId || '');
         } else {
+            setId('');
             setName('');
             setDescription('');
             setLogoUrl('');
@@ -131,7 +134,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             matches,
             bracketId
         };
-        onSave(payload, tournament?.id);
+        onSave(payload, id || undefined);
     };
 
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
@@ -152,8 +155,20 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tournament ID (Slug)</label>
+                                        <input 
+                                            value={id} 
+                                            onChange={e => setId(e.target.value.toLowerCase().replace(/\s+/g, '-'))} 
+                                            required 
+                                            className={inputClass} 
+                                            placeholder="e.g. afcon-2025" 
+                                            disabled={!!tournament} // Disable editing ID for existing items to maintain data links
+                                        />
+                                        <p className="text-[10px] text-gray-500 mt-1">Unique identifier (slug) used for database linking.</p>
+                                    </div>
+                                    <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Name</label>
-                                        <input value={name} onChange={e => setName(e.target.value)} required className={inputClass} placeholder="e.g. AFCON 2025" />
+                                        <input value={name} onChange={e => setName(e.target.value)} required className={inputClass} placeholder="e.g. Africa Cup of Nations 2025" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>

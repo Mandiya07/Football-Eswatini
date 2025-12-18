@@ -1,188 +1,101 @@
-
 import { Team, CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 
 /**
  * Recursively removes properties with `undefined` values from an object or array.
- * This is crucial for Firestore, which does not support `undefined`.
- * @param obj The object or array to clean.
- * @returns A new object or array with all `undefined` values removed.
  */
 export const removeUndefinedProps = (obj: any): any => {
-    if (obj === null || obj === undefined) {
-        return obj;
-    }
-
-    if (Array.isArray(obj)) {
-        return obj
-            .map(item => removeUndefinedProps(item))
-            .filter(item => item !== undefined);
-    }
-    
-    if (typeof obj !== 'object' || obj.constructor !== Object) {
-        return obj;
-    }
-
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) return obj.map(item => removeUndefinedProps(item)).filter(item => item !== undefined);
+    if (typeof obj !== 'object' || obj.constructor !== Object) return obj;
     const newObj: { [key: string]: any } = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
             const value = obj[key];
             if (value !== undefined) {
                 const cleanedValue = removeUndefinedProps(value);
-                if (cleanedValue !== undefined) {
-                    newObj[key] = cleanedValue;
-                }
+                if (cleanedValue !== undefined) newObj[key] = cleanedValue;
             }
         }
     }
-    
     return newObj;
 };
 
 /**
  * Finds a team entity from the directory map using a more robust matching logic.
- * It first tries an exact match, then tries a cleaned match by removing common suffixes.
- * @param name The team name to search for.
- * @param map The directory map with lowercase keys.
- * @returns A DirectoryEntity or undefined if not found.
  */
 export const findInMap = (name: string, map: Map<string, DirectoryEntity>): DirectoryEntity | undefined => {
     if (!name) return undefined;
     const lowerName = name.trim().toLowerCase();
-    
-    // 1. Try exact match on the lowercase name
     const exactMatch = map.get(lowerName);
     if (exactMatch) return exactMatch;
-    
-    // 2. Try matching by cleaning suffixes like 'FC', 'Ladies', etc. from both the input and the map keys
     const cleanName = lowerName.replace(/\s+(fc|ladies)$/, '').trim();
-
-    for (const [key, value] of map.entries()) { // map keys are already lowercase
+    for (const [key, value] of map.entries()) {
         const cleanKey = key.replace(/\s+(fc|ladies)$/, '').trim();
-        if (cleanKey === cleanName) {
-            return value;
-        }
+        if (cleanKey === cleanName) return value;
     }
-
     return undefined;
 };
 
-
-// Levenshtein distance function to calculate similarity between two strings.
-export const levenshtein = (s1: string, s2: string): number => {
-    s1 = s1.toLowerCase();
-    s2 = s2.toLowerCase();
-  
-    const costs: number[] = new Array(s2.length + 1);
-    for (let i = 0; i <= s1.length; i++) {
-      let lastValue = i;
-      for (let j = 0; j <= s2.length; j++) {
-        if (i === 0) {
-          costs[j] = j;
-        } else {
-          if (j > 0) {
-            let newValue = costs[j - 1];
-            if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
-              newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-            }
-            costs[j - 1] = lastValue;
-            lastValue = newValue;
-          }
-        }
-      }
-      if (i > 0) {
-        costs[s2.length] = lastValue;
-      }
-    }
-    return costs[s2.length];
-};
-
-// Helper normalize function for consistent key usage
+// Helper normalize function - Extremely conservative to prevent name merging
 export const normalize = (name: string) => 
     (name || '')
     .trim()
     .toLowerCase()
-    .replace(/&/g, 'and') // Replace ampersand with 'and'
-    .replace(/\.|fc|football club|united|utd/g, '') // remove common football suffixes/prefixes
-    .replace(/[^a-z0-9 ]/g, '') // keep only alphanumeric and spaces
-    .replace(/\s+/g, ' ') // collapse multiple spaces
+    .replace(/&/g, 'and')
+    .replace(/\.|\,/g, '') // Only strip dots/commas
+    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/\s+/g, ' ') 
     .trim();
 
-  
-// Normalizes a given team name against a list of official names using improved fuzzy matching.
-export const normalizeTeamName = (inputName: string, officialNames: string[]): string | null => {
-    if (!inputName || !officialNames || officialNames.length === 0) {
-        return (inputName || '').trim() || null;
+/**
+ * Normalizes a team name and tries to find a match in a list of official team names.
+ */
+export const normalizeTeamName = (name: string, officialNames: string[]): string | null => {
+    if (!name) return null;
+    const normInput = normalize(name);
+    for (const official of officialNames) {
+        if (normalize(official) === normInput) return official;
     }
-
-    const trimmedInput = inputName.trim();
-    const lowerInput = trimmedInput.toLowerCase();
-    
-    // 1. Exact match (Case-insensitive)
-    const exactMatch = officialNames.find(n => n.toLowerCase() === lowerInput);
-    if (exactMatch) return exactMatch;
-
-    const normInput = normalize(trimmedInput);
-    if (normInput.length < 2) return null; // Too short to match reliably
-
-    // 2. Fuzzy Match with Substring Bonus
-    let bestMatch: string | null = null;
-    let minDistance = Infinity;
-
-    for (const officialName of officialNames) {
-        const normOfficial = normalize(officialName);
-        
-        let distance = levenshtein(normInput, normOfficial);
-        
-        // Bonus: If one is a substring of the other, reduce distance significantly
-        // This helps match "Swallows" to "Mbabane Swallows"
-        if (normOfficial.includes(normInput) || normInput.includes(normOfficial)) {
-            // Only apply bonus if the match isn't trivial (length > 3)
-            if (Math.min(normInput.length, normOfficial.length) > 3) {
-                 distance = distance * 0.4; // 60% discount on distance
-            }
-        }
-        
-        if (distance < minDistance) {
-            minDistance = distance;
-            bestMatch = officialName;
-        }
-    }
-
-    // Dynamic Threshold:
-    // Allow roughly 1 edit per 3 characters, with a minimum floor of 3 edits for flexibility
-    // e.g. "Royal Leopard" (13 chars) vs "Royal Leopards" (14 chars) -> Dist 1 -> Pass
-    // e.g. "Swallows" (8 chars) vs "Mbabane Swallows" (16 chars) -> Dist 8. 
-    //      With bonus: Dist 8 * 0.4 = 3.2. 
-    //      Threshold: max(3, ceil(8 * 0.4)) = 4. 
-    //      3.2 < 4 -> Pass.
-    const threshold = Math.max(3, Math.ceil(normInput.length * 0.4));
-
-    if (bestMatch && minDistance <= threshold) {
-        return bestMatch;
-    }
-
     return null;
 };
 
 /**
+ * Calculates the Levenshtein distance between two strings.
+ * Used for auto-correcting typos in team names.
+ */
+export const levenshtein = (a: string, b: string): number => {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+
+    const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
+    matrix[0] = Array.from({ length: a.length + 1 }, (_, i) => i);
+
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b[i - 1] === a[j - 1]) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+
+    return matrix[b.length][a.length];
+};
+
+/**
  * Calculates league standings from a list of teams and finished matches.
- * Implements Official Rules 8.1 & 8.2:
- * 1. Points
- * 2. Head-to-Head Points (if tied on points)
- * 3. Head-to-Head Away Goals (if tied on H2H points)
- * 4. Goal Difference (Overall)
- * 5. Goals Scored (Overall)
- * 
- * @param baseTeams The original list of teams.
- * @param allResults The list of all finished matches for the competition.
- * @param allFixtures The list of all scheduled matches.
- * @returns A new array of teams with updated and sorted standings.
+ * Scans ALL matches to ensure every team in the schedule appears on the log.
  */
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
     const teamsMap: Map<string, Team> = new Map();
     
-    // 1. Initialize map with baseTeams, ensuring stats are reset
+    // 1. Initialize map with existing baseTeams
     baseTeams.forEach(team => {
         const teamCopy = { ...team };
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' };
@@ -191,89 +104,39 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     
     const allMatches = [...(allResults || []), ...(allFixtures || [])];
 
-    // 2. Helper to resolve a name to an existing key in the map using fuzzy logic
-    const resolveKey = (name: string): string | null => {
-        const normName = normalize(name);
-        if (teamsMap.has(normName)) return normName;
-
-        // Fuzzy search existing keys
-        let bestKey: string | null = null;
-        let minDist = Infinity;
-        
-        for (const key of teamsMap.keys()) {
-            const dist = levenshtein(normName, key);
-            if (dist < minDist) {
-                minDist = dist;
-                bestKey = key;
-            }
-        }
-        
-        // Strict threshold: only match if very close (e.g. plural 's' missing)
-        if (bestKey && minDist <= 2) {
-            return bestKey;
-        }
-        return null;
-    };
-
-    // 3. Discover completely NEW teams that don't match anything in baseTeams
-    allMatches.forEach(match => {
-        [match.teamA, match.teamB].forEach(teamName => {
-            if (teamName) {
-                const resolvedKey = resolveKey(teamName);
-                
-                // If we couldn't resolve it to ANY existing team (even fuzzy), it's a true ghost/new team.
-                if (!resolvedKey) {
-                    const normalizedName = normalize(teamName);
-                    if (!teamsMap.has(normalizedName)) {
-                        // console.log(`Discovered completely new team "${teamName}" from match data.`);
-                        const newTeam: Team = {
-                            id: Date.now() + Math.random(), // Temporary ID
-                            name: teamName.trim(),
-                            crestUrl: '',
-                            stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
-                            players: [],
-                            fixtures: [],
-                            results: [],
-                            staff: [],
-                        };
-                        teamsMap.set(normalizedName, newTeam);
-                    }
-                }
+    // 2. DISCOVERY: Ensure ANY team in ANY match (fixture or result) is in the log map
+    allMatches.forEach(m => {
+        [m.teamA, m.teamB].forEach(name => {
+            if (!name) return;
+            const norm = normalize(name);
+            if (!teamsMap.has(norm)) {
+                const newTeam: Team = {
+                    id: Math.floor(Math.random() * 1000000), 
+                    name: name.trim(),
+                    crestUrl: `https://via.placeholder.com/128/333333/FFFFFF?text=${name.charAt(0)}`,
+                    stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+                    players: [], fixtures: [], results: [], staff: []
+                };
+                teamsMap.set(norm, newTeam);
             }
         });
     });
-    
-    // 4. Combine results with any fixtures that are mistakenly marked as 'finished'
-    const allFinishedMatches = allMatches
-        .filter(r => r.status === 'finished' && r.scoreA != null && r.scoreB != null);
-    
-    const getMatchKey = (match: CompetitionFixture) => {
-        const teams = [match.teamA.trim(), match.teamB.trim()].sort();
-        return `${teams[0]}-${teams[1]}-${match.fullDate}`;
-    };
-    const uniqueFinishedMatches = Array.from(new Map(allFinishedMatches.map(m => [getMatchKey(m), m])).values());
 
-    const sortedFinishedMatches = uniqueFinishedMatches
+    // 3. Process finished matches for stats
+    const finishedMatches = allMatches.filter(r => r.status === 'finished' && r.scoreA != null && r.scoreB != null);
+    const sortedMatches = finishedMatches
         .filter(fixture => fixture.fullDate)
         .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
 
-    for (const fixture of sortedFinishedMatches) {
-        // Resolve names to keys (handling typos)
-        const keyA = resolveKey(fixture.teamA) || normalize(fixture.teamA);
-        const keyB = resolveKey(fixture.teamB) || normalize(fixture.teamB);
+    for (const fixture of sortedMatches) {
+        const teamA = teamsMap.get(normalize(fixture.teamA));
+        const teamB = teamsMap.get(normalize(fixture.teamB));
         
-        const teamA = teamsMap.get(keyA);
-        const teamB = teamsMap.get(keyB);
-        
-        if (!teamA || !teamB) {
-            continue;
-        }
+        if (!teamA || !teamB || normalize(teamA.name) === normalize(teamB.name)) continue;
 
         const scoreA = fixture.scoreA!;
         const scoreB = fixture.scoreB!;
         
-        if (scoreA == null || scoreB == null) continue;
-
         teamA.stats.p += 1;
         teamB.stats.p += 1;
         teamA.stats.gs += scoreA;
@@ -283,139 +146,37 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         teamA.stats.gd = teamA.stats.gs - teamA.stats.gc;
         teamB.stats.gd = teamB.stats.gs - teamB.stats.gc;
 
-        let formA: 'W' | 'D' | 'L';
-        let formB: 'W' | 'D' | 'L';
-
         if (scoreA > scoreB) {
             teamA.stats.w += 1;
-            teamA.stats.pts += 3; // Rule 8.1
+            teamA.stats.pts += 3;
             teamB.stats.l += 1;
-            formA = 'W';
-            formB = 'L';
+            teamA.stats.form = ['W', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
+            teamB.stats.form = ['L', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         } else if (scoreB > scoreA) {
             teamB.stats.w += 1;
-            teamB.stats.pts += 3; // Rule 8.1
+            teamB.stats.pts += 3;
             teamA.stats.l += 1;
-            formB = 'W';
-            formA = 'L';
+            teamB.stats.form = ['W', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
+            teamA.stats.form = ['L', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         } else {
             teamA.stats.d += 1;
             teamB.stats.d += 1;
-            teamA.stats.pts += 1; // Rule 8.1
+            teamA.stats.pts += 1;
             teamB.stats.pts += 1;
-            formA = 'D';
-            formB = 'D';
+            teamA.stats.form = ['D', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
+            teamB.stats.form = ['D', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         }
-        
-        teamA.stats.form = [formA, ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
-        teamB.stats.form = [formB, ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
     }
 
-    const updatedTeams = Array.from(teamsMap.values());
-
-    // 5. Sort Teams based on Rules 8.2(a) - 8.2(d)
-    updatedTeams.sort((a, b) => {
-        // Rule 8.2(a): Points obtained in all matches
-        if (b.stats.pts !== a.stats.pts) {
-            return b.stats.pts - a.stats.pts;
-        }
-
-        // Rule 8.2(b): Head-to-Head (H2H)
-        // Find all finished matches between Team A and Team B
-        const normA = normalize(a.name);
-        const normB = normalize(b.name);
-
-        const h2hMatches = sortedFinishedMatches.filter(m => {
-            const mNormA = normalize(m.teamA);
-            const mNormB = normalize(m.teamB);
-            return (mNormA === normA && mNormB === normB) || (mNormA === normB && mNormB === normA);
-        });
-
-        if (h2hMatches.length > 0) {
-            let ptsA = 0;
-            let ptsB = 0;
-            let awayGoalsA = 0;
-            let awayGoalsB = 0;
-
-            h2hMatches.forEach(m => {
-                const mNormA = normalize(m.teamA);
-                const sA = m.scoreA ?? 0;
-                const sB = m.scoreB ?? 0;
-
-                // Determine if 'a' is Home or Away in this match
-                const isAHome = mNormA === normA;
-
-                if (isAHome) {
-                    // Match: A (Home) vs B (Away)
-                    if (sA > sB) ptsA += 3;
-                    else if (sB > sA) ptsB += 3;
-                    else { ptsA += 1; ptsB += 1; }
-                    
-                    // B scored 'sB' away goals
-                    awayGoalsB += sB;
-                } else {
-                    // Match: B (Home) vs A (Away)
-                    if (sB > sA) ptsB += 3;
-                    else if (sA > sB) ptsA += 3;
-                    else { ptsB += 1; ptsA += 1; }
-                    
-                    // A scored 'sA' away goals
-                    awayGoalsA += sA;
-                }
-            });
-
-            // 1. H2H Points
-            if (ptsA !== ptsB) return ptsB - ptsA;
-
-            // 2. H2H Away Goals Rule (inherent in 8.2(b))
-            if (awayGoalsA !== awayGoalsB) return awayGoalsB - awayGoalsA;
-        }
-
-        // Rule 8.2(c): Goal Difference (Overall)
-        if (b.stats.gd !== a.stats.gd) {
-            return b.stats.gd - a.stats.gd;
-        }
-
-        // Rule 8.2(d): Most Goals Scored (Overall)
-        if (b.stats.gs !== a.stats.gs) {
-            return b.stats.gs - a.stats.gs;
-        }
-
-        // Fallback: Alphabetical order
-        return a.name.localeCompare(b.name);
-    });
-
-    return updatedTeams;
+    return Array.from(teamsMap.values()).sort((a, b) => b.stats.pts - a.stats.pts || b.stats.gd - a.stats.gd || a.name.localeCompare(b.name));
 };
 
-/**
- * Calculates standings specifically for a subset of teams (Group Stage).
- * It filters the global match list to only include matches where BOTH teams are in the provided team list.
- * 
- * @param groupTeams The specific teams in this group.
- * @param allMatches All matches in the tournament.
- */
 export const calculateGroupStandings = (groupTeams: Team[], allMatches: CompetitionFixture[]): Team[] => {
-    // 1. Filter matches to only include those relevant to this group
     const groupTeamNames = new Set(groupTeams.map(t => normalize(t.name)));
-    
-    const groupMatches = allMatches.filter(m => {
-        const normA = normalize(m.teamA);
-        const normB = normalize(m.teamB);
-        return groupTeamNames.has(normA) && groupTeamNames.has(normB);
-    });
-    
-    // 2. Use standard calculation on this subset
+    const groupMatches = allMatches.filter(m => groupTeamNames.has(normalize(m.teamA)) && groupTeamNames.has(normalize(m.teamB)));
     return calculateStandings(groupTeams, groupMatches, []);
 };
 
-/**
- * Compresses an image file to a JPEG Base64 string with specified max width and quality.
- * @param file The image file to compress
- * @param maxWidth Maximum width in pixels
- * @param quality JPEG quality (0 to 1)
- * @returns Promise resolving to the base64 string
- */
 export const compressImage = (file: File, maxWidth: number = 1000, quality: number = 0.7): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -427,12 +188,10 @@ export const compressImage = (file: File, maxWidth: number = 1000, quality: numb
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-
                 if (width > maxWidth) {
                     height = Math.round((maxWidth / width) * height);
                     width = maxWidth;
                 }
-
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');

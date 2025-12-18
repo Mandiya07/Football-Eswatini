@@ -830,6 +830,9 @@ export const updateCup = async (id: string, data: any) => {
     // Using setDoc with merge:true to handle upsert (fix for fallback data edit issues)
     await setDoc(doc(db, 'cups', id), data, { merge: true }); 
 };
+export const deleteCup = async (id: string) => {
+    await deleteDoc(doc(db, 'cups', id));
+};
 
 // Hybrid Tournaments (International)
 export const fetchHybridTournaments = async (): Promise<HybridTournament[]> => {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { Card, CardContent } from '../ui/Card';
@@ -149,9 +148,15 @@ Text to parse:\n\n${pastedText}`;
         };
 
         try {
+            // FIX: Using gemini-3-flash-preview for text parsing task and correctly initializing ai with apiKey.
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: 'application/json', responseSchema } });
-            const parsedData = JSON.parse(response.text);
+            const response = await ai.models.generateContent({ 
+                model: 'gemini-3-flash-preview', 
+                contents: prompt, 
+                config: { responseMimeType: 'application/json', responseSchema } 
+            });
+            // FIX: Accessing response.text property directly (not calling it as a function).
+            const parsedData = JSON.parse(response.text || '[]');
 
             const processedData: ParsedFixture[] = parsedData.map((item: any, index: number) => {
                 const scores = Object.values(item.confidenceScores || {}).map(v => typeof v === 'number' ? v : 0.3);
@@ -283,7 +288,7 @@ Text to parse:\n\n${pastedText}`;
                     // Upsert Results Logic
                     newItems.forEach(newItem => {
                         const existingIndex = existingResults.findIndex(r => 
-                             r.teamA === newItem.teamA && r.teamB === newItem.teamB && r.fullDate === newItem.fullDate
+                            r.teamA === newItem.teamA && r.teamB === newItem.teamB && r.fullDate === newItem.fullDate
                         );
                         
                         if (existingIndex !== -1) {

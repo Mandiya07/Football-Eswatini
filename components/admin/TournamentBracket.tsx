@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { Team, Competition } from '../../data/teams';
-import { fetchCompetition, addCup, updateCup, handleFirestoreError, fetchAllCompetitions, fetchCups, fetchDirectoryEntries } from '../../services/api';
+import { fetchCompetition, addCup, updateCup, deleteCup, handleFirestoreError, fetchAllCompetitions, fetchCups, fetchDirectoryEntries } from '../../services/api';
 import { Tournament as DisplayTournament, BracketMatch as ApiBracketMatch } from '../../data/cups';
 import Spinner from '../ui/Spinner';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
@@ -11,6 +10,7 @@ import { db } from '../../services/firebase';
 import TournamentBracketDisplay from '../TournamentBracketDisplay';
 import EyeIcon from '../icons/BinocularsIcon';
 import EditIcon from '../icons/Edit3Icon';
+import TrashIcon from '../icons/TrashIcon';
 import XIcon from '../icons/XIcon';
 import RefreshIcon from '../icons/RefreshIcon';
 import { removeUndefinedProps } from '../../services/utils';
@@ -220,6 +220,7 @@ const TournamentBracket: React.FC = () => {
     const [availableTeamsForBracket, setAvailableTeamsForBracket] = useState<Team[]>([]); // Filtered list for current context
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [competitions, setCompetitions] = useState<{id: string, name: string}[]>([]);
     const [selectedSource, setSelectedSource] = useState('');
     const [showPreview, setShowPreview] = useState(false);
@@ -299,6 +300,24 @@ const TournamentBracket: React.FC = () => {
         };
         setTournament(adminT);
         setAvailableTeamsForBracket(allTeams); // When editing, allow all teams for flexibility
+    };
+
+    const handleDeleteTournament = async (tournamentId: string) => {
+        if (!window.confirm("Are you sure you want to delete this tournament bracket? This action cannot be undone.")) return;
+        
+        setDeletingId(tournamentId);
+        try {
+            await deleteCup(tournamentId);
+            setExistingTournaments(prev => prev.filter(t => t.id !== tournamentId));
+            if (tournament?.id === tournamentId) {
+                setTournament(null);
+            }
+        } catch (error) {
+            handleFirestoreError(error, 'delete tournament');
+            alert("Failed to delete tournament.");
+        } finally {
+            setDeletingId(null);
+        }
     };
 
     const handleSourceChange = async (compId: string) => {
@@ -574,9 +593,18 @@ const TournamentBracket: React.FC = () => {
                                                 <img src={t.logoUrl || 'https://via.placeholder.com/64?text=Cup'} className="w-8 h-8 object-contain rounded border" alt="" />
                                                 <span className="font-semibold text-sm">{t.name}</span>
                                             </div>
-                                            <Button onClick={() => handleEditExisting(t)} className="text-xs h-8 px-3 bg-blue-100 text-blue-600 hover:bg-blue-200">
-                                                <EditIcon className="w-3 h-3 mr-1"/> Edit
-                                            </Button>
+                                            <div className="flex gap-2">
+                                                <Button onClick={() => handleEditExisting(t)} className="text-xs h-8 px-3 bg-blue-100 text-blue-600 hover:bg-blue-200">
+                                                    <EditIcon className="w-3 h-3 mr-1"/> Edit
+                                                </Button>
+                                                <Button 
+                                                    onClick={() => handleDeleteTournament(t.id)} 
+                                                    className="text-xs h-8 px-3 bg-red-100 text-red-600 hover:bg-red-200"
+                                                    disabled={deletingId === t.id}
+                                                >
+                                                    {deletingId === t.id ? <Spinner className="w-3 h-3 border-red-600" /> : <><TrashIcon className="w-3 h-3 mr-1"/> Delete</>}
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

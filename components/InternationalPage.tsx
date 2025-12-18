@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { fetchHybridTournaments } from '../services/api';
 import { HybridTournament } from '../data/international';
 import TournamentView from './TournamentView';
@@ -10,9 +10,12 @@ import ArrowRightIcon from './icons/ArrowRightIcon';
 import Spinner from './ui/Spinner';
 
 const InternationalPage: React.FC = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [tournaments, setTournaments] = useState<HybridTournament[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
+    
+    // Use URL params for state to support direct linking
+    const selectedTournamentId = searchParams.get('id');
 
     useEffect(() => {
         const loadData = async () => {
@@ -31,12 +34,20 @@ const InternationalPage: React.FC = () => {
 
     const selectedTournament = tournaments.find(t => t.id === selectedTournamentId);
 
+    const handleSelectTournament = (id: string) => {
+        setSearchParams({ id });
+    };
+
+    const handleBack = () => {
+        setSearchParams({});
+    };
+
     if (selectedTournament) {
         return (
             <div className="bg-gray-50 py-12">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <button 
-                        onClick={() => setSelectedTournamentId(null)} 
+                        onClick={handleBack} 
                         className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors mb-6"
                     >
                         <ArrowLeftIcon className="w-4 h-4" /> Back to International Hub
@@ -58,7 +69,7 @@ const InternationalPage: React.FC = () => {
                         International Hub
                     </h1>
                     <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                        Follow the continental campaigns of Eswatini's finest and the journey of Sihlangu Semnikati.
+                        Your comprehensive source for international football fixtures, live results, and updated standings from across Africa and the world.
                     </p>
                 </div>
 
@@ -72,7 +83,7 @@ const InternationalPage: React.FC = () => {
                             <Card 
                                 key={tourn.id} 
                                 className="group cursor-pointer hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
-                                onClick={() => setSelectedTournamentId(tourn.id)}
+                                onClick={() => handleSelectTournament(tourn.id)}
                             >
                                 <CardContent className="p-8 flex flex-col h-full items-center text-center">
                                     <div className="h-24 w-24 mb-6 flex items-center justify-center">
