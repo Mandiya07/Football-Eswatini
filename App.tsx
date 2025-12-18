@@ -1,4 +1,5 @@
 
+
 import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation';
@@ -56,6 +57,7 @@ const ClubRegistrationPage = lazy(() => import('./components/ClubRegistrationPag
 const AdvertiserOnboardingPage = lazy(() => import('./components/AdvertiserOnboardingPage'));
 const SponsorOnboardingPage = lazy(() => import('./components/SponsorOnboardingPage'));
 const BrandedClubExample = lazy(() => import('./components/BrandedClubExample'));
+const InternationalPage = lazy(() => import('./components/InternationalPage'));
 
 
 const App: React.FC = () => {
@@ -90,6 +92,7 @@ const App: React.FC = () => {
               <Route path="/first-division" element={<NationalFirstDivisionPage />} />
               <Route path="/national-team" element={<NationalTeamLandingPage />} />
               <Route path="/national-team/:teamId" element={<NationalTeamDetailPage />} />
+              <Route path="/international" element={<InternationalPage />} />
               <Route path="/regional" element={<RegionalPage />} />
               <Route path="/region/:regionId" element={<RegionDetailPage />} />
               <Route path="/contact" element={<ContactPage />} />

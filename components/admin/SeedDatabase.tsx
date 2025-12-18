@@ -22,6 +22,7 @@ import { products } from '../../data/shop';
 import { refereeData } from '../../data/referees';
 import { Team, CompetitionFixture } from '../../data/teams';
 import { initialExclusiveContent, initialTeamYamVideos } from '../../data/features';
+import { internationalData } from '../../data/international';
 
 // --- DYNAMIC DATES ---
 const today = new Date();
@@ -238,6 +239,11 @@ const SeedDatabase: React.FC = () => {
                 batch.set(docRef, code);
             }
 
+            // Seed International (Hybrid) Tournaments
+            for (const tourn of internationalData) {
+                batch.set(doc(db, 'hybrid_tournaments', tourn.id), tourn);
+            }
+
             // 5. Regional Competitions Setup
             const regionalCompetitions = [
                 {
@@ -351,7 +357,7 @@ const SeedDatabase: React.FC = () => {
             seedLeagueGroup(youthCompetitions, 'development');
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database seeded successfully! Youth leagues, regional, and national data populated.' });
+            setStatus({ type: 'success', msg: 'Database seeded successfully! All major hubs populated.' });
         } catch (error) {
             console.error("Seeding failed:", error);
             setStatus({ type: 'error', msg: 'Failed to seed database. Check console for errors.' });
@@ -368,7 +374,7 @@ const SeedDatabase: React.FC = () => {
                     <h3 className="text-2xl font-bold font-display text-gray-800">Seed Database</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
-                    Initialize or reset the database with default content, including the <strong>National Team</strong>, <strong>Youth & Development</strong>, <strong>Regional</strong> leagues, and <strong>Exclusive Content</strong>.
+                    Initialize or reset the database with default content, including the <strong>National Team</strong>, <strong>International Hub</strong> (CAF, UEFA, World Cup), <strong>Youth & Development</strong>, and <strong>Regional</strong> leagues.
                     Use this if the app is empty or you want to restore default demo data.
                 </p>
 

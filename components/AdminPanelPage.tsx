@@ -20,6 +20,7 @@ import RefereeManagement from './admin/RefereeManagement';
 import CategoryManagement from './admin/CategoryManagement';
 import CommunityEventManagement from './admin/CommunityEventManagement';
 import NDAGenerator from './admin/NDAGenerator';
+import HybridTournamentManagement from './admin/HybridTournamentManagement';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -43,6 +44,7 @@ import WhistleIcon from './icons/WhistleIcon';
 import ShareIcon from './icons/ShareIcon';
 import ImageIcon from './icons/ImageIcon';
 import ScaleIcon from './icons/ScaleIcon';
+import GlobeIcon from './icons/GlobeIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
@@ -51,7 +53,7 @@ const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -88,6 +90,7 @@ const AdminPanelPage: React.FC = () => {
       case 'merge': return <MergeTeams />;
       case 'standings': return <RecalculateLogs />;
       case 'tournament': return <TournamentBracket />;
+      case 'international': return <HybridTournamentManagement />;
       case 'community': return <CommunityEventManagement />;
       case 'contracts': return <NDAGenerator />;
       case 'seed': return <SeedDatabase />;
@@ -146,6 +149,7 @@ const AdminPanelPage: React.FC = () => {
                         <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
                         <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
+                        <TabButton tabName="international" label="International Hub" Icon={GlobeIcon} />
                         <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
                         <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
                         <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />

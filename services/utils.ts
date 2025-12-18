@@ -225,7 +225,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
                 if (!resolvedKey) {
                     const normalizedName = normalize(teamName);
                     if (!teamsMap.has(normalizedName)) {
-                        console.log(`Discovered completely new team "${teamName}" from match data.`);
+                        // console.log(`Discovered completely new team "${teamName}" from match data.`);
                         const newTeam: Team = {
                             id: Date.now() + Math.random(), // Temporary ID
                             name: teamName.trim(),
@@ -386,6 +386,27 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     });
 
     return updatedTeams;
+};
+
+/**
+ * Calculates standings specifically for a subset of teams (Group Stage).
+ * It filters the global match list to only include matches where BOTH teams are in the provided team list.
+ * 
+ * @param groupTeams The specific teams in this group.
+ * @param allMatches All matches in the tournament.
+ */
+export const calculateGroupStandings = (groupTeams: Team[], allMatches: CompetitionFixture[]): Team[] => {
+    // 1. Filter matches to only include those relevant to this group
+    const groupTeamNames = new Set(groupTeams.map(t => normalize(t.name)));
+    
+    const groupMatches = allMatches.filter(m => {
+        const normA = normalize(m.teamA);
+        const normB = normalize(m.teamB);
+        return groupTeamNames.has(normA) && groupTeamNames.has(normB);
+    });
+    
+    // 2. Use standard calculation on this subset
+    return calculateStandings(groupTeams, groupMatches, []);
 };
 
 /**

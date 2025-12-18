@@ -51,6 +51,7 @@ const Navigation: React.FC = () => {
     { name: 'News', to: '/news' },
     { name: 'Fixtures', to: '/fixtures' },
     { name: 'Logs', to: '/logs' },
+    { name: 'International', to: '/international' },
     { name: 'Live', to: '/live-updates' },
     { name: 'Cups', to: '/cups' },
     { name: 'Womens', to: '/womens' },

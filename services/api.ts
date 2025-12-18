@@ -17,6 +17,7 @@ import { Referee, Rule, refereeData as defaultRefereeData } from '../data/refere
 import { calculateStandings, normalizeTeamName } from './utils';
 import { User } from '../contexts/AuthContext';
 import { ExclusiveItem, TeamYamVideo, initialExclusiveContent, initialTeamYamVideos } from '../data/features';
+import { HybridTournament, internationalData } from '../data/international';
 
 // NOTE: All data fetching functions now use Firebase Firestore with failover to local mock data.
 
@@ -780,7 +781,29 @@ export const fetchCups = async (): Promise<Tournament[]> => {
     } catch { return mockCupData; }
 };
 export const addCup = async (data: any) => { await addDoc(collection(db, 'cups'), data); };
-export const updateCup = async (id: string, data: any) => { await updateDoc(doc(db, 'cups', id), data); };
+export const updateCup = async (id: string, data: any) => { 
+    // Using setDoc with merge:true to handle upsert (fix for fallback data edit issues)
+    await setDoc(doc(db, 'cups', id), data, { merge: true }); 
+};
+
+// Hybrid Tournaments (International)
+export const fetchHybridTournaments = async (): Promise<HybridTournament[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'hybrid_tournaments'));
+        if (snapshot.empty) return internationalData;
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HybridTournament));
+    } catch { return internationalData; }
+};
+export const addHybridTournament = async (data: Omit<HybridTournament, 'id'>) => { 
+    return await addDoc(collection(db, 'hybrid_tournaments'), data); 
+};
+export const updateHybridTournament = async (id: string, data: Partial<HybridTournament>) => { 
+    // Using setDoc with merge:true to handle upsert (fix for fallback data edit issues)
+    return await setDoc(doc(db, 'hybrid_tournaments', id), data, { merge: true }); 
+};
+export const deleteHybridTournament = async (id: string) => { 
+    return await deleteDoc(doc(db, 'hybrid_tournaments', id)); 
+};
 
 // Referees
 export const fetchRefereesData = async (): Promise<{ referees: Referee[], ruleOfTheWeek: Rule }> => {
