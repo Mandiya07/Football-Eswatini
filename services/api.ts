@@ -1,4 +1,3 @@
-
 import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
 import { db } from './firebase';
@@ -475,24 +474,25 @@ export const listenToCompetition = (competitionId: string, callback: (data: Comp
     return unsubscribe; 
 };
 
-// --- Missing API Implementations ---
+// --- News API ---
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
     try {
-        // Fetch all news and sort client-side to handle inconsistent date formats
         const snapshot = await getDocs(collection(db, 'news'));
-        if (snapshot.empty) return newsData;
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsItem));
         
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsItem));
+        // Merge with local news if they don't already exist (based on URL as unique slug)
+        const dbUrls = new Set(dbItems.map(i => i.url));
+        const fallbacks = newsData.filter(i => !dbUrls.has(i.url));
         
-        // Robust sort
-        return items.sort((a, b) => {
+        const allItems = [...dbItems, ...fallbacks];
+        
+        return allItems.sort((a, b) => {
             const dateA = new Date(a.date).getTime();
             const dateB = new Date(b.date).getTime();
-            // Handle invalid dates by treating as old
             const valA = isNaN(dateA) ? 0 : dateA;
             const valB = isNaN(dateB) ? 0 : dateB;
-            return valB - valA; // Descending
+            return valB - valA; 
         });
     } catch (error) {
         handleFirestoreError(error, 'fetch news');
@@ -584,8 +584,13 @@ export const fetchPlayerById = async (playerId: number): Promise<{ player: Playe
 export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'directory'));
-        if (snapshot.empty) return mockDirectoryData;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DirectoryEntity));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DirectoryEntity));
+        
+        // Merge with local directory data if they don't already exist (based on Name as unique key)
+        const dbNames = new Set(dbItems.map(i => i.name.toLowerCase().trim()));
+        const fallbacks = mockDirectoryData.filter(i => !dbNames.has(i.name.toLowerCase().trim()));
+        
+        return [...dbItems, ...fallbacks];
     } catch (error) {
         handleFirestoreError(error, 'fetch directory');
         return mockDirectoryData;
@@ -605,8 +610,12 @@ export const deleteDirectoryEntry = async (id: string) => {
 export const fetchProducts = async (): Promise<Product[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'products'));
-        if (snapshot.empty) return mockProducts;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        
+        const dbNames = new Set(dbItems.map(i => i.name.toLowerCase().trim()));
+        const fallbacks = mockProducts.filter(i => !dbNames.has(i.name.toLowerCase().trim()));
+        
+        return [...dbItems, ...fallbacks];
     } catch (error) {
         handleFirestoreError(error, 'fetch products');
         return mockProducts;
@@ -654,8 +663,12 @@ export const deleteMatchTicket = async (id: string) => {
 export const fetchScoutedPlayers = async (): Promise<ScoutedPlayer[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'scouting'));
-        if (snapshot.empty) return mockScoutingData;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScoutedPlayer));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScoutedPlayer));
+        
+        const dbNames = new Set(dbItems.map(i => i.name.toLowerCase().trim()));
+        const fallbacks = mockScoutingData.filter(i => !dbNames.has(i.name.toLowerCase().trim()));
+        
+        return [...dbItems, ...fallbacks];
     } catch (error) {
         handleFirestoreError(error, 'fetch scouting');
         return mockScoutingData;
@@ -675,8 +688,12 @@ export const deleteScoutedPlayer = async (id: string) => {
 export const fetchVideos = async (): Promise<Video[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'videos'));
-        if (snapshot.empty) return mockVideoData;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
+        
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = mockVideoData.filter(i => !dbIds.has(i.id));
+        
+        return [...dbItems, ...fallbacks];
     } catch (error) {
         handleFirestoreError(error, 'fetch videos');
         return mockVideoData;
@@ -696,8 +713,12 @@ export const deleteVideo = async (id: string) => {
 export const fetchExclusiveContent = async (): Promise<ExclusiveItem[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'exclusiveContent'));
-        if (snapshot.empty) return initialExclusiveContent;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExclusiveItem));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExclusiveItem));
+        
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = initialExclusiveContent.filter(i => !dbIds.has(i.id));
+        
+        return [...dbItems, ...fallbacks];
     } catch { return initialExclusiveContent; }
 };
 export const addExclusiveContent = async (data: Omit<ExclusiveItem, 'id'>) => { await addDoc(collection(db, 'exclusiveContent'), data); };
@@ -707,8 +728,12 @@ export const deleteExclusiveContent = async (id: string) => { await deleteDoc(do
 export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'teamYamVideos'));
-        if (snapshot.empty) return initialTeamYamVideos;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamYamVideo));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamYamVideo));
+        
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = initialTeamYamVideos.filter(i => !dbIds.has(i.id));
+        
+        return [...dbItems, ...fallbacks];
     } catch { return initialTeamYamVideos; }
 };
 export const addTeamYamVideo = async (data: Omit<TeamYamVideo, 'id'>) => { await addDoc(collection(db, 'teamYamVideos'), data); };
@@ -718,8 +743,12 @@ export const deleteTeamYamVideo = async (id: string) => { await deleteDoc(doc(db
 export const fetchCoachingContent = async (): Promise<CoachingContent[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'coaching'));
-        if (snapshot.empty) return mockCoachingContent;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CoachingContent));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CoachingContent));
+        
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = mockCoachingContent.filter(i => !dbIds.has(i.id));
+        
+        return [...dbItems, ...fallbacks];
     } catch { return mockCoachingContent; }
 };
 export const addCoachingContent = async (data: Omit<CoachingContent, 'id'>) => { await addDoc(collection(db, 'coaching'), data); };
@@ -740,8 +769,12 @@ export const deleteBehindTheScenesContent = async (id: string) => { await delete
 export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'archive'));
-        if (snapshot.empty) return mockArchiveData;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ArchiveItem));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ArchiveItem));
+        
+        const dbIds = new Set(dbItems.map(i => String(i.id)));
+        const fallbacks = mockArchiveData.filter(i => !dbIds.has(String(i.id)));
+        
+        return [...dbItems, ...fallbacks];
     } catch { return mockArchiveData; }
 };
 export const addArchiveItem = async (data: Omit<ArchiveItem, 'id'>) => { await addDoc(collection(db, 'archive'), data); };
@@ -751,8 +784,12 @@ export const deleteArchiveItem = async (id: string) => { await deleteDoc(doc(db,
 export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'onThisDay'));
-        if (snapshot.empty) return mockOnThisDayData;
-        return snapshot.docs.map(doc => ({ id: parseInt(doc.id), ...doc.data() } as OnThisDayEvent));
+        const dbItems = snapshot.docs.map(doc => ({ id: parseInt(doc.id), ...doc.data() } as OnThisDayEvent));
+        
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = mockOnThisDayData.filter(i => !dbIds.has(i.id));
+        
+        return [...dbItems, ...fallbacks];
     } catch { return mockOnThisDayData; }
 };
 
@@ -767,8 +804,12 @@ export const fetchPhotoGalleries = async (): Promise<PhotoAlbum[]> => {
 export const fetchYouthData = async (): Promise<YouthLeague[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'youth'));
-        if (snapshot.empty) return mockYouthData;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as YouthLeague));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as YouthLeague));
+        
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = mockYouthData.filter(i => !dbIds.has(i.id));
+        
+        return [...dbItems, ...fallbacks];
     } catch { return mockYouthData; }
 };
 
@@ -776,8 +817,12 @@ export const fetchYouthData = async (): Promise<YouthLeague[]> => {
 export const fetchCups = async (): Promise<Tournament[]> => {
      try {
         const snapshot = await getDocs(collection(db, 'cups'));
-        if (snapshot.empty) return mockCupData;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
+        
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = mockCupData.filter(i => !dbIds.has(i.id));
+        
+        return [...dbItems, ...fallbacks];
     } catch { return mockCupData; }
 };
 export const addCup = async (data: any) => { await addDoc(collection(db, 'cups'), data); };
@@ -790,8 +835,13 @@ export const updateCup = async (id: string, data: any) => {
 export const fetchHybridTournaments = async (): Promise<HybridTournament[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'hybrid_tournaments'));
-        if (snapshot.empty) return internationalData;
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HybridTournament));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HybridTournament));
+        
+        // Merge with local data: Use DB version if it exists, otherwise fallback
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = internationalData.filter(i => !dbIds.has(i.id));
+        
+        return [...dbItems, ...fallbacks];
     } catch { return internationalData; }
 };
 export const addHybridTournament = async (data: Omit<HybridTournament, 'id'>) => { 
@@ -904,7 +954,7 @@ export const deleteCategory = async (id: string) => {
 export const resetAllCompetitionData = async () => {
     const comps = await fetchAllCompetitions();
     for (const [id, comp] of Object.entries(comps)) {
-        await updateDoc(doc(db, 'competitions', id), {
+        await updateDoc(doc(db, id), {
             fixtures: [], results: [], teams: []
         });
     }
