@@ -1,6 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
-import { CompetitionFixture, MatchEvent } from '../data/teams';
+import React, { useState, useEffect, useRef } from 'react';
+import { CompetitionFixture, MatchEvent, Player } from '../data/teams';
 import MapPinIcon from './icons/MapPinIcon';
 import UserIcon from './icons/UserIcon';
 import GoalIcon from './icons/GoalIcon';
@@ -14,11 +13,13 @@ import Button from './ui/Button';
 import Spinner from './ui/Spinner';
 import MessageSquareIcon from './icons/MessageSquareIcon';
 import { db } from '../services/firebase';
-import { doc, runTransaction } from 'firebase/firestore';
+import { doc, runTransaction, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { removeUndefinedProps } from '../services/utils';
 import PlusCircleIcon from './icons/PlusCircleIcon';
 import PhotoIcon from './icons/PhotoIcon';
 import XIcon from './icons/XIcon';
+import StarIcon from './icons/StarIcon';
+import SendIcon from './icons/SendIcon';
 
 const EventIcon: React.FC<{ type: MatchEvent['type'] }> = ({ type }) => {
     switch (type) {
@@ -30,63 +31,45 @@ const EventIcon: React.FC<{ type: MatchEvent['type'] }> = ({ type }) => {
     }
 };
 
-function formatTimeAgo(timestamp: { seconds: number } | null): string {
-  if (!timestamp) return '';
-  const now = new Date();
-  const commentDate = new Date(timestamp.seconds * 1000);
-  const seconds = Math.floor((now.getTime() - commentDate.getTime()) / 1000);
-
-  if (seconds < 0) return 'just now'; // Handle minor clock differences
-
-  let interval = seconds / 31536000;
-  if (interval > 1) {
-    const years = Math.floor(interval);
-    return years + (years === 1 ? " year ago" : " years ago");
-  }
-  interval = seconds / 2592000;
-  if (interval > 1) {
-    const months = Math.floor(interval);
-    return months + (months === 1 ? " month ago" : " months ago");
-  }
-  interval = seconds / 86400;
-  if (interval > 1) {
-    const days = Math.floor(interval);
-    return days + (days === 1 ? " day ago" : " days ago");
-  }
-  interval = seconds / 3600;
-  if (interval > 1) {
-    const hours = Math.floor(interval);
-    return hours + (hours === 1 ? " hour ago" : " hours ago");
-  }
-  interval = seconds / 60;
-  if (interval > 1) {
-    const minutes = Math.floor(interval);
-    return minutes + (minutes === 1 ? " minute ago" : " minutes ago");
-  }
-  if (seconds < 10) return "just now";
-  return Math.floor(seconds) + " seconds ago";
-}
+const PlayerRatingItem: React.FC<{ player: Player; rating: number; onRate: (id: number, val: number) => void }> = ({ player, rating, onRate }) => (
+    <div className="flex items-center justify-between p-2 bg-white rounded border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-2 overflow-hidden">
+            <span className="text-[10px] font-bold text-gray-400 w-4">#{player.number}</span>
+            <span className="text-xs font-semibold truncate">{player.name}</span>
+        </div>
+        <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+                <button 
+                    key={star} 
+                    onClick={() => onRate(player.id, star)}
+                    className={`transition-colors ${star <= rating ? 'text-yellow-400' : 'text-gray-200 hover:text-yellow-200'}`}
+                >
+                    <StarIcon className="w-3.5 h-3.5 fill-current" />
+                </button>
+            ))}
+        </div>
+    </div>
+);
 
 const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: string }> = ({ fixture, competitionId }) => {
-    const sortedEvents = fixture.events ? [...fixture.events].sort((a, b) => a.minute - b.minute) : [];
-    const { user, isLoggedIn, openAuthModal } = useAuth();
+    const { user, isLoggedIn, openAuthModal, addXP } = useAuth();
+    const [activeSection, setActiveSection] = useState<'info' | 'chat' | 'ratings'>('info');
     const [comments, setComments] = useState<FixtureComment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-    
-    // State for adding match events
-    const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
-    const [newEvent, setNewEvent] = useState({ minute: '', type: 'goal' as MatchEvent['type'], description: '' });
-
-    // State for gallery lightbox
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
-
-    const canAddEvent = user && (user.role === 'super_admin' || user.role === 'club_admin');
+    const [ratings, setRatings] = useState<Record<number, number>>({});
+    const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const unsubscribe = listenToFixtureComments(fixture.id, setComments);
         return () => unsubscribe();
     }, [fixture.id]);
+
+    useEffect(() => {
+        if (activeSection === 'chat') {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [comments, activeSection]);
 
     const handleCommentSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -95,261 +78,162 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
         try {
             await addFixtureComment(fixture.id, newComment.trim(), user);
             setNewComment('');
+            addXP(5); // Reward for engagement
         } catch (error) {
-            // Error is handled by API layer
+            console.error(error);
         } finally {
             setIsSubmittingComment(false);
         }
     };
-    
-    const handleEventInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setNewEvent(prev => ({ ...prev, [name]: value }));
-    };
-    
-    const handleAddEvent = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newEvent.minute || !newEvent.description) {
-            alert("Please fill in all event details.");
-            return;
-        }
 
-        setIsSubmittingEvent(true);
-        
-        const docRef = doc(db, 'competitions', competitionId);
-        try {
-            await runTransaction(db, async (transaction) => {
-                const docSnap = await transaction.get(docRef);
-                if (!docSnap.exists()) throw new Error("Competition not found");
-
-                const competition = docSnap.data() as Competition;
-                // The fixture is in `fixtures` array because it's live
-                const fixtureIndex = (competition.fixtures || []).findIndex(f => f.id === fixture.id);
-                if (fixtureIndex === -1) throw new Error("Live fixture not found. It may have already finished.");
-
-                const updatedFixtures = [...competition.fixtures];
-                const fixtureToUpdate = updatedFixtures[fixtureIndex];
-                
-                const eventToAdd: MatchEvent = {
-                    minute: parseInt(newEvent.minute),
-                    type: newEvent.type,
-                    description: newEvent.description,
-                };
-
-                const updatedEvents = [...(fixtureToUpdate.events || []), eventToAdd];
-                fixtureToUpdate.events = updatedEvents;
-
-                transaction.update(docRef, { fixtures: removeUndefinedProps(updatedFixtures) });
-            });
-            
-            // Reset form
-            setNewEvent({ minute: '', type: 'goal', description: '' });
-
-        } catch (error) {
-            handleFirestoreError(error, 'add match event');
-        } finally {
-            setIsSubmittingEvent(false);
-        }
+    const handleRatePlayer = (playerId: number, rating: number) => {
+        if (!isLoggedIn) return openAuthModal();
+        setRatings(prev => ({ ...prev, [playerId]: rating }));
+        // In a real app, this would also save to Firestore
     };
 
+    const sortedEvents = fixture.events ? [...fixture.events].sort((a, b) => a.minute - b.minute) : [];
 
     return (
-        <div className="bg-gray-100/70 p-4 md:p-6 animate-slide-down">
-             <style>{`
-                @keyframes slide-down {
-                    from { opacity: 0; transform: translateY(-10px); max-height: 0; }
-                    to { opacity: 1; transform: translateY(0); max-height: 2000px; /* Increased max-height */ }
-                }
-                .animate-slide-down { 
-                    animation: slide-down 0.4s ease-out forwards;
-                    overflow: hidden;
-                }
-            `}</style>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Match Info */}
-                <div className="space-y-3">
-                    <h4 className="font-bold text-sm text-gray-800 border-b pb-2">Match Info</h4>
-                    <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <MapPinIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                        <div>
-                            <p className="font-semibold">Venue</p>
-                            <p>{fixture.venue || 'TBA'}</p>
-                        </div>
-                    </div>
-                     <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <UserIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                        <div>
-                            <p className="font-semibold">Referee</p>
-                            <p>{fixture.referee || 'TBA'}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Team Form */}
-                <div className="space-y-3">
-                     <h4 className="font-bold text-sm text-gray-800 border-b pb-2">Recent Form (Last 5)</h4>
-                     <div className="flex justify-between items-center text-sm">
-                        <span className="font-semibold text-gray-700">{fixture.teamA}</span>
-                        {fixture.teamAForm && <FormGuide form={fixture.teamAForm} />}
-                     </div>
-                     <div className="flex justify-between items-center text-sm">
-                        <span className="font-semibold text-gray-700">{fixture.teamB}</span>
-                        {fixture.teamBForm && <FormGuide form={fixture.teamBForm} />}
-                     </div>
-                </div>
-            </div>
-
-            {(fixture.status === 'live' || fixture.status === 'finished') && sortedEvents.length > 0 && (
-                <div className="mt-6 pt-4 border-t">
-                    <h4 className="font-bold text-sm text-gray-800 mb-4 flex items-center gap-2">
-                        <ClockIcon className="w-5 h-5 text-gray-500" />
-                        Match Timeline
-                    </h4>
-                    <div className="max-h-80 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300">
-                        <ul className="space-y-0 relative pb-2">
-                            <div className="absolute left-[2.5rem] top-3 bottom-3 w-0.5 bg-gray-200 -ml-px z-0"></div>
-                            {sortedEvents.map((event, index) => (
-                               <li key={index} className="group relative flex items-start gap-4 pb-6 last:pb-0 animate-fade-in z-10">
-                                   <div className="w-10 text-right font-mono text-sm font-bold text-gray-500 pt-1">
-                                       {event.minute}'
-                                   </div>
-                                   <div className="relative z-10 flex items-center justify-center w-8 h-8 bg-white rounded-full border-2 border-gray-100 shadow-sm">
-                                       <EventIcon type={event.type} />
-                                   </div>
-                                   <div className="flex-1 pt-1.5">
-                                       <p className="text-sm font-medium text-gray-900">{event.description}</p>
-                                   </div>
-                               </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            )}
-            
-            {/* Match Gallery Section */}
-            {fixture.galleryImages && fixture.galleryImages.length > 0 && (
-                <div className="mt-6 pt-4 border-t">
-                    <h4 className="font-bold text-sm text-gray-800 mb-3 flex items-center gap-2">
-                        <PhotoIcon className="w-5 h-5 text-gray-500" />
-                        Match Gallery
-                    </h4>
-                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                        {fixture.galleryImages.map((imgUrl, index) => (
-                            <button 
-                                key={index} 
-                                onClick={() => setSelectedImage(imgUrl)}
-                                className="flex-shrink-0 w-32 h-24 rounded-lg overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary"
-                            >
-                                <img src={imgUrl} alt={`Match photo ${index + 1}`} className="w-full h-full object-cover" loading="lazy" />
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-            
-            {canAddEvent && fixture.status === 'live' && (
-                <div className="mt-6 pt-4 border-t">
-                    <h4 className="font-bold text-sm text-gray-800 mb-3">Add Match Event</h4>
-                    <form onSubmit={handleAddEvent} className="p-4 bg-white rounded-lg border space-y-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-[80px_1fr_2fr] gap-3 items-end">
-                            <div>
-                                <label htmlFor="minute" className="block text-xs font-medium text-gray-600 mb-1">Minute</label>
-                                <input type="number" id="minute" name="minute" value={newEvent.minute} onChange={handleEventInputChange} className="block w-full text-sm p-2 border border-gray-300 rounded-md" required />
-                            </div>
-                            <div>
-                                <label htmlFor="type" className="block text-xs font-medium text-gray-600 mb-1">Event Type</label>
-                                <select id="type" name="type" value={newEvent.type} onChange={handleEventInputChange} className="block w-full text-sm p-2 border border-gray-300 rounded-md">
-                                    <option value="goal">Goal</option>
-                                    <option value="yellow-card">Yellow Card</option>
-                                    <option value="red-card">Red Card</option>
-                                    <option value="substitution">Substitution</option>
-                                    <option value="info">Info</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label htmlFor="description" className="block text-xs font-medium text-gray-600 mb-1">Description</label>
-                                <input type="text" id="description" name="description" value={newEvent.description} onChange={handleEventInputChange} className="block w-full text-sm p-2 border border-gray-300 rounded-md" required placeholder="e.g., Goal by K. Moloto"/>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <Button type="submit" disabled={isSubmittingEvent} className="bg-primary text-white h-9 px-4 text-xs inline-flex items-center justify-center gap-2">
-                                {isSubmittingEvent ? <Spinner className="w-4 h-4 border-2" /> : <PlusCircleIcon className="w-4 h-4" />} Add Event
-                            </Button>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            <div className="mt-6 pt-4 border-t">
-                <h4 className="font-bold text-sm text-gray-800 mb-4 flex items-center gap-2">
-                    <MessageSquareIcon className="w-5 h-5 text-gray-500" />
-                    Comments ({comments.length})
-                </h4>
-                <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
-                    {comments.length > 0 ? comments.map(comment => (
-                        <div key={comment.id} className="flex items-start gap-3 text-sm">
-                            <img src={comment.userAvatar} alt={comment.userName} className="w-8 h-8 rounded-full" />
-                            <div className="flex-1 bg-white p-3 rounded-lg">
-                                <div className="flex items-baseline gap-2">
-                                    <p className="font-semibold">{comment.userName}</p>
-                                    <p className="text-xs text-gray-500">{formatTimeAgo(comment.timestamp)}</p>
-                                </div>
-                                <p className="text-gray-700">{comment.text}</p>
-                            </div>
-                        </div>
-                    )) : (
-                        <p className="text-sm text-gray-500 text-center py-4">No comments yet. Be the first to post!</p>
-                    )}
-                </div>
-                
-                <div className="mt-4">
-                    {isLoggedIn && user ? (
-                        <form onSubmit={handleCommentSubmit} className="flex items-start gap-3">
-                             <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
-                            <div className="flex-1">
-                                <textarea 
-                                    value={newComment}
-                                    onChange={(e) => setNewComment(e.target.value)}
-                                    placeholder="Add your comment..."
-                                    rows={2}
-                                    className="block w-full text-sm p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                />
-                                <Button type="submit" disabled={isSubmittingComment || !newComment.trim()} className="mt-2 bg-primary text-white hover:bg-primary-dark h-8 px-3 text-xs">
-                                    {isSubmittingComment ? <Spinner className="w-4 h-4 border-2" /> : 'Post Comment'}
-                                </Button>
-                            </div>
-                        </form>
-                    ) : (
-                        <div className="text-center p-4 bg-white rounded-lg border">
-                            <p className="text-sm text-gray-600">You must be logged in to comment.</p>
-                             <Button onClick={openAuthModal} className="mt-2 bg-primary-light text-white text-xs px-3 py-1.5">
-                                Log In to Comment
-                            </Button>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Lightbox Modal */}
-            {selectedImage && (
-                <div 
-                    className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 animate-fade-in"
-                    onClick={() => setSelectedImage(null)}
+        <div className="bg-gray-100/70 p-0 overflow-hidden animate-slide-down rounded-b-xl border-t border-gray-200">
+            {/* Tab Navigation */}
+            <div className="flex bg-white/50 backdrop-blur-sm border-b border-gray-200 px-4">
+                <button 
+                    onClick={() => setActiveSection('info')}
+                    className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${activeSection === 'info' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}
                 >
+                    Match Info
+                </button>
+                <button 
+                    onClick={() => setActiveSection('chat')}
+                    className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${activeSection === 'chat' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}
+                >
+                    Live Chat <span className="bg-primary/10 text-primary px-1.5 rounded-full text-[10px]">{comments.length}</span>
+                </button>
+                {fixture.status === 'finished' && (
                     <button 
-                        onClick={() => setSelectedImage(null)}
-                        className="absolute top-4 right-4 text-white hover:text-gray-300"
+                        onClick={() => setActiveSection('ratings')}
+                        className={`px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${activeSection === 'ratings' ? 'border-primary text-primary' : 'border-transparent text-gray-500'}`}
                     >
-                        <XIcon className="w-8 h-8" />
+                        Rate Players
                     </button>
-                    <img 
-                        src={selectedImage} 
-                        alt="Match gallery" 
-                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
-                        onClick={e => e.stopPropagation()}
-                    />
-                </div>
-            )}
+                )}
+            </div>
+
+            <div className="p-4 md:p-6 min-h-[300px]">
+                {activeSection === 'info' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
+                        <div className="space-y-6">
+                            <div>
+                                <h4 className="font-bold text-sm text-gray-800 border-b pb-2 mb-3">Match Details</h4>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                                        <MapPinIcon className="w-5 h-5 text-gray-400" />
+                                        <span>{fixture.venue || 'Mavuso Sports Centre'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                                        <UserIcon className="w-5 h-5 text-gray-400" />
+                                        <span>Referee: {fixture.referee || 'TBA'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {sortedEvents.length > 0 && (
+                                <div>
+                                    <h4 className="font-bold text-sm text-gray-800 border-b pb-2 mb-3">Timeline</h4>
+                                    <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                                        {sortedEvents.map((event, idx) => (
+                                            <div key={idx} className="flex items-start gap-3 text-xs">
+                                                <span className="font-bold w-6">{event.minute}'</span>
+                                                <EventIcon type={event.type} />
+                                                <span className="text-gray-700">{event.description}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-sm text-gray-800 border-b pb-2">Recent Form (Last 5)</h4>
+                            <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-100">
+                                <span className="text-sm font-semibold">{fixture.teamA}</span>
+                                <FormGuide form={fixture.teamAForm || 'W D L W W'} />
+                            </div>
+                            <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-100">
+                                <span className="text-sm font-semibold">{fixture.teamB}</span>
+                                <FormGuide form={fixture.teamBForm || 'L L D W D'} />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeSection === 'chat' && (
+                    <div className="flex flex-col h-[400px] animate-fade-in">
+                        <div className="flex-grow overflow-y-auto space-y-4 mb-4 pr-2 custom-scrollbar">
+                            {comments.length > 0 ? comments.map((comment) => (
+                                <div key={comment.id} className={`flex gap-3 ${comment.userId === user?.id ? 'flex-row-reverse' : ''}`}>
+                                    <img src={comment.userAvatar} className="w-8 h-8 rounded-full border border-gray-200" alt="" />
+                                    <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${comment.userId === user?.id ? 'bg-primary text-white rounded-tr-none' : 'bg-white text-gray-800 rounded-tl-none shadow-sm'}`}>
+                                        <div className="flex justify-between items-center gap-4 mb-1">
+                                            <span className="font-bold text-[10px] uppercase opacity-70">{comment.userName}</span>
+                                        </div>
+                                        <p className="leading-relaxed">{comment.text}</p>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                                    <MessageSquareIcon className="w-12 h-12 opacity-20 mb-2" />
+                                    <p className="text-sm">Be the first to join the discussion!</p>
+                                </div>
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
+                        
+                        <form onSubmit={handleCommentSubmit} className="flex gap-2">
+                            <input 
+                                type="text" 
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                placeholder={isLoggedIn ? "Say something..." : "Log in to chat"}
+                                disabled={!isLoggedIn}
+                                className="flex-grow bg-white border border-gray-300 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                            />
+                            <Button 
+                                type="submit" 
+                                disabled={!isLoggedIn || !newComment.trim() || isSubmittingComment}
+                                className="bg-primary text-white p-2 rounded-full hover:scale-105 transition-transform disabled:opacity-50"
+                            >
+                                {isSubmittingComment ? <Spinner className="w-5 h-5 border-2" /> : <SendIcon className="w-5 h-5" />}
+                            </Button>
+                        </form>
+                    </div>
+                )}
+
+                {activeSection === 'ratings' && (
+                    <div className="animate-fade-in">
+                        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 mb-6 flex items-center gap-3">
+                            <StarIcon className="w-6 h-6 text-yellow-500" />
+                            <p className="text-sm text-yellow-800">Match finished! Rate the players to crown the Fan's Man of the Match.</p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-4">
+                                <h5 className="font-bold text-xs uppercase tracking-widest text-primary border-b pb-1">{fixture.teamA}</h5>
+                                <div className="grid gap-2">
+                                    {/* These would normally come from the competition data teams[0].players */}
+                                    <p className="text-[10px] text-gray-400 italic">Select players from the team roster to rate them.</p>
+                                </div>
+                            </div>
+                            <div className="space-y-4">
+                                <h5 className="font-bold text-xs uppercase tracking-widest text-secondary border-b pb-1">{fixture.teamB}</h5>
+                                <div className="grid gap-2">
+                                    {/* Same for away team */}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
