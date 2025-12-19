@@ -23,15 +23,13 @@ export const removeUndefinedProps = (obj: any): any => {
 
 /**
  * Super-normalization for robust matching.
- * Strips all non-alphanumeric chars, removes extra spaces, and handles common suffix variances.
+ * Strips all non-alphanumeric chars and collapses whitespace.
+ * CRITICAL FIX: No longer strips "FC" or "United" to prevent conflating distinct clubs.
  */
 export const superNormalize = (s: string) => {
     if (!s) return '';
     return s.toLowerCase()
         .replace(/[^a-z0-9]/g, '') // Remove everything except letters and numbers
-        .replace(/\s+/g, '') // Remove all spaces
-        .replace(/fc$/i, '') // Remove common suffixes
-        .replace(/united$/i, '')
         .trim();
 };
 
@@ -158,7 +156,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
             teamB.stats.pts += 3;
             teamA.stats.l += 1;
             teamB.stats.form = ['W', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
-            teamA.stats.form = ['L', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
+            teamA.stats.form = ['L', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         } else {
             teamA.stats.d += 1;
             teamB.stats.d += 1;

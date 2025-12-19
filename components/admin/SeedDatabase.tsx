@@ -180,7 +180,7 @@ const SeedDatabase: React.FC = () => {
             seedLeagueGroup(regionalCompetitions, 'regional-leagues');
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database seeded! Hlathikhulu United is now explicitly on the log.' });
+            setStatus({ type: 'success', msg: 'Database seeded! Hlathikhulu United and Hlathikhulu FC are now distinct teams.' });
         } catch (error) {
             console.error("Seeding failed:", error);
             setStatus({ type: 'error', msg: 'Failed to seed database.' });
