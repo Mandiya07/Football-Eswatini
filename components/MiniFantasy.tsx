@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import { Player } from '../data/teams';
-// FIX: Import 'fetchCompetition' which is now correctly exported from the API service.
 import { fetchCompetition } from '../services/api';
 import UsersPlusIcon from './icons/UsersPlusIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
+import Spinner from './ui/Spinner';
 
 const MiniFantasy: React.FC = () => {
     const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
@@ -19,9 +18,16 @@ const MiniFantasy: React.FC = () => {
         const loadPlayers = async () => {
             const data = await fetchCompetition('mtn-premier-league');
             if (data?.teams) {
-                const greenMambaPlayers = data.teams.find(t => t.name === 'Green Mamba')?.players || [];
-                const swallowsPlayers = data.teams.find(t => t.name === 'Mbabane Swallows')?.players || [];
-                setFantasyPlayers([...greenMambaPlayers.slice(0, 3), ...swallowsPlayers.slice(0, 2)]);
+                // Collect a random selection of players across different teams
+                const allAvailablePlayers: Player[] = [];
+                data.teams.forEach(team => {
+                    if (team.players && team.players.length > 0) {
+                        // Take top 2 players from each team to populate the picker
+                        allAvailablePlayers.push(...team.players.slice(0, 2).map(p => ({...p, club: team.name})));
+                    }
+                });
+                // Shuffle and pick 10
+                setFantasyPlayers(allAvailablePlayers.sort(() => 0.5 - Math.random()).slice(0, 10));
             }
             setLoading(false);
         };
@@ -30,7 +36,6 @@ const MiniFantasy: React.FC = () => {
 
     const handlePlayerToggle = (player: Player) => {
         if (scoreCalculated) return;
-
         setSelectedPlayers(prev => {
             if (prev.some(p => p.id === player.id)) {
                 return prev.filter(p => p.id !== player.id);
@@ -44,13 +49,7 @@ const MiniFantasy: React.FC = () => {
     
     const calculateScore = () => {
         const score = selectedPlayers.reduce((acc, player) => {
-            // Simple scoring simulation
-            let points = 0;
-            if (player.position === 'Forward') points += player.stats.goals * 4;
-            if (player.position === 'Midfielder') points += player.stats.goals * 5 + player.stats.assists * 3;
-            if (player.position === 'Defender') points += player.stats.goals * 6 + 2; // Clean sheet points
-            if (player.position === 'Goalkeeper') points += 4; // Clean sheet points
-            points += Math.floor(Math.random() * 5); // Bonus points
+            let points = Math.floor(Math.random() * 15) + 5; // Simulating points
             return acc + points;
         }, 0);
         setTotalScore(score);
@@ -66,19 +65,15 @@ const MiniFantasy: React.FC = () => {
     if (loading) {
         return (
             <Card className="shadow-lg h-full">
-                <CardContent className="p-6">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-4 animate-pulse"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2 mb-6 animate-pulse"></div>
-                    <div className="space-y-2">
-                        {[...Array(5)].map((_, i) => <div key={i} className="h-12 bg-gray-100 rounded animate-pulse"></div>)}
-                    </div>
+                <CardContent className="p-6 flex items-center justify-center">
+                    <Spinner />
                 </CardContent>
             </Card>
         );
     }
 
     return (
-        <Card className="shadow-lg">
+        <Card className="shadow-lg h-full">
             <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <UsersPlusIcon className="w-6 h-6 text-green-600" />
@@ -87,47 +82,41 @@ const MiniFantasy: React.FC = () => {
                 
                 {!scoreCalculated ? (
                     <>
-                        <p className="text-sm text-gray-500 mb-4">Pick your 3-player squad for this gameweek.</p>
-                        <div className="space-y-2 mb-6">
-                            {fantasyPlayers.map(player => (
+                        <p className="text-sm text-gray-500 mb-4">Pick your 3-player squad for the gameweek.</p>
+                        <div className="space-y-2 mb-6 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                            {fantasyPlayers.length > 0 ? fantasyPlayers.map(player => (
                                 <button
                                     key={player.id}
                                     onClick={() => handlePlayerToggle(player)}
-                                    className={`w-full text-left p-2 rounded-md border-2 transition-colors duration-200 flex items-center gap-3
+                                    className={`w-full text-left p-2 rounded-md border-2 transition-colors flex items-center gap-3
                                         ${selectedPlayers.some(p => p.id === player.id) ? 'bg-green-100 border-green-400' : 'bg-white hover:bg-gray-50 border-gray-200'}`}
                                 >
-                                    <img src={player.photoUrl} alt={player.name} className="w-8 h-8 rounded-full" />
-                                    <div>
-                                        <p className="font-semibold text-sm">{player.name}</p>
-                                        <p className="text-xs text-gray-500">{player.position}</p>
+                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden border">
+                                        {player.photoUrl ? <img src={player.photoUrl} className="w-full h-full object-cover" alt="" /> : <span className="text-[10px]">{player.name.charAt(0)}</span>}
                                     </div>
-                                    {selectedPlayers.some(p => p.id === player.id) && <CheckCircleIcon className="w-5 h-5 text-green-600 ml-auto" />}
+                                    <div className="flex-grow min-w-0">
+                                        <p className="font-semibold text-xs truncate">{player.name}</p>
+                                        <p className="text-[10px] text-gray-500 uppercase">{player.club} &bull; {player.position}</p>
+                                    </div>
+                                    {selectedPlayers.some(p => p.id === player.id) && <CheckCircleIcon className="w-5 h-5 text-green-600 ml-auto flex-shrink-0" />}
                                 </button>
-                            ))}
+                            )) : <p className="text-xs text-gray-400 italic text-center py-4">Loading players...</p>}
                         </div>
                         <Button 
                             onClick={calculateScore} 
                             disabled={selectedPlayers.length !== 3} 
-                            className="w-full bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 disabled:bg-gray-400"
+                            className="w-full bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-300 font-bold"
                         >
-                            Calculate Score ({selectedPlayers.length}/3)
+                            Confirm Squad ({selectedPlayers.length}/3)
                         </Button>
                     </>
                 ) : (
-                    <div className="animate-fade-in text-center">
-                        <h4 className="font-bold font-display text-lg mb-4">Your Gameweek Score</h4>
-                        <p className="text-7xl font-extrabold text-green-600 font-display">{totalScore}</p>
-                        <p className="font-semibold text-gray-600 mb-6">points</p>
-                        <ul className="text-left space-y-2 mb-6">
-                            {selectedPlayers.map(p => (
-                                <li key={p.id} className="text-sm flex justify-between items-center bg-gray-50 p-2 rounded">
-                                    <span>{p.name}</span>
-                                    <span className="font-bold">{(totalScore / 3).toFixed(0)} pts</span>
-                                </li>
-                            ))}
-                        </ul>
-                        <Button onClick={handleReset} className="bg-gray-200 text-gray-800 hover:bg-gray-300">
-                            Pick a New Squad
+                    <div className="animate-fade-in text-center py-4">
+                        <h4 className="font-bold font-display text-lg mb-4">Total Squad XP</h4>
+                        <p className="text-7xl font-black text-green-600 font-display">+{totalScore}</p>
+                        <p className="font-bold text-gray-400 text-xs uppercase tracking-widest mb-6">Gameweek Points</p>
+                        <Button onClick={handleReset} className="bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-bold px-6">
+                            New Gameweek Pick
                         </Button>
                     </div>
                 )}

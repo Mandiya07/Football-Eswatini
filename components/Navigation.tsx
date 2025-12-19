@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -9,19 +8,13 @@ import ShoppingCartIcon from './icons/ShoppingCartIcon';
 import CartModal from './CartModal';
 import SecondaryNavigation from './SecondaryNavigation';
 import Logo from './Logo';
-import ShieldIcon from './icons/ShieldIcon';
-import ChevronDownIcon from './icons/ChevronDownIcon';
-// Added XIcon import to fix reference error
 import XIcon from './icons/XIcon';
 import { fetchNews, fetchAllCompetitions, fetchDirectoryEntries, fetchHybridTournaments } from '../services/api';
 import { NewsItem } from '../data/news';
 import { DirectoryEntity } from '../data/directory';
 import { HybridTournament } from '../data/international';
-import TrophyIcon from './icons/TrophyIcon';
-import CalendarIcon from './icons/CalendarIcon';
-import NewspaperIcon from './icons/NewspaperIcon';
-import GlobeIcon from './icons/GlobeIcon';
-import MessageSquareIcon from './icons/MessageSquareIcon';
+// Added missing Button import
+import Button from './ui/Button';
 
 interface SearchResult {
     type: 'news' | 'team' | 'match' | 'tournament';
@@ -34,7 +27,6 @@ interface SearchResult {
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isClubMenuOpen, setIsClubMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -52,7 +44,6 @@ const Navigation: React.FC = () => {
   const { isLoggedIn, user, openAuthModal, logout } = useAuth();
   const { cartCount } = useCart();
   const profileRef = useRef<HTMLDivElement>(null);
-  const clubMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -61,9 +52,9 @@ const Navigation: React.FC = () => {
     { name: 'News', to: '/news' },
     { name: 'Fixtures', to: '/fixtures' },
     { name: 'Logs', to: '/logs' },
-    { name: 'Hub', to: '/international' },
+    { name: 'International', to: '/international' },
     { name: 'Live', to: '/live-updates' },
-    { name: 'Fan Zone', to: '/interactive' }, // Renamed from Interactive
+    { name: 'Fan Zone', to: '/interactive' },
     { name: 'Shop', to: '/shop'},
   ];
 
@@ -71,9 +62,6 @@ const Navigation: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
-      }
-      if (clubMenuRef.current && !clubMenuRef.current.contains(event.target as Node)) {
-        setIsClubMenuOpen(false);
       }
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
@@ -83,10 +71,8 @@ const Navigation: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Lazy load data on first search interaction
   const loadSearchData = async () => {
       if (dataLoaded || cachedData) return;
-      
       try {
           const [newsData, competitionsData, directoryData, hybridData] = await Promise.all([
               fetchNews(),
@@ -106,30 +92,20 @@ const Navigation: React.FC = () => {
       }
   };
 
-  const handleSearchFocus = () => {
-      loadSearchData();
-      if (searchQuery.trim().length > 0) setShowSuggestions(true);
-  };
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const query = e.target.value;
       setSearchQuery(query);
-      
       if (query.trim().length === 0) {
           setSuggestions([]);
           setShowSuggestions(false);
           return;
       }
-      
       setShowSuggestions(true);
-      
       if (cachedData) {
           const term = query.toLowerCase();
           const results: SearchResult[] = [];
-          
           const newsMatches = cachedData.news.filter(n => n.title.toLowerCase().includes(term)).slice(0, 3);
           newsMatches.forEach(n => results.push({ type: 'news', title: n.title, subtitle: n.date, link: n.url, id: n.id }));
-
           const teamMatches = cachedData.teams.filter(t => t.name.toLowerCase().includes(term) && t.category === 'Club').slice(0, 3);
           teamMatches.forEach(t => results.push({ 
               type: 'team', 
@@ -138,7 +114,6 @@ const Navigation: React.FC = () => {
               link: t.competitionId && t.teamId ? `/competitions/${t.competitionId}/teams/${t.teamId}` : '/directory', 
               id: t.id 
           }));
-
           setSuggestions(results);
       }
   };
@@ -149,13 +124,6 @@ const Navigation: React.FC = () => {
       setIsOpen(false);
       setShowSuggestions(false);
     }
-  };
-  
-  const handleSuggestionClick = (link: string) => {
-      navigate(link);
-      setIsOpen(false);
-      setShowSuggestions(false);
-      setSearchQuery('');
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
@@ -171,10 +139,12 @@ const Navigation: React.FC = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex-shrink-0">
-              <NavLink to="/">
+              <NavLink to="/" onClick={() => setIsOpen(false)}>
                 <Logo className="h-14 w-auto" />
               </NavLink>
             </div>
+            
+            {/* Desktop Menu */}
             <div className="hidden xl:block h-full">
               <div className="flex items-center space-x-2 h-full">
                 {navItems.map((item) => (
@@ -189,10 +159,10 @@ const Navigation: React.FC = () => {
                   </span>
                   <input
                     type="text"
-                    placeholder="Search teams, news..."
+                    placeholder="Search..."
                     value={searchQuery}
                     onChange={handleSearchChange}
-                    onFocus={handleSearchFocus}
+                    onFocus={loadSearchData}
                     onKeyDown={handleSearchSubmit}
                     className="bg-white/10 text-white placeholder-white/40 rounded-full py-2 pl-10 pr-4 text-xs w-48 focus:outline-none focus:ring-2 focus:ring-accent focus:w-64 transition-all duration-300 border border-white/20"
                   />
@@ -205,11 +175,11 @@ const Navigation: React.FC = () => {
 
                 <div ref={profileRef} className="relative ml-2">
                   {isLoggedIn && user ? (
-                    <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2">
+                    <Link to="/profile">
                       <img src={user.avatar} alt="" className="w-9 h-9 rounded-full border-2 border-white/20 hover:border-accent transition-colors" />
-                    </button>
+                    </Link>
                   ) : (
-                    <button onClick={openAuthModal} className="text-xs font-black uppercase text-primary-dark bg-accent px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors shadow-lg shadow-accent/20">
+                    <button onClick={openAuthModal} className="text-xs font-black uppercase text-primary-dark bg-accent px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors shadow-lg">
                       Login
                     </button>
                   )}
@@ -217,6 +187,7 @@ const Navigation: React.FC = () => {
               </div>
             </div>
             
+            {/* Mobile Actions */}
             <div className="xl:hidden flex items-center gap-3">
                <button onClick={() => setIsCartOpen(true)} className="relative text-white">
                   <ShoppingCartIcon className="w-6 h-6" />
@@ -229,17 +200,50 @@ const Navigation: React.FC = () => {
           </div>
         </div>
         
-        {/* FAN TICKER - Interactive Layer */}
+        {/* FAN TICKER */}
         <div className="bg-primary-dark/80 backdrop-blur-sm h-10 overflow-hidden flex items-center border-t border-white/5">
             <div className="bg-red-600 h-full px-4 flex items-center text-[10px] font-black text-white uppercase tracking-widest z-10 whitespace-nowrap border-r border-red-700">
                 Live Shouts
             </div>
             <div className="flex-grow whitespace-nowrap animate-marquee relative">
-                <span className="inline-block px-8 text-xs text-white/90">🔥 <strong>Sipho M.</strong> just predicted a 2-0 win for Swallows!</span>
-                <span className="inline-block px-8 text-xs text-white/90">📣 Join the live chat for <strong>Highlanders vs Wanderers</strong>!</span>
-                <span className="inline-block px-8 text-xs text-white/90">🏆 <strong>Lwazi</strong> reached Level 5 Fan status!</span>
-                <span className="inline-block px-8 text-xs text-white/90">📰 Breaking: New youth tournament announced in Hhohho.</span>
-                <span className="inline-block px-8 text-xs text-white/90">⚽ GOAL! <strong>Royal Leopards</strong> lead 1-0 against Buffaloes.</span>
+                <span className="inline-block px-8 text-xs text-white/90">🔥 Join the live chat for the big weekend matches!</span>
+                <span className="inline-block px-8 text-xs text-white/90">🏆 Predicted scores are rolling in on the Fan Zone.</span>
+                <span className="inline-block px-8 text-xs text-white/90">📰 Breaking: New youth tournament dates confirmed.</span>
+            </div>
+        </div>
+
+        {/* Mobile Menu Overlay */}
+        <div className={`fixed inset-0 bg-primary/95 z-[200] transition-transform duration-300 xl:hidden ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className="flex flex-col h-full">
+                <div className="flex justify-between items-center p-6 border-b border-white/10">
+                    <Logo className="h-10 w-auto" />
+                    <button onClick={() => setIsOpen(false)} className="text-white"><XIcon className="w-8 h-8"/></button>
+                </div>
+                <div className="flex-grow overflow-y-auto p-6 space-y-6">
+                    {navItems.map((item) => (
+                        <NavLink 
+                            key={item.name} 
+                            to={item.to} 
+                            onClick={() => setIsOpen(false)}
+                            className={({ isActive }) => `block text-2xl font-display font-bold uppercase tracking-wide ${isActive ? 'text-accent' : 'text-white'}`}
+                        >
+                            {item.name}
+                        </NavLink>
+                    ))}
+                    <div className="pt-6 border-t border-white/10">
+                        {isLoggedIn ? (
+                            <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-4 text-white">
+                                <img src={user?.avatar} className="w-12 h-12 rounded-full border-2 border-accent" alt="" />
+                                <div>
+                                    <p className="font-bold">{user?.name}</p>
+                                    <p className="text-sm opacity-60">View Profile</p>
+                                </div>
+                            </Link>
+                        ) : (
+                            <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="w-full bg-accent text-primary-dark font-black py-4">LOGIN / SIGNUP</Button>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
       </header>

@@ -106,7 +106,8 @@ export interface MatchEvent {
 }
 
 export interface CompetitionFixture {
-    id: number;
+    // FIX: Change id type to number | string to accommodate descriptive IDs used in international data
+    id: number | string;
     matchday?: number;
     date: string;
     day: string;
@@ -124,6 +125,8 @@ export interface CompetitionFixture {
     referee?: string;
     teamAForm?: string; // e.g., "W D L W W"
     teamBForm?: string;
+    // Added competition property to allow storing competition names in match records, as required by international data objects.
+    competition?: string;
     events?: MatchEvent[];
     galleryImages?: string[];
 }

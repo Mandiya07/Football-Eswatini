@@ -122,7 +122,8 @@ export interface NationalTeam {
 
 export interface FixtureComment {
     id: string;
-    fixtureId: number;
+    // FIX: Change fixtureId type to number | string to support all match ID formats
+    fixtureId: number | string;
     userId: string;
     userName: string;
     userAvatar: string;
@@ -255,7 +256,8 @@ export const listenToLiveUpdates = (callback: (updates: LiveUpdate[]) => void): 
     return unsubscribe;
 };
 
-export const addFixtureComment = async (fixtureId: number, text: string, user: User) => {
+// FIX: Update fixtureId parameter type to number | string
+export const addFixtureComment = async (fixtureId: number | string, text: string, user: User) => {
     try {
         const commentData = {
             fixtureId,
@@ -272,7 +274,8 @@ export const addFixtureComment = async (fixtureId: number, text: string, user: U
     }
 };
 
-export const listenToFixtureComments = (fixtureId: number, callback: (comments: FixtureComment[]) => void): (() => void) => {
+// FIX: Update fixtureId parameter type to number | string
+export const listenToFixtureComments = (fixtureId: number | string, callback: (comments: FixtureComment[]) => void): (() => void) => {
     const q = query(
         collection(db, "fixture_comments"),
         where("fixtureId", "==", fixtureId)

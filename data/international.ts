@@ -1,11 +1,9 @@
 import { Tournament } from "./cups";
 import { CompetitionFixture } from "./teams";
 
-// Define a simplified team structure for configuration within a tournament file
 export interface ConfigTeam {
     name: string;
     crestUrl: string;
-    // Optional: map to existing ID if they are in the database
     dbId?: number; 
 }
 
@@ -15,179 +13,157 @@ export interface HybridTournament {
     description: string;
     logoUrl?: string;
     type: 'hybrid';
-    externalApiId?: string; // New field for external API linking
-    
-    // Teams configuration (source of truth for this tournament's specific teams)
+    externalApiId?: string;
     teams: ConfigTeam[];
-
-    // Structure
     groups?: {
-        name: string; // "Group A"
-        teamNames: string[]; // List of team names in this group
+        name: string;
+        teamNames: string[];
     }[];
-    
-    // Matches (All matches: group + knockout)
     matches: CompetitionFixture[];
-    
-    // Knockout Bracket Data
     bracket?: Tournament;
-    bracketId?: string; // ID for linking to cups collection in Firestore
+    bracketId?: string;
 }
 
 export const internationalData: HybridTournament[] = [
     {
-        id: 'caf-champions-league',
-        name: 'CAF Champions League 2025-26',
-        description: "Africa's premier club football tournament. The best clubs across the continent compete for the ultimate trophy and a spot in the FIFA Club World Cup.",
-        logoUrl: 'https://via.placeholder.com/150/FF8C00/000000?text=CAF+CL',
-        type: 'hybrid',
-        teams: [
-            // Group A
-            { name: 'RS Berkane', crestUrl: 'https://via.placeholder.com/64/FFA500/000000?text=RSB' },
-            { name: 'Pyramids FC', crestUrl: 'https://via.placeholder.com/64/0000FF/FFFFFF?text=PFC' },
-            { name: 'Rivers United FC', crestUrl: 'https://via.placeholder.com/64/00008B/FFFFFF?text=RUFC' },
-            { name: 'Power Dynamos', crestUrl: 'https://via.placeholder.com/64/FFFF00/000000?text=PDFC' },
-            // Group B
-            { name: 'Al Ahly FC', crestUrl: 'https://via.placeholder.com/64/D22730/FFFFFF?text=Ahly' },
-            { name: 'Young Africans', crestUrl: 'https://via.placeholder.com/64/228B22/FFFF00?text=Yanga' },
-            { name: 'AS FAR', crestUrl: 'https://via.placeholder.com/64/000000/FFFFFF?text=ASFAR' },
-            { name: 'JS Kabylie', crestUrl: 'https://via.placeholder.com/64/FFFF00/008000?text=JSK' },
-            // Group C
-            { name: 'Mamelodi Sundowns', crestUrl: 'https://via.placeholder.com/64/FDB913/006400?text=MSFC' },
-            { name: 'Al Hilal SC', crestUrl: 'https://via.placeholder.com/64/0000FF/FFFFFF?text=Hilal' },
-            { name: 'MC Alger', crestUrl: 'https://via.placeholder.com/64/008000/FF0000?text=MCA' },
-            { name: 'St Éloi Lupopo', crestUrl: 'https://via.placeholder.com/64/FFFF00/0000FF?text=SEL' },
-            // Group D
-            { name: 'Espérance de Tunis', crestUrl: 'https://via.placeholder.com/64/FF4500/FFFF00?text=EST' },
-            { name: 'Simba SC', crestUrl: 'https://via.placeholder.com/64/800000/FFFFFF?text=SSC' },
-            { name: 'Petro de Luanda', crestUrl: 'https://via.placeholder.com/64/FFD700/0000CD?text=APL' },
-            { name: 'Stade Malién', crestUrl: 'https://via.placeholder.com/64/0000FF/FFFFFF?text=SBM' }
-        ],
-        groups: [
-            { name: 'Group A', teamNames: ['RS Berkane', 'Pyramids FC', 'Rivers United FC', 'Power Dynamos'] },
-            { name: 'Group B', teamNames: ['Al Ahly FC', 'Young Africans', 'AS FAR', 'JS Kabylie'] },
-            { name: 'Group C', teamNames: ['Mamelodi Sundowns', 'Al Hilal SC', 'MC Alger', 'St Éloi Lupopo'] },
-            { name: 'Group D', teamNames: ['Espérance de Tunis', 'Simba SC', 'Petro de Luanda', 'Stade Malién'] }
-        ],
-        matches: [
-            { id: 101, teamA: 'RS Berkane', teamB: 'Power Dynamos', scoreA: 3, scoreB: 0, status: 'finished', fullDate: '2025-11-21', date: '21', day: 'FRI', time: '18:00', matchday: 1 },
-            { id: 102, teamA: 'Pyramids FC', teamB: 'Rivers United FC', scoreA: 3, scoreB: 0, status: 'finished', fullDate: '2025-11-21', date: '21', day: 'FRI', time: '21:00', matchday: 1 },
-            { id: 103, teamA: 'Al Ahly FC', teamB: 'JS Kabylie', scoreA: 4, scoreB: 1, status: 'finished', fullDate: '2025-11-22', date: '22', day: 'SAT', time: '18:00', matchday: 1 },
-            { id: 104, teamA: 'Young Africans', teamB: 'AS FAR', scoreA: 1, scoreB: 0, status: 'finished', fullDate: '2025-11-22', date: '22', day: 'SAT', time: '21:00', matchday: 1 },
-            { id: 105, teamA: 'Mamelodi Sundowns', teamB: 'St Éloi Lupopo', scoreA: 3, scoreB: 1, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '15:00', matchday: 1 },
-            { id: 106, teamA: 'Al Hilal SC', teamB: 'MC Alger', scoreA: 2, scoreB: 1, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '18:00', matchday: 1 },
-            { id: 107, teamA: 'Espérance de Tunis', teamB: 'Stade Malién', scoreA: 0, scoreB: 0, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '21:00', matchday: 1 },
-            { id: 108, teamA: 'Simba SC', teamB: 'Petro de Luanda', scoreA: 0, scoreB: 1, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '15:00', matchday: 1 },
-            { id: 109, teamA: 'Rivers United FC', teamB: 'RS Berkane', scoreA: 1, scoreB: 2, status: 'finished', fullDate: '2025-11-28', date: '28', day: 'FRI', time: '15:00', matchday: 2 },
-            { id: 110, teamA: 'Power Dynamos', teamB: 'Pyramids FC', scoreA: 0, scoreB: 1, status: 'finished', fullDate: '2025-11-28', date: '28', day: 'FRI', time: '18:00', matchday: 2 },
-            { id: 111, teamA: 'JS Kabylie', teamB: 'Young Africans', scoreA: 0, scoreB: 0, status: 'finished', fullDate: '2025-11-29', date: '29', day: 'SAT', time: '18:00', matchday: 2 },
-            { id: 112, teamA: 'AS FAR', teamB: 'Al Ahly FC', scoreA: 1, scoreB: 1, status: 'finished', fullDate: '2025-11-29', date: '29', day: 'SAT', time: '21:00', matchday: 2 },
-            { id: 113, teamA: 'MC Alger', teamB: 'Mamelodi Sundowns', scoreA: 0, scoreB: 0, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '15:00', matchday: 2 },
-            { id: 114, teamA: 'St Éloi Lupopo', teamB: 'Al Hilal SC', scoreA: 1, scoreB: 1, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '18:00', matchday: 2 },
-            { id: 115, teamA: 'Stade Malién', teamB: 'Simba SC', scoreA: 2, scoreB: 1, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '21:00', matchday: 2 },
-            { id: 116, teamA: 'Petro de Luanda', teamB: 'Espérance de Tunis', scoreA: 1, scoreB: 1, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '15:00', matchday: 2 },
-        ]
-    },
-    {
-        id: 'caf-confederation-cup',
-        name: 'CAF Confederation Cup 2025/26',
-        description: "The secondary continental club competition for African football. The road to the title features heavyweights from across the continent.",
-        logoUrl: 'https://via.placeholder.com/150/228B22/FFFFFF?text=CAF+CC',
-        type: 'hybrid',
-        teams: [
-            // Group A
-            { name: 'USM Alger', crestUrl: 'https://via.placeholder.com/64/FF0000/000000?text=USMA' },
-            { name: 'Djoliba AC', crestUrl: 'https://via.placeholder.com/64/FF0000/FFFFFF?text=DAC' },
-            { name: 'Olympique Club de Safi', crestUrl: 'https://via.placeholder.com/64/0000FF/FFFFFF?text=OCS' },
-            { name: 'FC San Pedro', crestUrl: 'https://via.placeholder.com/64/FFA500/FFFFFF?text=FCSP' },
-            // Group B
-            { name: 'Wydad Casablanca', crestUrl: 'https://via.placeholder.com/64/FF0000/FFFFFF?text=WAC' },
-            { name: 'AS Maniema Union', crestUrl: 'https://via.placeholder.com/64/008000/FFFFFF?text=ASMU' },
-            { name: 'Azam FC', crestUrl: 'https://via.placeholder.com/64/0000FF/FFFFFF?text=AFC' },
-            { name: 'Nairobi United FC', crestUrl: 'https://via.placeholder.com/64/FFFF00/000000?text=NUFC' },
-            // Group C
-            { name: 'CR Belouizdad', crestUrl: 'https://via.placeholder.com/64/FF0000/FFFFFF?text=CRB' },
-            { name: 'Stellenbosch FC', crestUrl: 'https://via.placeholder.com/64/800000/FFFFFF?text=SFC' },
-            { name: 'AS Otohô', crestUrl: 'https://via.placeholder.com/64/FFFF00/0000FF?text=ASO' },
-            { name: 'Singida Black Stars', crestUrl: 'https://via.placeholder.com/64/000000/FFFF00?text=SBS' },
-            // Group D
-            { name: 'Zamalek SC', crestUrl: 'https://via.placeholder.com/64/FFFFFF/FF0000?text=ZSC' },
-            { name: 'Al Masry SC', crestUrl: 'https://via.placeholder.com/64/008000/FFFFFF?text=AMSC' },
-            { name: 'Kaizer Chiefs FC', crestUrl: 'https://via.placeholder.com/64/FFA500/000000?text=KCFC' },
-            { name: 'ZESCO United FC', crestUrl: 'https://via.placeholder.com/64/008000/FFFFFF?text=ZUFC' }
-        ],
-        groups: [
-            { name: 'Group A', teamNames: ['USM Alger', 'Djoliba AC', 'Olympique Club de Safi', 'FC San Pedro'] },
-            { name: 'Group B', teamNames: ['Wydad Casablanca', 'AS Maniema Union', 'Azam FC', 'Nairobi United FC'] },
-            { name: 'Group C', teamNames: ['CR Belouizdad', 'Stellenbosch FC', 'AS Otohô', 'Singida Black Stars'] },
-            { name: 'Group D', teamNames: ['Zamalek SC', 'Al Masry SC', 'Kaizer Chiefs FC', 'ZESCO United FC'] }
-        ],
-        matches: [
-            // Matchday 1
-            { id: 401, teamA: 'Olympique Club de Safi', teamB: 'Djoliba AC', scoreA: 1, scoreB: 0, status: 'finished', fullDate: '2025-11-22', date: '22', day: 'SAT', time: '18:00', matchday: 1 },
-            { id: 402, teamA: 'USM Alger', teamB: 'FC San Pedro', scoreA: 3, scoreB: 2, status: 'finished', fullDate: '2025-11-22', date: '22', day: 'SAT', time: '21:00', matchday: 1 },
-            { id: 403, teamA: 'Wydad Casablanca', teamB: 'Nairobi United FC', scoreA: 3, scoreB: 0, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '21:00', matchday: 1 },
-            { id: 404, teamA: 'AS Maniema Union', teamB: 'Azam FC', scoreA: 2, scoreB: 0, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '15:00', matchday: 1 },
-            { id: 405, teamA: 'CR Belouizdad', teamB: 'Singida Black Stars', scoreA: 2, scoreB: 0, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '18:00', matchday: 1 },
-            { id: 406, teamA: 'Stellenbosch FC', teamB: 'AS Otohô', scoreA: 1, scoreB: 0, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '15:00', matchday: 1 },
-            { id: 407, teamA: 'Al Masry SC', teamB: 'Kaizer Chiefs FC', scoreA: 2, scoreB: 1, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '18:00', matchday: 1 },
-            { id: 408, teamA: 'Zamalek SC', teamB: 'ZESCO United FC', scoreA: 1, scoreB: 0, status: 'finished', fullDate: '2025-11-23', date: '23', day: 'SUN', time: '21:00', matchday: 1 },
-            // Matchday 2
-            { id: 409, teamA: 'ZESCO United FC', teamB: 'Al Masry SC', scoreA: 2, scoreB: 3, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '15:00', matchday: 2 },
-            { id: 410, teamA: 'Azam FC', teamB: 'Wydad Casablanca', scoreA: 0, scoreB: 1, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '18:00', matchday: 2 },
-            { id: 411, teamA: 'Olympique Club de Safi', teamB: 'USM Alger', scoreA: 0, scoreB: 1, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '21:00', matchday: 2 },
-            { id: 412, teamA: 'Nairobi United FC', teamB: 'AS Maniema Union', scoreA: 0, scoreB: 1, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '15:00', matchday: 2 },
-            { id: 413, teamA: 'AS Otohô', teamB: 'CR Belouizdad', scoreA: 4, scoreB: 1, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '15:00', matchday: 2 },
-            { id: 414, teamA: 'Singida Black Stars', teamB: 'Stellenbosch FC', scoreA: 1, scoreB: 1, status: 'finished', fullDate: '2025-11-30', date: '30', day: 'SUN', time: '18:00', matchday: 2 },
-        ]
-    },
-    {
         id: 'uefa-champions-league',
         name: 'UEFA Champions League',
-        description: "The biggest club tournament in the world. The best European clubs compete for the most coveted trophy in football.",
+        description: "The ultimate prize in European club football, featuring the continent's elite teams.",
         logoUrl: 'https://via.placeholder.com/150/002B7F/FFFFFF?text=UCL',
         type: 'hybrid',
-        teams: [
-            { name: 'Real Madrid', crestUrl: 'https://via.placeholder.com/64/FFFFFF/00008B?text=RM' },
-            { name: 'Manchester City', crestUrl: 'https://via.placeholder.com/64/ADD8E6/FFFFFF?text=MC' },
-            { name: 'Bayern Munich', crestUrl: 'https://via.placeholder.com/64/FF0000/FFFFFF?text=FCB' },
-            { name: 'PSG', crestUrl: 'https://via.placeholder.com/64/000080/FF0000?text=PSG' },
-            { name: 'Arsenal', crestUrl: 'https://via.placeholder.com/64/FF0000/FFFFFF?text=AFC' },
-            { name: 'Barcelona', crestUrl: 'https://via.placeholder.com/64/800000/0000FF?text=FCB' }
-        ],
-        groups: [
-            { name: 'Group A', teamNames: ['Real Madrid', 'Manchester City', 'Arsenal'] },
-            { name: 'Group B', teamNames: ['Bayern Munich', 'PSG', 'Barcelona'] }
-        ],
-        matches: [
-            { id: 501, teamA: 'Real Madrid', teamB: 'Manchester City', scoreA: 3, scoreB: 3, status: 'finished', fullDate: '2024-04-09', date: '09', day: 'TUE', time: '21:00', venue: 'Santiago Bernabéu' },
-        ]
+        teams: [],
+        groups: [],
+        matches: []
+    },
+    {
+        id: 'uefa-europa-league',
+        name: 'UEFA Europa League',
+        description: "Europe's intense secondary club competition with high-stakes knockout drama.",
+        logoUrl: 'https://via.placeholder.com/150/FF4500/000000?text=UEL',
+        type: 'hybrid',
+        teams: [],
+        groups: [],
+        matches: []
+    },
+    {
+        id: 'caf-champions-league',
+        name: 'CAF Champions League',
+        description: "The premier club competition for African football giants.",
+        logoUrl: 'https://via.placeholder.com/150/FF8C00/000000?text=CAF+CL',
+        type: 'hybrid',
+        teams: [],
+        groups: [],
+        matches: []
+    },
+    {
+        id: 'caf-confederations-cup',
+        name: 'CAF Confederations Cup',
+        description: "The exciting continental challenge for Africa's rising and established clubs.",
+        logoUrl: 'https://via.placeholder.com/150/228B22/FFFFFF?text=CAF+CC',
+        type: 'hybrid',
+        teams: [],
+        groups: [],
+        matches: []
+    },
+    {
+        id: 'fifa-world-cup',
+        name: 'FIFA World Cup',
+        description: "The biggest sporting event on earth, where nations compete for global immortality.",
+        logoUrl: 'https://via.placeholder.com/150/D4AF37/000000?text=FIFA+WC',
+        type: 'hybrid',
+        teams: [],
+        groups: [],
+        matches: []
     },
     {
         id: 'afcon-2025',
         name: 'Africa Cup of Nations 2025',
-        description: "The 35th edition of the biennial African association football tournament. Morocco hosts the continent's elite national teams.",
+        description: "The 35th edition of Africa's flagship tournament. 24 teams across 6 groups battle for continental glory in Morocco.",
         logoUrl: 'https://via.placeholder.com/150/228B22/FFD700?text=AFCON+2025',
         type: 'hybrid',
         teams: [
             // Group A
             { name: 'Morocco', crestUrl: 'https://via.placeholder.com/64/C1272D/006233?text=MAR' },
-            { name: 'Mali', crestUrl: 'https://via.placeholder.com/64/FCD116/CE1126?text=MLI' },
-            { name: 'Zambia', crestUrl: 'https://via.placeholder.com/64/198A4A/FFFFFF?text=ZAM' },
-            { name: 'Comoros', crestUrl: 'https://via.placeholder.com/64/3D8E33/FFFFFF?text=COM' },
+            { name: 'Sierra Leone', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=SLE' },
+            { name: 'Liberia', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=LBR' },
+            { name: 'Chad', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=CHA' },
             // Group B
             { name: 'Egypt', crestUrl: 'https://via.placeholder.com/64/CE1126/000000?text=EGY' },
-            { name: 'South Africa', crestUrl: 'https://via.placeholder.com/64/007A4D/FFFFFF?text=RSA' },
-            { name: 'Angola', crestUrl: 'https://via.placeholder.com/64/CE1126/000000?text=ANG' },
-            { name: 'Zimbabwe', crestUrl: 'https://via.placeholder.com/64/FFD200/000000?text=ZIM' }
+            { name: 'Nigeria', crestUrl: 'https://via.placeholder.com/64/008751/FFFFFF?text=NGA' },
+            { name: 'Benin', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=BEN' },
+            { name: 'Rwanda', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=RWA' },
+            // Group C
+            { name: 'Senegal', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=SEN' },
+            { name: 'Burkina Faso', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=BFA' },
+            { name: 'Burundi', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=BDI' },
+            { name: 'Malawi', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=MWI' },
+            // Group D
+            { name: 'Ivory Coast', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=CIV' },
+            { name: 'Equatorial Guinea', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=EQG' },
+            { name: 'Togo', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=TOG' },
+            { name: 'South Sudan', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=SSD' },
+            // Group E
+            { name: 'Algeria', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=ALG' },
+            { name: 'Guinea', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=GUI' },
+            { name: 'Uganda', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=UGA' },
+            { name: 'Botswana', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=BOT' },
+            // Group F
+            { name: 'Tunisia', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=TUN' },
+            { name: 'Mali', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=MLI' },
+            { name: 'Gambia', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=GAM' },
+            { name: 'Madagascar', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=MAD' }
         ],
         groups: [
-            { name: 'Group A', teamNames: ['Morocco', 'Mali', 'Zambia', 'Comoros'] },
-            { name: 'Group B', teamNames: ['Egypt', 'South Africa', 'Angola', 'Zimbabwe'] }
+            { name: 'Group A', teamNames: ['Morocco', 'Sierra Leone', 'Liberia', 'Chad'] },
+            { name: 'Group B', teamNames: ['Egypt', 'Nigeria', 'Benin', 'Rwanda'] },
+            { name: 'Group C', teamNames: ['Senegal', 'Burkina Faso', 'Burundi', 'Malawi'] },
+            { name: 'Group D', teamNames: ['Ivory Coast', 'Equatorial Guinea', 'Togo', 'South Sudan'] },
+            { name: 'Group E', teamNames: ['Algeria', 'Guinea', 'Uganda', 'Botswana'] },
+            { name: 'Group F', teamNames: ['Tunisia', 'Mali', 'Gambia', 'Madagascar'] }
         ],
         matches: [
-            { id: 701, teamA: 'Morocco', teamB: 'Comoros', status: 'scheduled', fullDate: '2025-12-21', date: '21', day: 'SUN', time: '21:00', venue: 'Stade Mohamed V' },
-            { id: 702, teamA: 'Mali', teamB: 'Zambia', status: 'scheduled', fullDate: '2025-12-22', date: '22', day: 'MON', time: '15:00', venue: 'Stade de Marrakech' },
+            // GROUP A - 6 matches
+            { id: 'afcon-a1', teamA: 'Morocco', teamB: 'Sierra Leone', status: 'scheduled', fullDate: '2025-12-21', date: '21', day: 'SUN', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-a2', teamA: 'Liberia', teamB: 'Chad', status: 'scheduled', fullDate: '2025-12-21', date: '21', day: 'SUN', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-a3', teamA: 'Morocco', teamB: 'Liberia', status: 'scheduled', fullDate: '2025-12-25', date: '25', day: 'THU', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-a4', teamA: 'Sierra Leone', teamB: 'Chad', status: 'scheduled', fullDate: '2025-12-25', date: '25', day: 'THU', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-a5', teamA: 'Chad', teamB: 'Morocco', status: 'scheduled', fullDate: '2025-12-29', date: '29', day: 'MON', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-a6', teamA: 'Sierra Leone', teamB: 'Liberia', status: 'scheduled', fullDate: '2025-12-29', date: '29', day: 'MON', time: '18:00', competition: 'AFCON 2025' },
+            // GROUP B - 6 matches
+            { id: 'afcon-b1', teamA: 'Egypt', teamB: 'Nigeria', status: 'scheduled', fullDate: '2025-12-22', date: '22', day: 'MON', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-b2', teamA: 'Benin', teamB: 'Rwanda', status: 'scheduled', fullDate: '2025-12-22', date: '22', day: 'MON', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-b3', teamA: 'Egypt', teamB: 'Benin', status: 'scheduled', fullDate: '2025-12-26', date: '26', day: 'FRI', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-b4', teamA: 'Nigeria', teamB: 'Rwanda', status: 'scheduled', fullDate: '2025-12-26', date: '26', day: 'FRI', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-b5', teamA: 'Rwanda', teamB: 'Egypt', status: 'scheduled', fullDate: '2025-12-30', date: '30', day: 'TUE', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-b6', teamA: 'Nigeria', teamB: 'Benin', status: 'scheduled', fullDate: '2025-12-30', date: '30', day: 'TUE', time: '18:00', competition: 'AFCON 2025' },
+            // GROUP C - 6 matches
+            { id: 'afcon-c1', teamA: 'Senegal', teamB: 'Burkina Faso', status: 'scheduled', fullDate: '2025-12-23', date: '23', day: 'TUE', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-c2', teamA: 'Burundi', teamB: 'Malawi', status: 'scheduled', fullDate: '2025-12-23', date: '23', day: 'TUE', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-c3', teamA: 'Senegal', teamB: 'Burundi', status: 'scheduled', fullDate: '2025-12-27', date: '27', day: 'SAT', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-c4', teamA: 'Burkina Faso', teamB: 'Malawi', status: 'scheduled', fullDate: '2025-12-27', date: '27', day: 'SAT', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-c5', teamA: 'Malawi', teamB: 'Senegal', status: 'scheduled', fullDate: '2025-12-31', date: '31', day: 'WED', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-c6', teamA: 'Burkina Faso', teamB: 'Burundi', status: 'scheduled', fullDate: '2025-12-31', date: '31', day: 'WED', time: '18:00', competition: 'AFCON 2025' },
+            // GROUP D - 6 matches
+            { id: 'afcon-d1', teamA: 'Ivory Coast', teamB: 'Equatorial Guinea', status: 'scheduled', fullDate: '2025-12-24', date: '24', day: 'WED', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-d2', teamA: 'Togo', teamB: 'South Sudan', status: 'scheduled', fullDate: '2025-12-24', date: '24', day: 'WED', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-d3', teamA: 'Ivory Coast', teamB: 'Togo', status: 'scheduled', fullDate: '2025-12-28', date: '28', day: 'SUN', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-d4', teamA: 'Equatorial Guinea', teamB: 'South Sudan', status: 'scheduled', fullDate: '2025-12-28', date: '28', day: 'SUN', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-d5', teamA: 'South Sudan', teamB: 'Ivory Coast', status: 'scheduled', fullDate: '2026-01-01', date: '01', day: 'THU', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-d6', teamA: 'Equatorial Guinea', teamB: 'Togo', status: 'scheduled', fullDate: '2026-01-01', date: '01', day: 'THU', time: '18:00', competition: 'AFCON 2025' },
+            // GROUP E - 6 matches
+            { id: 'afcon-e1', teamA: 'Algeria', teamB: 'Guinea', status: 'scheduled', fullDate: '2025-12-25', date: '25', day: 'THU', time: '15:00', competition: 'AFCON 2025' },
+            { id: 'afcon-e2', teamA: 'Uganda', teamB: 'Botswana', status: 'scheduled', fullDate: '2025-12-25', date: '25', day: 'THU', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-e3', teamA: 'Algeria', teamB: 'Uganda', status: 'scheduled', fullDate: '2025-12-29', date: '29', day: 'MON', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-e4', teamA: 'Guinea', teamB: 'Botswana', status: 'scheduled', fullDate: '2025-12-29', date: '29', day: 'MON', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-e5', teamA: 'Botswana', teamB: 'Algeria', status: 'scheduled', fullDate: '2026-01-02', date: '02', day: 'FRI', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-e6', teamA: 'Guinea', teamB: 'Uganda', status: 'scheduled', fullDate: '2026-01-02', date: '02', day: 'FRI', time: '18:00', competition: 'AFCON 2025' },
+            // GROUP F - 6 matches
+            { id: 'afcon-f1', teamA: 'Tunisia', teamB: 'Mali', status: 'scheduled', fullDate: '2025-12-26', date: '26', day: 'FRI', time: '15:00', competition: 'AFCON 2025' },
+            { id: 'afcon-f2', teamA: 'Gambia', teamB: 'Madagascar', status: 'scheduled', fullDate: '2025-12-26', date: '26', day: 'FRI', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-f3', teamA: 'Tunisia', teamB: 'Gambia', status: 'scheduled', fullDate: '2025-12-30', date: '30', day: 'TUE', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-f4', teamA: 'Mali', teamB: 'Madagascar', status: 'scheduled', fullDate: '2025-12-30', date: '30', day: 'TUE', time: '21:00', competition: 'AFCON 2025' },
+            { id: 'afcon-f5', teamA: 'Madagascar', teamB: 'Tunisia', status: 'scheduled', fullDate: '2026-01-03', date: '03', day: 'SAT', time: '18:00', competition: 'AFCON 2025' },
+            { id: 'afcon-f6', teamA: 'Mali', teamB: 'Gambia', status: 'scheduled', fullDate: '2026-01-03', date: '03', day: 'SAT', time: '18:00', competition: 'AFCON 2025' }
         ]
     }
 ];

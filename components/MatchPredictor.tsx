@@ -1,9 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import { CompetitionFixture } from '../data/teams';
-// FIX: Import 'fetchCompetition' which is now correctly exported from the API service.
 import { fetchCompetition } from '../services/api';
 import VoteIcon from './icons/VoteIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
@@ -77,9 +75,10 @@ const MatchPredictor: React.FC = () => {
         const loadMatches = async () => {
             const data = await fetchCompetition('mtn-premier-league');
             if (data?.fixtures) {
+                // Show upcoming matches that don't have results yet
                 const upcoming = data.fixtures
                     .filter(f => f.status === 'scheduled')
-                    .slice(0, 3);
+                    .slice(0, 5);
                 setMatches(upcoming);
             }
             setLoading(false);
@@ -124,18 +123,22 @@ const MatchPredictor: React.FC = () => {
         }
 
         if (matches.length === 0) {
-            return <p className="text-center text-gray-500 py-4">No upcoming matches to predict right now.</p>;
+            return (
+                <div className="text-center py-6 border-2 border-dashed rounded-xl">
+                    <p className="text-gray-400 text-sm">No live fixtures available for prediction.</p>
+                </div>
+            );
         }
 
         return (
             <div className="space-y-4">
                 {matches.map(match => (
-                    <Card key={match.id} className="bg-gray-50/70 shadow-sm">
+                    <Card key={match.id} className="bg-gray-50/70 shadow-sm border border-gray-100">
                         <CardContent className="p-4">
                             <div className="text-center font-semibold mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                                <span className="truncate text-right">{match.teamA}</span>
-                                <span className="text-gray-400 text-sm">vs</span>
-                                <span className="truncate text-left">{match.teamB}</span>
+                                <span className="truncate text-right text-gray-800">{match.teamA}</span>
+                                <span className="text-gray-400 text-xs uppercase tracking-widest">vs</span>
+                                <span className="truncate text-left text-gray-800">{match.teamB}</span>
                             </div>
                             
                             <div className="min-h-[68px] flex items-center justify-center">
@@ -144,7 +147,7 @@ const MatchPredictor: React.FC = () => {
                                 ) : match.isSimulating ? (
                                     <div className="flex justify-center items-center gap-2 text-sm font-semibold text-gray-500 animate-fade-in">
                                         <Spinner className="h-4 w-4 border-2" />
-                                        Waiting for final result...
+                                        Analyzing Match Result...
                                     </div>
                                 ) : (
                                     <PredictionButtons match={match} onPredict={handlePrediction} />
@@ -158,13 +161,13 @@ const MatchPredictor: React.FC = () => {
     };
 
     return (
-        <Card className="shadow-lg">
+        <Card className="shadow-lg h-full">
             <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                     <VoteIcon className="w-6 h-6 text-blue-600" />
                     <h3 className="text-xl font-display font-bold text-gray-800">Match Predictor</h3>
                 </div>
-                <p className="text-sm text-gray-500 mb-6">Predict the results of upcoming matches and test your knowledge!</p>
+                <p className="text-sm text-gray-500 mb-6 leading-relaxed">Predict outcomes to earn XP and level up your Fan Status!</p>
                 {renderContent()}
             </CardContent>
         </Card>

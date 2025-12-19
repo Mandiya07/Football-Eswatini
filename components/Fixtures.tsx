@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -354,7 +353,8 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
     const [activeTab, setActiveTab] = useState<'fixtures' | 'results'>('fixtures');
     const [competition, setCompetition] = useState<Competition | null>(null);
     const [loading, setLoading] = useState(true);
-    const [expandedFixtureId, setExpandedFixtureId] = useState<number | null>(null);
+    // FIX: Update expandedFixtureId type to support string | number to match revised CompetitionFixture
+    const [expandedFixtureId, setExpandedFixtureId] = useState<number | string | null>(null);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     const [compOptions, setCompOptions] = useState<{ label: string, options: { value: string; name: string; }[] }[]>([]);
     const [deletingId, setDeletingId] = useState<number | string | null>(null);
