@@ -216,8 +216,8 @@ const TournamentBracket: React.FC = () => {
     const [numTeams, setNumTeams] = useState(8);
     const [tournamentName, setTournamentName] = useState('');
     const [tournamentLogo, setTournamentLogo] = useState('');
-    const [allTeams, setAllTeams] = useState<Team[]>([]); // Master list of all teams
-    const [availableTeamsForBracket, setAvailableTeamsForBracket] = useState<Team[]>([]); // Filtered list for current context
+    const [allTeams, setAllTeams] = useState<Team[]>([]); 
+    const [availableTeamsForBracket, setAvailableTeamsForBracket] = useState<Team[]>([]); 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -242,7 +242,6 @@ const TournamentBracket: React.FC = () => {
             
             setExistingTournaments(allCups);
             
-            // Build map of directory crests (source of truth)
             const crestMap = new Map<string, string>();
             dirEntries.forEach(entry => {
                 if (entry.crestUrl) {
@@ -253,7 +252,6 @@ const TournamentBracket: React.FC = () => {
 
             const teamMap = new Map<number, Team>();
             Object.values(allComps).flatMap(c => c.teams || []).forEach(t => {
-                // Apply directory crest if available
                 const dirCrest = crestMap.get(t.name.trim().toLowerCase());
                 const teamWithCrest = dirCrest ? { ...t, crestUrl: dirCrest } : t;
                 teamMap.set(t.id, teamWithCrest);
@@ -261,7 +259,7 @@ const TournamentBracket: React.FC = () => {
             
             const allTeamsList = Array.from(teamMap.values()).sort((a,b) => a.name.localeCompare(b.name));
             setAllTeams(allTeamsList);
-            setAvailableTeamsForBracket(allTeamsList); // Initially, all teams are available.
+            setAvailableTeamsForBracket(allTeamsList); 
 
         } catch (e) {
             console.error("Error loading bracket data", e);
@@ -281,7 +279,7 @@ const TournamentBracket: React.FC = () => {
             logoUrl: t.logoUrl,
             rounds: (t.rounds as any).map((r: any) => ({
                 title: r.title,
-                matches: r.matches.map((m: any) => ({
+                matches: (r.matches || []).map((m: any) => ({
                     id: m.id,
                     round: m.round || 1,
                     matchInRound: m.matchInRound || 1,
@@ -299,7 +297,7 @@ const TournamentBracket: React.FC = () => {
             }))
         };
         setTournament(adminT);
-        setAvailableTeamsForBracket(allTeams); // When editing, allow all teams for flexibility
+        setAvailableTeamsForBracket(allTeams); 
     };
 
     const handleDeleteTournament = async (tournamentId: string) => {
@@ -324,7 +322,7 @@ const TournamentBracket: React.FC = () => {
         setSelectedSource(compId);
         
         if (!compId) {
-            setAvailableTeamsForBracket(allTeams); // Reset to all teams if source is cleared
+            setAvailableTeamsForBracket(allTeams); 
             setTournamentName('');
             return;
         }
@@ -336,7 +334,6 @@ const TournamentBracket: React.FC = () => {
                 setTournamentName(`${comp.name} Cup`);
                 const compTeams = comp.teams || [];
                 
-                // Override crests from directory map
                 const teamsWithCrests = compTeams.map(t => {
                     const dirCrest = directoryCrests.get(t.name.trim().toLowerCase());
                     return dirCrest ? { ...t, crestUrl: dirCrest } : t;
@@ -413,7 +410,7 @@ const TournamentBracket: React.FC = () => {
             const docRef = await addDoc(collection(db, 'cups'), newTournamentData);
             setTournament({ id: docRef.id, ...newTournamentData });
             setTournamentLogo('');
-            loadInitialData(); // Refresh list
+            loadInitialData(); 
         } catch (error) {
             handleFirestoreError(error, 'create tournament');
         }
@@ -424,7 +421,7 @@ const TournamentBracket: React.FC = () => {
         setTournament(prev => {
             if (!prev) return null;
             const updatedTournament = updater(prev);
-            updateTournamentInDb(updatedTournament); // Auto-save changes
+            updateTournamentInDb(updatedTournament); 
             return updatedTournament;
         });
     };
@@ -473,7 +470,6 @@ const TournamentBracket: React.FC = () => {
         let winnerId: number | null = null;
         const getScore = (s: string) => parseInt(s) || 0;
 
-        // Check penalties first
         if (currentMatch.score1Pen && currentMatch.score2Pen) {
              const p1 = getScore(currentMatch.score1Pen);
              const p2 = getScore(currentMatch.score2Pen);
@@ -602,7 +598,7 @@ const TournamentBracket: React.FC = () => {
                                                     className="text-xs h-8 px-3 bg-red-100 text-red-600 hover:bg-red-200"
                                                     disabled={deletingId === t.id}
                                                 >
-                                                    {deletingId === t.id ? <Spinner className="w-3 h-3 border-red-600" /> : <><TrashIcon className="w-3 h-3 mr-1"/> Delete</>}
+                                                    {deletingId === t.id ? <Spinner className="w-3 h-3 border-red-600 border-2" /> : <><TrashIcon className="w-3 h-3 mr-1"/> Delete</>}
                                                 </Button>
                                             </div>
                                         </div>
@@ -618,7 +614,7 @@ const TournamentBracket: React.FC = () => {
                                 <select 
                                     value={selectedSource} 
                                     onChange={e => handleSourceChange(e.target.value)} 
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500"
                                 >
                                     <option value="">-- All Available Teams --</option>
                                     {competitions.map(c => (
@@ -666,7 +662,7 @@ const TournamentBracket: React.FC = () => {
                                 </select>
                             </div>
                             <Button onClick={generateBracket} className="bg-primary text-white hover:bg-primary-dark w-full" disabled={loading}>
-                                {loading ? <Spinner className="w-4 h-4" /> : 'Create & Edit Bracket'}
+                                {loading ? <Spinner className="w-4 h-4 border-2 border-white" /> : 'Create & Edit Bracket'}
                             </Button>
                         </div>
                     </>
@@ -709,11 +705,11 @@ const TournamentBracket: React.FC = () => {
                             <div className="flex gap-2 flex-shrink-0 mt-4 md:mt-0 items-start">
                                 <Button 
                                     onClick={() => setShowPreview(!showPreview)} 
-                                    className={`text-sm flex items-center gap-2 h-9 ${showPreview ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-yellow-500 text-white hover:bg-yellow-600'}`}
+                                    className={`text-sm flex items-center gap-2 h-9 ${showPreview ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-yellow-500 text-white hover:bg-yellow-600 shadow-md'}`}
                                 >
                                     <EyeIcon className="w-4 h-4" /> {showPreview ? 'Edit Matches' : 'Preview Bracket'}
                                 </Button>
-                                <Button onClick={() => setTournament(null)} className="bg-gray-200 text-gray-800 text-sm h-9">
+                                <Button onClick={() => setTournament(null)} className="bg-gray-200 text-gray-800 text-sm h-9 hover:bg-gray-300">
                                     Close
                                 </Button>
                             </div>

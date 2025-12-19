@@ -9,6 +9,7 @@ import TrophyIcon from './icons/TrophyIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
+import { superNormalize } from '../services/utils';
 
 type ViewState = 'hub' | 'ingwenyama-hub' | 'bracket';
 
@@ -118,15 +119,13 @@ const CupsPage: React.FC = () => {
   };
 
   /**
-   * ROBUST LOOKUP: 
-   * Finds a cup by name, handling non-breaking spaces and hidden characters.
+   * ULTIMATE ROBUST LOOKUP: 
+   * Uses superNormalize to find a cup by name, ensuring minor naming variances
+   * in Firestore (like spaces, punctuation, or 'Super League' vs 'SuperLeague') don't break matching.
    */
   const findCupIdByExactName = (name: string): string | null => {
-      // Use regex to normalize whitespace (including non-breaking spaces \u00A0)
-      const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
-      const searchName = normalize(name);
-      
-      const found = cups.find(c => normalize(c.name) === searchName);
+      const target = superNormalize(name);
+      const found = cups.find(c => superNormalize(c.name) === target);
       return found ? found.id : null;
   };
 

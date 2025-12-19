@@ -15,6 +15,7 @@ export interface HybridTournament {
     description: string;
     logoUrl?: string;
     type: 'hybrid';
+    externalApiId?: string; // New field for external API linking
     
     // Teams configuration (source of truth for this tournament's specific teams)
     teams: ConfigTeam[];

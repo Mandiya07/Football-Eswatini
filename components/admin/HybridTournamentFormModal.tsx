@@ -24,6 +24,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
+    const [externalApiId, setExternalApiId] = useState(''); // New state for API ID
     const [teams, setTeams] = useState<ConfigTeam[]>([]);
     const [groups, setGroups] = useState<NonNullable<HybridTournament['groups']>>([]);
     const [matches, setMatches] = useState<CompetitionFixture[]>([]);
@@ -50,6 +51,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             setName(tournament.name || '');
             setDescription(tournament.description || '');
             setLogoUrl(tournament.logoUrl || '');
+            setExternalApiId(tournament.externalApiId || '');
             setTeams(tournament.teams || []);
             setGroups(tournament.groups || []);
             setMatches(tournament.matches || []);
@@ -59,6 +61,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             setName('');
             setDescription('');
             setLogoUrl('');
+            setExternalApiId('');
             setTeams([]);
             setGroups([]);
             setMatches([]);
@@ -128,6 +131,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             name,
             description,
             logoUrl,
+            externalApiId,
             type: 'hybrid',
             teams,
             groups,
@@ -169,6 +173,11 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Name</label>
                                         <input value={name} onChange={e => setName(e.target.value)} required className={inputClass} placeholder="e.g. Africa Cup of Nations 2025" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">External API ID (Optional)</label>
+                                        <input value={externalApiId} onChange={e => setExternalApiId(e.target.value)} className={inputClass} placeholder="e.g. 2001 or 4328" />
+                                        <p className="text-[10px] text-gray-500 mt-1">League ID from external providers (Football-Data, TheSportsDB).</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { fetchHybridTournaments, addHybridTournament, updateHybridTournament, deleteHybridTournament, handleFirestoreError } from '../../services/api';
 import { HybridTournament } from '../../data/international';
@@ -99,6 +98,12 @@ const HybridTournamentManagement: React.FC = () => {
                                                 <span>{item.groups?.length || 0} Groups</span>
                                                 <span>•</span>
                                                 <span>{item.matches?.length || 0} Matches</span>
+                                                {item.externalApiId && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="text-purple-600 font-bold">API ID: {item.externalApiId}</span>
+                                                    </>
+                                                )}
                                                 {item.bracketId && (
                                                     <>
                                                         <span>•</span>

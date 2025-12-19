@@ -190,7 +190,7 @@ const Navigation: React.FC = () => {
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
-    const baseClass = "text-white hover:text-accent transition-colors duration-300 text-sm font-medium";
+    const baseClass = "text-white hover:text-accent transition-colors duration-300 text-sm font-medium whitespace-nowrap";
     const activeClass = "text-accent font-bold";
     return `${baseClass} ${isActive ? activeClass : ''}`;
   };
@@ -211,7 +211,7 @@ const Navigation: React.FC = () => {
 
   return (
     <>
-      <header className="bg-primary/95 backdrop-blur-sm sticky top-0 z-50 shadow-lg">
+      <header className="bg-primary/95 backdrop-blur-md sticky top-0 z-[100] shadow-xl">
         <SecondaryNavigation />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -267,12 +267,12 @@ const Navigation: React.FC = () => {
                     onChange={handleSearchChange}
                     onFocus={handleSearchFocus}
                     onKeyDown={handleSearchSubmit}
-                    className="bg-white/20 text-white placeholder-gray-300 rounded-full py-1.5 pl-9 pr-4 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent focus:w-64 transition-all duration-300"
+                    className="bg-white/20 text-white placeholder-gray-300 rounded-full py-1.5 pl-9 pr-4 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent focus:w-64 transition-all duration-300 border-none"
                   />
                   
                   {/* Search Suggestions Dropdown */}
                   {showSuggestions && searchQuery.trim() && (
-                      <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-50 overflow-hidden ring-1 ring-black ring-opacity-5 animate-fade-in-fast">
+                      <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-[110] overflow-hidden ring-1 ring-black ring-opacity-5 animate-fade-in-fast">
                           {suggestions.length > 0 ? (
                               <ul>
                                   {suggestions.map((result, idx) => (
@@ -322,15 +322,15 @@ const Navigation: React.FC = () => {
                 <div ref={profileRef} className="relative">
                   {isLoggedIn && user ? (
                     <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-2 text-white text-sm font-medium">
-                      <img src={user.avatar} alt="User avatar" className="w-8 h-8 rounded-full" />
+                      <img src={user.avatar} alt="User avatar" className="w-8 h-8 rounded-full border border-white/20" />
                     </button>
                   ) : (
-                    <button onClick={openAuthModal} className="text-sm font-medium text-neutral-dark bg-accent/90 hover:bg-accent px-3 py-1.5 rounded-md">
+                    <button onClick={openAuthModal} className="text-sm font-medium text-neutral-dark bg-accent/90 hover:bg-accent px-3 py-1.5 rounded-md transition-all active:scale-95 shadow-sm">
                       Log In
                     </button>
                   )}
                   {isProfileOpen && isLoggedIn && user && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 animate-fade-in-fast">
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-xl py-1 z-[110] animate-fade-in-fast border border-gray-100">
                       <div className="px-4 py-2 text-sm text-gray-700 border-b">
                         <p className="font-semibold">{user.name}</p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
@@ -341,11 +341,12 @@ const Navigation: React.FC = () => {
                       )}
                       {user.role === 'super_admin' && (
                         <>
-                          <Link to="/data-management" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Data Management</Link>
-                          <Link to="/admin-panel" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Admin Panel</Link>
+                          <Link to="/data-management" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-medium text-blue-600">Data Management</Link>
+                          <Link to="/admin-panel" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-medium text-red-600">Admin Panel</Link>
                         </>
                       )}
-                      <button onClick={() => { logout(); setIsProfileOpen(false); }} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Log Out</button>
+                      <div className="border-t border-gray-100 my-1"></div>
+                      <button onClick={() => { logout(); setIsProfileOpen(false); }} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 font-bold">Log Out</button>
                     </div>
                   )}
                 </div>
@@ -367,7 +368,7 @@ const Navigation: React.FC = () => {
               <button
                 onClick={() => setIsOpen(!isOpen)}
                 type="button"
-                className="bg-primary inline-flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-white"
+                className="bg-primary-dark inline-flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-blue-800 transition-colors"
                 aria-controls="mobile-menu"
                 aria-expanded={isOpen}
               >
@@ -387,7 +388,7 @@ const Navigation: React.FC = () => {
         </div>
 
         {isOpen && (
-          <div className="xl:hidden" id="mobile-menu">
+          <div className="xl:hidden bg-primary shadow-inner max-h-[80vh] overflow-y-auto" id="mobile-menu">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               <div className="relative px-2 py-2">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-5 pointer-events-none">
@@ -400,11 +401,11 @@ const Navigation: React.FC = () => {
                     value={searchQuery}
                     onChange={handleSearchChange}
                     onKeyDown={handleSearchSubmit}
-                    className="block w-full bg-primary-dark text-white placeholder-gray-400 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent"
+                    className="block w-full bg-primary-dark text-white placeholder-gray-400 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none border-none shadow-inner"
                   />
                   {/* Mobile Search Suggestions - Inline */}
                   {showSuggestions && searchQuery.trim() && suggestions.length > 0 && (
-                      <div className="mt-2 bg-white rounded-md shadow-lg overflow-hidden">
+                      <div className="mt-2 bg-white rounded-md shadow-lg overflow-hidden animate-fade-in-fast">
                           <ul>
                               {suggestions.map((result, idx) => (
                                   <li key={`${result.type}-${result.id}-${idx}`} className="border-b last:border-b-0 border-gray-100">
@@ -446,9 +447,9 @@ const Navigation: React.FC = () => {
                 
               <div className="border-t border-primary-dark mt-3 pt-3">
                 {isLoggedIn && user ? (
-                  <>
-                    <Link to="/profile" onClick={() => setIsOpen(false)} className="text-gray-300 hover:bg-primary-dark hover:text-white flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium">
-                      <img src={user.avatar} alt="User avatar" className="w-8 h-8 rounded-full" />
+                  <div className="bg-primary-dark/30 rounded-lg p-2 m-1">
+                    <Link to="/profile" onClick={() => setIsOpen(false)} className="text-gray-300 hover:bg-primary-dark hover:text-white flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium transition-colors">
+                      <img src={user.avatar} alt="User avatar" className="w-8 h-8 rounded-full border border-white/20" />
                       <span>My Profile</span>
                     </Link>
                     {(user.role === 'club_admin' || user.role === 'super_admin') && (
@@ -456,17 +457,17 @@ const Navigation: React.FC = () => {
                     )}
                     {user.role === 'super_admin' && (
                        <>
-                          <Link to="/data-management" onClick={() => setIsOpen(false)} className="text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">Data Management</Link>
-                          <Link to="/admin-panel" onClick={() => setIsOpen(false)} className="text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">Admin Panel</Link>
+                          <Link to="/data-management" onClick={() => setIsOpen(false)} className="text-blue-400 hover:text-blue-300 block px-3 py-2 rounded-md text-base font-medium">Data Management</Link>
+                          <Link to="/admin-panel" onClick={() => setIsOpen(false)} className="text-red-400 hover:text-red-300 block px-3 py-2 rounded-md text-base font-medium">Admin Panel</Link>
                         </>
                     )}
-                    <button onClick={() => { logout(); setIsOpen(false); }} className="w-full text-left text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    <button onClick={() => { logout(); setIsOpen(false); }} className="w-full text-left text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium border-t border-white/10 mt-2">
                       Log Out
                     </button>
-                  </>
+                  </div>
                 ) : (
-                  <button onClick={() => { openAuthModal(); setIsOpen(false); }} className="w-full text-left text-gray-300 hover:bg-primary-dark hover:text-white block px-3 py-2 rounded-md text-base font-medium">
-                    Log In
+                  <button onClick={() => { openAuthModal(); setIsOpen(false); }} className="w-full text-left text-primary-dark bg-accent hover:bg-yellow-400 font-bold block px-4 py-3 rounded-lg text-base shadow-lg m-2 w-[calc(100%-1rem)] transition-all active:scale-95">
+                    Log In / Sign Up
                   </button>
                 )}
               </div>

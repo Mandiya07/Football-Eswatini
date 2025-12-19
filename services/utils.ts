@@ -22,6 +22,32 @@ export const removeUndefinedProps = (obj: any): any => {
 };
 
 /**
+ * Super-normalization for robust matching.
+ * Strips all non-alphanumeric chars, removes extra spaces, and handles common suffix variances.
+ */
+export const superNormalize = (s: string) => {
+    if (!s) return '';
+    return s.toLowerCase()
+        .replace(/[^a-z0-9]/g, '') // Remove everything except letters and numbers
+        .replace(/\s+/g, '') // Remove all spaces
+        .replace(/fc$/i, '') // Remove common suffixes
+        .replace(/united$/i, '')
+        .trim();
+};
+
+/**
+ * Simple normalization for display and basic search.
+ */
+export const normalize = (name: string) => 
+    (name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/\.|\,/g, '') 
+    .replace(/\s+/g, ' ') 
+    .trim();
+
+/**
  * Finds a team entity from the directory map using a more robust matching logic.
  */
 export const findInMap = (name: string, map: Map<string, DirectoryEntity>): DirectoryEntity | undefined => {
@@ -29,86 +55,62 @@ export const findInMap = (name: string, map: Map<string, DirectoryEntity>): Dire
     const lowerName = name.trim().toLowerCase();
     const exactMatch = map.get(lowerName);
     if (exactMatch) return exactMatch;
-    const cleanName = lowerName.replace(/\s+(fc|ladies)$/, '').trim();
+    
+    // Try super normalization fallback
+    const target = superNormalize(name);
     for (const [key, value] of map.entries()) {
-        const cleanKey = key.replace(/\s+(fc|ladies)$/, '').trim();
-        if (cleanKey === cleanName) return value;
+        if (superNormalize(key) === target) return value;
     }
     return undefined;
 };
-
-// Helper normalize function - Extremely conservative to prevent name merging
-export const normalize = (name: string) => 
-    (name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/\.|\,/g, '') // Only strip dots/commas
-    .replace(/[^a-z0-9 ]/g, '')
-    .replace(/\s+/g, ' ') 
-    .trim();
 
 /**
  * Normalizes a team name and tries to find a match in a list of official team names.
  */
 export const normalizeTeamName = (name: string, officialNames: string[]): string | null => {
     if (!name) return null;
-    const normInput = normalize(name);
+    const target = superNormalize(name);
     for (const official of officialNames) {
-        if (normalize(official) === normInput) return official;
+        if (superNormalize(official) === target) return official;
     }
     return null;
 };
 
 /**
  * Calculates the Levenshtein distance between two strings.
- * Used for auto-correcting typos in team names.
  */
 export const levenshtein = (a: string, b: string): number => {
     if (a.length === 0) return b.length;
     if (b.length === 0) return a.length;
-
     const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
     matrix[0] = Array.from({ length: a.length + 1 }, (_, i) => i);
-
     for (let i = 1; i <= b.length; i++) {
         for (let j = 1; j <= a.length; j++) {
-            if (b[i - 1] === a[j - 1]) {
-                matrix[i][j] = matrix[i - 1][j - 1];
-            } else {
-                matrix[i][j] = Math.min(
-                    matrix[i - 1][j - 1] + 1,
-                    matrix[i][j - 1] + 1,
-                    matrix[i - 1][j] + 1
-                );
-            }
+            if (b[i - 1] === a[j - 1]) matrix[i][j] = matrix[i - 1][j - 1];
+            else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
         }
     }
-
     return matrix[b.length][a.length];
 };
 
 /**
  * Calculates league standings from a list of teams and finished matches.
- * Scans ALL matches to ensure every team in the schedule appears on the log.
  */
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
     const teamsMap: Map<string, Team> = new Map();
     
-    // 1. Initialize map with existing baseTeams
     baseTeams.forEach(team => {
         const teamCopy = { ...team };
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' };
-        teamsMap.set(normalize(team.name), teamCopy);
+        teamsMap.set(superNormalize(team.name), teamCopy);
     });
     
     const allMatches = [...(allResults || []), ...(allFixtures || [])];
 
-    // 2. DISCOVERY: Ensure ANY team in ANY match (fixture or result) is in the log map
     allMatches.forEach(m => {
         [m.teamA, m.teamB].forEach(name => {
             if (!name) return;
-            const norm = normalize(name);
+            const norm = superNormalize(name);
             if (!teamsMap.has(norm)) {
                 const newTeam: Team = {
                     id: Math.floor(Math.random() * 1000000), 
@@ -122,17 +124,16 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         });
     });
 
-    // 3. Process finished matches for stats
-    const finishedMatches = allMatches.filter(r => r.status === 'finished' && r.scoreA != null && r.scoreB != null);
+    const finishedMatches = allMatches.filter(r => (r.status === 'finished' || r.status === 'abandoned') && r.scoreA != null && r.scoreB != null);
     const sortedMatches = finishedMatches
         .filter(fixture => fixture.fullDate)
         .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
 
     for (const fixture of sortedMatches) {
-        const teamA = teamsMap.get(normalize(fixture.teamA));
-        const teamB = teamsMap.get(normalize(fixture.teamB));
+        const teamA = teamsMap.get(superNormalize(fixture.teamA));
+        const teamB = teamsMap.get(superNormalize(fixture.teamB));
         
-        if (!teamA || !teamB || normalize(teamA.name) === normalize(teamB.name)) continue;
+        if (!teamA || !teamB || superNormalize(teamA.name) === superNormalize(teamB.name)) continue;
 
         const scoreA = fixture.scoreA!;
         const scoreB = fixture.scoreB!;
@@ -157,7 +158,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
             teamB.stats.pts += 3;
             teamA.stats.l += 1;
             teamB.stats.form = ['W', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
-            teamA.stats.form = ['L', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
+            teamA.stats.form = ['L', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         } else {
             teamA.stats.d += 1;
             teamB.stats.d += 1;
@@ -172,8 +173,8 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
 };
 
 export const calculateGroupStandings = (groupTeams: Team[], allMatches: CompetitionFixture[]): Team[] => {
-    const groupTeamNames = new Set(groupTeams.map(t => normalize(t.name)));
-    const groupMatches = allMatches.filter(m => groupTeamNames.has(normalize(m.teamA)) && groupTeamNames.has(normalize(m.teamB)));
+    const groupTeamNames = new Set(groupTeams.map(t => superNormalize(t.name)));
+    const groupMatches = allMatches.filter(m => groupTeamNames.has(superNormalize(m.teamA)) && groupTeamNames.has(superNormalize(m.teamB)));
     return calculateStandings(groupTeams, groupMatches, []);
 };
 
