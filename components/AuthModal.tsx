@@ -24,7 +24,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { login, signup } = useAuth();
 
   const handleClose = () => {
-    // Reset form state on close
     setName('');
     setEmail('');
     setPassword('');
@@ -47,23 +46,28 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             }
             await signup({ name, email, password });
         }
-        // Success: modal will be closed by AuthContext
-    } catch (err) {
+    } catch (err: any) {
         let friendlyError = 'An unexpected error occurred. Please try again.';
-        const errorCode = (err as any).code;
+        const errorCode = err.code;
 
         switch (errorCode) {
-            case 'auth/wrong-password':
-                friendlyError = 'Incorrect password. Please try again.';
+            case 'auth/invalid-credential':
+                friendlyError = 'Invalid email or password. Please check your details and try again.';
                 break;
-            case 'auth/user-not-found':
-                friendlyError = 'No account found with this email address.';
+            case 'auth/network-request-failed':
+                friendlyError = 'Network error. Please check your internet connection and try again.';
+                break;
+            case 'auth/user-disabled':
+                friendlyError = 'This account has been disabled. Please contact support.';
+                break;
+            case 'auth/too-many-requests':
+                friendlyError = 'Too many failed attempts. Please try again later or reset your password.';
                 break;
             case 'auth/email-already-in-use':
-                friendlyError = 'An account with this email already exists. Please log in.';
+                friendlyError = 'An account with this email already exists.';
                 break;
             case 'auth/weak-password':
-                friendlyError = 'Password is too weak. It should be at least 6 characters long.';
+                friendlyError = 'Password is too weak. It should be at least 6 characters.';
                 break;
             case 'auth/invalid-email':
                 friendlyError = 'Please enter a valid email address.';
@@ -92,14 +96,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         <button
           onClick={handleClose}
           className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 transition-colors z-10"
-          aria-label="Close authentication form"
+          aria-label="Close"
         >
           <XIcon className="w-6 h-6" />
         </button>
 
         <CardContent className="p-8">
           <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+            <nav className="-mb-px flex space-x-6">
               <button
                 onClick={() => { setMode('login'); setError(''); }}
                 className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${mode === 'login' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -116,19 +120,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === 'login' ? (
-                <div>
-                    <h2 id="auth-modal-title" className="text-2xl font-bold font-display text-gray-800 mb-1">Welcome Back</h2>
-                    <p className="text-gray-600 mb-6 text-sm">Log in to access your profile and features.</p>
-                </div>
-              ) : (
-                 <div>
-                    <h2 id="auth-modal-title" className="text-2xl font-bold font-display text-gray-800 mb-1">Create an Account</h2>
-                    <p className="text-gray-600 mb-6 text-sm">Join the Football Eswatini community.</p>
-                </div>
-              )}
+              <h2 id="auth-modal-title" className="text-2xl font-bold font-display text-gray-800 mb-1">
+                {mode === 'login' ? 'Welcome Back' : 'Create an Account'}
+              </h2>
+              <p className="text-gray-600 mb-6 text-sm">
+                {mode === 'login' ? 'Log in to access your profile.' : 'Join the Football Eswatini community.'}
+              </p>
 
-              {error && <p className="text-red-600 text-sm bg-red-100 p-2 rounded-md">{error}</p>}
+              {error && <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md border border-red-100">{error}</div>}
               
               {mode === 'signup' && (
                 <Input icon={<UserIcon className="w-5 h-5 text-gray-400" />} type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required />
@@ -136,26 +135,17 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <Input icon={<MailIcon className="w-5 h-5 text-gray-400" />} type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
               <Input icon={<LockIcon className="w-5 h-5 text-gray-400" />} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
               
-              <Button type="submit" className="w-full bg-primary text-white hover:bg-primary-dark focus:ring-primary-light flex justify-center items-center h-10" disabled={loading}>
+              <Button type="submit" className="w-full bg-primary text-white hover:bg-primary-dark h-11 flex justify-center items-center" disabled={loading}>
                   {loading ? <Spinner className="w-5 h-5 border-2"/> : (mode === 'login' ? 'Log In' : 'Create Account')}
               </Button>
           </form>
 
-            {mode === 'login' ? (
-                 <p className="text-center text-sm text-gray-500 mt-4">
-                    Don't have an account?{' '}
-                    <button onClick={() => { setMode('signup'); setError(''); }} className="font-medium text-primary hover:underline">
-                        Sign Up
-                    </button>
-                </p>
-            ) : (
-                 <p className="text-center text-sm text-gray-500 mt-4">
-                    Already have an account?{' '}
-                    <button onClick={() => { setMode('login'); setError(''); }} className="font-medium text-primary hover:underline">
-                        Log In
-                    </button>
-                </p>
-            )}
+          <p className="text-center text-sm text-gray-500 mt-6">
+            {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+            <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }} className="font-bold text-primary hover:underline">
+                {mode === 'login' ? 'Sign Up' : 'Log In'}
+            </button>
+          </p>
         </CardContent>
       </Card>
     </div>
