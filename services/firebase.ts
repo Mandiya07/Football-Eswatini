@@ -1,7 +1,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -16,9 +16,17 @@ const firebaseConfig = {
 // Initialize Firebase and export the app instance
 export const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with memory cache settings.
-// We enable experimentalForceLongPolling to ensure connectivity in environments where WebSockets might be restricted.
+/**
+ * Initialize Firestore with robust settings for varying network conditions.
+ * 
+ * 1. persistentLocalCache: Allows the app to load existing data even if the 10s connection timeout occurs.
+ * 2. experimentalForceLongPolling: Bypasses potential WebSocket blocks in restricted corporate/public networks.
+ * 3. ignoreUndefinedProperties: Prevents crashes when writing objects with undefined fields.
+ */
 export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache(),
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  }),
   experimentalForceLongPolling: true,
+  ignoreUndefinedProperties: true
 });

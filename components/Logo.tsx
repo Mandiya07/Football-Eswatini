@@ -17,12 +17,6 @@ const Logo: React.FC<{ className?: string }> = ({ className }) => {
         </filter>
       </defs>
       
-      {/* Background Pill */}
-      <rect x="5" y="15" width="310" height="50" rx="25" fill="#002B7F" />
-      
-      {/* Central Circle Overlay for Ball */}
-      <circle cx="160" cy="40" r="32" fill="#001e5a" opacity="0.6" />
-      
       {/* Soccer Ball Icon */}
       <g transform="translate(140, 20)">
          <circle cx="20" cy="20" r="18" fill="#F9FAFB" stroke="#E5E7EB" strokeWidth="1"/>
@@ -33,12 +27,12 @@ const Logo: React.FC<{ className?: string }> = ({ className }) => {
       </g>
 
       {/* Text "football" */}
-      <text x="130" y="50" fontFamily="'Poppins', sans-serif" fontWeight="700" fontSize="24" textAnchor="end" fill="#FF4500" filter="url(#dropShadow)">
+      <text x="130" y="50" fontFamily="'Poppins', sans-serif" fontWeight="800" fontSize="26" textAnchor="end" fill="#D22730" filter="url(#dropShadow)">
         football
       </text>
       
       {/* Text "eswatini" */}
-      <text x="190" y="50" fontFamily="'Poppins', sans-serif" fontWeight="700" fontSize="24" textAnchor="start" fill="#FDB913" filter="url(#dropShadow)">
+      <text x="190" y="50" fontFamily="'Poppins', sans-serif" fontWeight="800" fontSize="26" textAnchor="start" fill="#FDB913" filter="url(#dropShadow)">
         eswatini
       </text>
     </svg>

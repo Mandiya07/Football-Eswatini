@@ -1,3 +1,4 @@
+
 import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
 import { db } from './firebase';
@@ -23,20 +24,26 @@ import { HybridTournament, internationalData } from '../data/international';
 export { type Competition }; // Re-export to maintain compatibility
 export { type ExclusiveItem, type TeamYamVideo }; // Re-export feature types
 
+/**
+ * Global Firestore error handler.
+ * Provides specific logging for connection timeouts/offline states.
+ */
 export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
     
-    // Gracefully handle offline/unavailable errors
-    if (firebaseError.code === 'unavailable' || firebaseError.message?.includes('offline') || firebaseError.message?.includes('Backend')) {
-        console.warn(`[Offline/Error] Operation '${operation}' failed. Using fallback/cached data.`);
+    // Check for "Unavailable" which covers the 10s backend timeout error
+    if (firebaseError.code === 'unavailable' || firebaseError.message?.includes('Could not reach Cloud Firestore')) {
+        console.warn(`[Firestore Offline] Connection failed during '${operation}'. The app is currently using cached/local data.`);
         return;
     }
 
-    console.error(`Firestore error during '${operation}':`, error);
-    
+    // Permission issues
     if (firebaseError.code === 'permission-denied' || firebaseError.code === 'failed-precondition') {
-        console.warn(`Permission Denied for '${operation}'. Check security rules.`);
+        console.error(`[Firestore Permission Denied] '${operation}' failed. Check your authentication level or security rules.`);
+        return;
     }
+
+    console.error(`[Firestore Critical Error] '${operation}':`, error);
 };
 
 

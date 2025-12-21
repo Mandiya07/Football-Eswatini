@@ -180,7 +180,7 @@ const SeedDatabase: React.FC = () => {
             seedLeagueGroup(regionalCompetitions, 'regional-leagues');
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database seeded! Hlathikhulu United and Hlathikhulu FC are now distinct teams.' });
+            setStatus({ type: 'success', msg: 'Database seeded! UEFA Champions League 36-team League Phase is now active in the International Hub.' });
         } catch (error) {
             console.error("Seeding failed:", error);
             setStatus({ type: 'error', msg: 'Failed to seed database.' });
@@ -197,7 +197,7 @@ const SeedDatabase: React.FC = () => {
                     <h3 className="text-2xl font-bold font-display text-gray-800">Seed Database</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
-                    Restore default data and ensure Hlathikhulu FC and Hlathikhulu United are treated as separate teams.
+                    Restore default data and ensure Hlathikhulu FC and Hlathikhulu United are treated as separate teams. This will also reset International Hub data.
                 </p>
                 <Button onClick={handleSeed} disabled={loading} className="bg-blue-600 text-white hover:bg-blue-700 h-11 px-6">
                     {loading ? <Spinner className="w-5 h-5 border-2"/> : <>Seed Data</>}
