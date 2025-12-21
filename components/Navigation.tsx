@@ -13,8 +13,10 @@ import { fetchNews, fetchAllCompetitions, fetchDirectoryEntries, fetchHybridTour
 import { NewsItem } from '../data/news';
 import { DirectoryEntity } from '../data/directory';
 import { HybridTournament } from '../data/international';
-// Added missing Button import
 import Button from './ui/Button';
+import BriefcaseIcon from './icons/BriefcaseIcon';
+import ChevronDownIcon from './icons/ChevronDownIcon';
+import SparklesIcon from './icons/SparklesIcon';
 
 interface SearchResult {
     type: 'news' | 'team' | 'match' | 'tournament';
@@ -26,7 +28,7 @@ interface SearchResult {
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isManagementOpen, setIsManagementOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -41,11 +43,15 @@ const Navigation: React.FC = () => {
     hybridTournaments: HybridTournament[]
   } | null>(null);
 
-  const { isLoggedIn, user, openAuthModal, logout } = useAuth();
+  const { isLoggedIn, user, openAuthModal } = useAuth();
   const { cartCount } = useCart();
-  const profileRef = useRef<HTMLDivElement>(null);
+  const managementRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isClubAdmin = user?.role === 'club_admin';
+  const isAdmin = isSuperAdmin || isClubAdmin;
 
   const navItems = [
     { name: 'Home', to: '/' },
@@ -60,8 +66,8 @@ const Navigation: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setIsProfileOpen(false);
+      if (managementRef.current && !managementRef.current.contains(event.target as Node)) {
+        setIsManagementOpen(false);
       }
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
@@ -168,18 +174,56 @@ const Navigation: React.FC = () => {
                   />
                 </div>
 
-                <button onClick={() => setIsCartOpen(true)} className="relative text-white hover:text-accent p-2 ml-2">
+                <button onClick={() => setIsCartOpen(true)} className="relative text-white hover:text-accent p-2 ml-2" aria-label="Cart">
                   <ShoppingCartIcon className="w-6 h-6" />
                   {cartCount > 0 && <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-secondary text-white text-[10px] font-bold flex items-center justify-center">{cartCount}</span>}
                 </button>
 
-                <div ref={profileRef} className="relative ml-2">
+                <div className="relative ml-2 flex items-center gap-2 h-full">
                   {isLoggedIn && user ? (
-                    <Link to="/profile">
-                      <img src={user.avatar} alt="" className="w-9 h-9 rounded-full border-2 border-white/20 hover:border-accent transition-colors" />
-                    </Link>
+                    <div className="flex items-center gap-3 h-full">
+                        {isAdmin && (
+                            <div className="relative h-full flex items-center" ref={managementRef}>
+                                <button 
+                                    onClick={() => setIsManagementOpen(!isManagementOpen)}
+                                    className="text-xs font-bold text-primary-dark bg-accent hover:bg-yellow-400 px-4 py-2.5 rounded-lg transition-all flex items-center gap-1.5 shadow-lg border border-yellow-500/30 group"
+                                >
+                                    <BriefcaseIcon className="w-4 h-4" />
+                                    Management
+                                    <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${isManagementOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                
+                                {isManagementOpen && (
+                                    <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-slide-up py-2">
+                                        <div className="px-4 py-2 border-b border-gray-50 mb-1">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Portal Access</p>
+                                        </div>
+                                        <Link to="/club-management" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-primary transition-colors">
+                                            <BriefcaseIcon className="w-4 h-4 text-blue-500" />
+                                            Team Portal
+                                        </Link>
+                                        {isSuperAdmin && (
+                                            <>
+                                                <Link to="/data-management" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors">
+                                                    <SparklesIcon className="w-4 h-4 text-purple-500" />
+                                                    Data & AI Import
+                                                </Link>
+                                                <Link to="/admin-panel" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-red-50 hover:text-red-700 transition-colors">
+                                                    <ShieldIcon className="w-4 h-4 text-red-500" />
+                                                    Admin Panel
+                                                </Link>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <Link to="/profile" className="flex items-center h-full">
+                          <img src={user.avatar} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white/20 hover:border-accent transition-colors shadow-md" />
+                        </Link>
+                    </div>
                   ) : (
-                    <button onClick={openAuthModal} className="text-xs font-black uppercase text-primary-dark bg-accent px-4 py-2 rounded-lg hover:bg-yellow-400 transition-colors shadow-lg">
+                    <button onClick={openAuthModal} className="text-xs font-black uppercase text-primary-dark bg-accent px-5 py-2.5 rounded-lg hover:bg-yellow-400 transition-colors shadow-lg border border-yellow-500/50">
                       Login
                     </button>
                   )}
@@ -189,11 +233,11 @@ const Navigation: React.FC = () => {
             
             {/* Mobile Actions */}
             <div className="xl:hidden flex items-center gap-3">
-               <button onClick={() => setIsCartOpen(true)} className="relative text-white">
+               <button onClick={() => setIsCartOpen(true)} className="relative text-white" aria-label="Cart">
                   <ShoppingCartIcon className="w-6 h-6" />
                   {cartCount > 0 && <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-secondary text-white text-[10px] font-bold flex items-center justify-center">{cartCount}</span>}
                 </button>
-                <button onClick={() => setIsOpen(!isOpen)} className="text-white p-2">
+                <button onClick={() => setIsOpen(!isOpen)} className="text-white p-2" aria-label="Toggle Menu">
                    {isOpen ? <XIcon className="w-8 h-8" /> : <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>}
                 </button>
             </div>
@@ -203,17 +247,17 @@ const Navigation: React.FC = () => {
         {/* FAN TICKER */}
         <div className="bg-primary-dark/80 backdrop-blur-sm h-10 overflow-hidden flex items-center border-t border-white/5">
             <div className="bg-red-600 h-full px-4 flex items-center text-[10px] font-black text-white uppercase tracking-widest z-10 whitespace-nowrap border-r border-red-700">
-                Live Shouts
+                Live Updates
             </div>
             <div className="flex-grow whitespace-nowrap animate-marquee relative">
-                <span className="inline-block px-8 text-xs text-white/90">🔥 Join the live chat for the big weekend matches!</span>
-                <span className="inline-block px-8 text-xs text-white/90">🏆 Predicted scores are rolling in on the Fan Zone.</span>
-                <span className="inline-block px-8 text-xs text-white/90">📰 Breaking: New youth tournament dates confirmed.</span>
+                <span className="inline-block px-8 text-xs text-white/90 font-medium">🔥 Real-time scores and minute-by-minute updates active!</span>
+                <span className="inline-block px-8 text-xs text-white/90 font-medium">🏆 Prediction standings updated in the Fan Zone.</span>
+                <span className="inline-block px-8 text-xs text-white/90 font-medium">📰 Latest: National Team selection announced.</span>
             </div>
         </div>
 
         {/* Mobile Menu Overlay */}
-        <div className={`fixed inset-0 bg-primary/95 z-[200] transition-transform duration-300 xl:hidden ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`fixed inset-0 bg-primary/98 z-[200] transition-transform duration-300 xl:hidden ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
             <div className="flex flex-col h-full">
                 <div className="flex justify-between items-center p-6 border-b border-white/10">
                     <Logo className="h-10 w-auto" />
@@ -230,17 +274,38 @@ const Navigation: React.FC = () => {
                             {item.name}
                         </NavLink>
                     ))}
+
+                    {/* Management Links in Mobile Menu */}
+                    {isLoggedIn && isAdmin && (
+                        <div className="pt-6 mt-6 border-t border-white/10 space-y-4">
+                            <p className="text-accent text-xs font-bold uppercase tracking-widest mb-4">Management Portal</p>
+                            <Link to="/club-management" onClick={() => setIsOpen(false)} className="block text-xl font-bold text-white flex items-center gap-3 py-2">
+                                <BriefcaseIcon className="w-6 h-6 text-accent" /> Team Portal
+                            </Link>
+                            {isSuperAdmin && (
+                                <>
+                                    <Link to="/data-management" onClick={() => setIsOpen(false)} className="block text-xl font-bold text-white flex items-center gap-3 py-2">
+                                        <SparklesIcon className="w-6 h-6 text-accent" /> Data & AI Import
+                                    </Link>
+                                    <Link to="/admin-panel" onClick={() => setIsOpen(false)} className="block text-xl font-bold text-white flex items-center gap-3 py-2">
+                                        <ShieldIcon className="w-6 h-6 text-accent" /> Admin Panel
+                                    </Link>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     <div className="pt-6 border-t border-white/10">
                         {isLoggedIn ? (
-                            <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-4 text-white">
-                                <img src={user?.avatar} className="w-12 h-12 rounded-full border-2 border-accent" alt="" />
+                            <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-4 text-white bg-white/5 p-4 rounded-xl border border-white/10">
+                                <img src={user?.avatar} className="w-14 h-14 rounded-full border-2 border-accent" alt="Avatar" />
                                 <div>
-                                    <p className="font-bold">{user?.name}</p>
-                                    <p className="text-sm opacity-60">View Profile</p>
+                                    <p className="font-bold text-lg">{user?.name}</p>
+                                    <p className="text-sm opacity-60">View Fan Profile</p>
                                 </div>
                             </Link>
                         ) : (
-                            <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="w-full bg-accent text-primary-dark font-black py-4">LOGIN / SIGNUP</Button>
+                            <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="w-full bg-accent text-primary-dark font-black py-4 text-lg">LOGIN / SIGNUP</Button>
                         )}
                     </div>
                 </div>
@@ -252,5 +317,12 @@ const Navigation: React.FC = () => {
     </>
   );
 };
+
+// Sub-component for Shield icon
+const ShieldIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+    </svg>
+);
 
 export default Navigation;
