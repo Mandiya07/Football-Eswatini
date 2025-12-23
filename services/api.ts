@@ -1,4 +1,3 @@
-
 import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
 import { db } from './firebase';
@@ -29,15 +28,29 @@ export { type ExclusiveItem, type TeamYamVideo }; // Re-export feature types
  */
 export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
-    if (firebaseError.code === 'unavailable' || firebaseError.message?.includes('Could not reach Cloud Firestore')) {
-        console.warn(`[Firestore Offline] Connection failed during '${operation}'. Using cached/local data.`);
+    
+    // Connection issue / Timeout
+    if (
+        firebaseError.code === 'unavailable' || 
+        firebaseError.code === 'deadline-exceeded' ||
+        firebaseError.message?.includes('Could not reach Cloud Firestore') ||
+        firebaseError.message?.includes('Backend didn\'t respond')
+    ) {
+        console.warn(`[Firestore Connectivity] '${operation}' failed to reach server. Operating in offline/cached mode.`);
         return;
     }
+    
     if (firebaseError.code === 'permission-denied') {
-        console.error(`[Firestore Permission Denied] '${operation}' failed.`);
+        console.error(`[Firestore Permission Denied] '${operation}' failed. Check security rules.`);
         return;
     }
-    console.error(`[Firestore Critical Error] '${operation}':`, error);
+
+    if (firebaseError.code === 'not-found') {
+        console.warn(`[Firestore Data Missing] '${operation}' item not found in DB.`);
+        return;
+    }
+
+    console.error(`[Firestore Error] '${operation}':`, error);
 };
 
 export interface Ad {

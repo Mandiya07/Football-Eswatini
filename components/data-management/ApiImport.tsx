@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -13,7 +12,7 @@ import { CompetitionFixture } from '../../data/teams';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories, fetchFootballDataOrg } from '../../services/api';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { removeUndefinedProps, normalizeTeamName, calculateStandings } from '../../services/utils';
+import { removeUndefinedProps, normalizeTeamName, calculateStandings, superNormalize } from '../../services/utils';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import InfoIcon from '../icons/InfoIcon';
 import GlobeIcon from '../icons/GlobeIcon';
@@ -278,8 +277,8 @@ const ApiImportPage: React.FC = () => {
         const processedFixtures: ReviewedFixture[] = fixturesToProcess.map((fixture) => {
             // Look for an existing match with same Teams and Date
             const existingMatch = existingMatches.find(f => 
-                f.teamA === fixture.teamA &&
-                f.teamB === fixture.teamB &&
+                superNormalize(f.teamA) === superNormalize(fixture.teamA) &&
+                superNormalize(f.teamB) === superNormalize(fixture.teamB) &&
                 f.fullDate === fixture.fullDate
             );
 
@@ -307,15 +306,15 @@ const ApiImportPage: React.FC = () => {
                 }
             }
 
-            // Validate team names
-            const isValidA = officialTeamNames.includes(fixture.teamA);
-            const isValidB = officialTeamNames.includes(fixture.teamB);
+            // Robust validation of team names against official list
+            const isValidA = !!normalizeTeamName(fixture.teamA, officialTeamNames);
+            const isValidB = !!normalizeTeamName(fixture.teamB, officialTeamNames);
             const hasError = !isValidA || !isValidB;
             
             let errorMsg = undefined;
             if (!isValidA && !isValidB) errorMsg = "Both team names invalid";
-            else if (!isValidA) errorMsg = `Invalid: ${fixture.teamA}`;
-            else if (!isValidB) errorMsg = `Invalid: ${fixture.teamB}`;
+            else if (!isValidA) errorMsg = `Invalid Team: ${fixture.teamA}`;
+            else if (!isValidB) errorMsg = `Invalid Team: ${fixture.teamB}`;
 
             if (hasError) {
                 status = 'error';
@@ -481,7 +480,9 @@ const ApiImportPage: React.FC = () => {
                     newItems.forEach(newItem => {
                         // Find existing by logic
                         const existingIndex = existingResults.findIndex(r => 
-                            r.teamA === newItem.teamA && r.teamB === newItem.teamB && r.fullDate === newItem.fullDate
+                            superNormalize(r.teamA) === superNormalize(newItem.teamA) && 
+                            superNormalize(r.teamB) === superNormalize(newItem.teamB) && 
+                            r.fullDate === newItem.fullDate
                         );
 
                         if (existingIndex !== -1) {
@@ -498,7 +499,9 @@ const ApiImportPage: React.FC = () => {
                         
                         // Clean up from Fixtures if it exists there (as it's now a result)
                         existingFixtures = existingFixtures.filter(f => 
-                            !(f.teamA === newItem.teamA && f.teamB === newItem.teamB && f.fullDate === newItem.fullDate)
+                            !(superNormalize(f.teamA) === superNormalize(newItem.teamA) && 
+                              superNormalize(f.teamB) === superNormalize(newItem.teamB) && 
+                              f.fullDate === newItem.fullDate)
                         );
                     });
 
@@ -514,7 +517,9 @@ const ApiImportPage: React.FC = () => {
                     // Upsert Fixtures
                     newItems.forEach(newItem => {
                         const existingIndex = existingFixtures.findIndex(f => 
-                            f.teamA === newItem.teamA && f.teamB === newItem.teamB && f.fullDate === newItem.fullDate
+                             superNormalize(f.teamA) === superNormalize(newItem.teamA) && 
+                             superNormalize(f.teamB) === superNormalize(newItem.teamB) && 
+                             f.fullDate === newItem.fullDate
                         );
                         
                         if (existingIndex !== -1) {
@@ -679,20 +684,27 @@ const ApiImportPage: React.FC = () => {
                 if (f.id === editingId) {
                     const updatedFixtureData = { ...f.fixtureData, ...editFormData };
                     
-                    // Re-validate
+                    // Re-validate against official list
                     const officialTeamNames = (currentCompetition?.teams || []).map(t => t.name);
-                    const isValidA = officialTeamNames.includes(updatedFixtureData.teamA);
-                    const isValidB = officialTeamNames.includes(updatedFixtureData.teamB);
+                    const normalizedA = normalizeTeamName(updatedFixtureData.teamA, officialTeamNames);
+                    const normalizedB = normalizeTeamName(updatedFixtureData.teamB, officialTeamNames);
+                    
+                    const isValidA = !!normalizedA;
+                    const isValidB = !!normalizedB;
                     const hasError = !isValidA || !isValidB;
                     
                     let errorMsg = undefined;
                     if (!isValidA && !isValidB) errorMsg = "Both team names invalid";
-                    else if (!isValidA) errorMsg = `Invalid: ${updatedFixtureData.teamA}`;
-                    else if (!isValidB) errorMsg = `Invalid: ${updatedFixtureData.teamB}`;
+                    else if (!isValidA) errorMsg = `Invalid Team: ${updatedFixtureData.teamA}`;
+                    else if (!isValidB) errorMsg = `Invalid Team: ${updatedFixtureData.teamB}`;
 
                     return {
                         ...f,
-                        fixtureData: updatedFixtureData,
+                        fixtureData: {
+                            ...updatedFixtureData,
+                            teamA: normalizedA || updatedFixtureData.teamA,
+                            teamB: normalizedB || updatedFixtureData.teamB
+                        },
                         status: hasError ? 'error' : f.status, // Keep 'update' or 'new' status unless error
                         error: errorMsg,
                         selected: !hasError 
@@ -917,7 +929,10 @@ const ApiImportPage: React.FC = () => {
                                                 ) : (
                                                     <tr key={f.id} className={`${!f.selected ? 'bg-gray-50 text-gray-500' : 'bg-white'} ${f.status === 'error' ? 'bg-red-50' : ''}`}>
                                                         <td className="p-2 text-center"><input type="checkbox" checked={f.selected} onChange={() => handleToggleSelection(f.id)} className="h-4 w-4 rounded" disabled={f.status === 'imported' || f.status === 'error'} /></td>
-                                                        <td className="p-2 font-semibold">{f.fixtureData.teamA} vs {f.fixtureData.teamB} {f.error && <span className="text-xs text-red-600 block">{f.error}</span>}</td>
+                                                        <td className="p-2 font-semibold">
+                                                            {f.fixtureData.teamA} vs {f.fixtureData.teamB} 
+                                                            {f.error && <span className="text-[10px] font-bold text-red-600 block mt-1 uppercase tracking-tight">Error: {f.error}</span>}
+                                                        </td>
                                                         <td className="p-2">{f.date} @ {f.time}</td>
                                                         {importType === 'results' && <td className="p-2 font-bold">{f.fixtureData.scoreA ?? '-'} : {f.fixtureData.scoreB ?? '-'}</td>}
                                                         <td className="p-2">
@@ -926,14 +941,14 @@ const ApiImportPage: React.FC = () => {
                                                             {f.status === 'duplicate' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Duplicate</span>}
                                                             {f.status === 'imported' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-200 text-gray-700">Imported</span>}
                                                             {f.status === 'importing' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">Saving...</span>}
-                                                            {f.status === 'error' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Action Req</span>}
+                                                            {f.status === 'error' && <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Invalid Teams</span>}
                                                         </td>
                                                         <td className="p-2 text-center">
                                                             <div className="flex justify-center gap-1">
                                                                 <Button 
                                                                     onClick={() => handleEditClick(f)} 
                                                                     disabled={f.status === 'imported'} 
-                                                                    className="bg-gray-100 hover:bg-blue-100 text-gray-600 h-8 w-8 p-0 flex items-center justify-center" 
+                                                                    className="bg-gray-100 hover:bg-blue-100 text-gray-600 h-8 w-8 p-0 flex items-center justify-center rounded" 
                                                                     title="Edit"
                                                                     type="button"
                                                                 >
@@ -944,8 +959,8 @@ const ApiImportPage: React.FC = () => {
                                                                         e.stopPropagation(); 
                                                                         handleRemoveFixture(f.id); 
                                                                     }} 
-                                                                    className="bg-red-100 text-red-600 hover:bg-red-200 h-8 w-8 p-0 flex items-center justify-center" 
-                                                                    title="Remove"
+                                                                    className="bg-red-100 text-red-600 hover:bg-red-200 h-8 w-8 p-0 flex items-center justify-center rounded" 
+                                                                    title="Remove" 
                                                                     type="button"
                                                                 >
                                                                     <TrashIcon className="w-4 h-4" />
