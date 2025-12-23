@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CompetitionFixture, Team } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
-// FIX: Import 'fetchCompetition' which is now correctly exported from the API service.
-import { fetchCompetition, fetchDirectoryEntries } from '../services/api';
+import { listenToAllCompetitions, fetchDirectoryEntries } from '../services/api';
 import CountdownTimer from './CountdownTimer';
 import { findInMap } from '../services/utils';
 
@@ -15,77 +14,57 @@ const Hero: React.FC = () => {
     const heroImageUrl = "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1935&auto=format&fit=crop";
 
     useEffect(() => {
-        const getNextMatch = async () => {
-            try {
-                const directoryEntries = await fetchDirectoryEntries();
-                const map = new Map<string, DirectoryEntity>();
-                directoryEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
-                setDirectoryMap(map);
+        let unsubscribe: (() => void) | undefined;
+        
+        const startListening = async () => {
+            const dirEntries = await fetchDirectoryEntries();
+            const map = new Map<string, DirectoryEntity>();
+            dirEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
+            setDirectoryMap(map);
 
+            unsubscribe = listenToAllCompetitions((allComps) => {
                 const findUpcoming = (fixtures: CompetitionFixture[]) => {
                     const now = new Date();
-                    return fixtures
-                        .filter(f => f.status === 'scheduled' && f.fullDate)
-                        .sort((a, b) => {
-                            return new Date(a.fullDate! + 'T' + (a.time || '00:00')).getTime() - new Date(b.fullDate! + 'T' + (b.time || '00:00')).getTime();
-                        })
-                        .filter(f => new Date(f.fullDate! + 'T' + (f.time || '00:00')).getTime() > now.getTime());
+                    return (fixtures || [])
+                        .filter(f => f.status !== 'finished' && f.fullDate)
+                        .sort((a, b) => new Date(a.fullDate! + 'T' + (a.time || '00:00')).getTime() - new Date(b.fullDate! + 'T' + (b.time || '00:00')).getTime());
                 };
 
-                // 1. Try Premier League
-                let compData = await fetchCompetition('mtn-premier-league');
-                let upcoming = compData?.fixtures ? findUpcoming(compData.fixtures) : [];
+                let bestMatch: CompetitionFixture | null = null;
+                let activeTeams: Team[] = [];
 
-                // 2. Try NFD if no Premier League matches
-                if (upcoming.length === 0) {
-                    const nfdData = await fetchCompetition('national-first-division');
-                    const nfdUpcoming = nfdData?.fixtures ? findUpcoming(nfdData.fixtures) : [];
-                    
-                    if (nfdUpcoming.length > 0) {
-                        compData = nfdData;
-                        upcoming = nfdUpcoming;
+                // Logic: Priority to Premier League, then others
+                const priorityOrder = ['mtn-premier-league', 'national-first-division'];
+                for (const id of priorityOrder) {
+                    const comp = allComps[id];
+                    if (comp) {
+                        const upcoming = findUpcoming(comp.fixtures);
+                        if (upcoming.length > 0) {
+                            bestMatch = upcoming[0];
+                            activeTeams = comp.teams || [];
+                            break;
+                        }
                     }
                 }
 
-                if (compData) {
-                    setTeams(compData.teams || []);
-                    if (upcoming.length > 0) {
-                        setNextMatch(upcoming[0]);
-                    }
+                if (bestMatch) {
+                    setNextMatch(bestMatch);
+                    setTeams(activeTeams);
                 }
-            } catch (error) {
-                console.error("Error fetching hero match:", error);
-            }
+            });
         };
 
-        getNextMatch();
+        startListening();
+        return () => unsubscribe?.();
     }, []);
-
-    const teamA = teams.find(t => t.name === nextMatch?.teamA);
-    const teamB = teams.find(t => t.name === nextMatch?.teamB);
 
     const teamADirectory = findInMap(nextMatch?.teamA || '', directoryMap);
     const teamBDirectory = findInMap(nextMatch?.teamB || '', directoryMap);
 
-    // Use directory crests if available, otherwise team crests
-    const crestA = teamADirectory?.crestUrl || teamA?.crestUrl;
-    const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
+    const crestA = teamADirectory?.crestUrl || teams.find(t => t.name === nextMatch?.teamA)?.crestUrl;
+    const crestB = teamBDirectory?.crestUrl || teams.find(t => t.name === nextMatch?.teamB)?.crestUrl;
 
-    const handleScroll = (e: React.MouseEvent<HTMLAnchorElement>) => {
-        e.preventDefault();
-        const targetId = e.currentTarget.getAttribute('href')?.substring(1);
-        if (targetId) {
-            const targetElement = document.getElementById(targetId);
-            if (targetElement) {
-                targetElement.scrollIntoView({ behavior: 'smooth' });
-            }
-        }
-    };
-    
-    // Construct a full timestamp string for the countdown
-    const targetDateStr = nextMatch?.fullDate 
-        ? `${nextMatch.fullDate}T${nextMatch.time || '15:00'}:00` 
-        : new Date().toISOString();
+    const targetDateStr = nextMatch?.fullDate ? `${nextMatch.fullDate}T${nextMatch.time || '15:00'}:00` : new Date().toISOString();
 
   return (
     <section 
@@ -93,47 +72,49 @@ const Hero: React.FC = () => {
       style={{ backgroundImage: `url(${heroImageUrl})` }}
     >
       <div className="absolute inset-0 bg-black/50"></div>
-      <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 z-10">
+      <div className="relative container mx-auto px-4 z-10">
         <div className="max-w-4xl mx-auto text-center">
             {nextMatch ? (
                 <div className="animate-fade-in-slow">
-                    <p className="font-semibold text-accent mb-2">Next Match</p>
-                    <div className="flex items-center justify-center gap-4 md:gap-8 mb-4">
-                        <div className="text-right">
-                            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 bg-white/20 backdrop-blur-sm rounded-full p-2 flex items-center justify-center">
-                                {crestA && <img src={crestA} alt={nextMatch.teamA} className="max-w-full max-h-full object-contain"/>}
+                    <p className="font-bold text-accent mb-4 tracking-widest uppercase text-sm">{nextMatch.status === 'live' ? 'Match In Progress' : 'Next Big Match'}</p>
+                    <div className="flex items-center justify-center gap-6 md:gap-12 mb-6">
+                        <div className="text-center w-32 md:w-48">
+                            <div className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-3 bg-white/10 backdrop-blur rounded-full p-3 flex items-center justify-center border border-white/20">
+                                {crestA && <img src={crestA} alt="" className="max-w-full max-h-full object-contain"/>}
                             </div>
-                            <h2 className="text-xl md:text-3xl font-bold font-display">{nextMatch.teamA}</h2>
+                            <h2 className="text-lg md:text-2xl font-black font-display uppercase leading-tight">{nextMatch.teamA}</h2>
                         </div>
-                        <span className="text-4xl md:text-5xl font-bold font-display italic text-yellow-400">VS</span>
-                        <div className="text-left">
-                            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 bg-white/20 backdrop-blur-sm rounded-full p-2 flex items-center justify-center">
-                                {crestB && <img src={crestB} alt={nextMatch.teamB} className="max-w-full max-h-full object-contain"/>}
+                        <div className="flex flex-col items-center">
+                            {nextMatch.status === 'live' ? (
+                                <div className="bg-white/10 px-4 py-2 rounded-lg border border-white/20">
+                                    <span className="text-4xl md:text-6xl font-black">{nextMatch.scoreA ?? 0} : {nextMatch.scoreB ?? 0}</span>
+                                </div>
+                            ) : <span className="text-4xl md:text-5xl font-black italic text-yellow-400">VS</span>}
+                        </div>
+                        <div className="text-center w-32 md:w-48">
+                            <div className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-3 bg-white/10 backdrop-blur rounded-full p-3 flex items-center justify-center border border-white/20">
+                                {crestB && <img src={crestB} alt="" className="max-w-full max-h-full object-contain"/>}
                             </div>
-                             <h2 className="text-xl md:text-3xl font-bold font-display">{nextMatch.teamB}</h2>
+                             <h2 className="text-lg md:text-2xl font-black font-display uppercase leading-tight">{nextMatch.teamB}</h2>
                         </div>
                     </div>
-                    <CountdownTimer targetDate={targetDateStr} />
-                    {nextMatch.venue && <p className="mt-4 text-sm text-gray-300 font-medium uppercase tracking-widest">{nextMatch.venue}</p>}
+                    {nextMatch.status === 'live' ? (
+                         <div className="flex flex-col items-center gap-2">
+                             <div className="bg-red-600 px-3 py-1 rounded text-xs font-bold animate-pulse uppercase tracking-widest">Live Now</div>
+                             <p className="text-2xl font-mono font-bold">{nextMatch.liveMinute || '0'}'</p>
+                         </div>
+                    ) : <CountdownTimer targetDate={targetDateStr} />}
+                    {nextMatch.venue && <p className="mt-6 text-xs text-gray-300 font-bold uppercase tracking-[0.2em]">{nextMatch.venue}</p>}
                 </div>
             ) : (
                 <>
-                    <h1 className="text-5xl md:text-7xl font-extrabold font-display tracking-tight leading-tight mb-4 animate-fade-in-up">
-                        FOOTBALL <span className="text-accent">ESWATINI</span>
-                    </h1>
-                    <p className="text-lg md:text-xl text-neutral-light/90 max-w-2xl mx-auto animate-fade-in-up animation-delay-300">
-                        Your official source for fixtures, results, and news on football in the Kingdom of Eswatini.
-                    </p>
+                    <h1 className="text-6xl md:text-8xl font-black font-display tracking-tighter leading-none mb-6">FOOTBALL <span className="text-accent">ESWATINI</span></h1>
+                    <p className="text-xl text-neutral-light/80 max-w-2xl mx-auto font-medium">The heartbeat of the Kingdom's beautiful game. Real-time scores, news, and community.</p>
                 </>
             )}
-
-            <div className="mt-8 flex justify-center gap-4 animate-fade-in-up animation-delay-600">
-                <Link to="/fixtures" className="bg-accent text-neutral-dark font-bold py-3 px-6 rounded-lg hover:bg-yellow-300 transition-colors">
-                    View Fixtures
-                </Link>
-                <a href="#matches-and-logs" onClick={handleScroll} className="bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-lg hover:bg-white/30 transition-colors">
-                    Live Scores
-                </a>
+            <div className="mt-10 flex justify-center gap-4">
+                <Link to="/fixtures" className="bg-accent text-primary-dark font-black py-4 px-8 rounded-lg hover:bg-yellow-300 transition-all hover:scale-105 shadow-xl uppercase text-sm tracking-widest">Fixtures</Link>
+                <Link to="/live-updates" className="bg-white/10 backdrop-blur-md text-white border border-white/30 font-black py-4 px-8 rounded-lg hover:bg-white/20 transition-all hover:scale-105 uppercase text-sm tracking-widest">Match Center</Link>
             </div>
         </div>
       </div>
@@ -141,5 +122,4 @@ const Hero: React.FC = () => {
   );
 };
 
-// FIX: Add default export for Hero component
 export default Hero;

@@ -8,16 +8,10 @@ import ClockIcon from './icons/ClockIcon';
 import FormGuide from './ui/FormGuide';
 import SubstitutionIcon from './icons/SubstitutionIcon';
 import { useAuth } from '../contexts/AuthContext';
-import { FixtureComment, addFixtureComment, listenToFixtureComments, Competition, handleFirestoreError } from '../services/api';
+import { FixtureComment, addFixtureComment, listenToFixtureComments } from '../services/api';
 import Button from './ui/Button';
 import Spinner from './ui/Spinner';
 import MessageSquareIcon from './icons/MessageSquareIcon';
-import { db } from '../services/firebase';
-import { doc, runTransaction, collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { removeUndefinedProps } from '../services/utils';
-import PlusCircleIcon from './icons/PlusCircleIcon';
-import PhotoIcon from './icons/PhotoIcon';
-import XIcon from './icons/XIcon';
 import StarIcon from './icons/StarIcon';
 import SendIcon from './icons/SendIcon';
 
@@ -31,33 +25,12 @@ const EventIcon: React.FC<{ type: MatchEvent['type'] }> = ({ type }) => {
     }
 };
 
-const PlayerRatingItem: React.FC<{ player: Player; rating: number; onRate: (id: number, val: number) => void }> = ({ player, rating, onRate }) => (
-    <div className="flex items-center justify-between p-2 bg-white rounded border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-2 overflow-hidden">
-            <span className="text-[10px] font-bold text-gray-400 w-4">#{player.number}</span>
-            <span className="text-xs font-semibold truncate">{player.name}</span>
-        </div>
-        <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-                <button 
-                    key={star} 
-                    onClick={() => onRate(player.id, star)}
-                    className={`transition-colors ${star <= rating ? 'text-yellow-400' : 'text-gray-200 hover:text-yellow-200'}`}
-                >
-                    <StarIcon className="w-3.5 h-3.5 fill-current" />
-                </button>
-            ))}
-        </div>
-    </div>
-);
-
 const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: string }> = ({ fixture, competitionId }) => {
     const { user, isLoggedIn, openAuthModal, addXP } = useAuth();
     const [activeSection, setActiveSection] = useState<'info' | 'chat' | 'ratings'>('info');
     const [comments, setComments] = useState<FixtureComment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-    const [ratings, setRatings] = useState<Record<number, number>>({});
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -86,13 +59,7 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
         }
     };
 
-    const handleRatePlayer = (playerId: number, rating: number) => {
-        if (!isLoggedIn) return openAuthModal();
-        setRatings(prev => ({ ...prev, [playerId]: rating }));
-        // In a real app, this would also save to Firestore
-    };
-
-    const sortedEvents = fixture.events ? [...fixture.events].sort((a, b) => a.minute - b.minute) : [];
+    const sortedEvents = fixture.events ? [...fixture.events].sort((a, b) => (a.minute || 0) - (b.minute || 0)) : [];
 
     return (
         <div className="bg-gray-100/70 p-0 overflow-hidden animate-slide-down rounded-b-xl border-t border-gray-200">
@@ -144,7 +111,7 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                                     <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
                                         {sortedEvents.map((event, idx) => (
                                             <div key={idx} className="flex items-start gap-3 text-xs">
-                                                <span className="font-bold w-6">{event.minute}'</span>
+                                                <span className="font-bold w-6 text-gray-500">{event.minute ? `${event.minute}'` : '-'}</span>
                                                 <EventIcon type={event.type} />
                                                 <span className="text-gray-700">{event.description}</span>
                                             </div>
@@ -220,14 +187,13 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                             <div className="space-y-4">
                                 <h5 className="font-bold text-xs uppercase tracking-widest text-primary border-b pb-1">{fixture.teamA}</h5>
                                 <div className="grid gap-2">
-                                    {/* These would normally come from the competition data teams[0].players */}
                                     <p className="text-[10px] text-gray-400 italic">Select players from the team roster to rate them.</p>
                                 </div>
                             </div>
                             <div className="space-y-4">
                                 <h5 className="font-bold text-xs uppercase tracking-widest text-secondary border-b pb-1">{fixture.teamB}</h5>
                                 <div className="grid gap-2">
-                                    {/* Same for away team */}
+                                    <p className="text-[10px] text-gray-400 italic">Select players from the team roster to rate them.</p>
                                 </div>
                             </div>
                         </div>

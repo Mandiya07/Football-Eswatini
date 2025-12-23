@@ -5,6 +5,7 @@ import QuickAccess from './QuickAccess';
 import OnboardingModal from './OnboardingModal';
 import { useAuth } from '../contexts/AuthContext';
 import SectionLoader from './SectionLoader';
+import LiveScoreboard from './LiveScoreboard';
 
 // Lazy load components that are below the fold
 const SponsorSpotlight = lazy(() => import('./SponsorSpotlight'));
@@ -36,6 +37,7 @@ const Home: React.FC = () => {
     <>
       {showOnboarding && <OnboardingModal onClose={handleOnboardingFinish} />}
       <Hero />
+      <LiveScoreboard />
       <QuickAccess />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-20">
         <Suspense fallback={<SectionLoader />}>
@@ -47,13 +49,13 @@ const Home: React.FC = () => {
         
         <div id="matches-and-logs" className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="w-full">
-                <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">Matches</h2>
+                <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">Recent & Upcoming</h2>
                 <Suspense fallback={<SectionLoader />}>
                     <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="max-h-[300px]" />
                 </Suspense>
             </div>
             <div className="w-full">
-                <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">Standings</h2>
+                <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">League Standings</h2>
                 <Suspense fallback={<SectionLoader />}>
                     <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="max-h-[300px]" />
                 </Suspense>

@@ -1,4 +1,3 @@
-
 export interface LogEntry {
   p: number;
   w: number;
@@ -97,7 +96,7 @@ export interface Team {
 }
 
 export interface MatchEvent {
-    minute: number;
+    minute?: number; // Optional minute to support incidents with unknown time
     type: 'goal' | 'yellow-card' | 'red-card' | 'substitution' | 'info' | 'match_status';
     description: string;
     playerName?: string;

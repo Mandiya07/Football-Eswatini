@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { CompetitionFixture, Team, MatchEvent, Player } from '../../data/teams';
+import { CompetitionFixture, Team, MatchEvent } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
@@ -19,11 +18,9 @@ interface EditMatchModalProps {
 
 const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave, match, teams }) => {
     const [formData, setFormData] = useState<CompetitionFixture>({ ...match });
-    
-    // Events State
     const [events, setEvents] = useState<MatchEvent[]>(match.events || []);
+    const [galleryImages, setGalleryImages] = useState<string[]>(match.galleryImages || []);
     
-    // New Event Form State
     const [newEvent, setNewEvent] = useState<{
         minute: string, 
         type: MatchEvent['type'], 
@@ -34,20 +31,15 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
         minute: '', type: 'goal', description: '', teamSide: '', playerName: ''
     });
 
-    // Gallery State
-    const [galleryImages, setGalleryImages] = useState<string[]>(match.galleryImages || []);
-
     useEffect(() => {
         setFormData({ ...match });
         setEvents(match.events || []);
         setGalleryImages(match.galleryImages || []);
     }, [match, isOpen]);
     
-    // Find team objects for player selection
     const teamAObj = useMemo(() => teams.find(t => t.name === formData.teamA), [teams, formData.teamA]);
     const teamBObj = useMemo(() => teams.find(t => t.name === formData.teamB), [teams, formData.teamB]);
 
-    // Derived active roster based on selected team side
     const activeRoster = useMemo(() => {
         if (newEvent.teamSide === 'home') return teamAObj?.players || [];
         if (newEvent.teamSide === 'away') return teamBObj?.players || [];
@@ -56,10 +48,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,7 +60,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
     };
     
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const dateStr = e.target.value; // YYYY-MM-DD
+        const dateStr = e.target.value;
         if(!dateStr) return;
         const dateObj = new Date(dateStr);
         setFormData(prev => ({
@@ -80,41 +69,22 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
             date: dateObj.getDate().toString(),
             day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()
         }));
-    }
-
-    // --- Events Logic ---
-    
-    // Auto-generate description when details change
-    useEffect(() => {
-        if (newEvent.type !== 'info' && newEvent.teamSide && newEvent.playerName) {
-            const teamName = newEvent.teamSide === 'home' ? formData.teamA : formData.teamB;
-            const prefix = newEvent.type === 'goal' ? 'Goal by' : 
-                           newEvent.type === 'yellow-card' ? 'Yellow Card for' :
-                           newEvent.type === 'red-card' ? 'Red Card for' :
-                           newEvent.type === 'substitution' ? 'Substitution:' : 'Event:';
-            
-            setNewEvent(prev => ({
-                ...prev,
-                description: `${prefix} ${newEvent.playerName.trim()} (${teamName})`
-            }));
-        }
-    }, [newEvent.type, newEvent.teamSide, newEvent.playerName, formData.teamA, formData.teamB]);
+    };
 
     const handleAddEvent = () => {
-        if (!newEvent.minute || !newEvent.description) {
-            alert("Please enter minute and description");
+        if (!newEvent.description) {
+            alert("Please enter a description for the event.");
             return;
         }
         
         const teamName = newEvent.teamSide === 'home' ? formData.teamA : 
                          newEvent.teamSide === 'away' ? formData.teamB : undefined;
 
-        // Try to find player ID if name matches existing roster
         const playerNameTrimmed = newEvent.playerName.trim();
         const existingPlayer = activeRoster.find(p => p.name.trim().toLowerCase() === playerNameTrimmed.toLowerCase());
 
         const event: MatchEvent = {
-            minute: parseInt(newEvent.minute, 10),
+            minute: newEvent.minute ? parseInt(newEvent.minute, 10) : undefined,
             type: newEvent.type,
             description: newEvent.description,
             teamName: teamName,
@@ -122,7 +92,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
             playerID: existingPlayer?.id
         };
         
-        setEvents(prev => [...prev, event].sort((a,b) => a.minute - b.minute));
+        setEvents(prev => [...prev, event].sort((a,b) => (a.minute || 0) - (b.minute || 0)));
         setNewEvent({ minute: '', type: 'goal', description: '', teamSide: '', playerName: '' });
     };
 
@@ -136,7 +106,6 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
         setFormData(prev => ({ ...prev, scoreA: goalsA, scoreB: goalsB }));
     };
 
-    // --- Gallery Logic ---
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
@@ -153,7 +122,6 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
     const handleRemoveImage = (index: number) => {
         setGalleryImages(prev => prev.filter((_, i) => i !== index));
     };
-
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -233,7 +201,6 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                                         type="button" 
                                         onClick={syncScoreFromEvents} 
                                         className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-semibold"
-                                        title="Updates the score inputs based on the number of Goal events in the list below."
                                     >
                                         <RefreshIcon className="w-3 h-3" /> Sync from Events
                                     </button>
@@ -251,18 +218,13 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                             </div>
                         )}
                         
-                        {/* Match Events Section */}
                         <div className="border-t pt-4 mt-4">
                              <h3 className="font-bold text-lg mb-2 text-gray-800">Match Events</h3>
-                             <p className="text-xs text-gray-500 mb-3">
-                                 Note: If you add a new player name here, they will be <strong>automatically added</strong> to the team's roster when you save.
-                             </p>
-                             
                              <div className="bg-blue-50 p-3 rounded-md mb-4 border border-blue-100">
                                 <div className="grid grid-cols-[60px_1fr_1fr] gap-2 mb-2">
                                     <div>
                                         <label className="text-xs font-bold text-gray-500">Min</label>
-                                        <input type="number" value={newEvent.minute} onChange={e => setNewEvent({...newEvent, minute: e.target.value})} className="p-2 border rounded text-sm w-full" />
+                                        <input type="number" value={newEvent.minute} onChange={e => setNewEvent({...newEvent, minute: e.target.value})} className="p-2 border rounded text-sm w-full" placeholder="?" />
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500">Type</label>
@@ -285,26 +247,20 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                                 </div>
 
                                 <div className="mb-2">
-                                    <label className="text-xs font-bold text-gray-500">Player Name (Type new or select)</label>
+                                    <label className="text-xs font-bold text-gray-500">Player Name</label>
                                     <input 
                                         type="text" 
-                                        list="roster-list" 
                                         value={newEvent.playerName} 
                                         onChange={e => setNewEvent({...newEvent, playerName: e.target.value})} 
                                         className="p-2 border rounded text-sm w-full" 
                                         placeholder="e.g. Kenneth Moloto"
                                         disabled={!newEvent.teamSide}
                                     />
-                                    <datalist id="roster-list">
-                                        {activeRoster.map(p => (
-                                            <option key={p.id} value={p.name} />
-                                        ))}
-                                    </datalist>
                                 </div>
 
                                 <div className="flex gap-2 items-end">
                                     <div className="flex-grow">
-                                        <label className="text-xs font-bold text-gray-500">Description (Auto-generated)</label>
+                                        <label className="text-xs font-bold text-gray-500">Description</label>
                                         <input type="text" value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} className="p-2 border rounded text-sm w-full" />
                                     </div>
                                     <Button type="button" onClick={handleAddEvent} className="bg-blue-600 text-white h-9 px-3 mb-0.5"><PlusCircleIcon className="w-5 h-5"/></Button>
@@ -315,17 +271,16 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                                  {events.length > 0 ? events.map((ev, idx) => (
                                      <div key={idx} className="flex items-center justify-between text-sm bg-white p-2 rounded shadow-sm">
                                          <div className="flex gap-2 overflow-hidden">
-                                             <span className="font-bold w-8 text-center flex-shrink-0">{ev.minute}'</span>
+                                             <span className="font-bold w-8 text-center flex-shrink-0">{ev.minute ? `${ev.minute}'` : '-'}</span>
                                              <span className={`uppercase text-xs font-bold px-1 rounded flex items-center flex-shrink-0 h-fit ${ev.type === 'goal' ? 'bg-green-100 text-green-800' : ev.type.includes('card') ? 'bg-red-100 text-red-800' : 'bg-gray-100'}`}>{ev.type}</span>
                                              <span className="truncate">{ev.description}</span>
                                          </div>
-                                         <button type="button" onClick={() => handleDeleteEvent(idx)} className="text-red-500 hover:text-red-700 flex-shrink-0"><XIcon className="w-4 h-4"/></button>
+                                         <button type="button" onClick={() => handleDeleteEvent(idx)} className="text-red-500 hover:text-red-700 flex-shrink-0"><TrashIcon className="w-4 h-4"/></button>
                                      </div>
                                  )) : <p className="text-xs text-gray-400 text-center">No events added yet.</p>}
                              </div>
                         </div>
 
-                        {/* Match Gallery Section */}
                         <div className="border-t pt-4 mt-4">
                             <h3 className="font-bold text-lg mb-2 text-gray-800 flex items-center gap-2">
                                 <PhotoIcon className="w-5 h-5 text-gray-600"/> Match Gallery

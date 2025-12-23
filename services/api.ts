@@ -26,28 +26,20 @@ export { type ExclusiveItem, type TeamYamVideo }; // Re-export feature types
 
 /**
  * Global Firestore error handler.
- * Provides specific logging for connection timeouts/offline states.
  */
 export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
-    
-    // Check for "Unavailable" which covers the 10s backend timeout error
     if (firebaseError.code === 'unavailable' || firebaseError.message?.includes('Could not reach Cloud Firestore')) {
-        console.warn(`[Firestore Offline] Connection failed during '${operation}'. The app is currently using cached/local data.`);
+        console.warn(`[Firestore Offline] Connection failed during '${operation}'. Using cached/local data.`);
         return;
     }
-
-    // Permission issues
-    if (firebaseError.code === 'permission-denied' || firebaseError.code === 'failed-precondition') {
-        console.error(`[Firestore Permission Denied] '${operation}' failed. Check your authentication level or security rules.`);
+    if (firebaseError.code === 'permission-denied') {
+        console.error(`[Firestore Permission Denied] '${operation}' failed.`);
         return;
     }
-
     console.error(`[Firestore Critical Error] '${operation}':`, error);
 };
 
-
-// Ad interface and related API functions for advertisement management.
 export interface Ad {
   imageUrl: string;
   link: string;
@@ -60,7 +52,7 @@ export interface MatchTicket {
   competitionId: string;
   teamA: string;
   teamB: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   time: string;
   venue: string;
   price: number;
@@ -68,7 +60,7 @@ export interface MatchTicket {
 }
 
 export interface PendingChange {
-  id: string; // Firestore doc ID
+  id: string;
   type: 'Score Update' | 'New Player' | 'Squad Removal' | 'Match Edit' | 'Match Delete';
   description: string;
   author: string;
@@ -83,7 +75,7 @@ export interface ClubRegistrationRequest {
     phone: string;
     status: 'pending' | 'approved' | 'rejected';
     submittedAt: any;
-    promoCode?: string; // New field for discounts
+    promoCode?: string;
 }
 
 export interface AdvertiserRequest {
@@ -96,7 +88,7 @@ export interface AdvertiserRequest {
     budgetRange: string;
     status: 'pending' | 'contacted' | 'closed';
     submittedAt: any;
-    promoCode?: string; // New field for discounts
+    promoCode?: string;
 }
 
 export interface SponsorRequest {
@@ -104,11 +96,11 @@ export interface SponsorRequest {
     contactName: string;
     email: string;
     phone: string;
-    sponsorshipTier: string; // Bronze, Silver, etc.
+    sponsorshipTier: string;
     goals: string;
     status: 'pending' | 'contacted' | 'closed';
     submittedAt: any;
-    promoCode?: string; // New field for discounts
+    promoCode?: string;
 }
 
 export interface Category {
@@ -129,13 +121,12 @@ export interface NationalTeam {
 
 export interface FixtureComment {
     id: string;
-    // FIX: Change fixtureId type to number | string to support all match ID formats
     fixtureId: number | string;
     userId: string;
     userName: string;
     userAvatar: string;
     text: string;
-    timestamp: { seconds: number, nanoseconds: number }; // Firestore Timestamp
+    timestamp: { seconds: number, nanoseconds: number };
 }
 
 export interface YouthArticleComment {
@@ -183,10 +174,9 @@ export interface LiveUpdate {
     timestamp: { seconds: number, nanoseconds: number };
 }
 
-// Interface for Community Football Hub
 export interface CommunityEvent {
     id: string;
-    userId?: string; // ID of the user who submitted
+    userId?: string;
     title: string;
     eventType: 'Knockout' | 'League' | 'Festival' | 'Charity' | 'Trial' | 'Workshop' | 'Other';
     description: string;
@@ -197,15 +187,15 @@ export interface CommunityEvent {
     contactName?: string;
     contactPhone?: string;
     contactEmail?: string;
-    posterUrl?: string; // Base64 or URL
+    posterUrl?: string;
     status: 'pending' | 'approved';
     isSpotlight?: boolean;
-    resultsSummary?: string; // For past events
+    resultsSummary?: string;
     fees?: string;
     prizes?: string;
     createdAt?: any;
     likes?: number;
-    likedBy?: string[]; // Array of user IDs
+    likedBy?: string[];
 }
 
 export interface PromoCode {
@@ -215,26 +205,13 @@ export interface PromoCode {
     isActive: boolean;
 }
 
-// --- Fallback Helpers ---
-// Generate minimal Competition object if offline
-const generateMockCompetition = (id: string, name: string): Competition => ({
-    name: name,
-    displayName: name,
-    fixtures: [],
-    results: [],
-    teams: [],
-    categoryId: 'mock',
-    logoUrl: `https://via.placeholder.com/150?text=${name.charAt(0)}`
-});
-
-
 export const addLiveUpdate = async (data: Omit<LiveUpdate, 'id' | 'timestamp'>) => {
     try {
         await addDoc(collection(db, 'live_updates'), {
             ...data,
             timestamp: serverTimestamp(),
-            verified: true, // Defaulting as per model
-            confidence: 0.95, // Defaulting as per model
+            verified: true,
+            confidence: 0.95,
         });
     } catch (error) {
         handleFirestoreError(error, 'add live update');
@@ -249,7 +226,7 @@ export const listenToLiveUpdates = (callback: (updates: LiveUpdate[]) => void): 
         limit(50)
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    return onSnapshot(q, (querySnapshot) => {
         const updates: LiveUpdate[] = [];
         querySnapshot.forEach((doc) => {
             updates.push({ id: doc.id, ...doc.data() } as LiveUpdate);
@@ -259,11 +236,8 @@ export const listenToLiveUpdates = (callback: (updates: LiveUpdate[]) => void): 
         handleFirestoreError(error, `listen to live updates`);
         callback([]);
     });
-
-    return unsubscribe;
 };
 
-// FIX: Update fixtureId parameter type to number | string
 export const addFixtureComment = async (fixtureId: number | string, text: string, user: User) => {
     try {
         const commentData = {
@@ -281,14 +255,13 @@ export const addFixtureComment = async (fixtureId: number | string, text: string
     }
 };
 
-// FIX: Update fixtureId parameter type to number | string
 export const listenToFixtureComments = (fixtureId: number | string, callback: (comments: FixtureComment[]) => void): (() => void) => {
     const q = query(
         collection(db, "fixture_comments"),
         where("fixtureId", "==", fixtureId)
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    return onSnapshot(q, (querySnapshot) => {
         const comments: FixtureComment[] = [];
         querySnapshot.forEach((doc) => {
             comments.push({ id: doc.id, ...doc.data() } as FixtureComment);
@@ -299,8 +272,6 @@ export const listenToFixtureComments = (fixtureId: number | string, callback: (c
         handleFirestoreError(error, `listen to comments for fixture ${fixtureId}`);
         callback([]);
     });
-
-    return unsubscribe;
 };
 
 export const addYouthArticleComment = async (articleId: string, text: string, user: User) => {
@@ -326,7 +297,7 @@ export const listenToYouthArticleComments = (articleId: string, callback: (comme
         where("articleId", "==", articleId)
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    return onSnapshot(q, (querySnapshot) => {
         const comments: YouthArticleComment[] = [];
         querySnapshot.forEach((doc) => {
             comments.push({ id: doc.id, ...doc.data() } as YouthArticleComment);
@@ -337,8 +308,6 @@ export const listenToYouthArticleComments = (articleId: string, callback: (comme
         handleFirestoreError(error, `listen to comments for article ${articleId}`);
         callback([]);
     });
-
-    return unsubscribe;
 };
 
 export const addNewsComment = async (articleId: string, text: string, user: User) => {
@@ -364,7 +333,7 @@ export const listenToNewsComments = (articleId: string, callback: (comments: New
         where("articleId", "==", articleId)
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    return onSnapshot(q, (querySnapshot) => {
         const comments: NewsComment[] = [];
         querySnapshot.forEach((doc) => {
             comments.push({ id: doc.id, ...doc.data() } as NewsComment);
@@ -375,8 +344,6 @@ export const listenToNewsComments = (articleId: string, callback: (comments: New
         handleFirestoreError(error, `listen to comments for news article ${articleId}`);
         callback([]);
     });
-
-    return unsubscribe;
 };
 
 export const addCommunityEventComment = async (eventId: string, text: string, user: User) => {
@@ -402,7 +369,7 @@ export const listenToCommunityEventComments = (eventId: string, callback: (comme
         where("eventId", "==", eventId)
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    return onSnapshot(q, (querySnapshot) => {
         const comments: CommunityEventComment[] = [];
         querySnapshot.forEach((doc) => {
             comments.push({ id: doc.id, ...doc.data() } as CommunityEventComment);
@@ -413,21 +380,17 @@ export const listenToCommunityEventComments = (eventId: string, callback: (comme
         handleFirestoreError(error, `listen to comments for community event ${eventId}`);
         callback([]);
     });
-
-    return unsubscribe;
 };
 
 export const toggleCommunityEventLike = async (eventId: string, userId: string, isLiked: boolean) => {
     try {
         const eventRef = doc(db, 'community_events', eventId);
         if (isLiked) {
-            // Unlike
             await updateDoc(eventRef, {
                 likes: increment(-1),
                 likedBy: arrayRemove(userId)
             });
         } else {
-            // Like
             await updateDoc(eventRef, {
                 likes: increment(1),
                 likedBy: arrayUnion(userId)
@@ -438,7 +401,6 @@ export const toggleCommunityEventLike = async (eventId: string, userId: string, 
         throw error;
     }
 };
-
 
 export const fetchNationalTeams = async (): Promise<NationalTeam[]> => {
     const items: NationalTeam[] = [];
@@ -455,55 +417,43 @@ export const fetchNationalTeams = async (): Promise<NationalTeam[]> => {
 
 export const listenToCompetition = (competitionId: string, callback: (data: Competition | undefined) => void): (() => void) => {
     const docRef = doc(db, "competitions", competitionId);
-    
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    return onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
-            const data = docSnap.data();
-            const competitionData: Competition = {
-                name: data.name,
-                displayName: data.displayName,
-                description: data.description,
-                logoUrl: data.logoUrl,
-                fixtures: data.fixtures || [],
-                results: data.results || [],
-                teams: data.teams || [],
-                categoryId: data.categoryId,
-                externalApiId: data.externalApiId,
-            };
-            callback(competitionData);
+            callback(docSnap.data() as Competition);
         } else {
-            console.warn(`No such competition document in Firestore: ${competitionId}`);
-            // Fallback for demo
-            callback(generateMockCompetition(competitionId, 'Offline Competition'));
+            callback(undefined);
         }
     }, (error) => {
         handleFirestoreError(error, `listen to competition ${competitionId}`);
-        callback(generateMockCompetition(competitionId, 'Offline Competition'));
+        callback(undefined);
     });
-
-    return unsubscribe; 
 };
 
-// --- News API ---
+/**
+ * NEW: Real-time listener for ALL competitions.
+ * Used for cross-league live updates and match centers.
+ */
+export const listenToAllCompetitions = (callback: (data: Record<string, Competition>) => void): (() => void) => {
+    const q = query(collection(db, "competitions"));
+    return onSnapshot(q, (snapshot) => {
+        const comps: Record<string, Competition> = {};
+        snapshot.forEach(doc => {
+            comps[doc.id] = doc.data() as Competition;
+        });
+        callback(comps);
+    }, (error) => {
+        handleFirestoreError(error, 'listen to all competitions');
+    });
+};
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'news'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsItem));
-        
-        // Merge with local news if they don't already exist (based on URL as unique slug)
         const dbUrls = new Set(dbItems.map(i => i.url));
         const fallbacks = newsData.filter(i => !dbUrls.has(i.url));
-        
         const allItems = [...dbItems, ...fallbacks];
-        
-        return allItems.sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            const valA = isNaN(dateA) ? 0 : dateA;
-            const valB = isNaN(dateB) ? 0 : dateB;
-            return valB - valA; 
-        });
+        return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     } catch (error) {
         handleFirestoreError(error, 'fetch news');
         return newsData;
@@ -590,16 +540,12 @@ export const fetchPlayerById = async (playerId: number): Promise<{ player: Playe
     }
 };
 
-// Directory
 export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'directory'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DirectoryEntity));
-        
-        // Merge with local directory data if they don't already exist (based on Name as unique key)
         const dbNames = new Set(dbItems.map(i => i.name.toLowerCase().trim()));
         const fallbacks = mockDirectoryData.filter(i => !dbNames.has(i.name.toLowerCase().trim()));
-        
         return [...dbItems, ...fallbacks];
     } catch (error) {
         handleFirestoreError(error, 'fetch directory');
@@ -616,15 +562,12 @@ export const deleteDirectoryEntry = async (id: string) => {
     await deleteDoc(doc(db, 'directory', id));
 };
 
-// Shop
 export const fetchProducts = async (): Promise<Product[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'products'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        
         const dbNames = new Set(dbItems.map(i => i.name.toLowerCase().trim()));
         const fallbacks = mockProducts.filter(i => !dbNames.has(i.name.toLowerCase().trim()));
-        
         return [...dbItems, ...fallbacks];
     } catch (error) {
         handleFirestoreError(error, 'fetch products');
@@ -652,7 +595,6 @@ export const validatePromoCode = async (code: string): Promise<PromoCode | null>
     }
 };
 
-// Match Tickets
 export const fetchMatchTickets = async (): Promise<MatchTicket[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'match_tickets'));
@@ -669,15 +611,12 @@ export const deleteMatchTicket = async (id: string) => {
     await deleteDoc(doc(db, 'match_tickets', id));
 };
 
-// Scouting
 export const fetchScoutedPlayers = async (): Promise<ScoutedPlayer[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'scouting'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ScoutedPlayer));
-        
         const dbNames = new Set(dbItems.map(i => i.name.toLowerCase().trim()));
         const fallbacks = mockScoutingData.filter(i => !dbNames.has(i.name.toLowerCase().trim()));
-        
         return [...dbItems, ...fallbacks];
     } catch (error) {
         handleFirestoreError(error, 'fetch scouting');
@@ -694,15 +633,12 @@ export const deleteScoutedPlayer = async (id: string) => {
     await deleteDoc(doc(db, 'scouting', id));
 };
 
-// Videos
 export const fetchVideos = async (): Promise<Video[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'videos'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
-        
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = mockVideoData.filter(i => !dbIds.has(i.id));
-        
         return [...dbItems, ...fallbacks];
     } catch (error) {
         handleFirestoreError(error, 'fetch videos');
@@ -719,15 +655,12 @@ export const deleteVideo = async (id: string) => {
     await deleteDoc(doc(db, 'videos', id));
 };
 
-// Features
 export const fetchExclusiveContent = async (): Promise<ExclusiveItem[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'exclusiveContent'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExclusiveItem));
-        
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = initialExclusiveContent.filter(i => !dbIds.has(i.id));
-        
         return [...dbItems, ...fallbacks];
     } catch { return initialExclusiveContent; }
 };
@@ -739,10 +672,8 @@ export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'teamYamVideos'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamYamVideo));
-        
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = initialTeamYamVideos.filter(i => !dbIds.has(i.id));
-        
         return [...dbItems, ...fallbacks];
     } catch { return initialTeamYamVideos; }
 };
@@ -754,10 +685,8 @@ export const fetchCoachingContent = async (): Promise<CoachingContent[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'coaching'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CoachingContent));
-        
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = mockCoachingContent.filter(i => !dbIds.has(i.id));
-        
         return [...dbItems, ...fallbacks];
     } catch { return mockCoachingContent; }
 };
@@ -775,15 +704,12 @@ export const addBehindTheScenesContent = async (data: Omit<BehindTheScenesConten
 export const updateBehindTheScenesContent = async (id: string, data: Partial<BehindTheScenesContent>) => { await updateDoc(doc(db, 'behindTheScenes', id), data); };
 export const deleteBehindTheScenesContent = async (id: string) => { await deleteDoc(doc(db, 'behindTheScenes', id)); };
 
-// Archive
 export const fetchArchiveData = async (): Promise<ArchiveItem[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'archive'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ArchiveItem));
-        
         const dbIds = new Set(dbItems.map(i => String(i.id)));
         const fallbacks = mockArchiveData.filter(i => !dbIds.has(String(i.id)));
-        
         return [...dbItems, ...fallbacks];
     } catch { return mockArchiveData; }
 };
@@ -795,10 +721,8 @@ export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'onThisDay'));
         const dbItems = snapshot.docs.map(doc => ({ id: parseInt(doc.id), ...doc.data() } as OnThisDayEvent));
-        
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = mockOnThisDayData.filter(i => !dbIds.has(i.id));
-        
         return [...dbItems, ...fallbacks];
     } catch { return mockOnThisDayData; }
 };
@@ -810,50 +734,39 @@ export const fetchPhotoGalleries = async (): Promise<PhotoAlbum[]> => {
     } catch { return []; }
 };
 
-// Youth
 export const fetchYouthData = async (): Promise<YouthLeague[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'youth'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as YouthLeague));
-        
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = mockYouthData.filter(i => !dbIds.has(i.id));
-        
         return [...dbItems, ...fallbacks];
     } catch { return mockYouthData; }
 };
 
-// Cups
 export const fetchCups = async (): Promise<Tournament[]> => {
      try {
         const snapshot = await getDocs(collection(db, 'cups'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
-        
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = mockCupData.filter(i => !dbIds.has(i.id));
-        
         return [...dbItems, ...fallbacks];
     } catch { return mockCupData; }
 };
 export const addCup = async (data: any) => { await addDoc(collection(db, 'cups'), data); };
 export const updateCup = async (id: string, data: any) => { 
-    // Using setDoc with merge:true to handle upsert (fix for fallback data edit issues)
     await setDoc(doc(db, 'cups', id), data, { merge: true }); 
 };
 export const deleteCup = async (id: string) => {
     await deleteDoc(doc(db, 'cups', id));
 };
 
-// Hybrid Tournaments (International)
 export const fetchHybridTournaments = async (): Promise<HybridTournament[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'hybrid_tournaments'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HybridTournament));
-        
-        // Merge with local data: Use DB version if it exists, otherwise fallback
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = internationalData.filter(i => !dbIds.has(i.id));
-        
         return [...dbItems, ...fallbacks];
     } catch { return internationalData; }
 };
@@ -861,14 +774,12 @@ export const addHybridTournament = async (data: Omit<HybridTournament, 'id'>) =>
     return await addDoc(collection(db, 'hybrid_tournaments'), data); 
 };
 export const updateHybridTournament = async (id: string, data: Partial<HybridTournament>) => { 
-    // Using setDoc with merge:true to handle upsert (fix for fallback data edit issues)
     return await setDoc(doc(db, 'hybrid_tournaments', id), data, { merge: true }); 
 };
 export const deleteHybridTournament = async (id: string) => { 
     return await deleteDoc(doc(db, 'hybrid_tournaments', id)); 
 };
 
-// Referees
 export const fetchRefereesData = async (): Promise<{ referees: Referee[], ruleOfTheWeek: Rule }> => {
     try {
         const docRef = doc(db, 'referees', 'main');
@@ -881,7 +792,6 @@ export const updateRefereesData = async (data: { referees: Referee[], ruleOfTheW
     await setDoc(doc(db, 'referees', 'main'), data);
 };
 
-// Ads
 export const fetchAllAds = async (): Promise<Record<string, Ad>> => {
     try {
         const docRef = doc(db, 'ads', 'main');
@@ -899,7 +809,6 @@ export const updateAd = async (placement: string, ad: Ad) => {
     await updateDoc(docRef, { [placement]: ad });
 };
 
-// Sponsors
 export const fetchSponsors = async (): Promise<{ spotlight: Sponsor, kitPartner: KitPartner }> => {
     try {
         const docRef = doc(db, 'sponsors', 'main');
@@ -916,7 +825,6 @@ export const submitAdvertiserRequest = async (data: Omit<AdvertiserRequest, 'sta
     await addDoc(collection(db, 'advertiserRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() });
 };
 
-// Admin Requests
 export const fetchPendingChanges = async (): Promise<PendingChange[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'pending_changes'));
@@ -940,19 +848,16 @@ export const submitClubRequest = async (data: Omit<ClubRegistrationRequest, 'id'
      await addDoc(collection(db, 'clubRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() });
 };
 export const approveClubRequest = async (request: ClubRegistrationRequest) => {
-    // 1. Update user role
     if (request.userId && request.userId !== 'pending-auth') {
         const userRef = doc(db, 'users', request.userId);
         await updateDoc(userRef, { role: 'club_admin', club: request.clubName });
     }
-    // 2. Mark request approved
     await updateDoc(doc(db, 'clubRequests', request.id), { status: 'approved' });
 };
 export const rejectClubRequest = async (id: string) => {
     await updateDoc(doc(db, 'clubRequests', id), { status: 'rejected' });
 };
 
-// Categories
 export const fetchCategories = async (): Promise<Category[]> => {
      try {
         const snapshot = await getDocs(collection(db, 'categories'));
@@ -963,7 +868,6 @@ export const deleteCategory = async (id: string) => {
     await deleteDoc(doc(db, 'categories', id));
 };
 
-// Utils
 export const resetAllCompetitionData = async () => {
     const comps = await fetchAllCompetitions();
     for (const [id, comp] of Object.entries(comps)) {
@@ -975,28 +879,18 @@ export const resetAllCompetitionData = async () => {
 
 export const fetchFootballDataOrg = async (externalId: string, apiKey: string, season: string, type: 'fixtures' | 'results', useProxy: boolean, officialTeamNames: string[]): Promise<CompetitionFixture[]> => {
     if (!apiKey) throw new Error("API Key required");
-    
-    // Football-Data.org uses year for season (e.g. 2023)
     const seasonYear = season.split('-')[0] || new Date().getFullYear().toString();
-    
     let url = `https://api.football-data.org/v4/competitions/${externalId}/matches?season=${seasonYear}`;
     if (type === 'fixtures') url += `&status=SCHEDULED,LIVE,IN_PLAY,PAUSED`;
     else url += `&status=FINISHED`;
-
     if (useProxy) url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-    
-    const response = await fetch(url, {
-        headers: { 'X-Auth-Token': apiKey }
-    });
-    
+    const response = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.message || response.statusText);
     }
-    
     const data = await response.json();
     if (!data.matches) return [];
-
     return data.matches.map((m: any) => {
         const matchDate = new Date(m.utcDate);
         return {
@@ -1011,7 +905,7 @@ export const fetchFootballDataOrg = async (externalId: string, apiKey: string, s
             scoreA: m.score?.fullTime?.home,
             scoreB: m.score?.fullTime?.away,
             matchday: m.matchday,
-            venue: 'Unknown' // FD.org doesn't always provide venue in matches list
+            venue: 'Unknown'
         } as CompetitionFixture;
     });
 };
@@ -1025,7 +919,6 @@ export const fetchAllCommunityEvents = async (): Promise<CommunityEvent[]> => {
 
 export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {
     try {
-        // Fetch approved events only for public display
         const q = query(collection(db, 'community_events'), where('status', '==', 'approved'));
         const snapshot = await getDocs(q);
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CommunityEvent));
