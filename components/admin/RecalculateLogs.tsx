@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
 import { Team, Competition, CompetitionFixture } from '../../data/teams';
@@ -7,13 +8,14 @@ import Spinner from '../ui/Spinner';
 import RefreshIcon from '../icons/RefreshIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { db } from '../../services/firebase';
-import { doc, getDoc, updateDoc, runTransaction } from 'firebase/firestore';
-import { calculateStandings, removeUndefinedProps, normalize, levenshtein } from '../../services/utils';
+import { doc, getDoc, runTransaction } from 'firebase/firestore';
+import { calculateStandings, removeUndefinedProps, normalize, levenshtein, superNormalize } from '../../services/utils';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import GitMergeIcon from '../icons/GitMergeIcon';
 import SparklesIcon from '../icons/SparklesIcon';
 import UsersIcon from '../icons/UsersIcon';
+import DownloadIcon from '../icons/DownloadIcon';
 
 const RecalculateLogs: React.FC = () => {
     const [leagues, setLeagues] = useState<{ id: string, name: string }[]>([]);
@@ -70,7 +72,7 @@ const RecalculateLogs: React.FC = () => {
             if (docSnap.exists()) {
                 const data = docSnap.data() as Competition;
                 const teams = data.teams || [];
-                const officialNames = new Set(teams.map(t => t.name.trim()));
+                const officialNames = new Set(teams.map(t => superNormalize(t.name)));
                 
                 setOfficialTeams(teams.map(t => ({ id: t.id, name: t.name })).sort((a,b) => a.name.localeCompare(b.name)));
 
@@ -85,7 +87,8 @@ const RecalculateLogs: React.FC = () => {
 
                 const ghosts: string[] = [];
                 foundNames.forEach(name => {
-                    if (!officialNames.has(name) && name.length > 0) {
+                    const normMatchName = superNormalize(name);
+                    if (!officialNames.has(normMatchName) && name.length > 0) {
                         ghosts.push(name);
                     }
                 });
@@ -93,8 +96,8 @@ const RecalculateLogs: React.FC = () => {
 
                 // 2. Detect Zombies (Teams in the list that have NO matches and 0 points)
                 const zombies = teams.filter(t => {
-                    const name = t.name.trim();
-                    const hasMatches = allMatches.some(m => m.teamA.trim() === name || m.teamB.trim() === name);
+                    const normOfficial = superNormalize(t.name);
+                    const hasMatches = allMatches.some(m => superNormalize(m.teamA) === normOfficial || superNormalize(m.teamB) === normOfficial);
                     return !hasMatches && (t.stats.p === 0);
                 });
                 setZombieTeams(zombies);
@@ -104,9 +107,28 @@ const RecalculateLogs: React.FC = () => {
         }
     };
 
+    const handleExportJson = async () => {
+        try {
+            const comp = await fetchCompetition(selectedLeague);
+            if (!comp) return;
+            
+            const dataStr = JSON.stringify(comp, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `${selectedLeague}-backup-${new Date().toISOString().split('T')[0]}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        } catch (e) {
+            alert("Export failed.");
+        }
+    };
+
     const handleAdoptGhosts = async () => {
         if (ghostTeams.length === 0) return;
-        if (!window.confirm(`This will create ${ghostTeams.length} new team entries in this league using the names found in match records (e.g. Hlathikhulu United). This will make them appear on the league log. Proceed?`)) return;
+        if (!window.confirm(`This will create ${ghostTeams.length} new team entries in this league using the names found in match records. This ensures they appear on the league log. Proceed?`)) return;
 
         setSubmitting(true);
         try {
@@ -132,9 +154,7 @@ const RecalculateLogs: React.FC = () => {
                     currentTeams.push(newTeam);
                 });
 
-                // Recalculate standings with new teams
                 const finalTeams = calculateStandings(currentTeams, data.results || [], data.fixtures || []);
-
                 transaction.update(docRef, removeUndefinedProps({ teams: finalTeams }));
             });
 
@@ -148,84 +168,6 @@ const RecalculateLogs: React.FC = () => {
         }
     }
 
-    const handleAutoCorrectTypos = async () => {
-        if (!window.confirm("This will scan all matches. If a team name is very similar to an official team (e.g. 'Leopard' vs 'Leopards'), it will update the match record to the official name. Proceed?")) return;
-        
-        setSubmitting(true);
-        let fixedCount = 0;
-
-        try {
-            const docRef = doc(db, 'competitions', selectedLeague);
-            await runTransaction(db, async (transaction) => {
-                const docSnap = await transaction.get(docRef);
-                if (!docSnap.exists()) throw new Error("Competition not found");
-                const data = docSnap.data() as Competition;
-                
-                const officialTeamMap = new Map<string, string>();
-                (data.teams || []).forEach(t => {
-                    officialTeamMap.set(normalize(t.name), t.name.trim());
-                });
-
-                const findOfficialName = (name: string): string | null => {
-                    const norm = normalize(name);
-                    if (officialTeamMap.has(norm)) return officialTeamMap.get(norm)!;
-
-                    let bestMatch: string | null = null;
-                    let minDist = Infinity;
-                    for (const key of officialTeamMap.keys()) {
-                         const dist = levenshtein(norm, key);
-                         if (dist < minDist) {
-                             minDist = dist;
-                             bestMatch = officialTeamMap.get(key)!;
-                         }
-                    }
-                    if (bestMatch && minDist <= 2) return bestMatch;
-                    return null;
-                };
-
-                const fixer = (matches: CompetitionFixture[]) => matches.map(m => {
-                    const fixedA = findOfficialName(m.teamA);
-                    const fixedB = findOfficialName(m.teamB);
-                    
-                    let changed = false;
-                    const newM = { ...m };
-
-                    if (fixedA && fixedA !== m.teamA) {
-                        newM.teamA = fixedA;
-                        changed = true;
-                        fixedCount++;
-                    }
-                    if (fixedB && fixedB !== m.teamB) {
-                        newM.teamB = fixedB;
-                        changed = true;
-                        fixedCount++;
-                    }
-                    return newM;
-                });
-
-                const updatedFixtures = fixer(data.fixtures || []);
-                const updatedResults = fixer(data.results || []);
-                
-                const updatedTeams = calculateStandings(data.teams || [], updatedResults, updatedFixtures);
-
-                transaction.update(docRef, removeUndefinedProps({
-                    fixtures: updatedFixtures,
-                    results: updatedResults,
-                    teams: updatedTeams
-                }));
-            });
-            
-            setStatusMessage({ type: 'success', text: `Auto-Correction Complete. Fixed ${fixedCount} name occurrences.` });
-            await analyzeLeague(selectedLeague);
-
-        } catch(error) {
-            handleFirestoreError(error, 'auto correct typos');
-            setStatusMessage({ type: 'error', text: 'Failed to auto-correct.' });
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     const handleFixGhost = async (ghostName: string) => {
         const targetTeamName = fixMap[ghostName];
         if (!targetTeamName) {
@@ -233,7 +175,7 @@ const RecalculateLogs: React.FC = () => {
             return;
         }
 
-        if (!window.confirm(`This will rename "${ghostName}" to "${targetTeamName}" in ALL past and future matches. This cannot be undone. Proceed?`)) return;
+        if (!window.confirm(`This will rename "${ghostName}" to "${targetTeamName}" in ALL past and future matches. This will fix the "sudden change" by consolidating history. Proceed?`)) return;
 
         setSubmitting(true);
         try {
@@ -269,91 +211,6 @@ const RecalculateLogs: React.FC = () => {
         } catch (error) {
             handleFirestoreError(error, 'fix ghost team');
             setStatusMessage({ type: 'error', text: 'Failed to fix team.' });
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleRemoveZombie = async (teamId: number) => {
-        if (!window.confirm("Are you sure you want to remove this team? It has no matches associated with it.")) return;
-
-        setSubmitting(true);
-        try {
-            const docRef = doc(db, 'competitions', selectedLeague);
-            
-            await runTransaction(db, async (transaction) => {
-                const docSnap = await transaction.get(docRef);
-                if (!docSnap.exists()) throw new Error("Competition not found");
-                
-                const data = docSnap.data() as Competition;
-                const updatedTeams = (data.teams || []).filter(t => t.id !== teamId);
-
-                transaction.update(docRef, removeUndefinedProps({ teams: updatedTeams }));
-            });
-            
-            setStatusMessage({ type: 'success', text: `Removed unused team entry.` });
-            await analyzeLeague(selectedLeague);
-        } catch (error) {
-            handleFirestoreError(error, 'remove zombie team');
-            setStatusMessage({ type: 'error', text: 'Failed to remove team.' });
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const handleMergeIntoZombie = async (targetZombieId: number) => {
-        const sourceIdStr = mergeMap[targetZombieId];
-        if (!sourceIdStr) {
-            alert("Please select a source team to merge from.");
-            return;
-        }
-        const sourceId = parseInt(sourceIdStr);
-        const sourceTeam = officialTeams.find(t => t.id === sourceId);
-        const targetTeam = zombieTeams.find(t => t.id === targetZombieId);
-
-        if (!sourceTeam || !targetTeam) return;
-
-        if (!window.confirm(`CONFIRM MERGE:\n\nSource (will be deleted): ${sourceTeam.name}\nTarget (will keep): ${targetTeam.name}\n\nAll matches for "${sourceTeam.name}" will be renamed to "${targetTeam.name}".\n"${sourceTeam.name}" will then be deleted.\n\nAre you sure?`)) return;
-
-        setSubmitting(true);
-        try {
-            const docRef = doc(db, 'competitions', selectedLeague);
-            await runTransaction(db, async (transaction) => {
-                const docSnap = await transaction.get(docRef);
-                if (!docSnap.exists()) throw new Error("Competition not found");
-                const data = docSnap.data() as Competition;
-
-                const oldName = sourceTeam.name.trim();
-                const newName = targetTeam.name.trim();
-
-                const renameMatches = (matches: CompetitionFixture[]) => matches.map(m => ({
-                    ...m,
-                    teamA: m.teamA.trim() === oldName ? newName : m.teamA,
-                    teamB: m.teamB.trim() === oldName ? newName : m.teamB
-                }));
-
-                const updatedFixtures = renameMatches(data.fixtures || []);
-                const updatedResults = renameMatches(data.results || []);
-
-                const currentTeams = data.teams || [];
-                const updatedTeamList = currentTeams.filter(t => t.id !== sourceId); 
-
-                const finalTeams = calculateStandings(updatedTeamList, updatedResults, updatedFixtures);
-
-                transaction.update(docRef, removeUndefinedProps({
-                    teams: finalTeams,
-                    fixtures: updatedFixtures,
-                    results: updatedResults
-                }));
-            });
-
-            setStatusMessage({ type: 'success', text: `Merged "${sourceTeam.name}" into "${targetTeam.name}" successfully!` });
-            await analyzeLeague(selectedLeague);
-            setMergeMap({});
-
-        } catch (error) {
-            handleFirestoreError(error, 'merge into zombie');
-            setStatusMessage({ type: 'error', text: 'Failed to merge teams.' });
         } finally {
             setSubmitting(false);
         }
@@ -407,12 +264,17 @@ const RecalculateLogs: React.FC = () => {
     return (
         <Card className="shadow-lg animate-fade-in">
             <CardContent className="p-6">
-                <h3 className="text-2xl font-bold font-display mb-1">Repair Data & Recalculate Logs</h3>
+                <div className="flex justify-between items-start mb-1">
+                    <h3 className="text-2xl font-bold font-display">Repair Data & Logs</h3>
+                    <Button onClick={handleExportJson} className="bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs flex items-center gap-2">
+                        <DownloadIcon className="w-4 h-4"/> Export Backup
+                    </Button>
+                </div>
                 <p className="text-sm text-gray-600 mb-6">
-                    Fix duplicate teams, merge stats from old names, and force log updates.
+                    Fix "Ghost" teams caused by name mismatches and force log updates.
                 </p>
 
-                {loading ? <Spinner /> : (
+                {loading ? <div className="flex justify-center py-12"><Spinner /></div> : (
                     <div className="space-y-6">
                         <div>
                             <label htmlFor="league-select" className="block text-sm font-medium text-gray-700 mb-1">Select League</label>
@@ -420,28 +282,12 @@ const RecalculateLogs: React.FC = () => {
                                 id="league-select" 
                                 value={selectedLeague} 
                                 onChange={e => setSelectedLeague(e.target.value)} 
-                                className="mb-4 block w-full max-w-sm pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm"
+                                className="mb-4 block w-full max-w-sm px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                             >
                                 {leagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                             </select>
                         </div>
                         
-                        <div className="border rounded-lg p-4 bg-purple-50 border-purple-200">
-                            <h4 className="font-bold flex items-center gap-2 mb-2 text-purple-800">
-                                <SparklesIcon className="w-5 h-5"/> Auto-Correct Team Name Typos
-                            </h4>
-                            <p className="text-xs text-purple-700 mb-3">
-                                Scans all match records and automatically updates misspelled names to match your official team list.
-                            </p>
-                            <Button 
-                                onClick={handleAutoCorrectTypos}
-                                disabled={submitting}
-                                className="bg-purple-600 text-white hover:bg-purple-700 text-sm h-9 px-4 w-full sm:w-auto"
-                            >
-                                {submitting ? <Spinner className="w-4 h-4 border-2"/> : "Deep Clean & Auto-Correct Names"}
-                            </Button>
-                        </div>
-
                         {/* GHOST TEAM DETECTOR (Matches -> Teams mismatch) */}
                         <div className={`border rounded-lg p-4 ${ghostTeams.length > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
                             <div className="flex justify-between items-start mb-2">
@@ -462,13 +308,13 @@ const RecalculateLogs: React.FC = () => {
                             {ghostTeams.length > 0 ? (
                                 <>
                                     <p className="text-xs text-orange-700 mb-3">
-                                        These names appear in matches but are NOT in your official team list (e.g. <b>Hlathikhulu United</b>). 
-                                        Click <b>"Adopt All"</b> above to automatically create entries for them so they show on the log.
+                                        These names appear in matches but are NOT in your official team list. 
+                                        Map them to an official team to merge their match history into the log.
                                     </p>
                                     <div className="space-y-2">
                                         {ghostTeams.map(ghost => (
                                             <div key={ghost} className="flex flex-col sm:flex-row items-center gap-2 bg-white p-2 rounded border border-orange-100">
-                                                <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">{ghost}</span>
+                                                <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded truncate max-w-[150px]">{ghost}</span>
                                                 <span className="text-gray-400 text-xs">should be &rarr;</span>
                                                 <select 
                                                     className="text-sm border-gray-300 rounded-md flex-grow"
@@ -483,81 +329,27 @@ const RecalculateLogs: React.FC = () => {
                                                     disabled={submitting || !fixMap[ghost]}
                                                     className="bg-green-600 text-white text-xs h-8 px-3"
                                                 >
-                                                    Fix Name
+                                                    Map Name
                                                 </Button>
                                             </div>
                                         ))}
                                     </div>
                                 </>
                             ) : (
-                                <p className="text-xs text-gray-500">All match team names correspond to official teams.</p>
+                                <p className="text-xs text-gray-500">All match team names correspond to official teams. Logic is healthy.</p>
                             )}
                         </div>
 
-                        {/* ZOMBIE TEAM DETECTOR (Unused Teams) */}
-                        <div className={`border rounded-lg p-4 ${zombieTeams.length > 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
-                             <h4 className={`font-bold flex items-center gap-2 mb-2 ${zombieTeams.length > 0 ? 'text-blue-800' : 'text-gray-700'}`}>
-                                {zombieTeams.length > 0 ? <GitMergeIcon className="w-5 h-5"/> : <span className="text-green-600">✓</span>}
-                                Empty Team Entries (Zombies) - {zombieTeams.length} Detected
-                            </h4>
-                            {zombieTeams.length > 0 ? (
-                                <>
-                                    <p className="text-xs text-blue-700 mb-3">
-                                        These teams exist in the list but have <b>0 matches</b> linked to them.
-                                    </p>
-                                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                                        {zombieTeams.map(team => (
-                                            <div key={team.id} className="bg-white p-3 rounded border border-blue-100">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="font-bold text-sm">{team.name} <span className="font-normal text-gray-500">(0 matches)</span></span>
-                                                    <Button 
-                                                        onClick={() => handleRemoveZombie(team.id)} 
-                                                        disabled={submitting}
-                                                        className="bg-red-100 text-red-700 hover:bg-red-200 text-xs h-7 px-2"
-                                                    >
-                                                        <TrashIcon className="w-3 h-3 mr-1"/> Remove Entry
-                                                    </Button>
-                                                </div>
-                                                <div className="flex items-center gap-2 bg-gray-50 p-2 rounded">
-                                                    <span className="text-xs text-gray-600 font-semibold whitespace-nowrap">Merge Stats From:</span>
-                                                    <select 
-                                                        className="text-xs border-gray-300 rounded w-full"
-                                                        value={mergeMap[team.id] || ''}
-                                                        onChange={e => setMergeMap(prev => ({...prev, [team.id]: e.target.value}))}
-                                                    >
-                                                        <option value="" disabled>Select Duplicate with History</option>
-                                                        {officialTeams.filter(t => t.id !== team.id).map(t => (
-                                                            <option key={t.id} value={t.id}>{t.name}</option>
-                                                        ))}
-                                                    </select>
-                                                    <Button
-                                                        onClick={() => handleMergeIntoZombie(team.id)}
-                                                        disabled={submitting || !mergeMap[team.id]}
-                                                        className="bg-blue-600 text-white text-xs h-7 px-3 whitespace-nowrap"
-                                                    >
-                                                        Merge & Fix
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            ) : (
-                                <p className="text-xs text-gray-500">No unused/duplicate team entries found.</p>
-                            )}
-                        </div>
-
-                        <div className="pt-4 border-t">
-                            <p className="text-sm text-gray-600 mb-3">Force a full recalculation of all standings based on current match data:</p>
-                            <Button onClick={handleRecalculate} disabled={submitting} className="bg-gray-800 text-white hover:bg-black h-11 w-auto flex justify-center items-center gap-2 px-6">
-                                {submitting ? <Spinner className="w-5 h-5 border-2"/> : <><RefreshIcon className="w-5 h-5" /> Force Recalculate Logs</>}
+                        <div className="pt-4 border-t flex flex-col sm:flex-row gap-3">
+                            <Button onClick={handleRecalculate} disabled={submitting} className="bg-gray-800 text-white hover:bg-black h-11 px-6 flex items-center justify-center gap-2">
+                                {submitting ? <Spinner className="w-5 h-5 border-2"/> : <><RefreshIcon className="w-5 h-5" /> Force Standings Update</>}
                             </Button>
                         </div>
                     </div>
                 )}
                 
                 {statusMessage.text && (
-                    <div className={`mt-6 p-3 rounded-md text-sm font-semibold ${statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <div className={`mt-6 p-3 rounded-md text-sm font-semibold animate-fade-in ${statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                         {statusMessage.text}
                     </div>
                 )}

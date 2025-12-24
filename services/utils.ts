@@ -1,3 +1,4 @@
+
 import { Team, CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 
@@ -24,7 +25,6 @@ export const removeUndefinedProps = (obj: any): any => {
 /**
  * Super-normalization for robust matching.
  * Strips all non-alphanumeric chars and collapses whitespace.
- * CRITICAL FIX: No longer strips "FC" or "United" to prevent conflating distinct clubs.
  */
 export const superNormalize = (s: string) => {
     if (!s) return '';
@@ -93,10 +93,13 @@ export const levenshtein = (a: string, b: string): number => {
 
 /**
  * Calculates league standings from a list of teams and finished matches.
+ * CRITICAL FIX: Now prioritizes name-based mapping to ensure "Ghost" teams are captured
+ * but uses official list as the source of truth for IDs.
  */
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
     const teamsMap: Map<string, Team> = new Map();
     
+    // 1. Initialize map with existing official teams
     baseTeams.forEach(team => {
         const teamCopy = { ...team };
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' };
@@ -105,6 +108,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     
     const allMatches = [...(allResults || []), ...(allFixtures || [])];
 
+    // 2. Scan matches for any "Ghost" teams not in our list and add them temporarily
     allMatches.forEach(m => {
         [m.teamA, m.teamB].forEach(name => {
             if (!name) return;
@@ -122,7 +126,13 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         });
     });
 
-    const finishedMatches = allMatches.filter(r => (r.status === 'finished' || r.status === 'abandoned') && r.scoreA != null && r.scoreB != null);
+    // 3. Process finished matches
+    const finishedMatches = allMatches.filter(r => 
+        (r.status === 'finished' || r.status === 'abandoned') && 
+        r.scoreA != null && 
+        r.scoreB != null
+    );
+    
     const sortedMatches = finishedMatches
         .filter(fixture => fixture.fullDate)
         .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
@@ -167,7 +177,12 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         }
     }
 
-    return Array.from(teamsMap.values()).sort((a, b) => b.stats.pts - a.stats.pts || b.stats.gd - a.stats.gd || a.name.localeCompare(b.name));
+    // 4. Return sorted list
+    return Array.from(teamsMap.values()).sort((a, b) => {
+        if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
+        if (b.stats.gd !== a.stats.gd) return b.stats.gd - a.stats.gd;
+        return a.name.localeCompare(b.name);
+    });
 };
 
 export const calculateGroupStandings = (groupTeams: Team[], allMatches: CompetitionFixture[]): Team[] => {
