@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -306,9 +307,19 @@ const ApiImportPage: React.FC = () => {
                 }
             }
 
-            // Robust validation of team names against official list
-            const isValidA = !!normalizeTeamName(fixture.teamA, officialTeamNames);
-            const isValidB = !!normalizeTeamName(fixture.teamB, officialTeamNames);
+            // --- FIX: IMPROVED NORMALIZATION ---
+            // If the target competition has NO teams, allow any name through.
+            // If it HAS teams, try to match. If no match, it's an error.
+            let normalizedA: string | null = fixture.teamA;
+            let normalizedB: string | null = fixture.teamB;
+
+            if (officialTeamNames.length > 0) {
+                normalizedA = normalizeTeamName(fixture.teamA, officialTeamNames);
+                normalizedB = normalizeTeamName(fixture.teamB, officialTeamNames);
+            }
+
+            const isValidA = !!normalizedA;
+            const isValidB = !!normalizedB;
             const hasError = !isValidA || !isValidB;
             
             let errorMsg = undefined;
@@ -329,7 +340,11 @@ const ApiImportPage: React.FC = () => {
                 matchday: String(fixture.matchday),
                 status: status,
                 selected: (!isDuplicate || isBetterData) && !hasError, // Select new or updates, ignore exact duplicates
-                fixtureData: fixture,
+                fixtureData: {
+                    ...fixture,
+                    teamA: normalizedA || fixture.teamA,
+                    teamB: normalizedB || fixture.teamB
+                },
                 error: errorMsg
             };
         });
@@ -425,8 +440,8 @@ const ApiImportPage: React.FC = () => {
 
             if (include) {
                 const eventDate = new Date(event.dateEvent);
-                const normalizedTeamA = normalizeTeamName(event.strHomeTeam, officialTeamNames);
-                const normalizedTeamB = normalizeTeamName(event.strAwayTeam, officialTeamNames);
+                const normalizedTeamA = officialTeamNames.length > 0 ? normalizeTeamName(event.strHomeTeam, officialTeamNames) : event.strHomeTeam;
+                const normalizedTeamB = officialTeamNames.length > 0 ? normalizeTeamName(event.strAwayTeam, officialTeamNames) : event.strAwayTeam;
                 const timeStr = event.strTime ? event.strTime.substring(0, 5) : '00:00';
 
                 let derivedStatus: CompetitionFixture['status'] = 'scheduled';
@@ -686,8 +701,14 @@ const ApiImportPage: React.FC = () => {
                     
                     // Re-validate against official list
                     const officialTeamNames = (currentCompetition?.teams || []).map(t => t.name);
-                    const normalizedA = normalizeTeamName(updatedFixtureData.teamA, officialTeamNames);
-                    const normalizedB = normalizeTeamName(updatedFixtureData.teamB, officialTeamNames);
+                    
+                    let normalizedA: string | null = updatedFixtureData.teamA;
+                    let normalizedB: string | null = updatedFixtureData.teamB;
+
+                    if (officialTeamNames.length > 0) {
+                        normalizedA = normalizeTeamName(updatedFixtureData.teamA, officialTeamNames);
+                        normalizedB = normalizeTeamName(updatedFixtureData.teamB, officialTeamNames);
+                    }
                     
                     const isValidA = !!normalizedA;
                     const isValidB = !!normalizedB;
@@ -916,8 +937,22 @@ const ApiImportPage: React.FC = () => {
                                                         <td colSpan={6} className="p-3">
                                                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                                                                 <div className="col-span-2 grid grid-cols-2 gap-2">
-                                                                    <div><label className="text-xs font-bold text-gray-600">Home</label><select value={editFormData.teamA} onChange={handleEditChange} name="teamA" className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>-- Select --</option>{(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
-                                                                    <div><label className="text-xs font-bold text-gray-600">Away</label><select value={editFormData.teamB} onChange={handleEditChange} name="teamB" className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>-- Select --</option>{(currentCompetition?.teams || []).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select></div>
+                                                                    <div>
+                                                                        <label className="text-xs font-bold text-gray-600">Home</label>
+                                                                        {currentCompetition?.teams && currentCompetition.teams.length > 0 ? (
+                                                                            <select value={editFormData.teamA} onChange={handleEditChange} name="teamA" className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>-- Select --</option>{(currentCompetition.teams).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select>
+                                                                        ) : (
+                                                                            <input value={editFormData.teamA} onChange={handleEditChange} name="teamA" className="block w-full text-sm p-1 border-gray-300 rounded" />
+                                                                        )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-xs font-bold text-gray-600">Away</label>
+                                                                        {currentCompetition?.teams && currentCompetition.teams.length > 0 ? (
+                                                                            <select value={editFormData.teamB} onChange={handleEditChange} name="teamB" className="block w-full text-sm p-1 border-gray-300 rounded"><option value="" disabled>-- Select --</option>{(currentCompetition.teams).map(t => <option key={t.id} value={t.name}>{t.name}</option>)}</select>
+                                                                        ) : (
+                                                                            <input value={editFormData.teamB} onChange={handleEditChange} name="teamB" className="block w-full text-sm p-1 border-gray-300 rounded" />
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                                 <div className="flex gap-2 mt-2">
                                                                     <Button onClick={handleSaveEdit} className="bg-green-600 text-white text-xs h-8">Save</Button>
@@ -928,7 +963,7 @@ const ApiImportPage: React.FC = () => {
                                                     </tr>
                                                 ) : (
                                                     <tr key={f.id} className={`${!f.selected ? 'bg-gray-50 text-gray-500' : 'bg-white'} ${f.status === 'error' ? 'bg-red-50' : ''}`}>
-                                                        <td className="p-2 text-center"><input type="checkbox" checked={f.selected} onChange={() => handleToggleSelection(f.id)} className="h-4 w-4 rounded" disabled={f.status === 'imported' || f.status === 'error'} /></td>
+                                                        <td className="p-2 text-center"><input type="checkbox" checked={f.selected} onChange={() => handleToggleSelection(f.id)} className="h-4 w-4 rounded" disabled={f.status === 'imported' || (f.status === 'error' && currentCompetition?.teams && currentCompetition.teams.length > 0)} /></td>
                                                         <td className="p-2 font-semibold">
                                                             {f.fixtureData.teamA} vs {f.fixtureData.teamB} 
                                                             {f.error && <span className="text-[10px] font-bold text-red-600 block mt-1 uppercase tracking-tight">Error: {f.error}</span>}

@@ -1,3 +1,4 @@
+
 import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
 import { db } from './firebase';
@@ -621,7 +622,7 @@ export const addMatchTicket = async (data: Omit<MatchTicket, 'id'>) => {
     await addDoc(collection(db, 'match_tickets'), data);
 };
 export const deleteMatchTicket = async (id: string) => {
-    await deleteDoc(doc(db, 'match_tickets', id));
+    await deleteDoc(collection(db, 'match_tickets', id));
 };
 
 export const fetchScoutedPlayers = async (): Promise<ScoutedPlayer[]> => {
@@ -892,11 +893,15 @@ export const resetAllCompetitionData = async () => {
 
 export const fetchFootballDataOrg = async (externalId: string, apiKey: string, season: string, type: 'fixtures' | 'results', useProxy: boolean, officialTeamNames: string[]): Promise<CompetitionFixture[]> => {
     if (!apiKey) throw new Error("API Key required");
-    const seasonYear = season.split('-')[0] || new Date().getFullYear().toString();
+    // Improvement: Parse season better for football-data.org (usually expects the start year)
+    const seasonYear = season.includes('-') ? season.split('-')[0] : (season || new Date().getFullYear().toString());
+    
     let url = `https://api.football-data.org/v4/competitions/${externalId}/matches?season=${seasonYear}`;
     if (type === 'fixtures') url += `&status=SCHEDULED,LIVE,IN_PLAY,PAUSED`;
     else url += `&status=FINISHED`;
+    
     if (useProxy) url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    
     const response = await fetch(url, { headers: { 'X-Auth-Token': apiKey } });
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
@@ -904,12 +909,17 @@ export const fetchFootballDataOrg = async (externalId: string, apiKey: string, s
     }
     const data = await response.json();
     if (!data.matches) return [];
+    
     return data.matches.map((m: any) => {
         const matchDate = new Date(m.utcDate);
+        // Robust normalization logic: If official names exist, try matching. Otherwise allow through.
+        const normalizedA = officialTeamNames.length > 0 ? normalizeTeamName(m.homeTeam.name, officialTeamNames) : m.homeTeam.name;
+        const normalizedB = officialTeamNames.length > 0 ? normalizeTeamName(m.awayTeam.name, officialTeamNames) : m.awayTeam.name;
+
         return {
             id: m.id,
-            teamA: normalizeTeamName(m.homeTeam.name, officialTeamNames) || m.homeTeam.name,
-            teamB: normalizeTeamName(m.awayTeam.name, officialTeamNames) || m.awayTeam.name,
+            teamA: normalizedA || m.homeTeam.name,
+            teamB: normalizedB || m.awayTeam.name,
             fullDate: m.utcDate.split('T')[0],
             date: matchDate.getDate().toString(),
             day: matchDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
