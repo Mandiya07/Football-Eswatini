@@ -32,11 +32,8 @@ yesterday.setDate(today.getDate() - 1);
 const tomorrow = new Date(today);
 tomorrow.setDate(today.getDate() + 1);
 
-const todayStr = today.toISOString().split('T')[0];
 const yesterdayStr = yesterday.toISOString().split('T')[0];
 const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-const todayDay = today.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 const tomorrowDay = tomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 
 // --- MOCK DATA & DEFAULTS ---
@@ -109,7 +106,7 @@ const SeedDatabase: React.FC = () => {
     const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
     const handleSeed = async () => {
-        if (!window.confirm("This will overwrite global content and seed new league data. Proceed?")) return;
+        if (!window.confirm("This will overwrite your live database content with the updated 36-team UCL and defaults. Proceed?")) return;
         setLoading(true);
         setStatus(null);
 
@@ -134,7 +131,11 @@ const SeedDatabase: React.FC = () => {
             for (const item of initialExclusiveContent) { batch.set(doc(db, 'exclusiveContent', item.id), item); }
             for (const item of initialTeamYamVideos) { batch.set(doc(db, 'teamYamVideos', item.id), item); }
             for (const code of initialPromoCodes) { batch.set(doc(collection(db, 'promo_codes')), code); }
-            for (const tourn of internationalData) { batch.set(doc(db, 'hybrid_tournaments', tourn.id), tourn); }
+            
+            // Push Updated International Data (UCL 36 Teams)
+            for (const tourn of internationalData) { 
+                batch.set(doc(db, 'hybrid_tournaments', tourn.id), removeUndefinedProps(tourn)); 
+            }
 
             const regionalCompetitions = [
                 {
@@ -181,10 +182,10 @@ const SeedDatabase: React.FC = () => {
             seedLeagueGroup(regionalCompetitions, 'regional-leagues');
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database seeded successfully with international and regional data!' });
+            setStatus({ type: 'success', msg: 'Database successfully seeded with 36-team UCL pots!' });
         } catch (error) {
             console.error("Seeding failed:", error);
-            setStatus({ type: 'error', msg: 'Failed to seed database.' });
+            setStatus({ type: 'error', msg: 'Failed to seed database. ' + (error as Error).message });
         } finally {
             setLoading(false);
         }
@@ -198,8 +199,12 @@ const SeedDatabase: React.FC = () => {
                     <h3 className="text-2xl font-bold font-display text-gray-800">Seed Database</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6">
-                    Restore default data and ensure all international tournaments (including the new 36-team UCL) and regional leagues are correctly initialized.
+                    Restore default data and ensure all international tournaments (including the new 36-team UCL) and regional leagues are correctly initialized in the live database.
                 </p>
+                <div className="bg-yellow-50 p-4 border-l-4 border-yellow-400 mb-6">
+                    <p className="text-xs text-yellow-800 font-bold uppercase mb-1">Notice:</p>
+                    <p className="text-xs text-yellow-700">If the 36 UCL teams are not showing in the hub, clicking "Seed Data" will force the Firestore database to update with the new list from your configuration files.</p>
+                </div>
                 <Button onClick={handleSeed} disabled={loading} className="bg-blue-600 text-white hover:bg-blue-700 h-11 px-6">
                     {loading ? <Spinner className="w-5 h-5 border-2"/> : <>Seed Data</>}
                 </Button>

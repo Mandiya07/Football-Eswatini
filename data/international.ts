@@ -85,26 +85,6 @@ export const internationalData: HybridTournament[] = [
                 ] 
             }
         ],
-        matches: [
-            // Sample Results for Matchday 1
-            { id: 'ucl-2526-m1-1', teamA: 'Real Madrid', teamB: 'Galatasaray', status: 'finished', scoreA: 3, scoreB: 1, fullDate: '2025-09-16', date: '16', day: 'TUE', time: '21:00', matchday: 1 },
-            { id: 'ucl-2526-m1-2', teamA: 'Manchester City', teamB: 'Inter Milan', status: 'finished', scoreA: 0, scoreB: 0, fullDate: '2025-09-16', date: '16', day: 'TUE', time: '21:00', matchday: 1 },
-            { id: 'ucl-2526-m1-3', teamA: 'Liverpool', teamB: 'Bayer Leverkusen', status: 'finished', scoreA: 4, scoreB: 0, fullDate: '2025-09-17', date: '17', day: 'WED', time: '21:00', matchday: 1 },
-            { id: 'ucl-2526-m1-4', teamA: 'Paris Saint-Germain', teamB: 'Newcastle United', status: 'finished', scoreA: 2, scoreB: 0, fullDate: '2025-09-17', date: '17', day: 'WED', time: '21:00', matchday: 1 },
-            { id: 'ucl-2526-m1-5', teamA: 'Bayern München', teamB: 'Napoli', status: 'finished', scoreA: 3, scoreB: 1, fullDate: '2025-09-18', date: '18', day: 'THU', time: '21:00', matchday: 1 },
-            { id: 'ucl-2526-m1-6', teamA: 'Barcelona', teamB: 'Ajax', status: 'finished', scoreA: 5, scoreB: 1, fullDate: '2025-09-18', date: '18', day: 'THU', time: '21:00', matchday: 1 },
-            { id: 'ucl-2526-m1-7', teamA: 'Arsenal', teamB: 'Sporting CP', status: 'finished', scoreA: 2, scoreB: 2, fullDate: '2025-09-18', date: '18', day: 'THU', time: '21:00', matchday: 1 },
-            
-            // Matchday 2 Sample
-            { id: 'ucl-2526-m2-1', teamA: 'Bayer Leverkusen', teamB: 'Inter Milan', status: 'finished', scoreA: 1, scoreB: 2, fullDate: '2025-10-01', date: '01', day: 'WED', time: '21:00', matchday: 2 },
-            { id: 'ucl-2526-m2-2', teamA: 'Arsenal', teamB: 'Paris Saint-Germain', status: 'finished', scoreA: 2, scoreB: 1, fullDate: '2025-10-01', date: '01', day: 'WED', time: '21:00', matchday: 2 },
-            { id: 'ucl-2526-m2-3', teamA: 'Borussia Dortmund', teamB: 'Real Madrid', status: 'finished', scoreA: 0, scoreB: 2, fullDate: '2025-10-22', date: '22', day: 'WED', time: '21:00', matchday: 2 },
-            
-            // Upcoming Fixtures
-            { id: 'ucl-2526-m3-1', teamA: 'Liverpool', teamB: 'Real Madrid', status: 'scheduled', fullDate: '2025-11-05', date: '05', day: 'WED', time: '21:00', matchday: 3 },
-            { id: 'ucl-2526-m3-2', teamA: 'Manchester City', teamB: 'Bayern München', status: 'scheduled', fullDate: '2025-11-05', date: '05', day: 'WED', time: '21:00', matchday: 3 },
-            { id: 'ucl-2526-m3-3', teamA: 'Barcelona', teamB: 'Chelsea', status: 'scheduled', fullDate: '2025-11-06', date: '06', day: 'THU', time: '21:00', matchday: 3 },
-            { id: 'ucl-2526-m3-4', teamA: 'Juventus', teamB: 'Arsenal', status: 'scheduled', fullDate: '2025-11-06', date: '06', day: 'THU', time: '21:00', matchday: 3 }
-        ]
+        matches: []
     }
 ];
