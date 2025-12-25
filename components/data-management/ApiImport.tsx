@@ -10,7 +10,7 @@ import XIcon from '../icons/XIcon';
 import SaveIcon from '../icons/SaveIcon';
 import TrashIcon from '../icons/TrashIcon';
 import { CompetitionFixture } from '../../data/teams';
-import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories, fetchFootballDataOrg } from '../../services/api';
+import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories, fetchFootballDataOrg, fetchApiFootball } from '../../services/api';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps, normalizeTeamName, calculateStandings, superNormalize } from '../../services/utils';
@@ -131,7 +131,7 @@ const ApiImportPage: React.FC = () => {
     const [successMessage, setSuccessMessage] = useState('');
     const [isFallback, setIsFallback] = useState(false);
     const [importType, setImportType] = useState<'fixtures' | 'results'>('fixtures');
-    const [apiProvider, setApiProvider] = useState<'football-data' | 'thesportsdb'>('football-data');
+    const [apiProvider, setApiProvider] = useState<'football-data' | 'thesportsdb' | 'api-football'>('football-data');
 
     const [competitions, setCompetitions] = useState<{ id: string, name: string, externalApiId?: string }[]>([]);
     const [loadingComps, setLoadingComps] = useState(true);
@@ -550,6 +550,16 @@ const ApiImportPage: React.FC = () => {
             if (apiProvider === 'thesportsdb') {
                 fixtures = await fetchTheSportsDB(externalApiId);
                 sourceLabel = "TheSportsDB";
+            } else if (apiProvider === 'api-football') {
+                fixtures = await fetchApiFootball(
+                    externalApiId,
+                    apiKey,
+                    season,
+                    importType,
+                    useProxy,
+                    officialTeamNames
+                );
+                sourceLabel = "API-Football";
             } else {
                 fixtures = await fetchFootballDataOrg(
                     externalApiId, 
@@ -705,7 +715,7 @@ const ApiImportPage: React.FC = () => {
                             <CloudDownloadIcon className="w-12 h-12 mx-auto text-purple-600 mb-2" />
                             <h1 className="text-3xl font-display font-bold">Live Import Studio</h1>
                             <p className="text-gray-600 max-w-3xl mx-auto mt-2">
-                                Fetch live data. If names mismatch, use the "Repair Data" tool in the Admin Panel after importing.
+                                Fetch live data from global providers. API-Football is recommended for South African leagues.
                             </p>
                         </div>
 
@@ -730,6 +740,13 @@ const ApiImportPage: React.FC = () => {
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-bold text-gray-800">football-data.org</span>
                                                 <span className="text-[10px] text-gray-500">Major European leagues.</span>
+                                            </div>
+                                        </label>
+                                        <label className={`flex items-center gap-3 p-2 rounded-md cursor-pointer border transition-colors ${apiProvider === 'api-football' ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                            <input type="radio" name="apiProvider" value="api-football" checked={apiProvider === 'api-football'} onChange={() => setApiProvider('api-football')} className="h-4 w-4 text-blue-600" />
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-gray-800">api-football.com</span>
+                                                <span className="text-[10px] text-gray-500">Global Coverage (AFCON, PSL).</span>
                                             </div>
                                         </label>
                                         <label className={`flex items-center gap-3 p-2 rounded-md cursor-pointer border transition-colors ${apiProvider === 'thesportsdb' ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'hover:bg-gray-50 border-gray-200'}`}>
@@ -776,7 +793,7 @@ const ApiImportPage: React.FC = () => {
                                             type="text" 
                                             value={season} 
                                             onChange={e => setSeason(e.target.value)} 
-                                            placeholder="e.g., 2024" 
+                                            placeholder="e.g., 2025" 
                                             className={inputClass}
                                         />
                                     </div>
@@ -801,7 +818,7 @@ const ApiImportPage: React.FC = () => {
                                                 <label htmlFor="league-select" className="block text-sm font-bold text-gray-700 mb-1">Destination League</label>
                                                 <select id="league-select" value={selectedCompId} onChange={e => setSelectedCompId(e.target.value)} className={inputClass}>
                                                     {competitions.map(comp => (
-                                                        <option key={comp.id} value={comp.id}>{comp.name}</option>
+                                                        <option key={comp.id} value={comp.id}>{comp.name} (ID: {comp.externalApiId})</option>
                                                     ))}
                                                 </select>
                                             </div>
@@ -816,6 +833,7 @@ const ApiImportPage: React.FC = () => {
                                     ) : (
                                         <div className="p-4 bg-gray-100 text-gray-700 rounded-md text-sm">
                                             <p className="font-semibold flex items-center gap-2"><InfoIcon className="w-5 h-5"/>No Importable Leagues Found</p>
+                                            <p className="mt-1">Add an External API ID to a league in Category Management to enable importing.</p>
                                         </div>
                                     )}
                                 </div>

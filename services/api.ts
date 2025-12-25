@@ -933,6 +933,71 @@ export const fetchFootballDataOrg = async (externalId: string, apiKey: string, s
     });
 };
 
+/**
+ * Fetch data from api-football.com (v3.football.api-sports.io)
+ */
+export const fetchApiFootball = async (externalId: string, apiKey: string, season: string, type: 'fixtures' | 'results', useProxy: boolean, officialTeamNames: string[]): Promise<CompetitionFixture[]> => {
+    if (!apiKey) throw new Error("API Key required");
+    
+    // Season handles both YYYY and YYYY-YYYY, api-football expects starting year YYYY
+    const seasonYear = season.includes('-') ? season.split('-')[0] : season;
+    
+    let url = `https://v3.football.api-sports.io/fixtures?league=${externalId}&season=${seasonYear}`;
+    if (useProxy) url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    
+    const response = await fetch(url, {
+        headers: {
+            'x-rapidapi-key': apiKey,
+            'x-rapidapi-host': 'v3.football.api-sports.io'
+        }
+    });
+    
+    if (!response.ok) {
+        throw new Error(response.statusText);
+    }
+    
+    const data = await response.json();
+    if (!data.response) return [];
+    
+    return data.response.filter((item: any) => {
+        // Simple filtering based on internal status mapping if needed, 
+        // or just return all and let client handle grouping
+        const statusShort = item.fixture.status.short;
+        const isFinished = ['FT', 'AET', 'PEN', 'ABD'].includes(statusShort);
+        return type === 'fixtures' ? !isFinished : isFinished;
+    }).map((item: any) => {
+        const matchDate = new Date(item.fixture.date);
+        const normalizedA = officialTeamNames.length > 0 ? normalizeTeamName(item.teams.home.name, officialTeamNames) : item.teams.home.name;
+        const normalizedB = officialTeamNames.length > 0 ? normalizeTeamName(item.teams.away.name, officialTeamNames) : item.teams.away.name;
+
+        // Map short statuses to internal
+        let internalStatus: CompetitionFixture['status'] = 'scheduled';
+        const s = item.fixture.status.short;
+        if (['FT', 'AET', 'PEN'].includes(s)) internalStatus = 'finished';
+        else if (s === 'NS') internalStatus = 'scheduled';
+        else if (s === 'PST') internalStatus = 'postponed';
+        else if (s === 'CANC') internalStatus = 'cancelled';
+        else if (s === 'ABD') internalStatus = 'abandoned';
+        else if (s === 'SUSP') internalStatus = 'suspended';
+        else if (['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE'].includes(s)) internalStatus = 'live';
+
+        return {
+            id: item.fixture.id,
+            teamA: normalizedA || item.teams.home.name,
+            teamB: normalizedB || item.teams.away.name,
+            fullDate: item.fixture.date.split('T')[0],
+            date: matchDate.getDate().toString(),
+            day: matchDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+            time: matchDate.toTimeString().substring(0, 5),
+            status: internalStatus,
+            scoreA: item.goals.home,
+            scoreB: item.goals.away,
+            matchday: item.league.round ? parseInt(item.league.round.replace(/[^0-9]/g, '')) : undefined,
+            venue: item.fixture.venue?.name || 'TBA'
+        } as CompetitionFixture;
+    });
+};
+
 export const fetchAllCommunityEvents = async (): Promise<CommunityEvent[]> => {
      try {
         const snapshot = await getDocs(collection(db, 'community_events'));
