@@ -1,93 +1,99 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import Fixtures from './Fixtures';
-import Logs from './Logs';
-import { fetchCompetition } from '../services/api';
+import { fetchAllCompetitions } from '../services/api';
+import { Competition } from '../data/teams';
 import Spinner from './ui/Spinner';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
+import { Card, CardContent } from './ui/Card';
+import TrophyIcon from './icons/TrophyIcon';
+import ArrowRightIcon from './icons/ArrowRightIcon';
+import { superNormalize } from '../services/utils';
 
 const RegionDetailPage: React.FC = () => {
   const { regionId } = useParams<{ regionId: string }>();
-  const [competitionName, setCompetitionName] = useState('');
+  const [regionLeagues, setRegionLeagues] = useState<Competition[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getCompName = async () => {
+    const loadLeagues = async () => {
       if (!regionId) return;
       setLoading(true);
-      
-      // Improved fallback: Use the ID directly if it contains spaces (likely a name-based ID),
-      // otherwise try to slug-decode it.
-      const fallbackName = regionId.includes(' ') 
-        ? regionId 
-        : regionId
-            .split('-')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')
-            .replace(/\(/g, '')
-            .replace(/\)/g, '');
-
       try {
-        const competition = await fetchCompetition(regionId);
-        // Prefer DB name, but if it's generically "Regional League" or missing, prefer the specific fallback derived from ID
-        let displayName = competition?.name;
-        if (!displayName || displayName.trim() === 'Regional League' || displayName.trim() === 'Regional Leagues') {
-            displayName = fallbackName;
-        }
-        setCompetitionName(displayName);
+        const allComps = await fetchAllCompetitions();
+        const target = regionId.toLowerCase().trim();
+        
+        const matched = Object.entries(allComps)
+          .filter(([id, comp]) => {
+              const idNorm = superNormalize(id);
+              const nameNorm = superNormalize(comp.name);
+              const targetNorm = superNormalize(target);
+              
+              // Match if the ID or Name contains the region name (e.g. "hhohho")
+              return idNorm.includes(targetNorm) || nameNorm.includes(targetNorm);
+          })
+          .map(([id, comp]) => ({ ...comp, id }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        
+        setRegionLeagues(matched);
       } catch (error) {
-        console.warn("Failed to fetch competition details, using fallback name.", error);
-        setCompetitionName(fallbackName);
+        console.error("Failed to load regional leagues", error);
       } finally {
         setLoading(false);
       }
     };
-    getCompName();
+    loadLeagues();
   }, [regionId]);
 
-  if (!regionId) {
-    return (
-        <div className="p-8 text-center">
-            <p>Invalid region specified.</p>
-             <Link to="/regional" className="text-blue-600 hover:underline mt-4 inline-block">
-                Back to Regional Leagues
-            </Link>
-        </div>
-    );
-  }
+  const regionName = regionId ? regionId.charAt(0).toUpperCase() + regionId.slice(1) : 'Region';
+
+  if (loading) return <div className="flex justify-center py-20 min-h-screen"><Spinner /></div>;
 
   return (
-    <div className="bg-gray-50 py-12">
+    <div className="bg-gray-50 py-12 min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
-        <div className="mb-6">
+        <div className="mb-8">
             <Link to="/regional" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors">
                 <ArrowLeftIcon className="w-4 h-4" />
                 Back to All Regions
             </Link>
         </div>
-        <div className="text-center md:text-left mb-8">
-            {loading ? <Spinner /> : (
-                <>
-                    <h1 className="text-3xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
-                        {competitionName}
-                    </h1>
-                    <p className="text-lg text-gray-600">
-                        Fixtures, results, and standings for the region.
-                    </p>
-                </>
-            )}
-        </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            <div className="w-full">
-                <h2 className="text-xl font-display font-bold mb-4 text-gray-800">Fixtures & Results</h2>
-                <Fixtures showSelector={false} defaultCompetition={regionId} maxHeight="max-h-[800px]" />
-            </div>
-            <div className="w-full">
-                <h2 className="text-xl font-display font-bold mb-4 text-gray-800">League Standings</h2>
-                <Logs showSelector={false} defaultLeague={regionId} maxHeight="max-h-[800px]" />
-            </div>
+        <div className="mb-12 text-center md:text-left">
+            <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-900 mb-4">
+                {regionName} Region
+            </h1>
+            <p className="text-lg text-gray-600 max-w-2xl">
+                Official regional leagues and development tournaments in the {regionName} region.
+            </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {regionLeagues.length > 0 ? regionLeagues.map((league: any) => (
+                <Link key={league.id} to={`/region-hub/${league.id}`} className="group">
+                    <Card className="h-full hover:shadow-xl transition-all duration-300 border border-gray-100 group">
+                        <CardContent className="p-6">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+                                    <TrophyIcon className="w-6 h-6" />
+                                </div>
+                                <h3 className="font-bold text-xl text-gray-900 group-hover:text-primary transition-colors">{league.name}</h3>
+                            </div>
+                            <div className="flex justify-between items-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-50">
+                                <span>Official League</span>
+                                <div className="flex items-center gap-1 text-primary font-bold opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1">
+                                    View Hub <ArrowRightIcon className="w-4 h-4" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </Link>
+            )) : (
+                <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-gray-300">
+                    <p className="text-gray-500 italic">No leagues found in the database for this region.</p>
+                    <p className="text-sm text-gray-400 mt-2">Go to Admin Panel > Seed Database and click "Initialize Leagues" to create them.</p>
+                </div>
+            )}
         </div>
       </div>
     </div>

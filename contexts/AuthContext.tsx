@@ -26,12 +26,13 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
-  role: 'user' | 'club_admin' | 'super_admin';
+  role: 'user' | 'club_admin' | 'league_admin' | 'super_admin';
   club?: string;
+  managedLeagues?: string[]; // IDs of competitions managed
   favoriteTeamIds: number[];
   notificationPreferences: NotificationPreferences;
-  xp: number; // New: Engagement points
-  level: number; // New: Fan Level
+  xp: number; 
+  level: number; 
 }
 
 export type LoginCredentials = { email: string; password?: string; };
@@ -57,7 +58,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Added functions to manage Auth Modal state
   const openAuthModal = () => setIsAuthModalOpen(true);
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
@@ -100,7 +100,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (docSnap.exists()) {
                     setUser({ id: firebaseUser.uid, ...docSnap.data() } as User);
                 } else {
-                    // Initialize if missing
                     const initial = {
                         name: firebaseUser.displayName || 'Fan',
                         email: firebaseUser.email!,
@@ -128,7 +127,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addXP = async (amount: number) => {
       if (!user) return;
       const newXP = (user.xp || 0) + amount;
-      const newLevel = Math.floor(newXP / 100) + 1; // 100 XP per level
+      const newLevel = Math.floor(newXP / 100) + 1; 
       
       const updates: Partial<User> = { xp: newXP, level: newLevel };
       updateUser(updates);

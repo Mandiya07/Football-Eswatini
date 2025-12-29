@@ -29,7 +29,7 @@ export const internationalData: HybridTournament[] = [
     {
         id: 'uefa-champions-league',
         name: 'UEFA Champions League 2025-26',
-        description: "The premier club competition for European football. Featuring the new 36-team League Phase where clubs compete in a single league table for qualification to the knockout stages. Each club plays 8 matches against 8 different opponents (two from each of the four pots).",
+        description: "The new 36-team League Phase format. Each club plays 8 matches against 8 different opponents (two from each of the four pots). Pot 1 includes holders PSG and top seeds.",
         logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/b/bf/UEFA_Champions_League_logo_2.svg/1200px-UEFA_Champions_League_logo_2.svg.png',
         type: 'hybrid',
         teams: [

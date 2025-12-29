@@ -36,17 +36,6 @@ const Navigation: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const location = useLocation();
   
-  // Search State
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
-  const [dataLoaded, setDataLoaded] = useState(false);
-  const [cachedData, setCachedData] = useState<{ 
-    news: NewsItem[], 
-    teams: DirectoryEntity[], 
-    competitions: any,
-    hybridTournaments: HybridTournament[]
-  } | null>(null);
-
   const { isLoggedIn, user, openAuthModal } = useAuth();
   const { cartCount } = useCart();
   const managementRef = useRef<HTMLDivElement>(null);
@@ -56,20 +45,21 @@ const Navigation: React.FC = () => {
 
   const isSuperAdmin = user?.role === 'super_admin';
   const isClubAdmin = user?.role === 'club_admin';
-  const isAdmin = isSuperAdmin || isClubAdmin;
+  const isLeagueAdmin = user?.role === 'league_admin';
+  const isAdmin = isSuperAdmin || isClubAdmin || isLeagueAdmin;
 
   const navItems = [
     { name: 'Home', to: '/' },
     { name: 'News', to: '/news' },
+    { name: 'National', to: '/national-team' },
+    { name: 'Regional', to: '/regional' },
     { name: 'Fixtures', to: '/fixtures' },
     { name: 'Logs', to: '/logs' },
     { name: 'International', to: '/international' },
-    { name: 'Live', to: '/live-updates' },
     { name: 'Fan Zone', to: '/interactive' },
     { name: 'Shop', to: '/shop'},
   ];
 
-  // Monitor network status
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -81,7 +71,6 @@ const Navigation: React.FC = () => {
     };
   }, []);
 
-  // Auto-scroll active item into view in the horizontal mobile menu
   useEffect(() => {
     if (scrollRef.current) {
         const activeItem = scrollRef.current.querySelector('.active-mobile-nav');
@@ -96,24 +85,19 @@ const Navigation: React.FC = () => {
       if (managementRef.current && !managementRef.current.contains(event.target as Node)) {
         setIsManagementOpen(false);
       }
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
-      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const query = e.target.value;
-      setSearchQuery(query);
+      setSearchQuery(e.target.value);
   };
 
   const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       navigate(`/news?q=${encodeURIComponent(searchQuery.trim())}`);
-      setIsOpen(false);
-      setShowSuggestions(false);
+      // Fixed: Removed call to undefined function setShowSuggestions
     }
   };
 
@@ -128,7 +112,6 @@ const Navigation: React.FC = () => {
       <header className="bg-primary backdrop-blur-md sticky top-0 z-[100] shadow-xl w-full">
         <SecondaryNavigation />
         
-        {/* Main Header Bar */}
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 border-b border-white/5">
           <div className="flex items-center justify-between h-16 lg:h-20">
             <div className="flex-shrink-0 flex items-center gap-4">
@@ -144,8 +127,7 @@ const Navigation: React.FC = () => {
               )}
             </div>
             
-            {/* Desktop Center Navigation (>= 1024px) */}
-            <div className="hidden lg:flex items-center space-x-2 h-full">
+            <div className="hidden lg:flex items-center space-x-1 h-full">
                 {navItems.map((item) => (
                   <NavLink key={item.name} to={item.to} className={getNavLinkClass}>
                     {item.name}
@@ -153,9 +135,7 @@ const Navigation: React.FC = () => {
                 ))}
             </div>
 
-            {/* Global Actions */}
             <div className="flex items-center gap-1 sm:gap-3">
-                {/* Search - Icon only on mobile, expanded on desktop */}
                 <div className="relative" ref={searchRef}>
                     <input
                         type="text"
@@ -163,7 +143,7 @@ const Navigation: React.FC = () => {
                         value={searchQuery}
                         onChange={handleSearchChange}
                         onKeyDown={handleSearchSubmit}
-                        className="hidden md:block bg-white/10 text-white placeholder-white/40 rounded-full py-1.5 pl-10 pr-4 text-xs w-32 xl:w-48 focus:outline-none focus:ring-2 focus:ring-accent focus:w-64 transition-all duration-300 border border-white/20"
+                        className="hidden md:block bg-white/10 text-white placeholder-white/40 rounded-full py-1.5 pl-10 pr-4 text-xs w-32 xl:w-40 focus:outline-none focus:ring-2 focus:ring-accent focus:w-56 transition-all duration-300 border border-white/20"
                     />
                     <div className="md:absolute md:inset-y-0 md:left-3 flex items-center pointer-events-none">
                         <SearchIcon className="h-5 w-5 md:h-4 md:w-4 text-white/50" />
@@ -192,7 +172,7 @@ const Navigation: React.FC = () => {
                                 {isManagementOpen && (
                                     <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-slide-up py-2 text-primary-dark">
                                         <Link to="/club-management" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold hover:bg-blue-50 transition-colors">
-                                            <BriefcaseIcon className="w-4 h-4 text-blue-500" /> Team Portal
+                                            <BriefcaseIcon className="w-4 h-4 text-blue-500" /> Management Portal
                                         </Link>
                                         {isSuperAdmin && (
                                             <>
@@ -222,11 +202,7 @@ const Navigation: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile Horizontal Category Navigation (Scrollable) */}
         <div className="lg:hidden bg-primary-dark/50 border-b border-white/5 relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-primary-dark to-transparent z-10 pointer-events-none"></div>
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-primary-dark to-transparent z-10 pointer-events-none"></div>
-            
             <nav 
                 ref={scrollRef}
                 className="flex items-center overflow-x-auto scrollbar-hide py-1 px-4 gap-1 snap-x snap-mandatory"
@@ -244,32 +220,7 @@ const Navigation: React.FC = () => {
                         {item.name}
                     </NavLink>
                 ))}
-                
-                {/* Admin quick links on mobile if logged in */}
-                {isLoggedIn && isAdmin && (
-                    <NavLink 
-                        to="/club-management" 
-                        className={({ isActive }) => `
-                            flex-shrink-0 px-4 py-3 text-xs font-bold uppercase tracking-wider transition-all duration-300 snap-center flex items-center gap-1.5
-                            ${isActive ? 'text-accent border-b-2 border-accent' : 'text-yellow-400/80 hover:text-yellow-400'}
-                        `}
-                    >
-                        <BriefcaseIcon className="w-3 h-3" /> Portal
-                    </NavLink>
-                )}
             </nav>
-        </div>
-        
-        {/* FAN TICKER */}
-        <div className="bg-primary-dark/95 backdrop-blur-sm h-10 overflow-hidden flex items-center border-t border-white/5 relative z-10">
-            <div className="bg-red-600 h-full px-4 flex items-center text-[10px] font-black text-white uppercase tracking-widest z-20 whitespace-nowrap border-r border-red-700 shadow-lg">
-                Live Updates
-            </div>
-            <div className="flex-grow whitespace-nowrap animate-marquee relative z-10">
-                <span className="inline-block px-8 text-xs text-white/90 font-medium">🔥 Real-time scores and minute-by-minute updates active!</span>
-                <span className="inline-block px-8 text-xs text-white/90 font-medium">🏆 Prediction standings updated in the Fan Zone.</span>
-                <span className="inline-block px-8 text-xs text-white/90 font-medium">📰 Latest: National Team selection announced.</span>
-            </div>
         </div>
       </header>
       

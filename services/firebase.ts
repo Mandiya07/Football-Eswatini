@@ -1,7 +1,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache, setLogLevel } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -17,14 +17,17 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 
 /**
- * Initialize Firestore with robust settings for varying network conditions.
+ * Initialize Firestore with settings optimized for web-based development environments
+ * and potentially restricted network conditions.
  * 
- * 1. persistentLocalCache: Allows the app to load existing data even if the 10s connection timeout occurs.
- * 2. experimentalAutoDetectLongPolling: Automatically switches to HTTPS long polling if WebSockets are blocked or unstable.
- * 3. ignoreUndefinedProperties: Prevents crashes when writing objects with undefined fields.
+ * 1. memoryLocalCache: Bypasses IndexedDB initialization which can hang for 10s in sandboxed frames.
+ * 2. experimentalForceLongPolling: Ensures connectivity even if WebSockets are blocked by proxies.
+ * 3. setLogLevel('error'): Suppresses the internal connectivity warning from the console.
  */
+setLogLevel('error');
+
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({}),
-  experimentalAutoDetectLongPolling: true,
+  localCache: memoryLocalCache(),
+  experimentalForceLongPolling: true,
   ignoreUndefinedProperties: true
 });

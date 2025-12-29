@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -25,7 +24,6 @@ import { initialExclusiveContent, initialTeamYamVideos } from '../../data/featur
 import { internationalData } from '../../data/international';
 import { calculateStandings, removeUndefinedProps } from '../../services/utils';
 
-// --- DYNAMIC DATES ---
 const today = new Date();
 const yesterday = new Date(today);
 yesterday.setDate(today.getDate() - 1);
@@ -36,7 +34,6 @@ const yesterdayStr = yesterday.toISOString().split('T')[0];
 const tomorrowStr = tomorrow.toISOString().split('T')[0];
 const tomorrowDay = tomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
 
-// --- MOCK DATA & DEFAULTS ---
 const initialAds = {
     'homepage-banner': { imageUrl: 'https://via.placeholder.com/1200x150/002B7F/FFFFFF?text=Eswatini+Mobile+-+Official+Partner', link: '#', altText: 'Ad' },
     'fixtures-banner': { imageUrl: 'https://via.placeholder.com/800x100/000000/FFFFFF?text=UMBRO+-+Official+Kit+Supplier', link: '#', altText: 'Ad' },
@@ -57,12 +54,6 @@ const initialCategories = [
     { id: 'development', name: 'Development', order: 40 },
 ];
 
-const initialPromoCodes = [
-    { code: 'SAVE10', type: 'percentage', value: 10, isActive: true },
-    { code: 'WELCOME20', type: 'percentage', value: 20, isActive: true },
-];
-
-// --- HELPER FUNCTIONS ---
 const generateTeams = (names: string[]): Team[] => {
     return names.map((name, index) => ({
         id: 2000 + index + Math.floor(Math.random() * 500),
@@ -77,26 +68,21 @@ const generateMatches = (teams: Team[], type: 'results' | 'fixtures') => {
     const matches: CompetitionFixture[] = [];
     for (let i = 0; i < teams.length; i += 2) {
         if (i + 1 >= teams.length) break;
-        const teamA = teams[i];
-        const teamB = teams[i+1];
         const isResult = type === 'results';
-        const match: CompetitionFixture = {
+        matches.push({
             id: Date.now() + i + (isResult ? 1000 : 2000),
             matchday: isResult ? 1 : 2,
-            teamA: teamA.name,
-            teamB: teamB.name,
+            teamA: teams[i].name,
+            teamB: teams[i+1].name,
             date: isResult ? yesterday.getDate().toString() : tomorrow.getDate().toString(),
             day: isResult ? yesterday.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase() : tomorrowDay,
             fullDate: isResult ? yesterdayStr : tomorrowStr,
             time: '15:00',
             status: isResult ? 'finished' : 'scheduled',
+            scoreA: isResult ? Math.floor(Math.random() * 3) : undefined,
+            scoreB: isResult ? Math.floor(Math.random() * 3) : undefined,
             venue: 'Regional Sports Ground'
-        };
-        if (isResult) {
-            match.scoreA = Math.floor(Math.random() * 3);
-            match.scoreB = Math.floor(Math.random() * 3);
-        }
-        matches.push(match);
+        });
     }
     return matches;
 };
@@ -106,110 +92,73 @@ const SeedDatabase: React.FC = () => {
     const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
     const handleSeed = async () => {
-        if (!window.confirm("This will overwrite your live database content with the updated 36-team UCL and defaults. Proceed?")) return;
+        if (!window.confirm("This will initialize missing Regional Leagues and update core settings. Existing custom data with matching IDs may be updated. Proceed?")) return;
         setLoading(true);
         setStatus(null);
 
         try {
             const batch = writeBatch(db);
+            const m = { merge: true };
 
-            batch.set(doc(db, 'sponsors', 'main'), sponsors);
-            batch.set(doc(db, 'ads', 'main'), initialAds);
-            batch.set(doc(db, 'referees', 'main'), refereeData);
+            // Singleton Configs
+            batch.set(doc(db, 'sponsors', 'main'), sponsors, m);
+            batch.set(doc(db, 'ads', 'main'), initialAds, m);
+            batch.set(doc(db, 'referees', 'main'), refereeData, m);
 
-            for (const cat of initialCategories) { batch.set(doc(db, 'categories', cat.id), cat); }
-            for (const item of newsData) { batch.set(doc(db, 'news', item.id), item); }
-            for (const item of videoData) { batch.set(doc(db, 'videos', item.id), item); }
-            for (const item of youthData) { batch.set(doc(db, 'youth', item.id), item); }
-            for (const item of cupData) { batch.set(doc(db, 'cups', item.id), item); }
-            for (const item of coachingContent) { batch.set(doc(collection(db, 'coaching')), item); }
-            for (const item of onThisDayData) { batch.set(doc(db, 'onThisDay', item.id.toString()), item); }
-            for (const item of archiveData) { batch.set(doc(db, 'archive', item.id.toString()), item); }
-            for (const item of directoryData) { batch.set(doc(db, 'directory', item.id), item); }
-            for (const item of scoutingData) { batch.set(doc(db, 'scouting', item.id), item); }
-            for (const item of products) { batch.set(doc(db, 'products', item.id), item); }
-            for (const item of initialExclusiveContent) { batch.set(doc(db, 'exclusiveContent', item.id), item); }
-            for (const item of initialTeamYamVideos) { batch.set(doc(db, 'teamYamVideos', item.id), item); }
-            for (const code of initialPromoCodes) { batch.set(doc(collection(db, 'promo_codes')), code); }
+            // Collections
+            for (const cat of initialCategories) { batch.set(doc(db, 'categories', cat.id), cat, m); }
+            for (const item of directoryData) { batch.set(doc(db, 'directory', item.id), item, m); }
             
-            // Push Updated International Data (UCL 36 Teams)
-            for (const tourn of internationalData) { 
-                batch.set(doc(db, 'hybrid_tournaments', tourn.id), removeUndefinedProps(tourn)); 
-            }
-
+            // Regional Super Leagues
             const regionalCompetitions = [
-                {
-                    id: 'shiselweni-super-league-northern-zone',
-                    name: 'Shiselweni Super League (Northern Zone)',
-                    teamNames: ['Hlathikhulu FC', 'Hlathikhulu United', 'Kubuta FC', 'Mtsambama FC', 'Sandleni United', 'Grand Valley FC']
-                },
-                {
-                    id: 'hhohho-super-league-northern-zone',
-                    name: 'Hhohho Super League (Northern Zone)',
-                    teamNames: ['Pigg\'s Peak Rangers', 'Mhlatane United', 'Ntfonjeni Stars', 'Buhleni United', 'Mvuma Hotspurs', 'Manchester United PP']
-                },
-                {
-                    id: 'manzini-super-league',
-                    name: 'Manzini Super League',
-                    teamNames: ['Manzini Sea Birds II', 'Ludzeludze Brothers', 'Matsapha United', 'Moneni Pirates II', 'Malkerns FC', 'Luyengo Foxes']
-                },
-                {
-                    id: 'lubombo-super-league',
-                    name: 'Lubombo Super League',
-                    teamNames: ['Siteki Scouts', 'Big Bend United', 'Simunye FC', 'Mhlume Peacemakers', 'Vuvulane Stars', 'Tshaneni City']
-                }
+                { id: 'hhohho-super-league-northern-zone', name: 'Hhohho Super League (Northern Zone)', teams: ['Pigg\'s Peak Rangers', 'Mhlatane United', 'Ntfonjeni Stars', 'Buhleni United'] },
+                { id: 'hhohho-super-league-southern-zone', name: 'Hhohho Super League (Southern Zone)', teams: ['Mbabane Citizens', 'Sithobela United', 'Motshane FC', 'Lozitha Spurs'] },
+                { id: 'manzini-super-league', name: 'Manzini Super League', teams: ['Manzini Sea Birds II', 'Ludzeludze Brothers', 'Matsapha United', 'Moneni Pirates II'] },
+                { id: 'lubombo-super-league', name: 'Lubombo Super League', teams: ['Siteki Scouts', 'Big Bend United', 'Simunye FC', 'Mhlume Peacemakers'] },
+                { id: 'shiselweni-super-league-northern-zone', name: 'Shiselweni Super League (Northern Zone)', teams: ['Hlathikhulu FC', 'Hlathikhulu United', 'Kubuta FC', 'Mtsambama FC'] },
+                { id: 'shiselweni-super-league-southern-zone', name: 'Shiselweni Super League (Southern Zone)', teams: ['Nhlangano Sun', 'Sigwe FC', 'Zombodze Eels', 'Mhlosheni Stars'] }
             ];
 
-            const seedLeagueGroup = (comps: any[], categoryId: string) => {
-                comps.forEach(comp => {
-                    const teams = generateTeams(comp.teamNames);
-                    const results = generateMatches(teams, 'results');
-                    const fixtures = generateMatches(teams, 'fixtures');
-                    const finalTeams = calculateStandings(teams, results, fixtures);
+            regionalCompetitions.forEach(comp => {
+                const teams = generateTeams(comp.teams);
+                const results = generateMatches(teams, 'results');
+                const fixtures = generateMatches(teams, 'fixtures');
+                const finalTeams = calculateStandings(teams, results, fixtures);
 
-                    batch.set(doc(db, 'competitions', comp.id), {
-                        name: comp.name,
-                        displayName: comp.name,
-                        categoryId: categoryId,
-                        teams: finalTeams,
-                        fixtures: fixtures,
-                        results: results,
-                        logoUrl: `https://via.placeholder.com/150?text=${comp.name.charAt(0)}`
-                    });
-                });
-            };
-
-            seedLeagueGroup(regionalCompetitions, 'regional-leagues');
+                batch.set(doc(db, 'competitions', comp.id), {
+                    name: comp.name,
+                    categoryId: 'regional-leagues',
+                    teams: finalTeams,
+                    fixtures: fixtures,
+                    results: results,
+                    logoUrl: `https://via.placeholder.com/150?text=${comp.name.charAt(0)}`
+                }, m);
+            });
 
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database successfully seeded with 36-team UCL pots!' });
+            setStatus({ type: 'success', msg: 'Database updated! Regional Super Leagues are now created and linked.' });
         } catch (error) {
-            console.error("Seeding failed:", error);
-            setStatus({ type: 'error', msg: 'Failed to seed database. ' + (error as Error).message });
+            setStatus({ type: 'error', msg: 'Failed: ' + (error as Error).message });
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <Card className="shadow-lg animate-fade-in">
+        <Card className="shadow-lg border-2 border-blue-100">
             <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                     <DatabaseIcon className="w-6 h-6 text-blue-600" />
-                    <h3 className="text-2xl font-bold font-display text-gray-800">Seed Database</h3>
+                    <h3 className="text-2xl font-bold font-display text-gray-800">Initialize Regional Data</h3>
                 </div>
-                <p className="text-sm text-gray-600 mb-6">
-                    Restore default data and ensure all international tournaments (including the new 36-team UCL) and regional leagues are correctly initialized in the live database.
+                <p className="text-sm text-gray-600 mb-6 italic">
+                    Note: This will safely create the missing Hhohho and Shiselweni Super League zones in your database so they are no longer blank.
                 </p>
-                <div className="bg-yellow-50 p-4 border-l-4 border-yellow-400 mb-6">
-                    <p className="text-xs text-yellow-800 font-bold uppercase mb-1">Notice:</p>
-                    <p className="text-xs text-yellow-700">If the 36 UCL teams are not showing in the hub, clicking "Seed Data" will force the Firestore database to update with the new list from your configuration files.</p>
-                </div>
-                <Button onClick={handleSeed} disabled={loading} className="bg-blue-600 text-white hover:bg-blue-700 h-11 px-6">
-                    {loading ? <Spinner className="w-5 h-5 border-2"/> : <>Seed Data</>}
+                <Button onClick={handleSeed} disabled={loading} className="bg-blue-600 text-white hover:bg-blue-700 h-11 px-8 shadow-lg">
+                    {loading ? <Spinner className="w-5 h-5 border-2"/> : 'Initialize Leagues'}
                 </Button>
                 {status && (
-                    <div className={`mt-6 p-3 rounded-md text-sm font-semibold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <div className={`mt-6 p-4 rounded-lg text-sm font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                         {status.type === 'success' ? <CheckCircleIcon className="w-5 h-5" /> : <AlertTriangleIcon className="w-5 h-5" />}
                         {status.msg}
                     </div>

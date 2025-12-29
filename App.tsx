@@ -1,5 +1,3 @@
-
-
 import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation';
@@ -49,6 +47,7 @@ const NationalTeamLandingPage = lazy(() => import('./components/NationalTeamLand
 const NationalTeamDetailPage = lazy(() => import('./components/NationalTeamDetailPage'));
 const RegionalPage = lazy(() => import('./components/RegionalPage'));
 const RegionDetailPage = lazy(() => import('./components/RegionDetailPage'));
+const CompetitionHubPage = lazy(() => import('./components/CompetitionHubPage'));
 const LiveUpdatesPage = lazy(() => import('./components/LiveUpdatesPage'));
 const TeamYamPage = lazy(() => import('./components/TeamYamPage'));
 const ExclusivePage = lazy(() => import('./components/ExclusivePage'));
@@ -58,6 +57,7 @@ const AdvertiserOnboardingPage = lazy(() => import('./components/AdvertiserOnboa
 const SponsorOnboardingPage = lazy(() => import('./components/SponsorOnboardingPage'));
 const BrandedClubExample = lazy(() => import('./components/BrandedClubExample'));
 const InternationalPage = lazy(() => import('./components/InternationalPage'));
+const LeagueRegistrationPage = lazy(() => import('./components/LeagueRegistrationPage'));
 
 
 const App: React.FC = () => {
@@ -95,6 +95,8 @@ const App: React.FC = () => {
               <Route path="/international" element={<InternationalPage />} />
               <Route path="/regional" element={<RegionalPage />} />
               <Route path="/region/:regionId" element={<RegionDetailPage />} />
+              <Route path="/region-hub/:compId" element={<CompetitionHubPage />} />
+              <Route path="/league-registration" element={<LeagueRegistrationPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/partnerships" element={<PartnershipPage />} />
               <Route path="/club-registration" element={<ClubRegistrationPage />} />
