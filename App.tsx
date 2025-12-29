@@ -1,3 +1,4 @@
+
 import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation';
@@ -13,6 +14,7 @@ import PlayerProfilePage from './components/PlayerProfilePage';
 import AuthModal from './components/AuthModal';
 import { useAuth } from './contexts/AuthContext';
 import DataManagementPage from './components/DataManagementPage';
+import RefreshPage from './components/RefreshPage';
 
 
 const InteractivePage = lazy(() => import('./components/InteractivePage'));
@@ -71,6 +73,7 @@ const App: React.FC = () => {
           <Suspense fallback={<div className="p-8 text-center">Loading Page...</div>}>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/refresh" element={<RefreshPage />} />
               <Route path="/news" element={<NewsPage />} />
               <Route path="/news/:slug" element={<NewsArticlePage />} />
               <Route path="/about" element={<About />} />
