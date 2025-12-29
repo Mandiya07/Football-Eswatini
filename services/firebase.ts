@@ -22,12 +22,14 @@ export const app = initializeApp(firebaseConfig);
  * 
  * 1. memoryLocalCache: Bypasses IndexedDB initialization which can hang for 10s in sandboxed frames.
  * 2. experimentalForceLongPolling: Ensures connectivity even if WebSockets are blocked by proxies.
- * 3. setLogLevel('error'): Suppresses the internal connectivity warning from the console.
+ * 3. useFetchStreams: false. Disables Fetch Streams, which can cause hangs in certain browser configurations.
+ * 4. setLogLevel('error'): Suppresses the internal connectivity warning from the console.
  */
 setLogLevel('error');
 
 export const db = initializeFirestore(app, {
   localCache: memoryLocalCache(),
   experimentalForceLongPolling: true,
+  useFetchStreams: false,
   ignoreUndefinedProperties: true
 });
