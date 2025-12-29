@@ -51,8 +51,8 @@ const Navigation: React.FC = () => {
   const navItems = [
     { name: 'Home', to: '/' },
     { name: 'News', to: '/news' },
-    { name: 'National', to: '/national-team' },
-    { name: 'Regional', to: '/regional' },
+    { name: 'National Team', to: '/national-team' },
+    { name: 'Regional Leagues', to: '/regional' },
     { name: 'Fixtures', to: '/fixtures' },
     { name: 'Logs', to: '/logs' },
     { name: 'International', to: '/international' },
@@ -97,12 +97,11 @@ const Navigation: React.FC = () => {
   const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       navigate(`/news?q=${encodeURIComponent(searchQuery.trim())}`);
-      // Fixed: Removed call to undefined function setShowSuggestions
     }
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
-    const baseClass = "text-white/80 hover:text-accent transition-all duration-300 text-sm font-bold uppercase tracking-wider h-full flex items-center px-4 border-b-4 border-transparent whitespace-nowrap";
+    const baseClass = "text-white/80 hover:text-accent transition-all duration-300 text-[13px] font-bold uppercase tracking-wider h-full flex items-center px-3 border-b-4 border-transparent whitespace-nowrap";
     const activeClass = "text-accent border-accent active-mobile-nav";
     return `${baseClass} ${isActive ? activeClass : ''}`;
   };
@@ -127,7 +126,7 @@ const Navigation: React.FC = () => {
               )}
             </div>
             
-            <div className="hidden lg:flex items-center space-x-1 h-full">
+            <div className="hidden lg:flex items-center space-x-0 h-full">
                 {navItems.map((item) => (
                   <NavLink key={item.name} to={item.to} className={getNavLinkClass}>
                     {item.name}

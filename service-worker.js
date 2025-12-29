@@ -1,6 +1,7 @@
+
 // A simple service worker for basic PWA functionality (caching and push notifications)
 
-const CACHE_NAME = 'football-eswatini-cache-v1';
+const CACHE_NAME = 'football-eswatini-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
