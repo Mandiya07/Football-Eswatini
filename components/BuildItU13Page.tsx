@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
-import UsersIcon from './icons/UsersIcon';
-import { fetchYouthData, fetchAllCompetitions, fetchNews } from '../services/api';
+import { fetchYouthData, fetchHybridTournaments, fetchNews } from '../services/api';
 import { YouthLeague, YouthArticle } from '../data/youth';
 import { NewsItem } from '../data/news';
+import { HybridTournament, youthHybridData } from '../data/international';
 import Spinner from './ui/Spinner';
-import Fixtures from './Fixtures';
+import TournamentView from './TournamentView';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 import YouthArticleSection from './YouthArticleSection';
@@ -15,17 +14,17 @@ import RisingStars from './RisingStars';
 
 const BuildItU13Page: React.FC = () => {
   const [data, setData] = useState<YouthLeague | null>(null);
+  const [hybridTournament, setHybridTournament] = useState<HybridTournament | null>(null);
   const [globalNews, setGlobalNews] = useState<NewsItem[]>([]);
-  const [competitionId, setCompetitionId] = useState<string>('build-it-u13');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [youthLeagues, allCompetitions, newsData] = await Promise.all([
+        const [youthLeagues, allHybrids, newsData] = await Promise.all([
              fetchYouthData(),
-             fetchAllCompetitions(),
+             fetchHybridTournaments(),
              fetchNews()
         ]);
         
@@ -33,17 +32,12 @@ const BuildItU13Page: React.FC = () => {
         setData(league || null);
         setGlobalNews(newsData);
 
-        // Resolve ID dynamically
-        const compList = Object.entries(allCompetitions).map(([id, c]) => ({ id, name: c.name }));
-        const match = compList.find(c => 
-            c.id === 'build-it-u13' || 
-            c.name.toLowerCase().includes('build it') ||
-            c.name.toLowerCase().includes('u-13 national')
-        );
-
-        if (match) {
-            setCompetitionId(match.id);
+        let foundHybrid = allHybrids.find(h => h.id === 'build-it-u13-national');
+        if (!foundHybrid) {
+            foundHybrid = youthHybridData.find(h => h.id === 'build-it-u13-national') || null;
         }
+        setHybridTournament(foundHybrid);
+
       } catch (error) {
         console.error("Failed to load Build It U13 data", error);
       } finally {
@@ -53,20 +47,11 @@ const BuildItU13Page: React.FC = () => {
     loadData();
   }, []);
 
-  // Merge dedicated youth articles with global news tagged for this section
   const combinedArticles = useMemo(() => {
       const specificArticles = data?.articles || [];
-      
       const relevantGlobalNews = globalNews.filter(n => {
-          const title = n.title.toLowerCase();
-          const summary = n.summary.toLowerCase();
           const cats = Array.isArray(n.category) ? n.category : [n.category];
-          
-          return (
-              cats.includes('Youth') ||
-              title.includes('build it') || title.includes('u13') || title.includes('u-13') ||
-              summary.includes('build it')
-          );
+          return cats.includes('Youth') && n.title.toLowerCase().includes('build it');
       }).map(n => ({
           id: n.id,
           title: n.title,
@@ -107,7 +92,6 @@ const BuildItU13Page: React.FC = () => {
         </div>
 
         <div className="space-y-16">
-            {/* 1. League-Specific Articles (Direct from Youth Document) */}
             <div className="border-t pt-8">
                 <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Tournament Highlights</h2>
                 {combinedArticles.length > 0 ? (
@@ -119,37 +103,21 @@ const BuildItU13Page: React.FC = () => {
                 )}
             </div>
             
-            <div className="max-w-5xl mx-auto">
-                <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Schedule</h2>
-                <Fixtures showSelector={false} defaultCompetition={competitionId} maxHeight="max-h-[600px]" />
+            <div className="max-w-6xl mx-auto">
+                <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">National Final Hub</h2>
+                {hybridTournament ? (
+                    <TournamentView tournament={hybridTournament} />
+                ) : (
+                    <div className="p-12 text-center bg-white rounded-xl border border-dashed">
+                        <p className="text-gray-500">Pool structure not initialized. Use Admin Panel > Seed Database.</p>
+                    </div>
+                )}
             </div>
 
-            {/* Rising Stars */}
             {data?.risingStars && data.risingStars.length > 0 && (
                 <section>
                     <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Promising Talents</h2>
                     <RisingStars players={data.risingStars} />
-                </section>
-            )}
-
-            {/* Participating Teams */}
-            {data?.teams && data.teams.length > 0 && (
-                <section>
-                    <Card className="bg-red-50/50 border border-red-100">
-                        <CardContent className="p-8">
-                            <h3 className="text-2xl font-bold font-display text-gray-800 mb-6 flex items-center gap-2">
-                                <UsersIcon className="w-6 h-6 text-red-600" /> Participating Teams & Academies
-                            </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {data.teams.map(team => (
-                                    <div key={team.id} className="flex items-center gap-3 bg-white py-3 px-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200">
-                                        <img src={team.crestUrl} alt={team.name} className="w-10 h-10 object-contain" />
-                                        <span className="text-sm font-bold text-gray-800">{team.name}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
                 </section>
             )}
         </div>

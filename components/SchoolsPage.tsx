@@ -1,67 +1,47 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from './ui/Card';
 import SchoolIcon from './icons/SchoolIcon';
-import UsersIcon from './icons/UsersIcon';
-import { fetchYouthData, fetchCups, fetchAllCompetitions, fetchNews } from '../services/api';
+import { fetchYouthData, fetchHybridTournaments, fetchNews } from '../services/api';
 import { YouthLeague, YouthArticle } from '../data/youth';
 import { NewsItem } from '../data/news';
-import { Tournament, cupData as localCupData } from '../data/cups';
+import { HybridTournament, youthHybridData } from '../data/international';
 import Spinner from './ui/Spinner';
-import TournamentBracketDisplay from './TournamentBracketDisplay';
+import TournamentView from './TournamentView';
 import RisingStars from './RisingStars';
-import Fixtures from './Fixtures';
 import YouthArticleSection from './YouthArticleSection';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 
 const SchoolsPage: React.FC = () => {
   const [schoolsData, setSchoolsData] = useState<YouthLeague | null>(null);
-  const [instacashBracket, setInstacashBracket] = useState<Tournament | null>(null);
+  const [hybridTournament, setHybridTournament] = useState<HybridTournament | null>(null);
   const [globalNews, setGlobalNews] = useState<NewsItem[]>([]);
-  const [competitionId, setCompetitionId] = useState<string>('schools');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [youthLeagues, allCups, allCompetitions, newsData] = await Promise.all([
+        const [youthLeagues, allHybrids, newsData] = await Promise.all([
             fetchYouthData(),
-            fetchCups(),
-            fetchAllCompetitions(),
+            fetchHybridTournaments(),
             fetchNews()
         ]);
         
-        const schoolsLeague = youthLeagues.find(l => {
-            const name = l.name.toLowerCase();
-            const id = l.id.toLowerCase();
-            return (
-                id === 'schools' || 
-                name.includes('schools') ||
-                name.includes('instacash')
-            );
-        });
+        const schoolsLeague = youthLeagues.find(l => 
+            l.id === 'schools' || 
+            l.name.toLowerCase().includes('schools') ||
+            l.name.toLowerCase().includes('instacash')
+        );
         setSchoolsData(schoolsLeague || null);
         setGlobalNews(newsData);
 
-        let foundBracket = allCups.find(c => c.id === 'instacash-schools-tournament');
-        if (!foundBracket) {
-            foundBracket = localCupData.find(c => c.id === 'instacash-schools-tournament');
+        // Find the hybrid structure from DB or use local fallback
+        let foundHybrid = allHybrids.find(h => h.id === 'instacash-schools-tournament');
+        if (!foundHybrid) {
+            foundHybrid = youthHybridData.find(h => h.id === 'instacash-schools-tournament') || null;
         }
-        setInstacashBracket(foundBracket || null);
-
-        // Resolve ID dynamically
-        const compList = Object.entries(allCompetitions).map(([id, c]) => ({ id, name: c.name }));
-        const match = compList.find(c => 
-            c.id === 'schools' || 
-            c.name.toLowerCase().includes('schools') ||
-            c.name.toLowerCase().includes('instacash')
-        );
-
-        if (match) {
-            setCompetitionId(match.id);
-        }
+        setHybridTournament(foundHybrid);
 
       } catch (error) {
         console.error("Failed to load schools data", error);
@@ -72,13 +52,8 @@ const SchoolsPage: React.FC = () => {
     loadData();
   }, []);
 
-  // Merge dedicated youth articles with global news tagged for this section
   const combinedArticles = useMemo(() => {
-      // 1. Articles created specifically in the Youth Admin Panel for this league
       const specificArticles = schoolsData?.articles || [];
-      
-      // 2. Global news that is EXPLICITLY categorized as 'Schools'
-      // STRICT FILTER: Removed loose keyword matching on title/summary to prevent unrelated news from appearing.
       const relevantGlobalNews = globalNews.filter(n => {
           const cats = Array.isArray(n.category) ? n.category : [n.category];
           return cats.includes('Schools');
@@ -132,46 +107,22 @@ const SchoolsPage: React.FC = () => {
             )}
         </div>
 
-        <div className="mb-16 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Progress</h2>
-            <Fixtures showSelector={false} defaultCompetition={competitionId} maxHeight="max-h-[600px]" />
+        <div className="mb-16 max-w-6xl mx-auto">
+            <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Center</h2>
+            {hybridTournament ? (
+                <TournamentView tournament={hybridTournament} />
+            ) : (
+                <div className="p-12 text-center bg-white rounded-xl border border-dashed">
+                    <p className="text-gray-500">Hybrid tournament structure not initialized. Use Admin Panel > Seed Database.</p>
+                </div>
+            )}
         </div>
 
         <div className="space-y-16">
-            {instacashBracket && (
-                <section>
-                    <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Knockout Stage</h2>
-                    <div className="animate-slide-up">
-                        <TournamentBracketDisplay tournament={instacashBracket} />
-                    </div>
-                </section>
-            )}
-
             {schoolsData?.risingStars && schoolsData.risingStars.length > 0 && (
                 <section>
                     <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Players to Watch</h2>
                     <RisingStars players={schoolsData.risingStars} />
-                </section>
-            )}
-
-            {/* Participating Schools */}
-            {schoolsData?.teams && schoolsData.teams.length > 0 && (
-                <section>
-                    <Card className="bg-orange-50/50 border border-orange-100">
-                        <CardContent className="p-8">
-                            <h3 className="text-2xl font-bold font-display text-gray-800 mb-6 flex items-center gap-2">
-                                <UsersIcon className="w-6 h-6 text-orange-600" /> Participating Schools
-                            </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {schoolsData.teams.map(team => (
-                                    <div key={team.id} className="flex items-center gap-3 bg-white py-3 px-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200">
-                                        <img src={team.crestUrl} alt={team.name} className="w-10 h-10 object-contain" />
-                                        <span className="text-sm font-bold text-gray-800">{team.name}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
                 </section>
             )}
         </div>

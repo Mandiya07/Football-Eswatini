@@ -14,15 +14,15 @@ import { OnThisDayEvent, ArchiveItem, onThisDayData as mockOnThisDayData, archiv
 import { Sponsor, KitPartner, sponsors as defaultSponsors } from '../data/sponsors';
 import { PhotoAlbum, BehindTheScenesContent } from '../data/media';
 import { Referee, Rule, refereeData as defaultRefereeData } from '../data/referees';
-import { calculateStandings, normalizeTeamName } from './utils';
+import { calculateStandings, normalizeTeamName, superNormalize } from './utils';
 import { User } from '../contexts/AuthContext';
 import { ExclusiveItem, TeamYamVideo, initialExclusiveContent, initialTeamYamVideos } from '../data/features';
-import { HybridTournament, internationalData } from '../data/international';
+import { internationalData, HybridTournament } from '../data/international';
 
 // NOTE: All data fetching functions now use Firebase Firestore with failover to local mock data.
 
-export { type Competition }; // Re-export to maintain compatibility
-export { type ExclusiveItem, type TeamYamVideo }; // Re-export feature types
+export { type Competition, type HybridTournament }; 
+export { type ExclusiveItem, type TeamYamVideo }; 
 
 /**
  * Global Firestore error handler.
@@ -444,8 +444,7 @@ export const listenToCompetition = (competitionId: string, callback: (data: Comp
 };
 
 /**
- * NEW: Real-time listener for ALL competitions.
- * Used for cross-league live updates and match centers.
+ * Real-time listener for ALL competitions.
  */
 export const listenToAllCompetitions = (callback: (data: Record<string, Competition>) => void): (() => void) => {
     const q = query(collection(db, "competitions"));
@@ -692,6 +691,7 @@ export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
     } catch { return initialTeamYamVideos; }
 };
 export const addTeamYamVideo = async (data: Omit<TeamYamVideo, 'id'>) => { await addDoc(collection(db, 'teamYamVideos'), data); };
+// Fix typo 'cell' to 'doc' in updateTeamYamVideo function.
 export const updateTeamYamVideo = async (id: string, data: Partial<TeamYamVideo>) => { await updateDoc(doc(db, 'teamYamVideos', id), data); };
 export const deleteTeamYamVideo = async (id: string) => { await deleteDoc(doc(db, 'teamYamVideos', id)); };
 
@@ -778,11 +778,17 @@ export const deleteCup = async (id: string) => {
 export const fetchHybridTournaments = async (): Promise<HybridTournament[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'hybrid_tournaments'));
-        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HybridTournament));
+        const dbItems = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { ...data, id: doc.id } as HybridTournament;
+        });
         const dbIds = new Set(dbItems.map(i => i.id));
         const fallbacks = internationalData.filter(i => !dbIds.has(i.id));
         return [...dbItems, ...fallbacks];
-    } catch { return internationalData; }
+    } catch (error) { 
+        handleFirestoreError(error, 'fetch hybrid tournaments');
+        return internationalData; 
+    }
 };
 export const addHybridTournament = async (data: Omit<HybridTournament, 'id'>) => { 
     return await addDoc(collection(db, 'hybrid_tournaments'), data); 

@@ -92,24 +92,44 @@ const SeedDatabase: React.FC = () => {
     const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
     const handleSeed = async () => {
-        if (!window.confirm("This will initialize missing Regional Leagues and update core settings. Existing custom data with matching IDs may be updated. Proceed?")) return;
+        if (!window.confirm("This will initialize all Hubs, Categories, and the UEFA Champions League 36-team Phase. Proceed?")) return;
         setLoading(true);
         setStatus(null);
+        console.log("Starting database seed...");
 
         try {
             const batch = writeBatch(db);
             const m = { merge: true };
 
             // Singleton Configs
+            console.log("Adding config documents...");
             batch.set(doc(db, 'sponsors', 'main'), sponsors, m);
             batch.set(doc(db, 'ads', 'main'), initialAds, m);
             batch.set(doc(db, 'referees', 'main'), refereeData, m);
 
-            // Collections
-            for (const cat of initialCategories) { batch.set(doc(db, 'categories', cat.id), cat, m); }
-            for (const item of directoryData) { batch.set(doc(db, 'directory', item.id), item, m); }
+            // Categories
+            console.log("Adding categories...");
+            initialCategories.forEach(cat => {
+                batch.set(doc(db, 'categories', cat.id), cat, m);
+            });
+
+            // Directory
+            console.log("Adding directory entries...");
+            directoryData.forEach(item => {
+                batch.set(doc(db, 'directory', item.id), item, m);
+            });
             
+            // International Tournaments (UEFA Champions League 36 teams)
+            console.log("Adding international tournaments...");
+            internationalData.forEach(tourn => {
+                const tournRef = doc(db, 'hybrid_tournaments', tourn.id);
+                // Strip ID for cleaner DB structure
+                const { id, ...data } = tourn;
+                batch.set(tournRef, data, m);
+            });
+
             // Regional Super Leagues
+            console.log("Adding regional leagues...");
             const regionalCompetitions = [
                 { id: 'hhohho-super-league-northern-zone', name: 'Hhohho Super League (Northern Zone)', teams: ['Pigg\'s Peak Rangers', 'Mhlatane United', 'Ntfonjeni Stars', 'Buhleni United'] },
                 { id: 'hhohho-super-league-southern-zone', name: 'Hhohho Super League (Southern Zone)', teams: ['Mbabane Citizens', 'Sithobela United', 'Motshane FC', 'Lozitha Spurs'] },
@@ -135,10 +155,13 @@ const SeedDatabase: React.FC = () => {
                 }, m);
             });
 
+            console.log("Committing batch...");
             await batch.commit();
-            setStatus({ type: 'success', msg: 'Database updated! Regional Super Leagues are now created and linked.' });
-        } catch (error) {
-            setStatus({ type: 'error', msg: 'Failed: ' + (error as Error).message });
+            console.log("Batch commit successful!");
+            setStatus({ type: 'success', msg: 'Database updated! International Hub and Regional Leagues are now synced.' });
+        } catch (error: any) {
+            console.error("Seed error:", error);
+            setStatus({ type: 'error', msg: 'Failed: ' + (error.message || 'Check browser console for details.') });
         } finally {
             setLoading(false);
         }
@@ -149,20 +172,33 @@ const SeedDatabase: React.FC = () => {
             <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                     <DatabaseIcon className="w-6 h-6 text-blue-600" />
-                    <h3 className="text-2xl font-bold font-display text-gray-800">Initialize Regional Data</h3>
+                    <h3 className="text-2xl font-bold font-display text-gray-800">Initialize Hub Data</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6 italic">
-                    Note: This will safely create the missing Hhohho and Shiselweni Super League zones in your database so they are no longer blank.
+                    Note: This will push all core configurations, categories, the UEFA Champions League 36-team pots, and Regional Super League zones to your database.
                 </p>
-                <Button onClick={handleSeed} disabled={loading} className="bg-blue-600 text-white hover:bg-blue-700 h-11 px-8 shadow-lg">
-                    {loading ? <Spinner className="w-5 h-5 border-2"/> : 'Initialize Leagues'}
-                </Button>
-                {status && (
-                    <div className={`mt-6 p-4 rounded-lg text-sm font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {status.type === 'success' ? <CheckCircleIcon className="w-5 h-5" /> : <AlertTriangleIcon className="w-5 h-5" />}
-                        {status.msg}
-                    </div>
-                )}
+                
+                <div className="flex flex-col gap-4">
+                    <Button 
+                        onClick={handleSeed} 
+                        disabled={loading} 
+                        className="bg-blue-600 text-white hover:bg-blue-700 h-11 px-8 shadow-lg w-full sm:w-fit"
+                    >
+                        {loading ? <Spinner className="w-5 h-5 border-2"/> : 'Initialize Leagues'}
+                    </Button>
+                    
+                    {status && (
+                        <div className={`p-4 rounded-lg text-sm font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {status.type === 'success' ? <CheckCircleIcon className="w-5 h-5" /> : <AlertTriangleIcon className="w-5 h-5" />}
+                            <div>
+                                <p>{status.msg}</p>
+                                {status.type === 'error' && (
+                                    <p className="text-xs font-normal mt-1">If this persists, check if your Firebase Security Rules allow writing to these collections.</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </CardContent>
         </Card>
     );
