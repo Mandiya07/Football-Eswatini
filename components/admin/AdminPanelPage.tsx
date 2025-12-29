@@ -1,7 +1,7 @@
 
 import React, { useState, lazy } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import AdminLoginPrompt from './admin/AdminLoginPrompt';
+import AdminLoginPrompt from './AdminLoginPrompt';
 import ApprovalQueue from './admin/ApprovalQueue';
 import MergeTeams from './admin/MergeTeams';
 import RecalculateLogs from './admin/RecalculateLogs';
@@ -19,6 +19,9 @@ import FeatureManagement from './admin/FeatureManagement';
 import RefereeManagement from './admin/RefereeManagement';
 import CategoryManagement from './admin/CategoryManagement';
 import CommunityEventManagement from './admin/CommunityEventManagement';
+import NDAGenerator from './admin/NDAGenerator';
+import HybridTournamentManagement from './admin/HybridTournamentManagement';
+import MaintenanceTools from './admin/MaintenanceTools';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -41,6 +44,9 @@ import SparklesIcon from './icons/SparklesIcon';
 import WhistleIcon from './icons/WhistleIcon';
 import ShareIcon from './icons/ShareIcon';
 import ImageIcon from './icons/ImageIcon';
+import ScaleIcon from './icons/ScaleIcon';
+import GlobeIcon from './icons/GlobeIcon';
+import SettingsIcon from './icons/SettingsIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
@@ -49,7 +55,7 @@ const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -86,10 +92,13 @@ const AdminPanelPage: React.FC = () => {
       case 'merge': return <MergeTeams />;
       case 'standings': return <RecalculateLogs />;
       case 'tournament': return <TournamentBracket />;
+      case 'international': return <HybridTournamentManagement />;
       case 'community': return <CommunityEventManagement />;
+      case 'contracts': return <NDAGenerator />;
       case 'seed': return <SeedDatabase />;
       case 'reset': return <ResetAllData />;
       case 'social': return <SocialMediaGenerator />;
+      case 'maintenance': return <MaintenanceTools />;
       default: return null;
     }
   };
@@ -143,12 +152,17 @@ const AdminPanelPage: React.FC = () => {
                         <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
                         <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
+                        <TabButton tabName="international" label="International Hub" Icon={GlobeIcon} />
                         <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
                         <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
                         <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />
                         <TabButton tabName="merge" label="Merge Teams" Icon={GitMergeIcon} />
                         <TabButton tabName="standings" label="Recalculate Logs" Icon={RefreshIcon} />
                         <TabButton tabName="tournament" label="Tournament Bracket" Icon={BracketIcon} />
+
+                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">System</h4>
+                        <TabButton tabName="maintenance" label="Maintenance" Icon={SettingsIcon} className="bg-blue-50 text-blue-700 hover:bg-blue-100" />
+                        <TabButton tabName="contracts" label="Legal & Contracts" Icon={ScaleIcon} />
 
                         <div className="!mt-6 pt-4 border-t border-red-200">
                             <h4 className="font-bold text-xs uppercase text-red-600 px-4">Danger Zone</h4>
