@@ -53,10 +53,13 @@ const RegionDetailPage: React.FC = () => {
     <div className="bg-gray-50 py-12 min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
         <div className="mb-8">
-            <Link to="/regional" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors">
+            <button 
+                onClick={() => window.history.back()} 
+                className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+            >
                 <ArrowLeftIcon className="w-4 h-4" />
-                Back to All Regions
-            </Link>
+                Back
+            </button>
         </div>
         
         <div className="mb-12 text-center md:text-left">
@@ -91,7 +94,7 @@ const RegionDetailPage: React.FC = () => {
             )) : (
                 <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-gray-300">
                     <p className="text-gray-500 italic">No leagues found in the database for this region.</p>
-                    <p className="text-sm text-gray-400 mt-2">Go to Admin Panel > Seed Database and click "Initialize Leagues" to create them.</p>
+                    <p className="text-sm text-gray-400 mt-2">Go to Admin Panel &gt; Seed Database and click "Initialize Leagues" to create them.</p>
                 </div>
             )}
         </div>

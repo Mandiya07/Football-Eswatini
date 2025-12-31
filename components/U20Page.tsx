@@ -161,6 +161,13 @@ const U20Page: React.FC = () => {
                     </Card>
                 </section>
             )}
+            
+            {/* Conditional Loading Helper for Empty DBs */}
+            {!loading && leagueData?.teams.length === 0 && (
+                <div className="py-10 text-center bg-white border border-dashed rounded-xl">
+                    <p className="text-gray-400">Competition structure not found. Use Admin Panel &gt; Seed Database to initialize.</p>
+                </div>
+            )}
         </div>
       </div>
     </div>
