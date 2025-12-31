@@ -19,14 +19,7 @@ import BriefcaseIcon from './icons/BriefcaseIcon';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 import SparklesIcon from './icons/SparklesIcon';
 import WifiOffIcon from './icons/WifiOffIcon';
-
-interface SearchResult {
-    type: 'news' | 'team' | 'match' | 'tournament';
-    title: string;
-    subtitle?: string;
-    link: string;
-    id: string;
-}
+import LiveTicker from './LiveTicker';
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -51,12 +44,12 @@ const Navigation: React.FC = () => {
   const navItems = [
     { name: 'Home', to: '/' },
     { name: 'News', to: '/news' },
-    { name: 'National Team', to: '/national-team' },
-    { name: 'Regional Leagues', to: '/regional' },
-    { name: 'Fixtures', to: '/fixtures' },
+    { name: 'National', to: '/national-team' },
+    { name: 'Regional', to: '/regional' },
+    { name: 'Matches', to: '/fixtures' },
     { name: 'Logs', to: '/logs' },
-    { name: 'International', to: '/international' },
-    { name: 'Fan Zone', to: '/interactive' },
+    { name: 'Intl', to: '/international' },
+    { name: 'Fans', to: '/interactive' },
     { name: 'Shop', to: '/shop'},
   ];
 
@@ -101,25 +94,25 @@ const Navigation: React.FC = () => {
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
-    const baseClass = "text-white/80 hover:text-accent transition-all duration-300 text-[13px] font-bold uppercase tracking-wider h-full flex items-center px-3 border-b-4 border-transparent whitespace-nowrap";
-    const activeClass = "text-accent border-accent active-mobile-nav";
-    return `${baseClass} ${isActive ? activeClass : ''}`;
+    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[12px] xl:text-[13px] font-black uppercase tracking-tight xl:tracking-wider h-full flex items-center px-2 xl:px-3 border-b-4 border-transparent whitespace-nowrap";
+    const activeClass = "text-accent !border-accent active-mobile-nav shadow-[inset_0_-4px_0_0_rgba(253,185,19,1)]";
+    return `${baseClass} ${isActive ? activeClass : 'opacity-80 hover:opacity-100'}`;
   };
 
   return (
     <>
-      <header className="bg-primary backdrop-blur-md sticky top-0 z-[100] shadow-xl w-full">
+      <header className="bg-primary backdrop-blur-md sticky top-0 z-[100] shadow-xl w-full overflow-hidden">
         <SecondaryNavigation />
         
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 border-b border-white/5">
+        <div className="container mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 border-b border-white/5">
           <div className="flex items-center justify-between h-16 lg:h-20">
-            <div className="flex-shrink-0 flex items-center gap-4">
+            <div className="flex-shrink-0 flex items-center gap-2 xl:gap-4">
               <NavLink to="/" onClick={() => setIsOpen(false)}>
-                <Logo className="h-10 lg:h-14 w-auto" />
+                <Logo className="h-8 lg:h-12 xl:h-14 w-auto" />
               </NavLink>
               
               {!isOnline && (
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 border border-amber-500/30 rounded text-amber-400 text-[10px] font-bold uppercase tracking-widest animate-pulse">
+                <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 border border-amber-500/30 rounded text-amber-400 text-[10px] font-bold uppercase tracking-widest animate-pulse">
                   <WifiOffIcon className="w-3.5 h-3.5" />
                   Offline
                 </div>
@@ -134,7 +127,7 @@ const Navigation: React.FC = () => {
                 ))}
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-3">
+            <div className="flex items-center gap-1 sm:gap-2">
                 <div className="relative" ref={searchRef}>
                     <input
                         type="text"
@@ -142,11 +135,15 @@ const Navigation: React.FC = () => {
                         value={searchQuery}
                         onChange={handleSearchChange}
                         onKeyDown={handleSearchSubmit}
-                        className="hidden md:block bg-white/10 text-white placeholder-white/40 rounded-full py-1.5 pl-10 pr-4 text-xs w-32 xl:w-40 focus:outline-none focus:ring-2 focus:ring-accent focus:w-56 transition-all duration-300 border border-white/20"
+                        className="hidden xl:block bg-white/10 text-white placeholder-white/40 rounded-full py-1.5 pl-10 pr-4 text-xs w-32 xl:w-40 focus:outline-none focus:ring-2 focus:ring-accent focus:w-56 transition-all duration-300 border border-white/20"
                     />
-                    <div className="md:absolute md:inset-y-0 md:left-3 flex items-center pointer-events-none">
+                    <div className="xl:absolute xl:inset-y-0 xl:left-3 hidden xl:flex items-center pointer-events-none">
                         <SearchIcon className="h-5 w-5 md:h-4 md:w-4 text-white/50" />
                     </div>
+                    {/* Mobile/Tablet Search Button */}
+                    <button onClick={() => navigate('/news')} className="xl:hidden text-white p-2 hover:text-accent">
+                        <SearchIcon className="h-6 w-6" />
+                    </button>
                 </div>
 
                 <button onClick={() => setIsCartOpen(true)} className="relative text-white p-2 hover:text-accent transition-colors" aria-label="Cart">
@@ -161,11 +158,11 @@ const Navigation: React.FC = () => {
                             <div className="relative h-full flex items-center" ref={managementRef}>
                                 <button 
                                     onClick={() => setIsManagementOpen(!isManagementOpen)}
-                                    className="hidden sm:flex text-xs font-bold text-primary-dark bg-accent hover:bg-yellow-400 px-3 py-2 rounded-lg transition-all items-center gap-1 shadow-lg"
+                                    className="hidden sm:flex text-[10px] xl:text-xs font-bold text-primary-dark bg-accent hover:bg-yellow-400 px-2 xl:px-3 py-2 rounded-lg transition-all items-center gap-1 shadow-lg"
                                 >
-                                    <BriefcaseIcon className="w-4 h-4" />
+                                    <BriefcaseIcon className="w-3.5 h-3.5 xl:w-4 xl:h-4" />
                                     Portal
-                                    <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${isManagementOpen ? 'rotate-180' : ''}`} />
+                                    <ChevronDownIcon className={`w-3 h-3 xl:w-3.5 xl:h-3.5 transition-transform duration-200 ${isManagementOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 
                                 {isManagementOpen && (
@@ -211,9 +208,9 @@ const Navigation: React.FC = () => {
                         key={item.name} 
                         to={item.to} 
                         className={({ isActive }) => `
-                            flex-shrink-0 px-4 py-3 text-xs font-bold uppercase tracking-wider transition-all duration-300 snap-center
+                            flex-shrink-0 px-4 py-3 text-[11px] font-bold uppercase tracking-wider transition-all duration-300 snap-center
                             ${isActive ? 'text-accent border-b-2 border-accent' : 'text-white/60 hover:text-white'}
-                            ${isActive ? 'active-mobile-nav' : ''}
+                            ${isActive ? 'active-mobile-nav shadow-[inset_0_-2px_0_0_rgba(253,185,19,1)]' : ''}
                         `}
                     >
                         {item.name}
@@ -221,6 +218,9 @@ const Navigation: React.FC = () => {
                 ))}
             </nav>
         </div>
+
+        {/* Integrated LiveTicker to ensure it's sticky with the header */}
+        <LiveTicker />
       </header>
       
       {isCartOpen && <CartModal isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />}
