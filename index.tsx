@@ -31,8 +31,12 @@ import { db } from './services/firebase';
 
     // 4. Unregister Service Workers
     if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map(reg => reg.unregister()));
+        try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map(reg => reg.unregister()));
+        } catch (e) {
+            console.warn("Service worker unregistration failed or document state invalid", e);
+        }
     }
 
     console.log("Purge complete. Reloading...");

@@ -27,8 +27,12 @@ const MaintenanceTools: React.FC = () => {
             
             // 3. Unregister Service Workers
             if ('serviceWorker' in navigator) {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(registrations.map(reg => reg.unregister()));
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(registrations.map(reg => reg.unregister()));
+                } catch (swError) {
+                    console.warn("SW unregistration failed during maintenance", swError);
+                }
             }
 
             setStatus("Success! Reloading...");

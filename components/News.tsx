@@ -80,18 +80,18 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     if (isCompact) {
         return (
             <Link to={item.url} className="group block h-full">
-                <Card className={`transition-all duration-300 hover:shadow-lg flex flex-row h-32 overflow-hidden ${isSponsored ? 'border-l-4 border-yellow-400 bg-yellow-50/30' : ''}`}>
+                <Card className={`transition-all duration-300 hover:shadow-lg flex flex-row h-36 overflow-hidden ${isSponsored ? 'border-l-4 border-yellow-400 bg-yellow-50/30' : ''}`}>
                     {/* Image on the left - Made larger */}
-                    <div className="relative w-32 flex-shrink-0">
+                    <div className="relative w-36 flex-shrink-0">
                         <img src={item.image} alt={item.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     </div>
                     {/* Content on the right - Improved spacing and layout */}
                     <CardContent className="flex flex-col flex-grow p-4 overflow-hidden">
-                         <h3 className="font-bold font-display text-base text-gray-900 group-hover:text-primary transition-colors duration-300 line-clamp-2 leading-snug mb-2">
+                         <h3 className="font-bold font-display text-base text-gray-900 group-hover:text-primary transition-colors duration-300 line-clamp-2 leading-snug mb-1">
                             {item.title}
                         </h3>
-                        {/* Summary preview added since card is taller now */}
-                        <p className="hidden sm:line-clamp-1 text-[11px] text-gray-500 mb-2">{item.summary}</p>
+                        {/* Summary preview with clamping to ensure it doesn't push metadata */}
+                        <p className="text-[11px] text-gray-500 line-clamp-2 sm:line-clamp-2 leading-tight mb-2">{item.summary}</p>
                         
                         <div className="flex justify-between items-center mt-auto">
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${categoryColor} w-fit flex items-center gap-1 shadow-sm`}>
@@ -236,7 +236,7 @@ const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
                         <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
                     </button>
                     <button onClick={() => scroll('right')} className="p-2 rounded-full bg-white hover:bg-gray-100 transition-colors border border-gray-200" aria-label="Next news item">
-                        <ChevronRightIcon className="w-5 h-5 text-gray-600" />
+                        <ChevronRightIcon className="w-5 h-5" />
                     </button>
                 </div>
             </div>
