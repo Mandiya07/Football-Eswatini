@@ -80,22 +80,25 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     if (isCompact) {
         return (
             <Link to={item.url} className="group block h-full">
-                <Card className={`transition-shadow duration-300 hover:shadow-lg flex flex-row h-24 overflow-hidden ${isSponsored ? 'border-l-4 border-yellow-400 bg-yellow-50/30' : ''}`}>
-                    {/* Image on the left */}
-                    <div className="relative w-24 flex-shrink-0">
+                <Card className={`transition-all duration-300 hover:shadow-lg flex flex-row h-32 overflow-hidden ${isSponsored ? 'border-l-4 border-yellow-400 bg-yellow-50/30' : ''}`}>
+                    {/* Image on the left - Made larger */}
+                    <div className="relative w-32 flex-shrink-0">
                         <img src={item.image} alt={item.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     </div>
-                    {/* Content on the right */}
-                    <CardContent className="flex flex-col flex-grow p-3">
-                         <h3 className="font-bold font-display text-sm text-gray-900 group-hover:text-primary transition-colors duration-300 line-clamp-2 leading-tight flex-grow">
+                    {/* Content on the right - Improved spacing and layout */}
+                    <CardContent className="flex flex-col flex-grow p-4 overflow-hidden">
+                         <h3 className="font-bold font-display text-base text-gray-900 group-hover:text-primary transition-colors duration-300 line-clamp-2 leading-snug mb-2">
                             {item.title}
                         </h3>
-                        <div className="flex justify-between items-center mt-1">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${categoryColor} w-fit flex items-center gap-1`}>
+                        {/* Summary preview added since card is taller now */}
+                        <p className="hidden sm:line-clamp-1 text-[11px] text-gray-500 mb-2">{item.summary}</p>
+                        
+                        <div className="flex justify-between items-center mt-auto">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${categoryColor} w-fit flex items-center gap-1 shadow-sm`}>
                                 {isSponsored && <MegaphoneIcon className="w-2.5 h-2.5" />}
                                 {mainCategory}
                             </span>
-                            <p className="text-gray-500 text-xs">{formatDate(item.date)}</p>
+                            <p className="text-gray-400 text-[10px] font-medium">{formatDate(item.date)}</p>
                         </div>
                     </CardContent>
                 </Card>
