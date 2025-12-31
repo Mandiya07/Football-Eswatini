@@ -15,6 +15,7 @@ export interface HybridTournament {
     logoUrl?: string;
     type: 'hybrid';
     externalApiId?: string;
+    categoryId?: string; // Associated category (e.g., 'international-leagues', 'development')
     teams: ConfigTeam[];
     groups?: {
         name: string;
@@ -32,6 +33,7 @@ export const internationalData: HybridTournament[] = [
         description: "The new 36-team League Phase format. Each club plays two opponents from each of the four pots for a total of 8 matches. Pot 1 includes holders PSG and the top seeds by coefficient.",
         logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/b/bf/UEFA_Champions_League_logo_2.svg/1200px-UEFA_Champions_League_logo_2.svg.png',
         type: 'hybrid',
+        categoryId: 'international-leagues',
         teams: [
             // Pot 1 (Top Seeds)
             { name: 'Paris Saint-Germain', crestUrl: 'https://via.placeholder.com/64/002B7F/FFFFFF?text=PSG' },
@@ -103,6 +105,7 @@ export const youthHybridData: HybridTournament[] = [
         description: 'The national school football championship. Teams compete in regional group stages to qualify for the National Finals bracket.',
         logoUrl: 'https://via.placeholder.com/150/F59E0B/FFFFFF?text=Instacash',
         type: 'hybrid',
+        categoryId: 'development',
         teams: [
             { name: 'Waterford Kamhlaba', crestUrl: 'https://via.placeholder.com/64/1E3A8A/FFFFFF?text=WK' },
             { name: 'Sifundzani High School', crestUrl: 'https://via.placeholder.com/64/D63031/FFFFFF?text=SHS' },
@@ -127,6 +130,7 @@ export const youthHybridData: HybridTournament[] = [
         description: 'The premier national festival for Under-13 talent. Featuring top regional academies in a two-pool group stage.',
         logoUrl: 'https://via.placeholder.com/150/FF0000/FFFFFF?text=Build+It',
         type: 'hybrid',
+        categoryId: 'development',
         teams: [
             { name: 'Mbabane Future Stars', crestUrl: 'https://via.placeholder.com/64/1E3A8A/FFFFFF?text=FS' },
             { name: 'Manzini Youngsters', crestUrl: 'https://via.placeholder.com/64/D63031/FFFFFF?text=MY' },
@@ -147,6 +151,7 @@ export const youthHybridData: HybridTournament[] = [
         description: 'Organized under the Hhohho Regional Football Association. Identifying raw talent at the regional level through zonal competition.',
         logoUrl: 'https://via.placeholder.com/150/FFFF00/000000?text=Hub+U17',
         type: 'hybrid',
+        categoryId: 'development',
         teams: [
             { name: 'Hhohho Eagles U-17', crestUrl: 'https://via.placeholder.com/64/00008B/FFFFFF?text=HE' },
             { name: 'Lubombo Leopards U-17', crestUrl: 'https://via.placeholder.com/64/90EE90/000000?text=LL' },

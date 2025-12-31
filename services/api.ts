@@ -1,3 +1,4 @@
+
 import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
 import { db } from './firebase';
@@ -132,6 +133,7 @@ export interface Category {
     id: string;
     name: string;
     order: number;
+    logoUrl?: string; // Optional logo for the category
 }
 
 export interface NationalTeam {
@@ -931,6 +933,9 @@ export const fetchCategories = async (): Promise<Category[]> => {
         const snapshot = await getDocs(collection(db, 'categories'));
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)).sort((a,b) => a.order - b.order);
     } catch { return []; }
+};
+export const updateCategory = async (id: string, data: Partial<Category>) => {
+    await updateDoc(doc(db, 'categories', id), data);
 };
 export const deleteCategory = async (id: string) => {
     await deleteDoc(doc(db, 'categories', id));

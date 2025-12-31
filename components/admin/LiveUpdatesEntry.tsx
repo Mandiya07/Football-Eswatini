@@ -63,6 +63,7 @@ const LiveUpdatesEntry: React.FC = () => {
                         const matchDate = new Date(f.fullDate + 'T' + (f.time || '00:00'));
                         const diffHours = (today.getTime() - matchDate.getTime()) / (1000 * 60 * 60);
                         
+                        // Show if live, suspended or within 3 days window
                         if (f.status === 'live' || f.status === 'suspended' || (diffHours < 72 && diffHours > -72)) {
                             matches.push({ fixture: f, compName: comp.name, compId: compId });
                         }
@@ -98,41 +99,39 @@ const LiveUpdatesEntry: React.FC = () => {
             away_team: match.fixture.teamB,
             score_home: String(match.fixture.scoreA || 0),
             score_away: String(match.fixture.scoreB || 0),
+            minute: String(match.fixture.liveMinute || ''),
+            description: ''
         }));
         setSuccessMessage('');
         setError('');
-        setTimeout(() => {
-            document.getElementById('update-form')?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
     };
 
     const handleParse = async () => {
         if (!pastedText.trim()) return setError('Please paste some text to analyze.');
-        if (!process.env.API_KEY || process.env.API_KEY === 'undefined' || process.env.API_KEY === '') {
-            return setError('API_KEY is not configured. Please add it to your environment variables.');
-        }
+        if (!process.env.API_KEY) return setError('API_KEY is not configured.');
         
         setIsParsing(true);
         setError('');
         
-        const prompt = `Analyze this football match update: "${pastedText}"
+        const prompt = `Analyze this match update text: "${pastedText}"
         
-        Extract the following fields into a JSON object:
-        - type: The event type. Must be roughly one of: 'goal', 'yellow_card', 'red_card', 'substitution', 'half_time', 'full_time', 'match_postponed', 'match_abandoned', 'match_suspended'. Default to 'goal' if it looks like a score change.
-        - minute: The minute of the event as a string (e.g. "45").
-        - score_home: Home team score (if present/implied).
-        - score_away: Away team score (if present/implied).
-        - player: Name of player involved.
-        - description: A clean, short description of the event.
+        Map the update to these categories: 'goal', 'yellow_card', 'red_card', 'substitution', 'half_time', 'full_time', 'match_postponed', 'match_abandoned', 'match_suspended'.
         
-        If a field is missing, use an empty string.`;
+        Return a JSON object with:
+        - type (string)
+        - minute (string)
+        - score_home (number or null)
+        - score_away (number or null)
+        - player (string, name only)
+        - description (string, concise summary)
+        
+        Default to 'goal' if a score is mentioned. If it's a general update, use 'info'.`;
 
-        // Removing strict enum to prevent validation errors if model is slightly off. We map it manually below.
         const responseSchema = {
             type: Type.OBJECT,
             properties: {
-                score_home: { type: Type.STRING },
-                score_away: { type: Type.STRING },
+                score_home: { type: Type.NUMBER },
+                score_away: { type: Type.NUMBER },
                 minute: { type: Type.STRING },
                 type: { type: Type.STRING }, 
                 player: { type: Type.STRING },
@@ -143,7 +142,7 @@ const LiveUpdatesEntry: React.FC = () => {
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const response = await ai.models.generateContent({ 
-                model: 'gemini-2.5-flash', 
+                model: 'gemini-3-flash-preview', 
                 contents: prompt, 
                 config: { 
                     responseMimeType: 'application/json', 
@@ -151,36 +150,24 @@ const LiveUpdatesEntry: React.FC = () => {
                 } 
             });
             
-            const text = response.text;
-            if (!text) throw new Error("No response text received from AI.");
-
-            const parsedData = JSON.parse(text);
+            const parsedData = JSON.parse(response.text || '{}');
             
-            // Normalize the 'type' field to match our dropdown
+            // Map type to strictly allowed enums
+            const allowedTypes = ['goal', 'yellow_card', 'red_card', 'substitution', 'half_time', 'full_time', 'match_postponed', 'match_abandoned', 'match_suspended'];
             let mappedType: LiveUpdate['type'] = 'goal';
-            const rawType = (parsedData.type || '').toLowerCase();
-            if (rawType.includes('yellow')) mappedType = 'yellow_card';
-            else if (rawType.includes('red')) mappedType = 'red_card';
-            else if (rawType.includes('sub')) mappedType = 'substitution';
-            else if (rawType.includes('half')) mappedType = 'half_time';
-            else if (rawType.includes('full')) mappedType = 'full_time';
-            else if (rawType.includes('postpone')) mappedType = 'match_postponed';
-            else if (rawType.includes('abandon')) mappedType = 'match_abandoned';
-            else if (rawType.includes('suspend')) mappedType = 'match_suspended';
-            else mappedType = 'goal';
+            if (allowedTypes.includes(parsedData.type)) mappedType = parsedData.type;
 
             setFormData(prev => ({ 
                 ...prev, 
                 ...parsedData,
-                type: mappedType 
+                type: mappedType,
+                score_home: parsedData.score_home != null ? String(parsedData.score_home) : prev.score_home,
+                score_away: parsedData.score_away != null ? String(parsedData.score_away) : prev.score_away,
             }));
 
         } catch (err: any) {
             console.error("AI Parsing Error:", err);
-            let msg = err.message || "Unknown error";
-            if (msg.includes('400')) msg = "AI Request Failed (400). Ensure text is clear.";
-            if (msg.includes('403') || msg.includes('API key')) msg = "Invalid API Key or Permissions.";
-            setError(`Parsing failed: ${msg}`);
+            setError(`Parsing failed: ${err.message}`);
         } finally {
             setIsParsing(false);
         }
@@ -193,7 +180,7 @@ const LiveUpdatesEntry: React.FC = () => {
 
     const handleStatusChange = async (matchData: typeof todaysMatches[0], newStatus: string) => {
         if (!newStatus || newStatus === matchData.fixture.status) return;
-        if (!window.confirm(`Change status to ${newStatus.toUpperCase()}?`)) return;
+        if (!window.confirm(`Change match status to ${newStatus.toUpperCase()}?`)) return;
         
         setIsSubmitting(true);
         setError('');
@@ -237,11 +224,11 @@ const LiveUpdatesEntry: React.FC = () => {
                 }
             });
             
-            setSuccessMessage(`Match status updated to ${newStatus.toUpperCase()}.`);
+            setSuccessMessage(`Status set to ${newStatus.toUpperCase()}`);
             loadMatches();
         } catch (err: any) {
             handleFirestoreError(err, 'update match status');
-            setError('Failed to update status.');
+            setError('Update failed.');
         } finally {
             setIsSubmitting(false);
         }
@@ -249,8 +236,8 @@ const LiveUpdatesEntry: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.fixture_id || !formData.competitionId) {
-            setError("Please select a match from the list above first.");
+        if (!formData.fixture_id) {
+            setError("Select a match first.");
             return;
         }
 
@@ -278,11 +265,10 @@ const LiveUpdatesEntry: React.FC = () => {
 
             await addLiveUpdate(updateData);
             
-            // Also update the competition document with score/minute/events
             const docRef = doc(db, 'competitions', formData.competitionId);
             await runTransaction(db, async (transaction) => {
                  const docSnap = await transaction.get(docRef);
-                 if (!docSnap.exists()) throw new Error("Competition not found");
+                 if (!docSnap.exists()) return;
                  const comp = docSnap.data() as Competition;
                  const fixtures = comp.fixtures || [];
                  const fIndex = fixtures.findIndex(f => String(f.id) === formData.fixture_id);
@@ -296,7 +282,8 @@ const LiveUpdatesEntry: React.FC = () => {
                          playerName: formData.player
                      };
                      
-                     const updatedFixture = {
+                     const updatedFixtures = [...fixtures];
+                     updatedFixtures[fIndex] = {
                          ...f,
                          scoreA: updateData.score_home,
                          scoreB: updateData.score_away,
@@ -304,157 +291,148 @@ const LiveUpdatesEntry: React.FC = () => {
                          events: [...(f.events || []), newEvent]
                      };
                      
-                     const updatedFixtures = [...fixtures];
-                     updatedFixtures[fIndex] = updatedFixture;
-                     
                      transaction.update(docRef, { fixtures: removeUndefinedProps(updatedFixtures) });
                  }
             });
 
-            setSuccessMessage("Update sent successfully!");
-            setFormData(prev => ({ ...prev, minute: '', player: '', description: '' }));
+            setSuccessMessage("Update published.");
+            setFormData(prev => ({ ...prev, player: '', description: '' }));
             loadMatches();
         } catch (err: any) {
-            handleFirestoreError(err, 'submit live update');
-            setError('Failed to submit update.');
+            handleFirestoreError(err, 'publish update');
+            setError('Publish failed.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm";
+    const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm";
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Matches List */}
             <div className="lg:col-span-1 space-y-4">
-                <Card className="shadow-lg h-full">
+                <Card className="shadow-lg h-full border-0 bg-white">
                     <CardContent className="p-4">
                         <h3 className="text-lg font-bold font-display mb-4 flex items-center gap-2">
-                            <ClockIcon className="w-5 h-5 text-gray-500"/> Active & Upcoming Matches
+                            <ClockIcon className="w-5 h-5 text-gray-400"/> Active Matches
                         </h3>
                         {loadingMatches ? <Spinner /> : (
-                            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
                                 {todaysMatches.length > 0 ? todaysMatches.map((m) => (
                                     <div 
                                         key={m.fixture.id} 
                                         onClick={() => handleSelectMatch(m)}
-                                        className={`p-3 border rounded-lg cursor-pointer transition-all ${formData.fixture_id === String(m.fixture.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white hover:bg-gray-50'}`}
+                                        className={`p-3 border rounded-xl cursor-pointer transition-all ${formData.fixture_id === String(m.fixture.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}
                                     >
                                         <div className="flex justify-between items-center mb-1">
-                                            <span className="text-xs font-bold text-gray-500 uppercase">{m.compName}</span>
-                                            {m.fixture.status === 'live' && <span className="text-[10px] bg-red-500 text-white px-1.5 rounded animate-pulse">LIVE</span>}
+                                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{m.compName}</span>
+                                            {m.fixture.status === 'live' && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-black animate-pulse">LIVE</span>}
                                         </div>
-                                        <div className="font-bold text-sm mb-1">{m.fixture.teamA} vs {m.fixture.teamB}</div>
-                                        <div className="flex justify-between items-center text-xs text-gray-600">
+                                        <div className="font-bold text-sm text-gray-900">{m.fixture.teamA} vs {m.fixture.teamB}</div>
+                                        <div className="flex justify-between items-center text-xs text-gray-500 font-semibold mt-1">
                                             <span>{m.fixture.scoreA ?? 0} - {m.fixture.scoreB ?? 0}</span>
                                             <span className="font-mono">{m.fixture.status === 'live' ? (m.fixture.liveMinute || '?') + "'" : m.fixture.time}</span>
                                         </div>
-                                        <div className="mt-2 pt-2 border-t flex gap-2 justify-end">
+                                        <div className="mt-3 pt-2 border-t border-gray-50 flex gap-2 justify-end">
                                              {m.fixture.status === 'scheduled' && (
-                                                 <button onClick={(e) => { e.stopPropagation(); handleStatusChange(m, 'live'); }} className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">Start</button>
+                                                 <button onClick={(e) => { e.stopPropagation(); handleStatusChange(m, 'live'); }} className="text-[10px] bg-green-600 text-white px-3 py-1 rounded-full font-bold hover:bg-green-700">Start</button>
                                              )}
                                              {m.fixture.status === 'live' && (
-                                                 <>
-                                                     <button onClick={(e) => { e.stopPropagation(); handleStatusChange(m, 'suspended'); }} className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-200">Suspend</button>
-                                                     <button onClick={(e) => { e.stopPropagation(); handleStatusChange(m, 'finished'); }} className="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Finish</button>
-                                                 </>
+                                                 <button onClick={(e) => { e.stopPropagation(); handleStatusChange(m, 'finished'); }} className="text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold hover:bg-red-700">FT</button>
                                              )}
                                         </div>
                                     </div>
-                                )) : <p className="text-sm text-gray-500 text-center py-4">No active matches found.</p>}
+                                )) : <p className="text-sm text-gray-500 text-center py-8">No scheduled matches for today.</p>}
                             </div>
                         )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Entry Form */}
             <div className="lg:col-span-2">
-                <Card className="shadow-lg animate-fade-in" id="update-form">
+                <Card className="shadow-lg animate-fade-in border-0 bg-white">
                     <CardContent className="p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                            <RadioIcon className="w-6 h-6 text-red-600 animate-pulse" />
-                            <h3 className="text-2xl font-bold font-display">Live Commentary Entry</h3>
+                        <div className="flex items-center gap-3 mb-6">
+                            <RadioIcon className="w-8 h-8 text-secondary animate-pulse" />
+                            <h3 className="text-2xl font-bold font-display text-gray-900">Live Commentary Console</h3>
                         </div>
 
-                        {successMessage && <div className="p-3 bg-green-100 text-green-800 rounded-md mb-4 flex items-center gap-2"><CheckCircleIcon className="w-5 h-5"/>{successMessage}</div>}
-                        {error && <div className="p-3 bg-red-100 text-red-800 rounded-md mb-4">{error}</div>}
+                        {successMessage && <div className="p-4 bg-green-50 text-green-800 rounded-xl mb-6 flex items-center gap-2 border border-green-100"><CheckCircleIcon className="w-5 h-5"/>{successMessage}</div>}
+                        {error && <div className="p-4 bg-red-50 text-red-800 rounded-xl mb-6 border border-red-100">{error}</div>}
 
-                        <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-100">
-                             <label className="block text-sm font-bold text-purple-800 mb-2 flex items-center gap-2">
-                                <SparklesIcon className="w-4 h-4"/> AI Assist (Quick Parse)
+                        <div className="mb-8 p-5 bg-purple-50 rounded-2xl border border-purple-100 shadow-inner">
+                             <label className="block text-xs font-black text-purple-800 mb-3 flex items-center gap-2 uppercase tracking-widest">
+                                <SparklesIcon className="w-4 h-4"/> AI Assist: Voice-to-Text / Raw Input
                              </label>
                              <div className="flex gap-2">
                                  <textarea 
                                     value={pastedText}
                                     onChange={e => setPastedText(e.target.value)}
-                                    placeholder="Paste raw update text here (e.g., 'Goal! 34th minute, Sabelo scores for Swallows, score is now 1-0')"
-                                    className="flex-grow text-sm p-2 border border-purple-200 rounded focus:outline-none focus:ring-purple-400"
+                                    placeholder="Paste raw update text or match report clip here..."
+                                    className="flex-grow text-sm p-3 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white"
                                     rows={2}
                                  />
-                                 <Button onClick={handleParse} disabled={isParsing} className="bg-purple-600 text-white text-xs px-3 h-auto">
-                                     {isParsing ? <Spinner className="w-3 h-3 border-white" /> : 'Parse'}
+                                 <Button onClick={handleParse} disabled={isParsing} className="bg-purple-600 text-white px-4 h-auto shadow-md">
+                                     {isParsing ? <Spinner className="w-4 h-4 border-white" /> : 'Analyze'}
                                  </Button>
                              </div>
-                             <p className="text-xs text-purple-600 mt-1">Accepts match events, scores, and updates. Paste any text to auto-fill the form below.</p>
+                             <p className="text-[10px] text-purple-600 mt-2 font-semibold">Instantly fill score, minute, and description from raw text.</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-5">
                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Home Team</label>
-                                    <input type="text" name="home_team" value={formData.home_team} onChange={handleChange} className={inputClass} readOnly />
+                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Home</label>
+                                    <input type="text" value={formData.home_team} className="w-full bg-transparent font-bold text-gray-800 outline-none" readOnly />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Away Team</label>
-                                    <input type="text" name="away_team" value={formData.away_team} onChange={handleChange} className={inputClass} readOnly />
+                                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Away</label>
+                                    <input type="text" value={formData.away_team} className="w-full bg-transparent font-bold text-gray-800 outline-none" readOnly />
                                 </div>
                             </div>
                             
                             <div className="grid grid-cols-3 gap-4">
                                  <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Type</label>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Update Type</label>
                                     <select name="type" value={formData.type} onChange={handleChange} className={inputClass}>
-                                        <option value="goal">Goal</option>
-                                        <option value="yellow_card">Yellow Card</option>
-                                        <option value="red_card">Red Card</option>
-                                        <option value="substitution">Substitution</option>
-                                        <option value="half_time">Half Time</option>
-                                        <option value="full_time">Full Time</option>
-                                        <option value="match_suspended">Suspended</option>
-                                        <option value="match_postponed">Postponed</option>
+                                        <option value="goal">⚽ Goal</option>
+                                        <option value="yellow_card">🟨 Yellow Card</option>
+                                        <option value="red_card">🟥 Red Card</option>
+                                        <option value="substitution">🔄 Substitution</option>
+                                        <option value="half_time">⏱️ Half Time</option>
+                                        <option value="full_time">🏁 Full Time</option>
+                                        <option value="match_suspended">⚠️ Suspended</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Minute</label>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Minute</label>
                                     <input type="text" name="minute" value={formData.minute} onChange={handleChange} className={inputClass} placeholder="e.g. 45" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Player Name</label>
-                                    <input type="text" name="player" value={formData.player} onChange={handleChange} className={inputClass} placeholder="Player involved" />
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Player</label>
+                                    <input type="text" name="player" value={formData.player} onChange={handleChange} className={inputClass} placeholder="Name" />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Description</label>
-                                <textarea name="description" value={formData.description} onChange={handleChange} className={inputClass} rows={2} required />
+                                <label className="block text-xs font-bold text-gray-600 mb-1">Commentary Description</label>
+                                <textarea name="description" value={formData.description} onChange={handleChange} className={inputClass} rows={2} required placeholder="Detailed event description..." />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded border">
+                            <div className="grid grid-cols-2 gap-4 bg-gray-900 p-4 rounded-xl shadow-xl">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Home Score</label>
-                                    <input type="number" name="score_home" value={formData.score_home} onChange={handleChange} className={inputClass} />
+                                    <label className="block text-[10px] font-black text-white/50 mb-1 uppercase tracking-widest">Home Score</label>
+                                    <input type="number" name="score_home" value={formData.score_home} onChange={handleChange} className="w-full bg-transparent text-white font-bold text-2xl outline-none border-b border-white/20 pb-1" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Away Score</label>
-                                    <input type="number" name="score_away" value={formData.score_away} onChange={handleChange} className={inputClass} />
+                                    <label className="block text-[10px] font-black text-white/50 mb-1 uppercase tracking-widest">Away Score</label>
+                                    <input type="number" name="score_away" value={formData.score_away} onChange={handleChange} className="w-full bg-transparent text-white font-bold text-2xl outline-none border-b border-white/20 pb-1" />
                                 </div>
                             </div>
 
-                            <div className="text-right">
-                                <Button type="submit" disabled={isSubmitting} className="bg-red-600 text-white hover:bg-red-700 w-full sm:w-auto px-8 h-10 flex items-center justify-center gap-2">
-                                    {isSubmitting ? <Spinner className="w-4 h-4 border-2" /> : <><PlayIcon className="w-4 h-4" /> Send Update</>}
+                            <div className="pt-4">
+                                <Button type="submit" disabled={isSubmitting || !formData.fixture_id} className="bg-red-600 text-white hover:bg-red-700 w-full h-12 flex items-center justify-center gap-3 shadow-xl rounded-xl text-lg font-bold">
+                                    {isSubmitting ? <Spinner className="w-5 h-5 border-white border-2" /> : <><PlayIcon className="w-5 h-5" /> Post Real-Time Update</>}
                                 </Button>
                             </div>
                         </form>

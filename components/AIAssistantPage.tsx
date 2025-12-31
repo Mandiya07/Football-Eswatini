@@ -1,17 +1,16 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Chat } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import SparklesIcon from './icons/SparklesIcon';
 import SendIcon from './icons/SendIcon';
 import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
-import { fetchCompetition } from '../services/api';
+import { fetchCompetition, fetchAllCompetitions } from '../services/api';
 import Spinner from './ui/Spinner';
 import BookIcon from './icons/BookIcon';
 import TrendingUpIcon from './icons/TrendingUpIcon';
-// Added missing BarChartIcon import
 import BarChartIcon from './icons/BarChartIcon';
 
 interface ChatMessage {
@@ -27,7 +26,6 @@ const AIAssistantPage: React.FC = () => {
   }]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,31 +47,35 @@ const AIAssistantPage: React.FC = () => {
           model: 'gemini-3-flash-preview',
           contents: text,
           config: {
-              systemInstruction: "You are an expert football pundit for Football Eswatini. Use a professional yet passionate tone. Analyze matches based on technical data and provide insightful tactical predictions."
+              systemInstruction: "You are an expert football pundit for Football Eswatini. Use a professional yet passionate tone. Analyze matches based on technical data and provide insightful tactical predictions. If asked about current standings, provide the top 3 teams based on provided context."
           }
       });
 
-      setChatHistory([...newHistory, { role: 'model', text: response.text || 'Sorry, I hit a snag.' }]);
+      setChatHistory([...newHistory, { role: 'model', text: response.text || 'Sorry, I hit a snag in my analysis.' }]);
     } catch (error) {
       console.error(error);
-      setChatHistory([...newHistory, { role: 'model', text: 'Connection error. Please try again.' }]);
+      setChatHistory([...newHistory, { role: 'model', text: 'I am having trouble connecting to the stats server. Please try again in a moment.' }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const generateTacticalAnalysis = async () => {
-      setIsGeneratingAnalysis(true);
+      setIsLoading(true);
       try {
           const mtnData = await fetchCompetition('mtn-premier-league');
-          const context = JSON.stringify(mtnData?.teams?.slice(0, 5).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form })));
+          const context = JSON.stringify(mtnData?.teams?.slice(0, 5).map(t => ({ 
+              name: t.name, 
+              points: t.stats.pts, 
+              form: t.stats.form,
+              matches: t.stats.p
+          })));
           
-          const prompt = `Based on these top league teams: ${context}. Choose the top two teams and write a "Super Sunday Tactical Preview". Discuss their playing styles and who has the advantage.`;
+          const prompt = `Based on the current top of the table: ${context}. Write a technical preview for the upcoming matchday. Which of these top teams has the best momentum?`;
           handleSendMessage(prompt);
       } catch (err) {
           console.error(err);
-      } finally {
-          setIsGeneratingAnalysis(false);
+          setIsLoading(false);
       }
   };
 
@@ -85,34 +87,37 @@ const AIAssistantPage: React.FC = () => {
                     <SparklesIcon className="w-8 h-8 text-purple-600" />
                 </div>
                 <h1 className="text-4xl font-display font-extrabold text-blue-800">AI Football Assistant</h1>
-                <p className="text-gray-600">Ask about tactics, player stats, or match history.</p>
+                <p className="text-gray-600">Analyze the beautiful game with data-driven insights.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <Card className="hover:border-purple-300 transition-colors cursor-pointer" onClick={generateTacticalAnalysis}>
-                    <CardContent className="p-4 text-center">
-                        <TrendingUpIcon className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                        <p className="text-xs font-bold uppercase text-gray-500">Tactical Preview</p>
-                        <p className="text-sm font-semibold mt-1">Analyze next big match</p>
-                    </CardContent>
-                </Card>
-                <Card className="hover:border-purple-300 transition-colors cursor-pointer" onClick={() => handleSendMessage("Tell me some interesting history about Mbabane Highlanders.")}>
-                    <CardContent className="p-4 text-center">
-                        <BookIcon className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                        <p className="text-xs font-bold uppercase text-gray-500">History Lesson</p>
-                        <p className="text-sm font-semibold mt-1">Club origins & legends</p>
-                    </CardContent>
-                </Card>
-                <Card className="hover:border-purple-300 transition-colors cursor-pointer" onClick={() => handleSendMessage("Who are the top scorers in the league right now?")}>
-                    <CardContent className="p-4 text-center">
-                        <BarChartIcon className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                        <p className="text-xs font-bold uppercase text-gray-500">Stat Search</p>
-                        <p className="text-sm font-semibold mt-1">Goals & Assists</p>
-                    </CardContent>
-                </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <button 
+                    onClick={generateTacticalAnalysis}
+                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-300 transition-all text-center group"
+                >
+                    <TrendingUpIcon className="w-6 h-6 mx-auto mb-2 text-purple-600 group-hover:scale-110 transition-transform" />
+                    <p className="text-xs font-bold uppercase text-gray-400">Tactical Review</p>
+                    <p className="text-sm font-semibold mt-1">Analyze Top Performers</p>
+                </button>
+                <button 
+                    onClick={() => handleSendMessage("Tell me about the most historic football rivalries in Eswatini.")}
+                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-300 transition-all text-center group"
+                >
+                    <BookIcon className="w-6 h-6 mx-auto mb-2 text-purple-600 group-hover:scale-110 transition-transform" />
+                    <p className="text-xs font-bold uppercase text-gray-400">History & Rivalry</p>
+                    <p className="text-sm font-semibold mt-1">Legendary Matchups</p>
+                </button>
+                <button 
+                    onClick={() => handleSendMessage("What is the current state of the MTN Premier League title race?")}
+                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-300 transition-all text-center group"
+                >
+                    <BarChartIcon className="w-6 h-6 mx-auto mb-2 text-purple-600 group-hover:scale-110 transition-transform" />
+                    <p className="text-xs font-bold uppercase text-gray-400">Title Race</p>
+                    <p className="text-sm font-semibold mt-1">Current Standings Insight</p>
+                </button>
             </div>
 
-            <Card className="shadow-2xl overflow-hidden flex flex-col h-[600px] border-0">
+            <Card className="shadow-2xl overflow-hidden flex flex-col h-[600px] border-0 ring-1 ring-black/5">
                 <div 
                     ref={chatContainerRef}
                     className="flex-grow overflow-y-auto p-6 space-y-6 bg-white custom-scrollbar"
@@ -123,20 +128,20 @@ const AIAssistantPage: React.FC = () => {
                                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                                 {msg.role === 'model' && i > 0 && (
                                     <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200">
-                                        <button className="text-gray-400 hover:text-green-600 transition-colors"><ThumbsUpIcon className="w-4 h-4"/></button>
-                                        <button className="text-gray-400 hover:text-red-600 transition-colors"><ThumbsDownIcon className="w-4 h-4"/></button>
+                                        <button className="text-gray-400 hover:text-green-600 transition-colors" title="Helpful"><ThumbsUpIcon className="w-4 h-4"/></button>
+                                        <button className="text-gray-400 hover:text-red-600 transition-colors" title="Not Helpful"><ThumbsDownIcon className="w-4 h-4"/></button>
                                     </div>
                                 )}
                             </div>
                         </div>
                     ))}
                     {isLoading && (
-                        <div className="flex justify-start animate-pulse">
-                            <div className="bg-gray-100 p-4 rounded-2xl rounded-tl-none border border-gray-200">
+                        <div className="flex justify-start">
+                            <div className="bg-gray-50 p-4 rounded-2xl rounded-tl-none border border-gray-200">
                                 <div className="flex gap-1">
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></div>
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></div>
+                                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-75"></div>
+                                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-150"></div>
                                 </div>
                             </div>
                         </div>
@@ -146,19 +151,19 @@ const AIAssistantPage: React.FC = () => {
                 <div className="p-4 bg-gray-50 border-t">
                     <form 
                         onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
-                        className="flex gap-3 bg-white p-2 rounded-full shadow-lg ring-1 ring-black/5"
+                        className="flex gap-3 bg-white p-1 rounded-full shadow-lg ring-1 ring-black/5"
                     >
                         <input 
                             type="text" 
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
-                            placeholder="Type your question..."
-                            className="flex-grow px-4 bg-transparent outline-none text-sm"
+                            placeholder="Ask about a team, match, or rule..."
+                            className="flex-grow px-5 bg-transparent outline-none text-sm"
                         />
                         <Button 
                             type="submit" 
                             disabled={!inputValue.trim() || isLoading}
-                            className="bg-primary text-white h-10 w-10 flex items-center justify-center rounded-full p-0 shadow-md hover:scale-105 transition-transform"
+                            className="bg-primary text-white h-10 w-10 flex items-center justify-center rounded-full p-0 shadow-md hover:scale-105 transition-all disabled:opacity-50 disabled:scale-100"
                         >
                             <SendIcon className="w-5 h-5" />
                         </Button>

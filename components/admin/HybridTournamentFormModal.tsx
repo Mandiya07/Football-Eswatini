@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HybridTournament, ConfigTeam } from '../../data/international';
 import { CompetitionFixture } from '../../data/teams';
@@ -7,7 +8,7 @@ import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
-import { fetchCups, handleFirestoreError } from '../../services/api';
+import { fetchCups, fetchCategories, Category, handleFirestoreError } from '../../services/api';
 import Spinner from '../ui/Spinner';
 import { compressImage } from '../../services/utils';
 import ImageIcon from '../icons/ImageIcon';
@@ -24,12 +25,14 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
-    const [externalApiId, setExternalApiId] = useState(''); // New state for API ID
+    const [externalApiId, setExternalApiId] = useState('');
+    const [categoryId, setCategoryId] = useState(''); // New Category ID field
     const [teams, setTeams] = useState<ConfigTeam[]>([]);
     const [groups, setGroups] = useState<NonNullable<HybridTournament['groups']>>([]);
     const [matches, setMatches] = useState<CompetitionFixture[]>([]);
     const [bracketId, setBracketId] = useState<string>('');
     const [existingCups, setExistingCups] = useState<Tournament[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]); // Categories list
     const [imageProcessing, setImageProcessing] = useState(false);
 
     // Form inputs state
@@ -38,11 +41,15 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
     const [newMatch, setNewMatch] = useState({ teamA: '', teamB: '', scoreA: '', scoreB: '', date: '', status: 'scheduled' as any });
 
     useEffect(() => {
-        const loadCups = async () => {
-            const cups = await fetchCups();
+        const loadMetadata = async () => {
+            const [cups, cats] = await Promise.all([
+                fetchCups(),
+                fetchCategories()
+            ]);
             setExistingCups(cups);
+            setCategories(cats);
         };
-        loadCups();
+        loadMetadata();
     }, []);
 
     useEffect(() => {
@@ -52,6 +59,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             setDescription(tournament.description || '');
             setLogoUrl(tournament.logoUrl || '');
             setExternalApiId(tournament.externalApiId || '');
+            setCategoryId(tournament.categoryId || '');
             setTeams(tournament.teams || []);
             setGroups(tournament.groups || []);
             setMatches(tournament.matches || []);
@@ -62,6 +70,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             setDescription('');
             setLogoUrl('');
             setExternalApiId('');
+            setCategoryId('');
             setTeams([]);
             setGroups([]);
             setMatches([]);
@@ -132,6 +141,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             description,
             logoUrl,
             externalApiId,
+            categoryId,
             type: 'hybrid',
             teams,
             groups,
@@ -150,7 +160,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto relative animate-slide-up" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800" aria-label="Close form"><XIcon className="w-6 h-6" /></button>
                 <CardContent className="p-8">
-                    <h2 className="text-2xl font-bold font-display mb-6">{tournament ? 'Edit International Tournament' : 'Create International Tournament'}</h2>
+                    <h2 className="text-2xl font-bold font-display mb-6">{tournament ? 'Edit Hybrid Tournament' : 'Create Hybrid Tournament'}</h2>
                     
                     <form onSubmit={handleSubmit} className="space-y-8">
                         {/* 1. Basic Info */}
@@ -166,7 +176,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                                             required 
                                             className={inputClass} 
                                             placeholder="e.g. afcon-2025" 
-                                            disabled={!!tournament} // Disable editing ID for existing items to maintain data links
+                                            disabled={!!tournament} 
                                         />
                                         <p className="text-[10px] text-gray-500 mt-1">Unique identifier (slug) used for database linking.</p>
                                     </div>
@@ -175,9 +185,15 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                                         <input value={name} onChange={e => setName(e.target.value)} required className={inputClass} placeholder="e.g. Africa Cup of Nations 2025" />
                                     </div>
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">App Section / Category</label>
+                                        <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required className={inputClass}>
+                                            <option value="" disabled>-- Select Category --</option>
+                                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">External API ID (Optional)</label>
                                         <input value={externalApiId} onChange={e => setExternalApiId(e.target.value)} className={inputClass} placeholder="e.g. 2001 or 4328" />
-                                        <p className="text-[10px] text-gray-500 mt-1">League ID from external providers (Football-Data, TheSportsDB).</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>

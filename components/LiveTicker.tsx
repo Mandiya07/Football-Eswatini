@@ -23,34 +23,32 @@ const LiveTicker: React.FC = () => {
         const updateTicker = () => {
             const combined: TickerItem[] = [];
 
-            // 1. Prioritize Live Matches
+            // 1. Live Matches (Priority)
             const liveMatches = matches.filter(m => m.status === 'live');
             liveMatches.forEach(m => combined.push({ type: 'match', data: m }));
 
-            // 2. Mix in Latest News (Top 3)
+            // 2. Breaking News
             news.slice(0, 3).forEach(n => combined.push({ type: 'news', data: n }));
 
-            // 3. Add Fixed CTA for Interactive Zone
-            combined.push({ type: 'cta', text: "⚽ Predict match outcomes & earn XP!", link: "/interactive" });
+            // 3. Match CTA
+            combined.push({ type: 'cta', text: "⚽ Predict match outcomes & level up!", link: "/interactive" });
 
-            // 4. Add Upcoming Matches
-            const upcoming = matches.filter(m => m.status === 'scheduled').slice(0, 5);
+            // 4. Upcoming Fixtures (Shortlist)
+            const upcoming = matches.filter(m => m.status === 'scheduled').slice(0, 4);
             upcoming.forEach(m => combined.push({ type: 'match', data: m }));
 
-            // 5. Community Events (Top 2)
+            // 5. Local Events
             community.slice(0, 2).forEach(c => combined.push({ type: 'community', data: c }));
 
-            // 6. Another CTA
-            combined.push({ type: 'cta', text: "🏆 Vote for Player of the Month", link: "/interactive" });
-
-            // 7. Recent Results (Top 3)
-            const results = matches.filter(m => m.status === 'finished').slice(0, 3);
-            results.forEach(m => combined.push({ type: 'match', data: m }));
+            // Ensure we have enough items for a smooth marquee loop (min 6-8)
+            if (combined.length > 0 && combined.length < 8) {
+                // Repeat CTA or items if data is thin
+                combined.push({ type: 'cta', text: "🏆 Support your local clubs via the Directory", link: "/directory" });
+            }
 
             setItems(combined);
         };
 
-        // Listen for match changes
         const unsubscribeMatches = listenToAllCompetitions((allComps) => {
             const allMatches: CompetitionFixture[] = [];
             Object.values(allComps).forEach(comp => {
@@ -65,17 +63,8 @@ const LiveTicker: React.FC = () => {
             updateTicker();
         });
 
-        // Fetch News once
-        fetchNews().then(data => {
-            news = data;
-            updateTicker();
-        });
-
-        // Fetch Community once
-        fetchCommunityEvents().then(data => {
-            community = data;
-            updateTicker();
-        });
+        fetchNews().then(data => { news = data; updateTicker(); });
+        fetchCommunityEvents().then(data => { community = data; updateTicker(); });
 
         return () => unsubscribeMatches();
     }, []);
@@ -83,21 +72,21 @@ const LiveTicker: React.FC = () => {
     if (items.length === 0) return null;
 
     return (
-        <div className="bg-primary-dark border-y border-white/10 h-10 flex items-center overflow-hidden relative z-[90] shadow-lg">
-            <div className="flex-shrink-0 bg-secondary px-4 h-full flex items-center z-20 shadow-[5px_0_15px_rgba(0,0,0,0.3)]">
+        <div className="bg-primary-dark border-y border-white/5 h-10 flex items-center overflow-hidden relative z-[90] shadow-inner">
+            <div className="flex-shrink-0 bg-secondary px-4 h-full flex items-center z-20 shadow-[8px_0_15px_rgba(0,0,0,0.5)]">
                 <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2"></div>
-                <span className="text-white text-[10px] font-black uppercase tracking-tighter whitespace-nowrap">Live Feed</span>
+                <span className="text-white text-[10px] font-black uppercase tracking-tighter">Live Updates</span>
             </div>
             
             <div className="flex whitespace-nowrap animate-marquee hover:pause-animation items-center">
-                {/* Render twice for seamless loop */}
-                {[...items, ...items].map((item, idx) => (
-                    <div key={`${idx}`} className="inline-flex items-center px-8 border-r border-white/5">
+                {/* Render four times to guarantee a seamless loop on 4K/ultra-wide screens */}
+                {[...items, ...items, ...items, ...items].map((item, idx) => (
+                    <div key={`${idx}`} className="inline-flex items-center px-10 border-r border-white/5">
                         {item.type === 'match' && (
                             <>
-                                <span className={`text-[9px] font-black mr-3 px-1.5 py-0.5 rounded ${
+                                <span className={`text-[9px] font-black mr-3 px-2 py-0.5 rounded shadow-sm ${
                                     item.data.status === 'live' ? 'bg-accent text-primary-dark animate-pulse' : 
-                                    item.data.status === 'finished' ? 'bg-white/10 text-white/40' : 'bg-blue-600 text-white'
+                                    item.data.status === 'finished' ? 'bg-white/10 text-white/50' : 'bg-blue-600 text-white'
                                 }`}>
                                     {item.data.status === 'live' ? `LIVE ${item.data.liveMinute || 0}'` : 
                                      item.data.status === 'finished' ? 'FINAL' : item.data.time || 'TBD'}
@@ -105,7 +94,7 @@ const LiveTicker: React.FC = () => {
                                 <span className="text-white text-xs font-bold tracking-tight">
                                     {item.data.teamA} 
                                     <span className="mx-2 text-accent">
-                                        {item.data.status === 'scheduled' ? 'vs' : `${item.data.scoreA ?? 0} - ${item.data.scoreB ?? 0}`}
+                                        {item.data.status === 'scheduled' ? 'vs' : `${item.data.scoreA ?? 0}-${item.data.scoreB ?? 0}`}
                                     </span>
                                     {item.data.teamB}
                                 </span>
@@ -114,7 +103,7 @@ const LiveTicker: React.FC = () => {
 
                         {item.type === 'news' && (
                             <>
-                                <span className="text-[9px] font-black mr-3 px-1.5 py-0.5 rounded bg-blue-500 text-white uppercase">Headlines</span>
+                                <span className="text-[9px] font-black mr-3 px-2 py-0.5 rounded bg-blue-500 text-white uppercase shadow-sm">News</span>
                                 <Link to={item.data.url} className="text-white text-xs font-medium hover:text-accent transition-colors">
                                     {item.data.title}
                                 </Link>
@@ -123,15 +112,15 @@ const LiveTicker: React.FC = () => {
 
                         {item.type === 'community' && (
                             <>
-                                <span className="text-[9px] font-black mr-3 px-1.5 py-0.5 rounded bg-green-600 text-white uppercase">Community</span>
-                                <span className="text-white text-xs font-medium italic">
+                                <span className="text-[9px] font-black mr-3 px-2 py-0.5 rounded bg-green-600 text-white uppercase shadow-sm">Events</span>
+                                <span className="text-white text-xs font-medium italic opacity-90">
                                     {item.data.title} @ {item.data.venue}
                                 </span>
                             </>
                         )}
 
                         {item.type === 'cta' && (
-                            <Link to={item.link} className="text-accent text-xs font-black uppercase tracking-wider hover:underline decoration-2 underline-offset-4">
+                            <Link to={item.link} className="text-accent text-[11px] font-black uppercase tracking-widest hover:underline decoration-2 underline-offset-4 decoration-white/20">
                                 {item.text}
                             </Link>
                         )}
