@@ -109,7 +109,7 @@ const BuildItU13Page: React.FC = () => {
                     <TournamentView tournament={hybridTournament} />
                 ) : (
                     <div className="p-12 text-center bg-white rounded-xl border border-dashed">
-                        <p className="text-gray-500">Pool structure not initialized. Use Admin Panel > Seed Database.</p>
+                        <p className="text-gray-500">Pool structure not initialized. Use Admin Panel &gt; Seed Database.</p>
                     </div>
                 )}
             </div>
