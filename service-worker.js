@@ -1,7 +1,7 @@
 
 // A simple service worker for basic PWA functionality (caching and push notifications)
 
-const CACHE_NAME = 'football-eswatini-cache-v5';
+const CACHE_NAME = 'football-eswatini-cache-v4';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -9,6 +9,7 @@ const urlsToCache = [
 
 // Install event: cache core assets
 self.addEventListener('install', event => {
+  // Force the waiting service worker to become the active service worker.
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -32,38 +33,29 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
+        // Take control of all clients immediately
         return self.clients.claim();
     })
   );
 });
 
-/**
- * STRATEGY CHANGE: Network-First (v5)
- * We always try the network first. This ensures that as long as the user has internet,
- * they get the latest code you pushed to GitHub. The cache is ONLY a fallback for offline use.
- */
+// Fetch event: serve from cache if available, otherwise fetch from network
 self.addEventListener('fetch', event => {
-  // Never cache Firestore
+  // DO NOT cache firestore requests - this often causes the "Could not reach backend" error
   if (event.request.url.indexOf('firestore.googleapis.com') > -1) {
     return fetch(event.request);
   }
 
   event.respondWith(
-    fetch(event.request)
+    caches.match(event.request)
       .then(response => {
-        // If network works, update the cache and return response
-        if (response && response.status === 200) {
-           const responseToCache = response.clone();
-           caches.open(CACHE_NAME).then(cache => {
-             cache.put(event.request, responseToCache);
-           });
+        // Cache hit - return response
+        if (response) {
+          return response;
         }
-        return response;
-      })
-      .catch(() => {
-        // Only if network fails (offline), try the cache
-        return caches.match(event.request);
-      })
+        return fetch(event.request);
+      }
+    )
   );
 });
 
@@ -71,12 +63,15 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   try {
     const data = event.data.json();
+    console.log('Push received:', data);
+
     const title = data.title || 'Football Eswatini News';
     const options = {
       body: data.body || 'Something new happened!',
       icon: 'assets/icon-192.png',
       badge: 'assets/icon-192.png',
     };
+
     event.waitUntil(self.registration.showNotification(title, options));
   } catch (e) {
     console.error('Push error', e);

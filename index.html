@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,11 +5,6 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Football Eswatini</title>
-    
-    <!-- Force browser to check for updates -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
     
     <!-- PWA additions -->
     <link rel="manifest" href="/manifest.json" />
@@ -60,14 +54,16 @@
     </script>
     
     <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     
     <style>
       html {
         scroll-behavior: smooth;
+        /* Force a consistent, compact base font size to prevent layout issues on deployment */
         font-size: 14px;
-        -webkit-text-size-adjust: 100%; 
+        -webkit-text-size-adjust: 100%; /* Prevent automatic text inflation on mobile */
       }
       body {
         font-family: 'Inter', sans-serif;
@@ -76,8 +72,8 @@
         display: none;
       }
       .scrollbar-hide {
-        -ms-overflow-style: none; 
-        scrollbar-width: none; 
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
       }
       
       .bg-eswatini-pattern {
@@ -121,27 +117,10 @@
 </head>
   <body class="bg-eswatini-pattern">
     <div id="root"></div>
-    
-    <!-- Cache-busting script tag using current timestamp -->
-    <script type="module">
-      const script = document.createElement('script');
-      script.type = 'module';
-      script.src = '/index.tsx?v=' + Date.now();
-      document.body.appendChild(script);
-    </script>
-
+    <script type="module" src="/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // Check for existing SWs and potentially clear if stuck
-          try {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-                for (let registration of registrations) {
-                    registration.update().catch(err => {}); 
-                }
-            }).catch(err => {});
-          } catch (e) {}
-
           navigator.serviceWorker.register('/service-worker.js').then(registration => {
             console.log('SW registered: ', registration);
           }).catch(registrationError => {
