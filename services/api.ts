@@ -17,7 +17,7 @@ import { Referee, Rule, refereeData as defaultRefereeData } from '../data/refere
 import { calculateStandings, normalizeTeamName, superNormalize } from './utils';
 import { User } from '../contexts/AuthContext';
 import { ExclusiveItem, TeamYamVideo, initialExclusiveContent, initialTeamYamVideos } from '../data/features';
-import { internationalData, HybridTournament } from '../data/international';
+import { internationalData, youthHybridData, HybridTournament } from '../data/international';
 
 // NOTE: All data fetching functions now use Firebase Firestore with failover to local mock data.
 
@@ -691,7 +691,6 @@ export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
     } catch { return initialTeamYamVideos; }
 };
 export const addTeamYamVideo = async (data: Omit<TeamYamVideo, 'id'>) => { await addDoc(collection(db, 'teamYamVideos'), data); };
-// Fix typo 'cell' to 'doc' in updateTeamYamVideo function.
 export const updateTeamYamVideo = async (id: string, data: Partial<TeamYamVideo>) => { await updateDoc(doc(db, 'teamYamVideos', id), data); };
 export const deleteTeamYamVideo = async (id: string) => { await deleteDoc(doc(db, 'teamYamVideos', id)); };
 

@@ -13,8 +13,6 @@ import TeamProfilePage from './components/TeamProfilePage';
 import PlayerProfilePage from './components/PlayerProfilePage';
 import AuthModal from './components/AuthModal';
 import { useAuth } from './contexts/AuthContext';
-import DataManagementPage from './components/DataManagementPage';
-import RefreshPage from './components/RefreshPage';
 
 
 const InteractivePage = lazy(() => import('./components/InteractivePage'));
@@ -60,6 +58,8 @@ const SponsorOnboardingPage = lazy(() => import('./components/SponsorOnboardingP
 const BrandedClubExample = lazy(() => import('./components/BrandedClubExample'));
 const InternationalPage = lazy(() => import('./components/InternationalPage'));
 const LeagueRegistrationPage = lazy(() => import('./components/LeagueRegistrationPage'));
+const DataManagementPage = lazy(() => import('./components/DataManagementPage'));
+const RefreshPage = lazy(() => import('./components/RefreshPage'));
 
 
 const App: React.FC = () => {
