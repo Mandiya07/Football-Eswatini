@@ -44,12 +44,15 @@ const Navigation: React.FC = () => {
   const navItems = [
     { name: 'Home', to: '/' },
     { name: 'News', to: '/news' },
-    { name: 'National', to: '/national-team' },
-    { name: 'Regional', to: '/regional' },
     { name: 'Matches', to: '/fixtures' },
     { name: 'Logs', to: '/logs' },
-    { name: 'Intl', to: '/international' },
-    { name: 'Fans', to: '/interactive' },
+    { name: 'Live', to: '/live-updates' },
+    { name: 'Cups', to: '/cups' },
+    { name: 'National', to: '/national-team' },
+    { name: 'Women', to: '/womens' },
+    { name: 'Regional', to: '/regional' },
+    { name: 'International', to: '/international' },
+    { name: 'Youth', to: '/youth' },
     { name: 'Shop', to: '/shop'},
   ];
 
@@ -94,7 +97,7 @@ const Navigation: React.FC = () => {
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
-    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[12px] xl:text-[13px] font-black uppercase tracking-tight xl:tracking-wider h-full flex items-center px-2 xl:px-3 border-b-4 border-transparent whitespace-nowrap";
+    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[11px] xl:text-[12.5px] font-bold tracking-tight h-full flex items-center px-1.5 xl:px-2 border-b-4 border-transparent whitespace-nowrap";
     const activeClass = "text-accent !border-accent active-mobile-nav shadow-[inset_0_-4px_0_0_rgba(253,185,19,1)]";
     return `${baseClass} ${isActive ? activeClass : 'opacity-80 hover:opacity-100'}`;
   };
@@ -135,13 +138,13 @@ const Navigation: React.FC = () => {
                         value={searchQuery}
                         onChange={handleSearchChange}
                         onKeyDown={handleSearchSubmit}
-                        className="hidden xl:block bg-white/10 text-white placeholder-white/40 rounded-full py-1.5 pl-10 pr-4 text-xs w-32 xl:w-40 focus:outline-none focus:ring-2 focus:ring-accent focus:w-56 transition-all duration-300 border border-white/20"
+                        className="hidden 2xl:block bg-white/10 text-white placeholder-white/40 rounded-full py-1.5 pl-10 pr-4 text-xs w-32 xl:w-40 focus:outline-none focus:ring-2 focus:ring-accent focus:w-56 transition-all duration-300 border border-white/20"
                     />
-                    <div className="xl:absolute xl:inset-y-0 xl:left-3 hidden xl:flex items-center pointer-events-none">
+                    <div className="2xl:absolute 2xl:inset-y-0 2xl:left-3 hidden 2xl:flex items-center pointer-events-none">
                         <SearchIcon className="h-5 w-5 md:h-4 md:w-4 text-white/50" />
                     </div>
                     {/* Mobile/Tablet Search Button */}
-                    <button onClick={() => navigate('/news')} className="xl:hidden text-white p-2 hover:text-accent">
+                    <button onClick={() => navigate('/news')} className="2xl:hidden text-white p-2 hover:text-accent">
                         <SearchIcon className="h-6 w-6" />
                     </button>
                 </div>
@@ -208,7 +211,7 @@ const Navigation: React.FC = () => {
                         key={item.name} 
                         to={item.to} 
                         className={({ isActive }) => `
-                            flex-shrink-0 px-4 py-3 text-[11px] font-bold uppercase tracking-wider transition-all duration-300 snap-center
+                            flex-shrink-0 px-4 py-3 text-[11px] font-bold tracking-tight transition-all duration-300 snap-center
                             ${isActive ? 'text-accent border-b-2 border-accent' : 'text-white/60 hover:text-white'}
                             ${isActive ? 'active-mobile-nav shadow-[inset_0_-2px_0_0_rgba(253,185,19,1)]' : ''}
                         `}

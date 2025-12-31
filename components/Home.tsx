@@ -49,13 +49,13 @@ const Home: React.FC = () => {
             <div className="w-full">
                 <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">Recent & Upcoming</h2>
                 <Suspense fallback={<SectionLoader />}>
-                    <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="max-h-[300px]" />
+                    <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="max-h-[450px]" />
                 </Suspense>
             </div>
             <div className="w-full">
                 <h2 className="text-3xl font-display font-bold mb-6 text-gray-800">League Standings</h2>
                 <Suspense fallback={<SectionLoader />}>
-                    <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="max-h-[300px]" />
+                    <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="max-h-[450px]" />
                 </Suspense>
             </div>
         </div>

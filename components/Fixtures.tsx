@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -307,7 +308,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
             </div>
 
             {loading ? <div className="flex justify-center py-12"><Spinner /></div> : groupedData.length > 0 ? (
-                <div className={maxHeight || ''}>
+                <div className={`${maxHeight || ''} ${maxHeight ? 'overflow-y-auto custom-scrollbar pr-2' : ''}`}>
                     {groupedData.map((group) => (
                         <div key={group.title} className="mb-8">
                             <h3 className="text-sm font-black uppercase text-gray-400 mb-3 tracking-widest pl-2 border-l-4 border-accent">{group.title}</h3>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from './ui/Card';
@@ -127,7 +128,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
         </div>
 
         <Card className="shadow-lg overflow-hidden border border-gray-100">
-            <div className={`overflow-x-auto ${maxHeight || ''}`}>
+            <div className={`overflow-x-auto overflow-y-auto custom-scrollbar ${maxHeight || ''}`}>
                  {loading ? (
                     <div className="flex justify-center items-center py-20"><Spinner /></div>
                  ) : leagueData.length > 0 ? (
