@@ -1,4 +1,3 @@
-
 import { Team, CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 
@@ -126,13 +125,14 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         });
     });
 
-    // 3. Process finished matches
+    // 3. Process finished matches strictly by date
     const finishedMatches = allMatches.filter(r => 
         (r.status === 'finished' || r.status === 'abandoned') && 
         r.scoreA != null && 
         r.scoreB != null
     );
     
+    // Sort matches oldest to newest to build form guide chronologically (appending to front)
     const sortedMatches = finishedMatches
         .filter(fixture => fixture.fullDate)
         .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
@@ -159,6 +159,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
             teamA.stats.w += 1;
             teamA.stats.pts += 3;
             teamB.stats.l += 1;
+            // Prepend new results so index 0 is newest
             teamA.stats.form = ['W', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
             teamB.stats.form = ['L', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         } else if (scoreB > scoreA) {
@@ -166,7 +167,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
             teamB.stats.pts += 3;
             teamA.stats.l += 1;
             teamB.stats.form = ['W', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
-            teamA.stats.form = ['L', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
+            teamA.stats.form = ['L', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         } else {
             teamA.stats.d += 1;
             teamB.stats.d += 1;
@@ -181,6 +182,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     return Array.from(teamsMap.values()).sort((a, b) => {
         if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
         if (b.stats.gd !== a.stats.gd) return b.stats.gd - a.stats.gd;
+        if (b.stats.gs !== a.stats.gs) return b.stats.gs - a.stats.gs;
         return a.name.localeCompare(b.name);
     });
 };

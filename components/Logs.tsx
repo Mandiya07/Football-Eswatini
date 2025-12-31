@@ -132,30 +132,40 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     <div className="flex justify-center items-center py-20"><Spinner /></div>
                  ) : leagueData.length > 0 ? (
                     <table className="w-full text-sm">
-                        <thead className="bg-primary text-white text-xs uppercase font-bold sticky top-0 z-10">
+                        <thead className="bg-primary text-white text-[10px] sm:text-xs uppercase font-bold sticky top-0 z-10">
                             <tr>
-                                <th className="px-3 py-4 w-8 text-center">#</th>
-                                <th className="px-3 py-4 text-left">Team</th>
-                                <th className="px-2 py-4 text-center">P</th>
-                                <th className="px-2 py-4 text-center">GD</th>
-                                <th className="px-2 py-4 text-center font-black">Pts</th>
-                                <th className="px-3 py-4 w-24">Form</th>
+                                <th className="px-2 sm:px-3 py-4 w-8 text-center">#</th>
+                                <th className="px-2 sm:px-3 py-4 text-left">Team</th>
+                                <th className="px-1 sm:px-2 py-4 text-center" title="Played">P</th>
+                                <th className="px-1 sm:px-2 py-4 text-center" title="Wins">W</th>
+                                <th className="px-1 sm:px-2 py-4 text-center" title="Draws">D</th>
+                                <th className="px-1 sm:px-2 py-4 text-center" title="Losses">L</th>
+                                <th className="px-1 sm:px-2 py-4 text-center hidden md:table-cell" title="Goals Scored">GS</th>
+                                <th className="px-1 sm:px-2 py-4 text-center hidden md:table-cell" title="Goals Conceded">GC</th>
+                                <th className="px-1 sm:px-2 py-4 text-center" title="Goal Difference">GD</th>
+                                <th className="px-1 sm:px-2 py-4 text-center font-black">Pts</th>
+                                <th className="px-2 sm:px-3 py-4 w-20 sm:w-24">Form</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y">
                             {leagueData.map((team, index) => (
                                 <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-3 py-3 font-bold text-gray-400 text-center">{index + 1}</td>
-                                    <td className="px-3 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <img src={findInMap(team.name, directoryMap)?.crestUrl || team.crestUrl} className="w-6 h-6 object-contain" alt="" />
-                                            <span className="font-bold text-gray-900">{team.name}</span>
+                                    <td className="px-2 sm:px-3 py-3 font-bold text-gray-400 text-center">{index + 1}</td>
+                                    <td className="px-2 sm:px-3 py-3">
+                                        <div className="flex items-center gap-2 sm:gap-3">
+                                            <img src={findInMap(team.name, directoryMap)?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
+                                            <span className="font-bold text-gray-900 truncate max-w-[80px] sm:max-w-none">{team.name}</span>
                                         </div>
                                     </td>
-                                    <td className="px-2 py-3 text-center">{team.stats.p}</td>
-                                    <td className="px-2 py-3 text-center">{team.stats.gd}</td>
-                                    <td className="px-2 py-3 text-center font-black text-primary">{team.stats.pts}</td>
-                                    <td className="px-3 py-3"><FormGuide form={team.stats.form} /></td>
+                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.p}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.w}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.d}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.l}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gs}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gc}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center font-black text-primary">{team.stats.pts}</td>
+                                    <td className="px-2 sm:px-3 py-3"><FormGuide form={team.stats.form} /></td>
                                 </tr>
                             ))}
                         </tbody>

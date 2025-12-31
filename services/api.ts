@@ -1,4 +1,3 @@
-
 import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
 import { db } from './firebase';
@@ -90,6 +89,18 @@ export interface ClubRegistrationRequest {
     status: 'pending' | 'approved' | 'rejected';
     submittedAt: any;
     promoCode?: string;
+}
+
+export interface LeagueRegistrationRequest {
+    id: string;
+    leagueName: string;
+    region: string;
+    managerName: string;
+    managerEmail: string;
+    managerId: string;
+    description: string;
+    status: 'pending' | 'approved' | 'rejected';
+    submittedAt: any;
 }
 
 export interface AdvertiserRequest {
@@ -875,6 +886,44 @@ export const approveClubRequest = async (request: ClubRegistrationRequest) => {
 };
 export const rejectClubRequest = async (id: string) => {
     await updateDoc(doc(db, 'clubRequests', id), { status: 'rejected' });
+};
+
+// --- League Requests ---
+export const fetchLeagueRequests = async (): Promise<LeagueRegistrationRequest[]> => {
+    try {
+       const q = query(collection(db, 'leagueRequests'), where('status', '==', 'pending'));
+       const snapshot = await getDocs(q);
+       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeagueRegistrationRequest));
+   } catch { return []; }
+};
+export const approveLeagueRequest = async (request: LeagueRegistrationRequest) => {
+    // 1. Upgrade the user to league_admin
+    if (request.managerId && request.managerId !== 'new_user') {
+        const userRef = doc(db, 'users', request.managerId);
+        await updateDoc(userRef, { 
+            role: 'league_admin', 
+            managedLeagues: arrayUnion(request.leagueName.toLowerCase().replace(/\s+/g, '-')) 
+        });
+    }
+
+    // 2. Create the actual competition document
+    const leagueId = request.leagueName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const compRef = doc(db, 'competitions', leagueId);
+    await setDoc(compRef, {
+        name: request.leagueName,
+        description: request.description,
+        region: request.region,
+        teams: [],
+        fixtures: [],
+        results: [],
+        categoryId: 'regional-leagues'
+    });
+
+    // 3. Mark request as approved
+    await updateDoc(doc(db, 'leagueRequests', request.id), { status: 'approved' });
+};
+export const rejectLeagueRequest = async (id: string) => {
+   await updateDoc(doc(db, 'leagueRequests', id), { status: 'rejected' });
 };
 
 export const fetchCategories = async (): Promise<Category[]> => {

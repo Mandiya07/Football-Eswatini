@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
@@ -54,15 +53,16 @@ const SocialMediaGenerator: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     // Helper to normalize team names for loose matching
-    const normalizeName = (name: string) => name.trim().toLowerCase().replace(/\s+fc$/i, '').replace(/\s+football club$/i, '').trim();
+    const normalizeName = (name: string) => (name || '').trim().toLowerCase().replace(/\s+fc$/i, '').replace(/\s+football club$/i, '').trim();
 
     // Helper to format dates
     const formatMatchDate = (dateStr: string) => {
         try {
+            if (!dateStr) return 'TBD';
             const d = new Date(dateStr);
             if (isNaN(d.getTime())) return dateStr;
             return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-        } catch { return dateStr; }
+        } catch { return dateStr || 'TBD'; }
     };
 
     const fetchRecentData = async () => {
@@ -76,7 +76,7 @@ const SocialMediaGenerator: React.FC = () => {
             // Build Directory Map for Crests (Primary Source)
             const dirCrestMap = new Map<string, string>();
             dirEntries.forEach(e => {
-                if (e.crestUrl) {
+                if (e.crestUrl && e.name) {
                     dirCrestMap.set(e.name.toLowerCase().trim(), e.crestUrl);
                     dirCrestMap.set(normalizeName(e.name), e.crestUrl);
                 }
@@ -90,6 +90,8 @@ const SocialMediaGenerator: React.FC = () => {
             const extractedMatches: SocialMatch[] = [];
 
             Object.values(allComps).forEach(comp => {
+                if (!comp || !comp.name) return;
+                
                 let isRelevant = false;
                 const nameLower = comp.name.toLowerCase();
                 const catLower = (comp.categoryId || '').toLowerCase();
@@ -126,13 +128,13 @@ const SocialMediaGenerator: React.FC = () => {
                         }
                     }
 
-                    const recentResults = (comp.results || []).filter(r => new Date(r.fullDate || '') >= sevenDaysAgo);
-                    const upcomingFixtures = (comp.fixtures || []).filter(f => new Date(f.fullDate || '') >= new Date() && new Date(f.fullDate || '') <= new Date(new Date().setDate(new Date().getDate() + 7)));
+                    const recentResults = (comp.results || []).filter(r => r.fullDate && new Date(r.fullDate) >= sevenDaysAgo);
+                    const upcomingFixtures = (comp.fixtures || []).filter(f => f.fullDate && new Date(f.fullDate) >= new Date() && new Date(f.fullDate) <= new Date(new Date().setDate(new Date().getDate() + 7)));
 
                     // Build local competition team map as fallback
                     const teamCrestMap = new Map<string, string>();
                     (comp.teams || []).forEach(t => {
-                        if (t.crestUrl) {
+                        if (t.crestUrl && t.name) {
                             teamCrestMap.set(t.name, t.crestUrl);
                             teamCrestMap.set(t.name.toLowerCase(), t.crestUrl);
                             teamCrestMap.set(t.name.trim(), t.crestUrl);
@@ -214,7 +216,7 @@ const SocialMediaGenerator: React.FC = () => {
             }
         } catch (error) {
             console.error("Error fetching data:", error);
-            alert("Failed to auto-fetch data.");
+            alert("Failed to auto-fetch data. See console for details.");
         } finally {
             setIsFetchingData(false);
         }
@@ -270,12 +272,6 @@ const SocialMediaGenerator: React.FC = () => {
             } else if (contentType === 'recap') {
                 const selectedMatch = rawMatches.find(m => selectedMatchIds.includes(m.id));
                 
-                if (!selectedMatch && !contextData.trim()) {
-                    alert("For a Match Recap, please select a match from the list or enter details manually in the text box.");
-                    setIsGenerating(false);
-                    return;
-                }
-
                 const specificContext = selectedMatch 
                     ? `Match: ${selectedMatch.teamA} vs ${selectedMatch.teamB}, Score: ${selectedMatch.scoreA}-${selectedMatch.scoreB}, Date: ${selectedMatch.date}, Venue: ${selectedMatch.venue}, Competition: ${selectedMatch.competition}`
                     : contextData;
@@ -302,7 +298,7 @@ const SocialMediaGenerator: React.FC = () => {
 
             // Using relaxed safety settings to prevent blocks on team names like "Killers", "Pirates", "Gunners"
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 contents: prompt,
                 config: {
                     safetySettings: [
@@ -315,9 +311,8 @@ const SocialMediaGenerator: React.FC = () => {
             });
 
             const text = response.text || "";
-            
             const captions = text.split('|||').map(c => c.trim()).filter(c => c.length > 0);
-            setGeneratedContent(captions);
+            setGeneratedContent(captions.length > 0 ? captions : [text]);
 
         } catch (error) {
             console.error("AI Generation failed:", error);
@@ -668,13 +663,13 @@ const SocialMediaGenerator: React.FC = () => {
 
     const drawMultiMatch = (ctx: CanvasRenderingContext2D, matches: SocialMatch[], width: number, height: number) => {
         const centerX = width / 2;
-        const leagueName = matches[0].competition.toUpperCase();
+        const leagueName = (matches[0]?.competition || division).toUpperCase();
         
         // --- HEADER SECTION ---
         let headerY = 80;
 
         // Draw League Logo if available
-        const leagueLogo = matches[0].competitionLogoUrl ? imageCache.get(matches[0].competitionLogoUrl) : null;
+        const leagueLogo = matches[0]?.competitionLogoUrl ? imageCache.get(matches[0].competitionLogoUrl) : null;
         if (leagueLogo) {
              const lSize = 140;
              const ratio = Math.min(lSize / leagueLogo.width, lSize / leagueLogo.height);
@@ -701,7 +696,7 @@ const SocialMediaGenerator: React.FC = () => {
         headerY += 60; // Spacing for Title
 
         const distinctMatchdays = new Set(matches.map(m => m.matchday).filter(Boolean));
-        let title = matches[0].type === 'result' ? 'MATCH RESULTS' : 'UPCOMING FIXTURES';
+        let title = matches[0]?.type === 'result' ? 'MATCH RESULTS' : 'UPCOMING FIXTURES';
         if (distinctMatchdays.size === 1) {
             title = `MATCHDAY ${Array.from(distinctMatchdays)[0]} ${matches[0].type === 'result' ? 'RESULTS' : 'FIXTURES'}`;
         }

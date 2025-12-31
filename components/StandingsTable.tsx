@@ -32,12 +32,14 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings }) => {
                     <tr>
                         <th className="px-4 py-3 w-8">#</th>
                         <th className="px-4 py-3">Team</th>
-                        <th className="px-4 py-3 text-center w-12" title="Played">P</th>
-                        <th className="px-4 py-3 text-center w-12" title="Won">W</th>
-                        <th className="px-4 py-3 text-center w-12" title="Drawn">D</th>
-                        <th className="px-4 py-3 text-center w-12" title="Lost">L</th>
-                        <th className="px-4 py-3 text-center w-12 font-bold" title="Goal Difference">GD</th>
-                        <th className="px-4 py-3 text-center w-12 font-bold" title="Points">Pts</th>
+                        <th className="px-2 py-3 text-center w-10" title="Played">P</th>
+                        <th className="px-2 py-3 text-center w-10" title="Won">W</th>
+                        <th className="px-2 py-3 text-center w-10" title="Drawn">D</th>
+                        <th className="px-2 py-3 text-center w-10" title="Lost">L</th>
+                        <th className="px-2 py-3 text-center w-10 hidden md:table-cell" title="Goals Scored">GS</th>
+                        <th className="px-2 py-3 text-center w-10 hidden md:table-cell" title="Goals Conceded">GC</th>
+                        <th className="px-2 py-3 text-center w-10 font-bold" title="Goal Difference">GD</th>
+                        <th className="px-2 py-3 text-center w-10 font-bold" title="Points">Pts</th>
                         <th className="px-4 py-3 w-32">Form</th>
                     </tr>
                 </thead>
@@ -62,12 +64,14 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings }) => {
                                     <span className="font-semibold text-gray-800 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
                                 </div>
                             </td>
-                            <td className="px-4 py-2 text-center">{team.stats.p}</td>
-                            <td className="px-4 py-2 text-center">{team.stats.w}</td>
-                            <td className="px-4 py-2 text-center">{team.stats.d}</td>
-                            <td className="px-4 py-2 text-center">{team.stats.l}</td>
-                            <td className="px-4 py-2 text-center font-bold">{team.stats.gd}</td>
-                            <td className="px-4 py-2 text-center font-bold bg-gray-50/50">{team.stats.pts}</td>
+                            <td className="px-2 py-2 text-center">{team.stats.p}</td>
+                            <td className="px-2 py-2 text-center">{team.stats.w}</td>
+                            <td className="px-2 py-2 text-center">{team.stats.d}</td>
+                            <td className="px-2 py-2 text-center">{team.stats.l}</td>
+                            <td className="px-2 py-2 text-center hidden md:table-cell">{team.stats.gs}</td>
+                            <td className="px-2 py-2 text-center hidden md:table-cell">{team.stats.gc}</td>
+                            <td className="px-2 py-2 text-center font-bold">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
+                            <td className="px-2 py-2 text-center font-bold bg-gray-50/50">{team.stats.pts}</td>
                             <td className="px-4 py-2">
                                 <FormGuide form={team.stats.form} />
                             </td>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
@@ -47,7 +46,7 @@ const ManageTeams: React.FC = () => {
             } else if (compList.length > 0) {
                 const firstCompId = compList[0].id;
                 setSelectedCompId(firstCompId);
-                setTeams((allComps[firstCompId].teams || []).sort((a,b) => a.name.localeCompare(b.name)));
+                setTeams((allComps[firstCompId]?.teams || []).sort((a,b) => a.name.localeCompare(b.name)));
             }
         } catch (error) {
             console.error("Failed to load data:", error);
@@ -125,9 +124,9 @@ const ManageTeams: React.FC = () => {
                 if (!compDocSnap.exists()) throw new Error("Competition not found");
                 const competition = compDocSnap.data() as Competition;
 
-                const targetId = String(teamId).trim();
+                const targetIdStr = String(teamId).trim();
                 
-                const teamIndex = (competition.teams || []).findIndex(t => String(t.id).trim() === targetId);
+                const teamIndex = (competition.teams || []).findIndex(t => String(t.id).trim() === targetIdStr);
                 
                 if (teamIndex === -1) throw new Error("Team not found in competition");
                 
@@ -223,15 +222,15 @@ const ManageTeams: React.FC = () => {
         }
     };
 
-    const handleSaveTeam = async (data: Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>, id?: number, addToDirectory: boolean = false) => {
+    const handleSaveTeam = async (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number, addToDirectory: boolean = false) => {
         setLoading(true);
         setIsFormModalOpen(false);
         
         try {
             const compDocRef = doc(db, 'competitions', selectedCompId);
             let finalTeamId = id;
-            let teamName = data.name.trim();
-            let crestUrl = data.crestUrl;
+            let teamName = (data.name || '').trim();
+            let crestUrl = data.crestUrl || '';
     
             // --- 1. SAVE TEAM TO COMPETITION ---
             if (id) { // EDITING
@@ -240,8 +239,8 @@ const ManageTeams: React.FC = () => {
                     if (!compDocSnap.exists()) throw new Error("Competition not found");
                     const competition = compDocSnap.data() as Competition;
                     
-                    const targetId = String(id).trim();
-                    const oldTeamIndex = (competition.teams || []).findIndex(t => String(t.id).trim() === targetId);
+                    const targetIdStr = String(id).trim();
+                    const oldTeamIndex = (competition.teams || []).findIndex(t => String(t.id).trim() === targetIdStr);
                     
                     if (oldTeamIndex === -1) throw new Error("Original team not found in competition for update");
     
@@ -250,7 +249,7 @@ const ManageTeams: React.FC = () => {
                     
                     updatedCompTeams[oldTeamIndex] = { ...oldTeam, ...data };
     
-                    if (oldTeam.name.trim() !== data.name.trim()) {
+                    if (data.name && oldTeam.name.trim() !== data.name.trim()) {
                         const oldNameLower = oldTeam.name.trim().toLowerCase();
                         const newName = data.name.trim();
                         
@@ -297,8 +296,8 @@ const ManageTeams: React.FC = () => {
                     
                     const newTeam: Team = {
                         id: newTeamId,
-                        name: data.name.trim(),
-                        crestUrl: data.crestUrl,
+                        name: (data.name || '').trim(),
+                        crestUrl: data.crestUrl || '',
                         players: [], fixtures: [], results: [], staff: [],
                         stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' }
                     };

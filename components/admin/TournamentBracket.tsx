@@ -56,13 +56,13 @@ const MatchCard: React.FC<{
   onResetWinner: (matchId: string) => void;
 }> = ({ match, teams, onTeamSelect, onScoreChange, onDateTimeChange, onDeclareWinner, onResetWinner }) => {
     
-    const team1 = teams.find(t => t.id === match.team1Id);
-    const team2 = teams.find(t => t.id === match.team2Id);
+    const team1 = teams.find(t => String(t.id) === String(match.team1Id));
+    const team2 = teams.find(t => String(t.id) === String(match.team2Id));
     
     const TeamSlot: React.FC<{ team: Team | undefined; slot: 'team1Id' | 'team2Id' }> = ({ team, slot }) => {
         // RENDER TEAM IF SELECTED
         if (team) {
-            const isWinner = match.winnerId === team.id;
+            const isWinner = String(match.winnerId) === String(team.id);
             return (
                 <div className={`flex items-center gap-2 ${isWinner ? 'font-bold text-green-700' : ''}`}>
                     <img src={team.crestUrl} alt={team.name} className="w-5 h-5 object-contain flex-shrink-0" />
@@ -240,11 +240,11 @@ const TournamentBracket: React.FC = () => {
             const compList = Object.entries(allComps).map(([id, c]) => ({ id, name: c.name }));
             setCompetitions(compList.sort((a, b) => a.name.localeCompare(b.name)));
             
-            setExistingTournaments(allCups);
+            setExistingTournaments(allCups || []);
             
             const crestMap = new Map<string, string>();
             dirEntries.forEach(entry => {
-                if (entry.crestUrl) {
+                if (entry.crestUrl && entry.name) {
                     crestMap.set(entry.name.trim().toLowerCase(), entry.crestUrl);
                 }
             });
@@ -252,6 +252,7 @@ const TournamentBracket: React.FC = () => {
 
             const teamMap = new Map<number, Team>();
             Object.values(allComps).flatMap(c => c.teams || []).forEach(t => {
+                if (!t || !t.id || !t.name) return;
                 const dirCrest = crestMap.get(t.name.trim().toLowerCase());
                 const teamWithCrest = dirCrest ? { ...t, crestUrl: dirCrest } : t;
                 teamMap.set(t.id, teamWithCrest);
@@ -538,9 +539,9 @@ const TournamentBracket: React.FC = () => {
             title: round.title,
             matches: round.matches.map(m => ({
                 id: m.id,
-                team1: { name: allTeams.find(t => t.id === m.team1Id)?.name || 'TBD', crestUrl: allTeams.find(t => t.id === m.team1Id)?.crestUrl, score: m.score1 || undefined },
-                team2: { name: allTeams.find(t => t.id === m.team2Id)?.name || 'TBD', crestUrl: allTeams.find(t => t.id === m.team2Id)?.crestUrl, score: m.score2 || undefined },
-                winner: m.winnerId === m.team1Id ? 'team1' : m.winnerId === m.team2Id ? 'team2' : undefined,
+                team1: { name: allTeams.find(t => String(t.id) === String(m.team1Id))?.name || 'TBD', crestUrl: allTeams.find(t => String(t.id) === String(m.team1Id))?.crestUrl, score: m.score1 || undefined },
+                team2: { name: allTeams.find(t => String(t.id) === String(m.team2Id))?.name || 'TBD', crestUrl: allTeams.find(t => String(t.id) === String(m.team2Id))?.crestUrl, score: m.score2 || undefined },
+                winner: String(m.winnerId) === String(m.team1Id) ? 'team1' : String(m.winnerId) === String(m.team2Id) ? 'team2' : undefined,
                 date: m.date, time: m.time, venue: m.venue
             }))
         }));
@@ -573,158 +574,160 @@ const TournamentBracket: React.FC = () => {
     const previewTournament = getPreviewTournament();
 
     return (
-        <Card className="shadow-lg animate-fade-in">
-            <CardContent className="p-6">
-                 {!tournament ? (
-                    <>
-                        <h3 className="text-2xl font-bold font-display mb-4">Tournament Management</h3>
-                        
-                        {existingTournaments.length > 0 && (
-                            <div className="mb-8">
-                                <h4 className="text-lg font-bold text-gray-700 mb-3">Existing Tournaments</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto p-2 bg-gray-50 rounded-lg border">
-                                    {existingTournaments.map(t => (
-                                        <div key={t.id} className="flex justify-between items-center p-3 bg-white rounded border hover:shadow-sm">
-                                            <div className="flex items-center gap-3">
-                                                <img src={t.logoUrl || 'https://via.placeholder.com/64?text=Cup'} className="w-8 h-8 object-contain rounded border" alt="" />
-                                                <span className="font-semibold text-sm">{t.name}</span>
+        <div className="space-y-6">
+            <Card className="shadow-lg animate-fade-in">
+                <CardContent className="p-6">
+                    {!tournament ? (
+                        <>
+                            <h3 className="text-2xl font-bold font-display mb-4">Tournament Management</h3>
+                            
+                            {existingTournaments.length > 0 && (
+                                <div className="mb-8">
+                                    <h4 className="text-lg font-bold text-gray-700 mb-3">Existing Tournaments</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto p-2 bg-gray-50 rounded-lg border">
+                                        {existingTournaments.map(t => (
+                                            <div key={t.id} className="flex justify-between items-center p-3 bg-white rounded border hover:shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <img src={t.logoUrl || 'https://via.placeholder.com/64?text=Cup'} className="w-8 h-8 object-contain rounded border" alt="" />
+                                                    <span className="font-semibold text-sm">{t.name}</span>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Button onClick={() => handleEditExisting(t)} className="text-xs h-8 px-3 bg-blue-100 text-blue-600 hover:bg-blue-200">
+                                                        <EditIcon className="w-3 h-3 mr-1"/> Edit
+                                                    </Button>
+                                                    <Button 
+                                                        onClick={() => handleDeleteTournament(t.id)} 
+                                                        className="text-xs h-8 px-3 bg-red-100 text-red-600 hover:bg-red-200"
+                                                        disabled={deletingId === t.id}
+                                                    >
+                                                        {deletingId === t.id ? <Spinner className="w-3 h-3 border-red-600 border-2" /> : <><TrashIcon className="w-3 h-3 mr-1"/> Delete</>}
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <div className="flex gap-2">
-                                                <Button onClick={() => handleEditExisting(t)} className="text-xs h-8 px-3 bg-blue-100 text-blue-600 hover:bg-blue-200">
-                                                    <EditIcon className="w-3 h-3 mr-1"/> Edit
-                                                </Button>
-                                                <Button 
-                                                    onClick={() => handleDeleteTournament(t.id)} 
-                                                    className="text-xs h-8 px-3 bg-red-100 text-red-600 hover:bg-red-200"
-                                                    disabled={deletingId === t.id}
-                                                >
-                                                    {deletingId === t.id ? <Spinner className="w-3 h-3 border-red-600 border-2" /> : <><TrashIcon className="w-3 h-3 mr-1"/> Delete</>}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        <h4 className="text-lg font-bold text-gray-700 mb-3">Create New Tournament</h4>
-                        <div className="space-y-4 max-w-md bg-gray-50 p-6 rounded-lg border">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Source Teams (Optional)</label>
-                                <select 
-                                    value={selectedSource} 
-                                    onChange={e => handleSourceChange(e.target.value)} 
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500"
-                                >
-                                    <option value="">-- All Available Teams --</option>
-                                    {competitions.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Name</label>
-                                <input 
-                                    type="text" 
-                                    value={tournamentName} 
-                                    onChange={e => setTournamentName(e.target.value)} 
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                                    placeholder="e.g. 2024 Knockout Cup"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Logo</label>
-                                <div className="flex items-center gap-2">
+                            <h4 className="text-lg font-bold text-gray-700 mb-3">Create New Tournament</h4>
+                            <div className="space-y-4 max-w-md bg-gray-50 p-6 rounded-lg border">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Source Teams (Optional)</label>
+                                    <select 
+                                        value={selectedSource} 
+                                        onChange={e => handleSourceChange(e.target.value)} 
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500"
+                                    >
+                                        <option value="">-- All Available Teams --</option>
+                                        {competitions.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Name</label>
                                     <input 
                                         type="text" 
-                                        value={tournamentLogo} 
-                                        onChange={(e) => setTournamentLogo(e.target.value)} 
-                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm"
-                                        placeholder="Image URL"
+                                        value={tournamentName} 
+                                        onChange={e => setTournamentName(e.target.value)} 
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                        placeholder="e.g. 2024 Knockout Cup"
                                     />
-                                    <label className="cursor-pointer bg-white px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 whitespace-nowrap">
-                                        Upload <input type="file" className="hidden" onChange={(e) => handleLogoFileChange(e, false)} accept="image/*" />
-                                    </label>
                                 </div>
-                                {tournamentLogo && <img src={tournamentLogo} className="h-12 mt-2 object-contain bg-gray-100 rounded border p-1" alt="Logo preview" />}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Bracket Size</label>
-                                <select 
-                                    value={numTeams} 
-                                    onChange={e => setNumTeams(parseInt(e.target.value))} 
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                                >
-                                    <option value={4}>4 Teams (Semi-Finals)</option>
-                                    <option value={8}>8 Teams (Quarter-Finals)</option>
-                                    <option value={16}>16 Teams (Round of 16)</option>
-                                    <option value={32}>32 Teams (Round of 32)</option>
-                                </select>
-                            </div>
-                            <Button onClick={generateBracket} className="bg-primary text-white hover:bg-primary-dark w-full" disabled={loading}>
-                                {loading ? <Spinner className="w-4 h-4 border-2 border-white" /> : 'Create & Edit Bracket'}
-                            </Button>
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        <div className="flex flex-col sm:flex-row justify-between items-start mb-6 gap-4 border-b pb-6">
-                            <div className="flex-grow space-y-4 w-full">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                     <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tournament Name</label>
-                                        <input
-                                            type="text"
-                                            value={tournament.name}
-                                            onChange={(e) => updateBracket(prev => ({ ...prev, name: e.target.value }))}
-                                            className="font-bold text-xl border-gray-300 rounded-md w-full px-3 py-2"
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Logo</label>
+                                    <div className="flex items-center gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={tournamentLogo} 
+                                            onChange={(e) => setTournamentLogo(e.target.value)} 
+                                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm"
+                                            placeholder="Image URL"
                                         />
-                                     </div>
-                                     <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Logo</label>
-                                        <div className="flex items-center gap-2">
-                                            <img src={tournament.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-10 h-10 object-contain bg-gray-100 rounded border p-1" alt="Current Logo" />
+                                        <label className="cursor-pointer bg-white px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 whitespace-nowrap">
+                                            Upload <input type="file" className="hidden" onChange={(e) => handleLogoFileChange(e, false)} accept="image/*" />
+                                        </label>
+                                    </div>
+                                    {tournamentLogo && <img src={tournamentLogo} className="h-12 mt-2 object-contain bg-gray-100 rounded border p-1" alt="Logo preview" />}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Bracket Size</label>
+                                    <select 
+                                        value={numTeams} 
+                                        onChange={e => setNumTeams(parseInt(e.target.value))} 
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                    >
+                                        <option value={4}>4 Teams (Semi-Finals)</option>
+                                        <option value={8}>8 Teams (Quarter-Finals)</option>
+                                        <option value={16}>16 Teams (Round of 16)</option>
+                                        <option value={32}>32 Teams (Round of 32)</option>
+                                    </select>
+                                </div>
+                                <Button onClick={generateBracket} className="bg-primary text-white hover:bg-primary-dark w-full" disabled={loading}>
+                                    {loading ? <Spinner className="w-4 h-4 border-2 border-white" /> : 'Create & Edit Bracket'}
+                                </Button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex flex-col sm:flex-row justify-between items-start mb-6 gap-4 border-b pb-6">
+                                <div className="flex-grow space-y-4 w-full">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tournament Name</label>
                                             <input
                                                 type="text"
-                                                value={tournament.logoUrl || ''}
-                                                onChange={(e) => updateBracket(prev => ({ ...prev, logoUrl: e.target.value }))}
-                                                className="text-sm border-gray-300 rounded-md flex-grow px-3 py-2"
-                                                placeholder="Logo URL"
+                                                value={tournament.name}
+                                                onChange={(e) => updateBracket(prev => ({ ...prev, name: e.target.value }))}
+                                                className="font-bold text-xl border-gray-300 rounded-md w-full px-3 py-2"
                                             />
-                                            <label className="cursor-pointer bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded text-xs font-bold text-gray-700 whitespace-nowrap">
-                                                Upload
-                                                <input type="file" className="hidden" onChange={(e) => handleLogoFileChange(e, true)} accept="image/*" />
-                                            </label>
                                         </div>
-                                     </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Logo</label>
+                                            <div className="flex items-center gap-2">
+                                                <img src={tournament.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-10 h-10 object-contain bg-gray-100 rounded border p-1" alt="Current Logo" />
+                                                <input
+                                                    type="text"
+                                                    value={tournament.logoUrl || ''}
+                                                    onChange={(e) => updateBracket(prev => ({ ...prev, logoUrl: e.target.value }))}
+                                                    className="text-sm border-gray-300 rounded-md flex-grow px-3 py-2"
+                                                    placeholder="Logo URL"
+                                                />
+                                                <label className="cursor-pointer bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded text-xs font-bold text-gray-700 whitespace-nowrap">
+                                                    Upload
+                                                    <input type="file" className="hidden" onChange={(e) => handleLogoFileChange(e, true)} accept="image/*" />
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-gray-600 italic">
+                                        {saving ? 'Saving changes...' : 'Changes saved automatically.'}
+                                    </p>
                                 </div>
-                                <p className="text-xs text-gray-600 italic">
-                                    {saving ? 'Saving changes...' : 'Changes saved automatically.'}
-                                </p>
+                                <div className="flex gap-2 flex-shrink-0 mt-4 md:mt-0 items-start">
+                                    <Button 
+                                        onClick={() => setShowPreview(!showPreview)} 
+                                        className={`text-sm flex items-center gap-2 h-9 ${showPreview ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-yellow-500 text-white hover:bg-yellow-600 shadow-md'}`}
+                                    >
+                                        <EyeIcon className="w-4 h-4" /> {showPreview ? 'Edit Matches' : 'Preview Bracket'}
+                                    </Button>
+                                    <Button onClick={() => setTournament(null)} className="bg-gray-200 text-gray-800 text-sm h-9 hover:bg-gray-300">
+                                        Close
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="flex gap-2 flex-shrink-0 mt-4 md:mt-0 items-start">
-                                <Button 
-                                    onClick={() => setShowPreview(!showPreview)} 
-                                    className={`text-sm flex items-center gap-2 h-9 ${showPreview ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-yellow-500 text-white hover:bg-yellow-600 shadow-md'}`}
-                                >
-                                    <EyeIcon className="w-4 h-4" /> {showPreview ? 'Edit Matches' : 'Preview Bracket'}
-                                </Button>
-                                <Button onClick={() => setTournament(null)} className="bg-gray-200 text-gray-800 text-sm h-9 hover:bg-gray-300">
-                                    Close
-                                </Button>
-                            </div>
-                        </div>
-                        {showPreview && previewTournament ? (
-                            <div className="border-t pt-4">
-                                <TournamentBracketDisplay tournament={previewTournament} />
-                            </div>
-                        ) : (
-                            renderBracket()
-                        )}
-                    </>
-                )}
-            </CardContent>
-        </Card>
+                            {showPreview && previewTournament ? (
+                                <div className="border-t pt-4">
+                                    <TournamentBracketDisplay tournament={previewTournament} />
+                                </div>
+                            ) : (
+                                renderBracket()
+                            )}
+                        </>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
     );
 };
 
