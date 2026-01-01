@@ -1,6 +1,6 @@
 import React, { useState, lazy } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import AdminLoginPrompt from './AdminLoginPrompt';
+import AdminLoginPrompt from './admin/AdminLoginPrompt';
 import ApprovalQueue from './admin/ApprovalQueue';
 import MergeTeams from './admin/MergeTeams';
 import RecalculateLogs from './admin/RecalculateLogs';
@@ -21,7 +21,6 @@ import CommunityEventManagement from './admin/CommunityEventManagement';
 import NDAGenerator from './admin/NDAGenerator';
 import HybridTournamentManagement from './admin/HybridTournamentManagement';
 import MaintenanceTools from './admin/MaintenanceTools';
-import AIAssistantPage from './AIAssistantPage';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -55,7 +54,7 @@ const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance' | 'ai-assistant';
+type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -99,7 +98,6 @@ const AdminPanelPage: React.FC = () => {
       case 'reset': return <ResetAllData />;
       case 'social': return <SocialMediaGenerator />;
       case 'maintenance': return <MaintenanceTools />;
-      case 'ai-assistant': return <AIAssistantPage />;
       default: return null;
     }
   };
@@ -135,10 +133,7 @@ const AdminPanelPage: React.FC = () => {
             <div className="flex flex-col md:flex-row gap-8 items-start">
                 <aside className="w-full md:w-64 flex-shrink-0">
                     <div className="space-y-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Intelligent Tools</h4>
-                        <TabButton tabName="ai-assistant" label="Admin AI Pundit" Icon={SparklesIcon} className="bg-purple-50 text-purple-700 hover:bg-purple-100" />
-                        
-                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Content</h4>
+                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Content</h4>
                         <TabButton tabName="news" label="News" Icon={NewspaperIcon} />
                         <TabButton tabName="social" label="Social Gen" Icon={ShareIcon} className="bg-purple-50 text-purple-700 hover:bg-purple-100" />
                         <TabButton tabName="shop" label="Shop Items" Icon={TagIcon} />
