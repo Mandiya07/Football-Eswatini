@@ -16,7 +16,7 @@ import { db } from '../../services/firebase';
 import { calculateStandings } from '../../services/utils';
 
 type DivisionType = 'International' | 'MTN Premier League' | 'National First Division League' | 'Regional' | 'Cups' | 'National Team' | 'Womens Football';
-type ContentType = 'captions' | 'summary' | 'image' | 'recap';
+type ContentType = 'captions' | 'image' | 'summary';
 type PlatformType = 'twitter' | 'facebook' | 'instagram';
 
 interface SocialMatch {
@@ -39,7 +39,7 @@ interface SocialMatch {
 const SocialMediaGenerator: React.FC = () => {
     const [division, setDivision] = useState<DivisionType>('MTN Premier League');
     const [contentType, setContentType] = useState<ContentType>('captions');
-    const [platform, setPlatform] = useState<PlatformType>('twitter');
+    const [platform, setPlatform] = useState<PlatformType>('instagram');
     const [contextData, setContextData] = useState('');
     const [generatedContent, setGeneratedContent] = useState<string[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -50,8 +50,10 @@ const SocialMediaGenerator: React.FC = () => {
     const [rawMatches, setRawMatches] = useState<SocialMatch[]>([]);
     const [selectedMatchIds, setSelectedMatchIds] = useState<string[]>([]);
     const [imageCache, setImageCache] = useState<Map<string, HTMLImageElement>>(new Map());
+    const [isGeneratingImage, setIsGeneratingImage] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
+    // Robust Normalization for Crest Matching
     const normalizeName = (name: string) => (name || '').trim().toLowerCase().replace(/\s+fc$/i, '').replace(/\s+football club$/i, '').trim();
 
     const formatMatchDate = (dateStr: string) => {
@@ -71,13 +73,10 @@ const SocialMediaGenerator: React.FC = () => {
                 fetchDirectoryEntries().catch(e => { console.error("Directory fetch failed", e); return []; })
             ]);
 
-            if (Object.keys(allComps).length === 0) {
-                alert("Database warning: No competition data found. Verify your Firestore connection.");
-            }
-
             const dirCrestMap = new Map<string, string>();
             dirEntries.forEach(e => {
                 if (e.crestUrl && e.name) {
+                    // Store multiple keys for robust matching
                     dirCrestMap.set(e.name.toLowerCase().trim(), e.crestUrl);
                     dirCrestMap.set(normalizeName(e.name), e.crestUrl);
                 }
@@ -160,13 +159,12 @@ const SocialMediaGenerator: React.FC = () => {
             if (extractedMatches.length > 0) setSelectedMatchIds([extractedMatches[0].id]);
         } catch (error) {
             console.error("Auto-fetch error", error);
-            alert("Error connecting to data services. Check your connection.");
         } finally {
             setIsFetchingData(false);
         }
     };
 
-    const handleGenerate = async () => {
+    const handleGenerateCaptions = async () => {
         if (!contextData.trim()) return alert("Enter context first.");
         if (!process.env.API_KEY) return alert('API Key missing.');
 
@@ -174,116 +172,336 @@ const SocialMediaGenerator: React.FC = () => {
         setGeneratedContent([]);
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `Write 5 social media captions for ${platform} based on: ${contextData}. Use delimiters ||| between each.`;
+            const prompt = `Write 3 engaging social media posts for ${platform} based on these Eswatini football updates: ${contextData}. Use emojis and local hashtags. Separate each post with |||`;
             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-            const text = response.text || "";
-            setGeneratedContent(text.split('|||').map(c => c.trim()).filter(c => c.length > 0));
+            setGeneratedContent(response.text?.split('|||').map(s => s.trim()) || []);
         } catch (error) {
-            console.error("AI Gen error", error);
-            alert("Generation failed.");
+            console.error(error);
         } finally {
             setIsGenerating(false);
         }
     };
 
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        alert("Copied!");
+    // --- Image Generation Logic ---
+
+    const toggleMatchSelection = (id: string) => {
+        setSelectedMatchIds(prev => prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id].slice(0, 8)); // Limit to 8
     };
 
-    const saveAsNews = async () => {
-        if (generatedContent.length === 0) return;
-        try {
-            await addDoc(collection(db, "news"), {
-                title: `${division} Update`,
-                date: new Date().toISOString(),
-                content: generatedContent[0],
-                summary: generatedContent[0].substring(0, 100),
-                image: 'https://via.placeholder.com/800x400?text=Update',
-                category: ['Social Media', division],
-                url: `/news/update-${Date.now()}`
-            });
-            setSavedAsNews(true);
-            alert("Posted to News Feed!");
-        } catch (e) { console.error(e); }
+    const loadImage = (url: string): Promise<HTMLImageElement | null> => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        });
+    };
+
+    const generateGraphic = async () => {
+        const matchesToDraw = rawMatches.filter(m => selectedMatchIds.includes(m.id));
+        if (matchesToDraw.length === 0) return alert("Select at least one match.");
+        
+        setIsGeneratingImage(true);
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Set Portrait Dimensions (e.g. 1080 x 1350 for Instagram)
+        const W = 1080;
+        const H = 1350;
+        canvas.width = W;
+        canvas.height = H;
+
+        // 1. Pre-load Images (Crests and Logos)
+        const urlsToLoad = new Set<string>();
+        matchesToDraw.forEach(m => {
+            if (m.teamACrest) urlsToLoad.add(m.teamACrest);
+            if (m.teamBCrest) urlsToLoad.add(m.teamBCrest);
+            if (m.competitionLogoUrl) urlsToLoad.add(m.competitionLogoUrl);
+        });
+
+        const newCache = new Map(imageCache);
+        await Promise.all(Array.from(urlsToLoad).map(async url => {
+            if (!newCache.has(url)) {
+                const img = await loadImage(url);
+                if (img) newCache.set(url, img);
+            }
+        }));
+        setImageCache(newCache);
+
+        // 2. Draw Background (Futuristic Dark Blue Gradient)
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+        bgGrad.addColorStop(0, '#000814');
+        bgGrad.addColorStop(0.5, '#001e5a');
+        bgGrad.addColorStop(1, '#003566');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Add "flavor" - tech grid pattern
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+        for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+        // Glow effects
+        const glow = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, W / 1.5);
+        glow.addColorStop(0, 'rgba(0, 53, 102, 0.4)');
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, W, H);
+
+        // 3. Header Section
+        const comp = matchesToDraw[0];
+        if (comp.competitionLogoUrl && newCache.has(comp.competitionLogoUrl)) {
+            const logo = newCache.get(comp.competitionLogoUrl)!;
+            ctx.drawImage(logo, (W / 2) - 60, 80, 120, 120);
+        }
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FDB913';
+        ctx.font = '800 42px "Poppins", sans-serif';
+        ctx.fillText(comp.competition.toUpperCase(), W / 2, 260);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 84px "Poppins", sans-serif';
+        const title = matchesToDraw[0].type === 'result' ? `MATCHDAY ${comp.matchday || ''} RESULTS` : `UPCOMING FIXTURES`;
+        ctx.fillText(title, W / 2, 360);
+
+        // 4. Draw Match Rows
+        const isSingle = matchesToDraw.length === 1;
+        const rowH = isSingle ? 600 : (H - 550) / matchesToDraw.length;
+        const startY = 450;
+
+        matchesToDraw.forEach((m, i) => {
+            const y = startY + (i * rowH);
+            const midY = y + (rowH / 2);
+
+            // Draw Team Pill Backdrops
+            const drawPill = (x: number, py: number, width: number, height: number, align: 'left'|'right') => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(align === 'left' ? x : x - width, py - (height / 2), width, height, 15);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.stroke();
+                ctx.restore();
+            };
+
+            // Left Team (Home)
+            drawPill(80, midY, 350, isSingle ? 120 : 80, 'left');
+            if (m.teamACrest && newCache.has(m.teamACrest)) {
+                ctx.drawImage(newCache.get(m.teamACrest)!, 100, midY - (isSingle ? 50 : 30), isSingle ? 100 : 60, isSingle ? 100 : 60);
+            }
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = `800 ${isSingle ? 36 : 24}px "Inter", sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.fillText(m.teamA, 220, midY + (isSingle ? 12 : 8));
+
+            // Right Team (Away)
+            drawPill(W - 80, midY, 350, isSingle ? 120 : 80, 'right');
+            if (m.teamBCrest && newCache.has(m.teamBCrest)) {
+                ctx.drawImage(newCache.get(m.teamBCrest)!, W - (isSingle ? 200 : 160), midY - (isSingle ? 50 : 30), isSingle ? 100 : 60, isSingle ? 100 : 60);
+            }
+            ctx.textAlign = 'right';
+            ctx.fillText(m.teamB, W - 220, midY + (isSingle ? 12 : 8));
+
+            // Center Score/VS Pill
+            ctx.save();
+            ctx.beginPath();
+            const pillW = isSingle ? 220 : 140;
+            const pillH = isSingle ? 140 : 80;
+            ctx.roundRect((W / 2) - (pillW / 2), midY - (pillH / 2), pillW, pillH, 20);
+            const pillGrad = ctx.createLinearGradient(0, midY - pillH, 0, midY + pillH);
+            pillGrad.addColorStop(0, '#FDB913');
+            pillGrad.addColorStop(1, '#FF8C00');
+            ctx.fillStyle = pillGrad;
+            ctx.fill();
+            ctx.restore();
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#000814';
+            ctx.font = `900 ${isSingle ? 72 : 36}px "Poppins", sans-serif`;
+            const scoreText = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : 'VS';
+            ctx.fillText(scoreText, W / 2, midY + (isSingle ? 26 : 14));
+
+            // Subtext (Date/Venue)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '600 18px "Inter", sans-serif';
+            const infoText = `${m.date}${m.time ? ' @ ' + m.time : ''} • ${m.venue || 'Match Center'}`;
+            ctx.fillText(infoText, W / 2, midY + (isSingle ? 120 : 65));
+        });
+
+        // 5. Footer Branding
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, H - 100, W, 100);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 36px "Poppins", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("FOOTBALL ESWATINI", W / 2, H - 40);
+        
+        // Red Top Accent Line
+        ctx.fillStyle = '#D22730';
+        ctx.fillRect(0, H - 100, W, 6);
+
+        setIsGeneratingImage(false);
+    };
+
+    const downloadGraphic = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = `fe-social-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
-            <Card className="shadow-lg h-fit border-0">
-                <CardContent className="p-6 space-y-6">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="bg-purple-100 p-3 rounded-2xl"><SparklesIcon className="w-6 h-6 text-purple-600" /></div>
-                        <h3 className="text-2xl font-bold font-display text-gray-800">Social Studio</h3>
-                    </div>
+        <div className="space-y-8 animate-fade-in">
+            <div className="flex bg-white/50 p-1 rounded-xl w-fit border border-gray-200 shadow-sm">
+                <button onClick={() => setContentType('captions')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${contentType === 'captions' ? 'bg-primary text-white shadow' : 'text-gray-500 hover:bg-white'}`}>AI Captions</button>
+                <button onClick={() => setContentType('image')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${contentType === 'image' ? 'bg-primary text-white shadow' : 'text-gray-500 hover:bg-white'}`}>Graphic Studio</button>
+            </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-black uppercase text-gray-400 mb-2">Division</label>
-                            <select value={division} onChange={(e) => setDivision(e.target.value as DivisionType)} className="block w-full px-3 py-2 border rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-purple-500">
-                                <option value="MTN Premier League">MTN Premier League</option>
-                                <option value="National First Division League">NFD</option>
-                                <option value="Regional">Regional</option>
-                                <option value="National Team">National Team</option>
-                            </select>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                <Card className="shadow-lg border-0 bg-white">
+                    <CardContent className="p-6 space-y-6">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-purple-100 p-3 rounded-2xl"><SparklesIcon className="w-6 h-6 text-purple-600" /></div>
+                            <h3 className="text-2xl font-bold font-display text-gray-800">Context Source</h3>
                         </div>
-                        <div>
-                            <label className="block text-xs font-black uppercase text-gray-400 mb-2">Platform</label>
-                            <select value={platform} onChange={(e) => setPlatform(e.target.value as PlatformType)} className="block w-full px-3 py-2 border rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-purple-500">
-                                <option value="twitter">Twitter / X</option>
-                                <option value="facebook">Facebook</option>
-                                <option value="instagram">Instagram</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="block text-xs font-black uppercase text-gray-400">Context Source</label>
-                            <button onClick={fetchRecentData} disabled={isFetchingData} className="text-xs flex items-center gap-1 text-purple-600 font-bold hover:underline">
-                                {isFetchingData ? <Spinner className="w-3 h-3 border-2" /> : <RefreshIcon className="w-3 h-3" />}
-                                Sync Latest Results
-                            </button>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-black uppercase text-gray-400 mb-2">Division</label>
+                                <select value={division} onChange={(e) => setDivision(e.target.value as DivisionType)} className="block w-full px-3 py-2 border rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-purple-500">
+                                    <option value="MTN Premier League">MTN Premier League</option>
+                                    <option value="National First Division League">NFD</option>
+                                    <option value="Regional">Regional</option>
+                                    <option value="National Team">National Team</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-black uppercase text-gray-400 mb-2">Sync Range</label>
+                                <button onClick={fetchRecentData} disabled={isFetchingData} className="w-full bg-gray-100 hover:bg-gray-200 border rounded-xl px-3 py-2 text-xs font-bold text-gray-700 flex items-center justify-center gap-2">
+                                    {isFetchingData ? <Spinner className="w-3 h-3 border-2" /> : <RefreshIcon className="w-3 h-3" />}
+                                    Fetch Live Data
+                                </button>
+                            </div>
                         </div>
-                        <textarea rows={6} value={contextData} onChange={(e) => setContextData(e.target.value)} placeholder="Fetch data or type context manually..." className="block w-full p-4 border rounded-2xl text-sm font-mono bg-gray-50 shadow-inner" />
-                    </div>
 
-                    <Button onClick={handleGenerate} disabled={isGenerating || !contextData} className="w-full bg-purple-600 text-white h-12 rounded-2xl shadow-lg hover:bg-purple-700 flex justify-center items-center gap-2">
-                        {isGenerating ? <Spinner className="w-5 h-5 border-2" /> : <><SparklesIcon className="w-5 h-5" /> Generate Captions</>}
-                    </Button>
-                </CardContent>
-            </Card>
-
-            <Card className="shadow-lg bg-gray-50 border-2 border-dashed border-gray-200 min-h-[400px] rounded-2xl">
-                <CardContent className="p-6 h-full flex flex-col">
-                    <h3 className="text-sm font-black uppercase text-gray-400 mb-4 tracking-widest">AI Output</h3>
-                    {isGenerating ? (
-                        <div className="flex-grow flex flex-col items-center justify-center text-gray-400">
-                            <Spinner className="w-10 h-10 border-4 border-purple-500" />
-                            <p className="mt-4 font-bold">Writing your posts...</p>
-                        </div>
-                    ) : generatedContent.length === 0 ? (
-                        <div className="flex-grow flex flex-col items-center justify-center text-gray-400 opacity-30">
-                            <SparklesIcon className="w-16 h-16 mb-4" />
-                            <p className="text-sm font-bold">Generated content will appear here.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {generatedContent.map((caption, idx) => (
-                                <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-3 items-start animate-fade-in group">
-                                    <div className="flex-grow text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{caption}</div>
-                                    <button onClick={() => copyToClipboard(caption)} className="text-gray-300 hover:text-purple-600 p-1 rounded-lg hover:bg-purple-50 transition-colors"><CopyIcon className="w-5 h-5" /></button>
-                                </div>
-                            ))}
-                            <div className="mt-6 pt-6 border-t flex justify-end">
-                                <Button onClick={saveAsNews} disabled={savedAsNews} className={`h-11 px-6 rounded-xl font-bold flex items-center gap-2 transition-all ${savedAsNews ? 'bg-green-100 text-green-700 cursor-default' : 'bg-green-600 text-white hover:bg-green-700 shadow-md'}`}>
-                                    {savedAsNews ? <><CheckCircleIcon className="w-5 h-5" /> Published</> : <><SaveIcon className="w-5 h-5" /> Post to News Feed</>}
+                        {contentType === 'captions' ? (
+                            <>
+                                <textarea rows={6} value={contextData} onChange={(e) => setContextData(e.target.value)} placeholder="Fetch data or type context manually..." className="block w-full p-4 border rounded-2xl text-sm font-mono bg-gray-50 shadow-inner" />
+                                <Button onClick={handleGenerateCaptions} disabled={isGenerating || !contextData} className="w-full bg-purple-600 text-white h-12 rounded-2xl shadow-lg hover:bg-purple-700 flex justify-center items-center gap-2">
+                                    {isGenerating ? <Spinner className="w-5 h-5 border-2" /> : <><SparklesIcon className="w-5 h-5" /> Generate Social Posts</>}
                                 </Button>
+                            </>
+                        ) : (
+                            <div className="space-y-4">
+                                <p className="text-xs font-bold text-gray-400 uppercase">Step 1: Select Matches (Max 8)</p>
+                                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {rawMatches.length > 0 ? rawMatches.map(m => (
+                                        <div 
+                                            key={m.id} 
+                                            onClick={() => toggleMatchSelection(m.id)}
+                                            className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-blue-50 border-blue-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}
+                                        >
+                                            <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-blue-600" />
+                                            <div className="flex-grow min-w-0">
+                                                <p className="font-bold text-xs truncate">{m.teamA} vs {m.teamB}</p>
+                                                <p className="text-[10px] text-gray-500">{m.date} &bull; {m.competition}</p>
+                                            </div>
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded ${m.type === 'result' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{m.type.toUpperCase()}</span>
+                                        </div>
+                                    )) : (
+                                        <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed">
+                                            <PhotoIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                            <p className="text-xs">No matches synced. Use "Fetch" above.</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <Button 
+                                    onClick={generateGraphic} 
+                                    disabled={isGeneratingImage || selectedMatchIds.length === 0} 
+                                    className="w-full bg-primary text-white h-12 rounded-2xl shadow-lg flex justify-center items-center gap-2"
+                                >
+                                    {isGeneratingImage ? <Spinner className="w-5 h-5 border-2" /> : <><PhotoIcon className="w-5 h-5" /> Generate Futuristic Graphic</>}
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* OUTPUT SIDE */}
+                <div className="space-y-6">
+                    {contentType === 'captions' ? (
+                        <Card className="shadow-lg border-2 border-dashed border-gray-200 min-h-[400px] rounded-2xl bg-gray-50/30">
+                            <CardContent className="p-6">
+                                <h3 className="text-sm font-black uppercase text-gray-400 mb-4 tracking-widest">AI Copywriter</h3>
+                                {isGenerating ? (
+                                    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                                        <Spinner className="w-10 h-10 border-4 border-purple-500 mb-4" />
+                                        <p className="font-bold">Crafting perfect captions...</p>
+                                    </div>
+                                ) : generatedContent.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {generatedContent.map((text, i) => (
+                                            <div key={i} className="bg-white p-4 rounded-xl border flex justify-between gap-4 group">
+                                                <p className="text-sm leading-relaxed">{text}</p>
+                                                <button onClick={() => { navigator.clipboard.writeText(text); alert("Copied!"); }} className="p-2 text-gray-300 hover:text-primary transition-colors h-fit"><CopyIcon className="w-4 h-4"/></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-20 text-gray-300 opacity-50">
+                                        <SparklesIcon className="w-12 h-12 mb-4" />
+                                        <p className="text-sm font-bold">Generated copy will appear here.</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold font-display text-gray-800">Preview Hub</h3>
+                                {imageCache.size > 0 && (
+                                    <Button onClick={downloadGraphic} className="bg-green-600 text-white h-9 px-4 flex items-center gap-2 text-xs">
+                                        <DownloadIcon className="w-4 h-4" /> Download PNG
+                                    </Button>
+                                )}
+                            </div>
+                            <div className="relative border-4 border-white shadow-2xl rounded-2xl overflow-hidden aspect-[4/5] bg-gray-900 group">
+                                <canvas ref={canvasRef} className="w-full h-full object-contain" />
+                                {!imageCache.size && !isGeneratingImage && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 p-8 text-center">
+                                        <PhotoIcon className="w-16 h-16 mb-4 opacity-20" />
+                                        <p className="text-sm font-bold opacity-50 uppercase tracking-widest">Studio Ready</p>
+                                        <p className="text-xs mt-1">Select matches and hit generate.</p>
+                                    </div>
+                                )}
+                                {isGeneratingImage && (
+                                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center">
+                                        <Spinner className="w-12 h-12 border-4 border-white" />
+                                        <p className="text-white font-black mt-4 uppercase tracking-widest text-sm">Rendering Studio...</p>
+                                    </div>
+                                )}
+                                
+                                {/* Overlay instruction */}
+                                {imageCache.size > 0 && (
+                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="bg-black/70 backdrop-blur px-4 py-2 rounded-full text-white text-[10px] font-bold uppercase tracking-widest border border-white/20">
+                                            Portrait Graphic Generated
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     );
 };
