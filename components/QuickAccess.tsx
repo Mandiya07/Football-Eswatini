@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import TrophyIcon from './icons/TrophyIcon';
@@ -56,6 +55,12 @@ const tiles = [
     color: 'text-blue-500',
   },
   {
+    name: 'International Hub',
+    href: '/international',
+    Icon: GlobeIcon,
+    color: 'text-blue-600',
+  },
+  {
     name: 'Community Hub',
     href: '/news#community-hub',
     Icon: UsersIcon,
@@ -66,12 +71,6 @@ const tiles = [
     href: '/interactive',
     Icon: VoteIcon,
     color: 'text-indigo-600',
-  },
-  {
-    name: 'AI Assistant',
-    href: '/ai-assistant',
-    Icon: SparklesIcon,
-    color: 'text-purple-600',
   },
 ];
 
