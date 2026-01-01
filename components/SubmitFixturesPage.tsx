@@ -10,6 +10,7 @@ import CheckCircleIcon from './icons/CheckCircleIcon';
 import { removeUndefinedProps } from '../services/utils';
 import { useAuth } from '../contexts/AuthContext';
 import ClubLoginPrompt from './management/ClubLoginPrompt';
+import WhistleIcon from './icons/WhistleIcon';
 
 const SubmitFixturesPage: React.FC = () => {
     const { isLoggedIn, user } = useAuth();
@@ -21,6 +22,7 @@ const SubmitFixturesPage: React.FC = () => {
     const [matchDateTime, setMatchDateTime] = useState('');
     const [matchday, setMatchday] = useState('');
     const [venue, setVenue] = useState('');
+    const [referee, setReferee] = useState('');
     
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -61,6 +63,7 @@ const SubmitFixturesPage: React.FC = () => {
         setMatchDateTime('');
         setMatchday('');
         setVenue('');
+        setReferee('');
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -114,25 +117,22 @@ const SubmitFixturesPage: React.FC = () => {
                     day: matchDateTimeObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
                     time: matchDateTimeObj.toTimeString().substring(0, 5),
                     venue: venue,
+                    referee: referee,
                     status: 'scheduled' as const,
                 };
 
                 if (existingFixtureIndex !== -1) {
                     updatedFixtures = [...currentFixtures];
                     updatedFixtures[existingFixtureIndex] = { ...updatedFixtures[existingFixtureIndex], ...fixtureData };
-                    console.log("Updating existing fixture.");
                 } else {
                     const newFixture: CompetitionFixture = { id: Date.now(), ...fixtureData };
                     updatedFixtures = [...currentFixtures, newFixture];
-                    console.log("Adding new fixture.");
                 }
                 
-                // CRITICAL: Sanitize the entire fixtures array payload.
                 transaction.update(docRef, {
                     fixtures: removeUndefinedProps(updatedFixtures),
                 });
             });
-
 
             setStatusMessage({ type: 'success', text: 'Fixture submitted successfully!' });
             resetForm();
@@ -194,7 +194,7 @@ const SubmitFixturesPage: React.FC = () => {
                                             </select>
                                         </>
                                     ) : (
-                                         <p className="text-sm text-red-600 col-span-3">No teams found for this competition. Please add teams via the Admin Panel.</p>
+                                         <p className="text-sm text-red-600 col-span-3">No teams found for this competition.</p>
                                     )}
                                 </div>
                                 
@@ -208,9 +208,16 @@ const SubmitFixturesPage: React.FC = () => {
                                         <input type="number" id="matchday" value={matchday} onChange={e => setMatchday(e.target.value)} placeholder="e.g., 5" className={inputClass} min="1" required />
                                     </div>
                                 </div>
-                                <div>
-                                    <label htmlFor="venue" className="block text-sm font-medium text-gray-700 mb-1">Venue (Optional)</label>
-                                    <input type="text" id="venue" value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g., Somhlolo National Stadium" className={inputClass} />
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor="venue" className="block text-sm font-medium text-gray-700 mb-1">Venue (Optional)</label>
+                                        <input type="text" id="venue" value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g., Somhlolo Stadium" className={inputClass} />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="referee" className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5"><WhistleIcon className="w-4 h-4 text-gray-400" /> Referee (Optional)</label>
+                                        <input type="text" id="referee" value={referee} onChange={e => setReferee(e.target.value)} placeholder="Referee Name" className={inputClass} />
+                                    </div>
                                 </div>
 
                                 {statusMessage.text && (

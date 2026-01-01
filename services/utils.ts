@@ -58,19 +58,48 @@ export const findInMap = (name: string, map: Map<string, DirectoryEntity>): Dire
     for (const [key, value] of map.entries()) {
         if (superNormalize(key) === target) return value;
     }
-    return undefined;
+
+    // Try Fuzzy Matching as last resort
+    let bestMatch: DirectoryEntity | undefined = undefined;
+    let lowestDistance = 4; // Threshold for fuzzy match
+
+    for (const entry of map.values()) {
+        const dist = levenshtein(superNormalize(name), superNormalize(entry.name));
+        if (dist < lowestDistance) {
+            lowestDistance = dist;
+            bestMatch = entry;
+        }
+    }
+
+    return bestMatch;
 };
 
 /**
  * Normalizes a team name and tries to find a match in a list of official team names.
+ * Includes fuzzy matching for variations.
  */
 export const normalizeTeamName = (name: string, officialNames: string[]): string | null => {
     if (!name) return null;
     const target = superNormalize(name);
+    
+    // 1. Try Super Normalize match
     for (const official of officialNames) {
         if (superNormalize(official) === target) return official;
     }
-    return null;
+
+    // 2. Try Fuzzy Match (Levenshtein)
+    let bestMatch: string | null = null;
+    let lowestDistance = 3; // Threshold
+
+    for (const official of officialNames) {
+        const dist = levenshtein(target, superNormalize(official));
+        if (dist < lowestDistance) {
+            lowestDistance = dist;
+            bestMatch = official;
+        }
+    }
+
+    return bestMatch;
 };
 
 /**

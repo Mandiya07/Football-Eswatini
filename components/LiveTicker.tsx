@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { listenToAllCompetitions, fetchNews, fetchCommunityEvents } from '../services/api';
@@ -23,15 +22,16 @@ const LiveTicker: React.FC = () => {
         const updateTicker = () => {
             const combined: TickerItem[] = [];
 
-            // 1. Live Matches (Priority)
-            const liveMatches = matches.filter(m => m.status === 'live');
-            liveMatches.forEach(m => combined.push({ type: 'match', data: m }));
+            // 1. Live/Suspended Matches (Highest Priority)
+            const activeMatches = matches.filter(m => m.status === 'live' || m.status === 'suspended' || m.status === 'abandoned');
+            activeMatches.forEach(m => combined.push({ type: 'match', data: m }));
 
             // 2. Breaking News
             news.slice(0, 3).forEach(n => combined.push({ type: 'news', data: n }));
 
-            // 3. Match CTA
-            combined.push({ type: 'cta', text: "⚽ Predict match outcomes & level up!", link: "/interactive" });
+            // 3. Postponed/Cancelled Matches (Important Updates)
+            const alerts = matches.filter(m => m.status === 'postponed' || m.status === 'cancelled').slice(0, 3);
+            alerts.forEach(m => combined.push({ type: 'match', data: m }));
 
             // 4. Upcoming Fixtures (Shortlist)
             const upcoming = matches.filter(m => m.status === 'scheduled').slice(0, 4);
@@ -40,10 +40,13 @@ const LiveTicker: React.FC = () => {
             // 5. Local Events
             community.slice(0, 2).forEach(c => combined.push({ type: 'community', data: c }));
 
-            // Ensure we have enough items for a smooth marquee loop (min 6-8)
+            // 6. Match CTA
+            combined.push({ type: 'cta', text: "⚽ Predict match outcomes & level up!", link: "/interactive" });
+
+            // Ensure we have enough items for a smooth marquee loop (min 8)
             if (combined.length > 0 && combined.length < 8) {
-                // Repeat CTA or items if data is thin
                 combined.push({ type: 'cta', text: "🏆 Support your local clubs via the Directory", link: "/directory" });
+                combined.push({ type: 'cta', text: "📣 Follow Football Eswatini on Facebook!", link: "https://www.facebook.com/61584176729752/" });
             }
 
             setItems(combined);
@@ -56,9 +59,11 @@ const LiveTicker: React.FC = () => {
                 if (comp.results) allMatches.push(...comp.results);
             });
             matches = allMatches.sort((a, b) => {
-                if (a.status === 'live' && b.status !== 'live') return -1;
-                if (b.status === 'live' && a.status !== 'live') return 1;
-                return new Date(b.fullDate || 0).getTime() - new Date(a.fullDate || 0).getTime();
+                const priority = { 'live': 0, 'suspended': 1, 'abandoned': 1, 'scheduled': 2, 'postponed': 3, 'cancelled': 4, 'finished': 5 };
+                const pA = priority[a.status || 'scheduled'] ?? 99;
+                const pB = priority[b.status || 'scheduled'] ?? 99;
+                if (pA !== pB) return pA - pB;
+                return new Date(a.fullDate || 0).getTime() - new Date(b.fullDate || 0).getTime();
             });
             updateTicker();
         });
@@ -70,6 +75,24 @@ const LiveTicker: React.FC = () => {
     }, []);
 
     if (items.length === 0) return null;
+
+    const getStatusLabel = (m: CompetitionFixture) => {
+        if (m.status === 'live') return `LIVE ${m.liveMinute || 0}'`;
+        if (m.status === 'suspended') return `SUSPENDED`;
+        if (m.status === 'abandoned') return `ABANDONED`;
+        if (m.status === 'postponed') return `POSTPONED`;
+        if (m.status === 'cancelled') return `CANCELLED`;
+        if (m.status === 'finished') return `FINAL`;
+        return m.time || 'TBD';
+    };
+
+    const getStatusColor = (m: CompetitionFixture) => {
+        if (m.status === 'live') return 'bg-accent text-primary-dark animate-pulse';
+        if (m.status === 'suspended' || m.status === 'abandoned') return 'bg-orange-600 text-white';
+        if (m.status === 'postponed' || m.status === 'cancelled') return 'bg-red-600 text-white';
+        if (m.status === 'finished') return 'bg-white/10 text-white/50';
+        return 'bg-blue-600 text-white';
+    };
 
     return (
         <div className="bg-primary-dark border-y border-white/5 h-10 flex items-center overflow-hidden relative z-[90] shadow-inner">
@@ -84,17 +107,15 @@ const LiveTicker: React.FC = () => {
                     <div key={`${idx}`} className="inline-flex items-center px-10 border-r border-white/5">
                         {item.type === 'match' && (
                             <>
-                                <span className={`text-[9px] font-black mr-3 px-2 py-0.5 rounded shadow-sm ${
-                                    item.data.status === 'live' ? 'bg-accent text-primary-dark animate-pulse' : 
-                                    item.data.status === 'finished' ? 'bg-white/10 text-white/50' : 'bg-blue-600 text-white'
-                                }`}>
-                                    {item.data.status === 'live' ? `LIVE ${item.data.liveMinute || 0}'` : 
-                                     item.data.status === 'finished' ? 'FINAL' : item.data.time || 'TBD'}
+                                <span className={`text-[9px] font-black mr-3 px-2 py-0.5 rounded shadow-sm ${getStatusColor(item.data)}`}>
+                                    {getStatusLabel(item.data)}
                                 </span>
                                 <span className="text-white text-xs font-bold tracking-tight">
                                     {item.data.teamA} 
                                     <span className="mx-2 text-accent">
-                                        {item.data.status === 'scheduled' ? 'vs' : `${item.data.scoreA ?? 0}-${item.data.scoreB ?? 0}`}
+                                        {item.data.status === 'scheduled' || item.data.status === 'postponed' || item.data.status === 'cancelled' 
+                                            ? 'vs' 
+                                            : `${item.data.scoreA ?? 0}-${item.data.scoreB ?? 0}`}
                                     </span>
                                     {item.data.teamB}
                                 </span>

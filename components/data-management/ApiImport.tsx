@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -12,11 +11,12 @@ import TrashIcon from '../icons/TrashIcon';
 import { CompetitionFixture } from '../../data/teams';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, Competition, Category, fetchCategories, fetchFootballDataOrg, fetchApiFootball } from '../../services/api';
 import { db } from '../../services/firebase';
-import { doc, runTransaction } from 'firebase/firestore';
+import { doc, runTransaction, setDoc } from 'firebase/firestore';
 import { removeUndefinedProps, normalizeTeamName, calculateStandings, superNormalize } from '../../services/utils';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import InfoIcon from '../icons/InfoIcon';
 import GlobeIcon from '../icons/GlobeIcon';
+import PlusCircleIcon from '../icons/PlusCircleIcon';
 
 // Fetched event from TheSportsDB
 interface FetchedEventTSDB {
@@ -134,10 +134,16 @@ const ApiImportPage: React.FC = () => {
     const [apiProvider, setApiProvider] = useState<'football-data' | 'thesportsdb' | 'api-football'>('football-data');
 
     const [competitions, setCompetitions] = useState<{ id: string, name: string, externalApiId?: string }[]>([]);
+    const [allCompsRaw, setAllCompsRaw] = useState<{ id: string, name: string }[]>([]);
     const [loadingComps, setLoadingComps] = useState(true);
     const [selectedCompId, setSelectedCompId] = useState<string>('');
     const [currentCompetition, setCurrentCompetition] = useState<Competition | null>(null);
     
+    // New League Connection State
+    const [showConnectForm, setShowConnectForm] = useState(false);
+    const [newConnectForm, setNewConnectForm] = useState({ targetId: '', apiId: '' });
+    const [isConnecting, setIsConnecting] = useState(false);
+
     const [apiKey, setApiKey] = useState(process.env.FOOTBALL_DATA_API_KEY || '');
     const [season, setSeason] = useState('');
     const [useProxy, setUseProxy] = useState(true);
@@ -176,65 +182,43 @@ const ApiImportPage: React.FC = () => {
         localStorage.setItem('fe_api_import_config', JSON.stringify(config));
     }, [apiKey, season, apiProvider, importType, useProxy, autoImport]);
 
-    useEffect(() => {
-        const autoDetectSeason = async () => {
-            if (apiProvider !== 'thesportsdb' || !selectedCompId || competitions.length === 0) return;
-            
-            const selectedComp = competitions.find(c => c.id === selectedCompId);
-            if (!selectedComp?.externalApiId) return;
-
-            const key = apiKey || '1'; 
-            let url = `https://www.thesportsdb.com/api/v1/json/${key}/lookupleague.php?id=${selectedComp.externalApiId}`;
-            if (useProxy) url = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-
-            try {
-                const res = await fetch(url);
-                const data = await res.json();
-                if (data.leagues && data.leagues[0]?.strCurrentSeason) {
-                    setSeason(prev => prev ? prev : data.leagues[0].strCurrentSeason);
-                }
-            } catch (e) {
-                console.warn("Failed to lookup league season", e);
-            }
-        };
+    const loadAppCompetitions = async () => {
+        setLoadingComps(true);
+        setError('');
         
-        autoDetectSeason();
-    }, [selectedCompId, apiProvider, apiKey, useProxy, competitions]);
+        try {
+            const [allCompsData, allCategories] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchCategories()
+            ]);
+
+            const allComps = Object.entries(allCompsData)
+                .map(([id, comp]) => ({ 
+                    id, 
+                    name: comp.name, 
+                    externalApiId: comp.externalApiId,
+                    categoryId: comp.categoryId
+                }));
+            
+            setAllCompsRaw(allComps.map(c => ({ id: c.id, name: c.name })));
+
+            const importableCompetitions = allComps.filter(comp => comp.externalApiId);
+            setCompetitions(importableCompetitions);
+            
+            if (importableCompetitions.length > 0) {
+                setSelectedCompId(importableCompetitions[0].id);
+            } else {
+                setSelectedCompId('');
+            }
+        } catch (err) {
+            console.error("Failed to load competition data:", err);
+            setError("Failed to load competition data.");
+        } finally {
+            setLoadingComps(false);
+        }
+    };
 
     useEffect(() => {
-        const loadAppCompetitions = async () => {
-            setLoadingComps(true);
-            setError('');
-            
-            try {
-                const [allCompsData, allCategories] = await Promise.all([
-                    fetchAllCompetitions(),
-                    fetchCategories()
-                ]);
-    
-                const allComps = Object.entries(allCompsData)
-                    .map(([id, comp]) => ({ 
-                        id, 
-                        name: comp.name, 
-                        externalApiId: comp.externalApiId,
-                        categoryId: comp.categoryId
-                    }));
-                
-                const importableCompetitions = allComps.filter(comp => comp.externalApiId);
-                setCompetitions(importableCompetitions);
-                
-                if (importableCompetitions.length > 0) {
-                    setSelectedCompId(importableCompetitions[0].id);
-                } else {
-                    setSelectedCompId('');
-                }
-            } catch (err) {
-                console.error("Failed to load competition data:", err);
-                setError("Failed to load competition data.");
-            } finally {
-                setLoadingComps(false);
-            }
-        };
         loadAppCompetitions();
     }, []);
 
@@ -249,6 +233,25 @@ const ApiImportPage: React.FC = () => {
         };
         loadCompetitionDetails();
     }, [selectedCompId]);
+
+    const handleConnectLeague = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newConnectForm.targetId || !newConnectForm.apiId) return;
+        setIsConnecting(true);
+        try {
+            await setDoc(doc(db, 'competitions', newConnectForm.targetId), {
+                externalApiId: newConnectForm.apiId
+            }, { merge: true });
+            setSuccessMessage("League successfully connected to API!");
+            setShowConnectForm(false);
+            setNewConnectForm({ targetId: '', apiId: '' });
+            await loadAppCompetitions();
+        } catch (err) {
+            handleFirestoreError(err, 'connect league');
+        } finally {
+            setIsConnecting(false);
+        }
+    };
 
     const processAndReviewFixtures = (fixturesToProcess: CompetitionFixture[], source: string): ReviewedFixture[] => {
         if (!currentCompetition) {
@@ -730,7 +733,39 @@ const ApiImportPage: React.FC = () => {
                         {error && !isFallback && <div className="p-3 bg-red-100 text-red-800 rounded-md animate-fade-in">{error}</div>}
 
                         <div className="space-y-6 pt-4 border-t">
-                            <h2 className="text-xl font-bold font-display">Step 1: Configure Source</h2>
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-bold font-display">Step 1: Configure Source</h2>
+                                <Button onClick={() => setShowConnectForm(!showConnectForm)} className="bg-blue-600 text-white text-xs flex items-center gap-2">
+                                    <PlusCircleIcon className="w-4 h-4" /> Connect New League (UCL/EPL)
+                                </Button>
+                            </div>
+
+                            {showConnectForm && (
+                                <div className="bg-blue-50 p-6 rounded-xl border border-blue-200 animate-fade-in">
+                                    <h3 className="font-bold text-blue-900 mb-4">Connect App League to External API</h3>
+                                    <form onSubmit={handleConnectLeague} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 mb-1">Target App League</label>
+                                            <select value={newConnectForm.targetId} onChange={e => setNewConnectForm({...newConnectForm, targetId: e.target.value})} className={inputClass} required>
+                                                <option value="">-- Select League --</option>
+                                                {allCompsRaw.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 mb-1">External API ID (e.g. 2001)</label>
+                                            <input value={newConnectForm.apiId} onChange={e => setNewConnectForm({...newConnectForm, apiId: e.target.value})} className={inputClass} placeholder="ID from provider" required />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button type="submit" disabled={isConnecting} className="bg-blue-600 text-white h-10 px-6">
+                                                {isConnecting ? <Spinner className="w-4 h-4" /> : 'Connect'}
+                                            </Button>
+                                            <Button type="button" onClick={() => setShowConnectForm(false)} className="bg-gray-200 text-gray-700 h-10 px-6">Cancel</Button>
+                                        </div>
+                                    </form>
+                                    <p className="text-[10px] text-blue-600 mt-2 italic">Common IDs (football-data): Premier League: 2021, Champions League: 2001, Bundesliga: 2002</p>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                                     <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><GlobeIcon className="w-4 h-4"/> API Provider</label>

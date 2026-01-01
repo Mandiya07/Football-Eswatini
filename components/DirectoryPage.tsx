@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -313,7 +312,7 @@ const DirectoryPage: React.FC = () => {
                 </Card>
 
                 <div className="max-w-5xl mx-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                         {loading ? <div className="flex justify-center p-8 md:col-span-2"><Spinner /></div> :
                          filteredAndSortedEntries.length > 0 ? filteredAndSortedEntries.map(entity => (
                             <DirectoryCard 

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -104,7 +103,7 @@ const Navigation: React.FC = () => {
 
   return (
     <>
-      <header className="bg-primary backdrop-blur-md sticky top-0 z-[100] shadow-xl w-full overflow-hidden">
+      <header className="bg-primary backdrop-blur-md sticky top-0 z-[120] shadow-xl w-full overflow-visible">
         <SecondaryNavigation />
         
         <div className="container mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 border-b border-white/5">
@@ -158,7 +157,7 @@ const Navigation: React.FC = () => {
                   {isLoggedIn && user ? (
                     <div className="flex items-center gap-2 lg:gap-3 h-full">
                         {isAdmin && (
-                            <div className="relative h-full flex items-center" ref={managementRef}>
+                            <div className="relative h-full flex items-center" ref={managementRef} style={{ zIndex: 130 }}>
                                 <button 
                                     onClick={() => setIsManagementOpen(!isManagementOpen)}
                                     className="hidden sm:flex text-[10px] xl:text-xs font-bold text-primary-dark bg-accent hover:bg-yellow-400 px-2 xl:px-3 py-2 rounded-lg transition-all items-center gap-1 shadow-lg"
@@ -169,7 +168,7 @@ const Navigation: React.FC = () => {
                                 </button>
                                 
                                 {isManagementOpen && (
-                                    <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-slide-up py-2 text-primary-dark">
+                                    <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-slide-up py-2 text-primary-dark z-[140]">
                                         <Link to="/club-management" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold hover:bg-blue-50 transition-colors">
                                             <BriefcaseIcon className="w-4 h-4 text-blue-500" /> Management Portal
                                         </Link>
