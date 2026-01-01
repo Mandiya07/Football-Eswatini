@@ -215,7 +215,7 @@ const SubmitFixturesPage: React.FC = () => {
                                         <input type="text" id="venue" value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g., Somhlolo Stadium" className={inputClass} />
                                     </div>
                                     <div>
-                                        <label htmlFor="referee" className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5"><WhistleIcon className="w-4 h-4 text-gray-400" /> Referee (Optional)</label>
+                                        <label htmlFor="referee" className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5"><WhistleIcon className="w-4 h-4 text-gray-400" /> Match Referee (Optional)</label>
                                         <input type="text" id="referee" value={referee} onChange={e => setReferee(e.target.value)} placeholder="Referee Name" className={inputClass} />
                                     </div>
                                 </div>
@@ -227,7 +227,7 @@ const SubmitFixturesPage: React.FC = () => {
                                 )}
                                 
                                 <div className="text-right">
-                                    <Button type="submit" className="bg-primary text-white hover:bg-primary-dark w-full sm:w-auto h-10 flex items-center justify-center" disabled={submitting || teams.length === 0}>
+                                    <Button type="submit" disabled={submitting || teams.length === 0} className="bg-primary text-white hover:bg-primary-dark w-full sm:w-auto h-10 flex items-center justify-center">
                                         {submitting ? <Spinner className="w-5 h-5 border-2" /> : 'Submit Fixture'}
                                     </Button>
                                 </div>

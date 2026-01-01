@@ -182,8 +182,8 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5"><WhistleIcon className="w-4 h-4" /> Match Referee</label>
-                            <input type="text" name="referee" value={formData.referee || ''} onChange={handleChange} className={inputClass} placeholder="e.g. Thulani Sibandze" />
+                            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5"><WhistleIcon className="w-4 h-4 text-gray-400" /> Match Referee</label>
+                            <input type="text" name="referee" value={formData.referee || ''} onChange={handleChange} className={inputClass} placeholder="Referee Name" />
                         </div>
                         
                         <div>

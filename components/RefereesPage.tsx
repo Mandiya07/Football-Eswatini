@@ -6,6 +6,7 @@ import SectionLoader from './SectionLoader';
 import BookOpenIcon from './icons/BookOpenIcon';
 import WhistleIcon from './icons/WhistleIcon';
 import StarIcon from './icons/StarIcon';
+import InfoIcon from './icons/InfoIcon';
 
 const RefereeProfileCard: React.FC<{ referee: Referee, isSpotlight?: boolean }> = ({ referee, isSpotlight = false }) => {
     const levelColor = referee.level === 'FIFA' ? 'bg-yellow-400 text-yellow-900' : 'bg-gray-200 text-gray-800';
@@ -103,6 +104,17 @@ const RefereesPage: React.FC = () => {
                     <p className="text-lg text-gray-600 max-w-3xl mx-auto">
                         Profiles, statistics, and rule clarifications for the referees of Eswatini football.
                     </p>
+                </div>
+
+                <div className="mb-12 max-w-4xl mx-auto">
+                    <Card className="bg-blue-50 border border-blue-100">
+                        <CardContent className="p-4 flex items-start gap-3">
+                            <InfoIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-blue-800">
+                                <strong>How are referees added?</strong> Official match referees are assigned to fixtures during match creation by Club Admins or the League Manager. You can see the assigned referee in the "Match Info" section of any fixture detail view.
+                            </p>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {loading ? <SectionLoader /> : (

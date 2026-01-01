@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CompetitionFixture, Team } from '../data/teams';
@@ -24,22 +23,48 @@ const Hero: React.FC = () => {
 
             unsubscribe = listenToAllCompetitions((allComps) => {
                 const findUpcoming = (fixtures: CompetitionFixture[]) => {
-                    const now = new Date();
                     return (fixtures || [])
                         .filter(f => f.status !== 'finished' && f.fullDate)
-                        .sort((a, b) => new Date(a.fullDate! + 'T' + (a.time || '00:00')).getTime() - new Date(b.fullDate! + 'T' + (b.time || '00:00')).getTime());
+                        .sort((a, b) => {
+                            // PRIORITY 1: Status (Live > Suspended > Abandoned > Postponed > Scheduled)
+                            const statusOrder: Record<string, number> = {
+                                'live': 0,
+                                'suspended': 1,
+                                'abandoned': 2,
+                                'postponed': 3,
+                                'scheduled': 4,
+                                'cancelled': 5
+                            };
+                            
+                            const priorityA = statusOrder[a.status || 'scheduled'] ?? 99;
+                            const priorityB = statusOrder[b.status || 'scheduled'] ?? 99;
+                            
+                            if (priorityA !== priorityB) return priorityA - priorityB;
+
+                            // PRIORITY 2: Closest time to now
+                            const timeA = new Date(a.fullDate! + 'T' + (a.time || '15:00')).getTime();
+                            const timeB = new Date(b.fullDate! + 'T' + (b.time || '15:00')).getTime();
+                            const now = Date.now();
+
+                            return Math.abs(timeA - now) - Math.abs(timeB - now);
+                        });
                 };
 
                 let bestMatch: CompetitionFixture | null = null;
                 let activeTeams: Team[] = [];
 
-                // Logic: Priority to Premier League, then others
-                const priorityOrder = ['mtn-premier-league', 'national-first-division'];
-                for (const id of priorityOrder) {
+                // Priority to Premier League, then First Division, then others
+                const priorityIds = ['mtn-premier-league', 'national-first-division'];
+                const otherIds = Object.keys(allComps).filter(id => !priorityIds.includes(id));
+                const allCheckOrder = [...priorityIds, ...otherIds];
+
+                for (const id of allCheckOrder) {
                     const comp = allComps[id];
                     if (comp) {
-                        const upcoming = findUpcoming(comp.fixtures);
+                        const upcoming = findUpcoming(comp.fixtures || []);
                         if (upcoming.length > 0) {
+                            // If we find a live match in a lower priority league, we might still prefer it over a scheduled one in a high priority league.
+                            // But for this simple implementation, we take the first league that has any upcoming/live matches.
                             bestMatch = upcoming[0];
                             activeTeams = comp.teams || [];
                             break;
@@ -66,6 +91,20 @@ const Hero: React.FC = () => {
 
     const targetDateStr = nextMatch?.fullDate ? `${nextMatch.fullDate}T${nextMatch.time || '15:00'}:00` : new Date().toISOString();
 
+    const getStatusText = () => {
+        if (!nextMatch) return null;
+        switch (nextMatch.status) {
+            case 'live': return 'Match In Progress';
+            case 'suspended': return 'Match Suspended';
+            case 'abandoned': return 'Match Abandoned';
+            case 'postponed': return 'Match Postponed';
+            case 'cancelled': return 'Match Cancelled';
+            default: return 'Next Big Match';
+        }
+    };
+
+    const isLiveMode = nextMatch?.status === 'live' || nextMatch?.status === 'suspended' || nextMatch?.status === 'abandoned';
+
   return (
     <section 
       className="relative h-[80vh] bg-cover bg-center flex items-center justify-center text-white overflow-hidden"
@@ -76,7 +115,9 @@ const Hero: React.FC = () => {
         <div className="max-w-4xl mx-auto text-center">
             {nextMatch ? (
                 <div className="animate-fade-in-slow">
-                    <p className="font-bold text-accent mb-4 tracking-widest uppercase text-sm">{nextMatch.status === 'live' ? 'Match In Progress' : 'Next Big Match'}</p>
+                    <p className={`font-bold mb-4 tracking-widest uppercase text-sm ${isLiveMode ? 'text-accent' : 'text-yellow-400'}`}>
+                        {getStatusText()}
+                    </p>
                     <div className="flex items-center justify-center gap-6 md:gap-12 mb-6">
                         <div className="text-center w-32 md:w-48">
                             <div className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-3 bg-white/10 backdrop-blur rounded-full p-3 flex items-center justify-center border border-white/20">
@@ -85,11 +126,13 @@ const Hero: React.FC = () => {
                             <h2 className="text-lg md:text-2xl font-black font-display uppercase leading-tight">{nextMatch.teamA}</h2>
                         </div>
                         <div className="flex flex-col items-center">
-                            {nextMatch.status === 'live' ? (
-                                <div className="bg-white/10 px-4 py-2 rounded-lg border border-white/20">
-                                    <span className="text-4xl md:text-6xl font-black">{nextMatch.scoreA ?? 0} : {nextMatch.scoreB ?? 0}</span>
+                            {isLiveMode || nextMatch.status === 'finished' ? (
+                                <div className="bg-white/10 px-4 py-2 rounded-lg border border-white/20 shadow-2xl">
+                                    <span className={`text-4xl md:text-6xl font-black ${nextMatch.status === 'live' ? 'animate-pulse' : ''}`}>
+                                        {nextMatch.scoreA ?? 0} : {nextMatch.scoreB ?? 0}
+                                    </span>
                                 </div>
-                            ) : <span className="text-4xl md:text-5xl font-black italic text-yellow-400">VS</span>}
+                            ) : <span className="text-4xl md:text-5xl font-black italic text-yellow-400 drop-shadow-lg">VS</span>}
                         </div>
                         <div className="text-center w-32 md:w-48">
                             <div className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-3 bg-white/10 backdrop-blur rounded-full p-3 flex items-center justify-center border border-white/20">
@@ -98,13 +141,21 @@ const Hero: React.FC = () => {
                              <h2 className="text-lg md:text-2xl font-black font-display uppercase leading-tight">{nextMatch.teamB}</h2>
                         </div>
                     </div>
+
                     {nextMatch.status === 'live' ? (
                          <div className="flex flex-col items-center gap-2">
-                             <div className="bg-red-600 px-3 py-1 rounded text-xs font-bold animate-pulse uppercase tracking-widest">Live Now</div>
+                             <div className="bg-red-600 px-3 py-1 rounded text-xs font-bold animate-pulse uppercase tracking-widest shadow-lg">Live Now</div>
                              <p className="text-2xl font-mono font-bold">{nextMatch.liveMinute || '0'}'</p>
                          </div>
-                    ) : <CountdownTimer targetDate={targetDateStr} />}
-                    {nextMatch.venue && <p className="mt-6 text-xs text-gray-300 font-bold uppercase tracking-[0.2em]">{nextMatch.venue}</p>}
+                    ) : nextMatch.status === 'scheduled' ? (
+                        <CountdownTimer targetDate={targetDateStr} />
+                    ) : (
+                        <div className="bg-white/10 px-6 py-3 rounded-full border border-white/20 backdrop-blur-md inline-block">
+                             <p className="text-xl font-bold uppercase tracking-widest">{nextMatch.status}</p>
+                        </div>
+                    )}
+                    
+                    {nextMatch.venue && <p className="mt-6 text-[10px] text-gray-300 font-black uppercase tracking-[0.3em]">{nextMatch.venue}</p>}
                 </div>
             ) : (
                 <>
