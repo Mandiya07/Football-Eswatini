@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -189,23 +188,23 @@ const ClubRegistrationPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Benefits & Pricing Section */}
                     <div className="space-y-6">
-                        <Card className="bg-blue-600 text-white border-none shadow-xl">
+                        <Card className="bg-white border border-gray-200 shadow-lg">
                             <CardContent className="p-8">
-                                <h3 className="text-xl font-bold mb-4">Membership Tiers</h3>
+                                <h3 className="text-xl font-bold mb-4 text-gray-900">Membership Tiers</h3>
                                 <div className="space-y-4">
                                     {tiers.map((tier) => {
                                         const priceInfo = calculatePrice(tier.price);
                                         return (
-                                            <div key={tier.name} className="flex justify-between items-center border-b border-blue-500 pb-2 last:border-0">
+                                            <div key={tier.name} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-0">
                                                 <div>
-                                                    <p className="font-bold text-base">{tier.name}</p>
-                                                    <p className="text-blue-100 text-xs">{tier.features}</p>
+                                                    <p className="font-bold text-base text-gray-800">{tier.name}</p>
+                                                    <p className="text-gray-500 text-xs">{tier.features}</p>
                                                 </div>
                                                 <div className="text-right pl-2">
                                                     {priceInfo.original && (
-                                                        <span className="block text-xs text-blue-300 line-through">{priceInfo.original}</span>
+                                                        <span className="block text-xs text-gray-400 line-through">{priceInfo.original}</span>
                                                     )}
-                                                    <span className={`bg-white/20 px-2 py-1 rounded text-sm font-bold whitespace-nowrap ${priceInfo.original ? 'text-yellow-300' : ''}`}>
+                                                    <span className={`bg-blue-50 text-blue-700 px-2 py-1 rounded text-sm font-bold whitespace-nowrap`}>
                                                         {priceInfo.display}
                                                     </span>
                                                 </div>
@@ -213,7 +212,7 @@ const ClubRegistrationPage: React.FC = () => {
                                         );
                                     })}
                                 </div>
-                                <p className="mt-6 text-xs text-blue-200">
+                                <p className="mt-6 text-xs text-gray-400 italic">
                                     * You will be able to select your plan after your account is verified.
                                 </p>
                             </CardContent>
