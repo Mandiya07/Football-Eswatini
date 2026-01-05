@@ -4,6 +4,7 @@ import { Card } from './ui/Card';
 import { PositionIndicator } from './Logs';
 import FormGuide from './ui/FormGuide';
 import { Link, useParams } from 'react-router-dom';
+import ShareIcon from './icons/ShareIcon';
 
 interface StandingsTableProps {
   standings: (Team & { positionChange?: 'up' | 'down' | 'same' })[];
@@ -17,6 +18,23 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, compId }) =>
     const validStandings = (standings || []).filter((t): t is Team & { positionChange?: 'up' | 'down' | 'same' } => {
         return !!(t && t.stats && typeof t.stats.form === 'string' && t.name);
     });
+
+    const handleShare = async () => {
+        const shareData = {
+            title: `League Standings`,
+            text: `Check out the latest standings for this competition on Football Eswatini!`,
+            url: window.location.href,
+        };
+        
+        if (navigator.share) {
+            try { await navigator.share(shareData); } catch (err) {}
+        } else {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                alert('Link copied to clipboard!');
+            } catch (err) {}
+        }
+    };
 
     if (validStandings.length === 0) {
         return (
@@ -41,7 +59,16 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, compId }) =>
                         <th className="px-2 py-3 text-center w-10 hidden md:table-cell" title="Goals Scored">GS</th>
                         <th className="px-2 py-3 text-center w-10 hidden md:table-cell" title="Goals Conceded">GC</th>
                         <th className="px-2 py-3 text-center w-10 font-bold" title="Goal Difference">GD</th>
-                        <th className="px-2 py-3 text-center w-10 font-black bg-white/10" title="Points">Pts</th>
+                        <th className="px-2 py-3 text-center w-10 font-black bg-white/10 relative" title="Points">
+                            Pts
+                            <button 
+                                onClick={handleShare}
+                                className="absolute right-1 top-1 text-white/50 hover:text-white transition-colors"
+                                title="Share Standings"
+                            >
+                                <ShareIcon className="w-3.5 h-3.5" />
+                            </button>
+                        </th>
                         <th className="px-4 py-3 w-32">Form</th>
                     </tr>
                 </thead>

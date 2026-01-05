@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { Card, CardContent } from './ui/Card';
@@ -7,16 +6,15 @@ import SparklesIcon from './icons/SparklesIcon';
 import SendIcon from './icons/SendIcon';
 import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
-// Added missing GlobeIcon import
 import GlobeIcon from './icons/GlobeIcon';
 import { fetchCompetition, fetchNews } from '../services/api';
 import Spinner from './ui/Spinner';
 import BookIcon from './icons/BookIcon';
 import TrendingUpIcon from './icons/TrendingUpIcon';
-import BarChartIcon from './icons/BarChartIcon';
 import NewspaperIcon from './icons/NewspaperIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import CopyIcon from './icons/CopyIcon';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -36,7 +34,7 @@ const AIAssistantPage: React.FC = () => {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Security Check
-  if (!isLoggedIn || user?.role !== 'super_admin') {
+  if (!isLoggedIn || (user?.role !== 'super_admin' && user?.role !== 'league_admin')) {
       return <Navigate to="/" replace />;
   }
 
@@ -114,12 +112,17 @@ const AIAssistantPage: React.FC = () => {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+      navigator.clipboard.writeText(text);
+      alert("Copied to clipboard!");
+  };
+
   return (
-    <div className="bg-gray-50 py-6">
-        <div className="container mx-auto px-4 max-w-5xl animate-fade-in">
-            <div className="flex items-center justify-between mb-6">
+    <div className="bg-gray-50 py-2">
+        <div className="container mx-auto px-0 animate-fade-in">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 bg-purple-600 rounded-xl shadow-lg">
+                    <div className="p-3 bg-indigo-600 rounded-xl shadow-lg">
                         <SparklesIcon className="w-6 h-6 text-white" />
                     </div>
                     <div>
@@ -127,7 +130,7 @@ const AIAssistantPage: React.FC = () => {
                         <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Grounded in Site Data + Google Search</p>
                     </div>
                 </div>
-                <div className="hidden md:flex gap-2">
+                <div className="flex gap-2">
                     <div className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1 border border-green-200">
                         <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div> Site Data Connected
                     </div>
@@ -137,51 +140,61 @@ const AIAssistantPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <button 
                     onClick={() => handleSendMessage("Scan the web for the latest international news involving Eswatini football clubs or the national team from the last 24 hours.")}
-                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-400 transition-all text-left group"
+                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group"
                 >
                     <GlobeIcon className="w-6 h-6 mb-2 text-blue-600 group-hover:scale-110 transition-transform" />
-                    <p className="text-xs font-bold uppercase text-gray-400">Web Scan</p>
+                    <p className="text-[10px] font-bold uppercase text-gray-400">Web Scan</p>
                     <p className="text-xs font-semibold mt-1">Latest Global Mentions</p>
                 </button>
                 <button 
                     onClick={() => handleSendMessage("Draft a 300-word feature article based on our recent site news. Make it engaging for the homepage.")}
-                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-400 transition-all text-left group"
+                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group"
                 >
                     <NewspaperIcon className="w-6 h-6 mb-2 text-purple-600 group-hover:scale-110 transition-transform" />
-                    <p className="text-xs font-bold uppercase text-gray-400">Article Draft</p>
+                    <p className="text-[10px] font-bold uppercase text-gray-400">Article Draft</p>
                     <p className="text-xs font-semibold mt-1">Develop New Feature</p>
                 </button>
                 <button 
                     onClick={() => handleSendMessage("Analyze the current league standings and form from our site context and predict the outcome of the next matchday.")}
-                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-400 transition-all text-left group"
+                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group"
                 >
                     <TrendingUpIcon className="w-6 h-6 mb-2 text-green-600 group-hover:scale-110 transition-transform" />
-                    <p className="text-xs font-bold uppercase text-gray-400">Data Insights</p>
+                    <p className="text-[10px] font-bold uppercase text-gray-400">Data Insights</p>
                     <p className="text-xs font-semibold mt-1">Standings Analysis</p>
                 </button>
                 <button 
                     onClick={() => handleSendMessage("Research the history of Sihlangu Semnikati's biggest wins for an upcoming anniversary article.")}
-                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-purple-400 transition-all text-left group"
+                    className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group"
                 >
                     <BookIcon className="w-6 h-6 mb-2 text-orange-600 group-hover:scale-110 transition-transform" />
-                    <p className="text-xs font-bold uppercase text-gray-400">Research</p>
+                    <p className="text-[10px] font-bold uppercase text-gray-400">Research</p>
                     <p className="text-xs font-semibold mt-1">Historical Archive</p>
                 </button>
             </div>
 
-            <Card className="shadow-2xl overflow-hidden flex flex-col h-[550px] border-0 ring-1 ring-black/5 rounded-2xl">
+            <Card className="shadow-2xl overflow-hidden flex flex-col h-[600px] border-0 ring-1 ring-black/5 rounded-2xl bg-white">
                 <div 
                     ref={chatContainerRef}
-                    className="flex-grow overflow-y-auto p-6 space-y-6 bg-white custom-scrollbar"
+                    className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar"
                 >
                     {chatHistory.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] p-4 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200 shadow-sm'}`}>
+                            <div className={`max-w-[85%] p-4 rounded-2xl relative group ${msg.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200 shadow-sm'}`}>
                                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                                 
+                                {msg.role === 'model' && msg.text.length > 50 && (
+                                    <button 
+                                        onClick={() => copyToClipboard(msg.text)}
+                                        className="absolute top-2 right-2 p-1.5 bg-white rounded-lg shadow-sm border opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-indigo-600"
+                                        title="Copy as Draft"
+                                    >
+                                        <CopyIcon className="w-4 h-4" />
+                                    </button>
+                                )}
+
                                 {msg.sources && msg.sources.length > 0 && (
                                     <div className="mt-4 pt-3 border-t border-gray-200">
                                         <p className="text-[10px] font-black uppercase text-gray-400 mb-2">Web Sources Found:</p>
@@ -207,8 +220,8 @@ const AIAssistantPage: React.FC = () => {
                     {isLoading && (
                         <div className="flex justify-start">
                             <div className="bg-gray-50 p-4 rounded-2xl rounded-tl-none border border-gray-200 flex items-center gap-3">
-                                <Spinner className="h-4 w-4 border-2 border-purple-600" />
-                                <span className="text-xs font-bold text-purple-600 animate-pulse uppercase tracking-widest">AI Brain Computing...</span>
+                                <Spinner className="h-4 w-4 border-2 border-indigo-600" />
+                                <span className="text-xs font-bold text-indigo-600 animate-pulse uppercase tracking-widest">AI Brain Computing...</span>
                             </div>
                         </div>
                     )}
@@ -217,19 +230,19 @@ const AIAssistantPage: React.FC = () => {
                 <div className="p-4 bg-gray-50 border-t">
                     <form 
                         onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
-                        className="flex gap-3 bg-white p-1 rounded-full shadow-lg ring-1 ring-black/5"
+                        className="flex gap-3 bg-white p-1.5 rounded-full shadow-lg ring-1 ring-black/5"
                     >
                         <input 
                             type="text" 
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
-                            placeholder="ground me with your command..."
+                            placeholder="Draft an article or scan the web..."
                             className="flex-grow px-5 bg-transparent outline-none text-sm font-medium"
                         />
                         <Button 
                             type="submit" 
                             disabled={!inputValue.trim() || isLoading}
-                            className="bg-primary text-white h-10 w-10 flex items-center justify-center rounded-full p-0 shadow-md hover:scale-105 transition-all disabled:opacity-50 disabled:scale-100"
+                            className="bg-indigo-600 text-white h-10 w-10 flex items-center justify-center rounded-full p-0 shadow-md hover:scale-105 transition-all disabled:opacity-50 disabled:scale-100"
                         >
                             <SendIcon className="w-5 h-5" />
                         </Button>

@@ -8,6 +8,7 @@ import Spinner from './ui/Spinner';
 import ArrowUpIcon from './icons/ArrowUpIcon';
 import ArrowDownIcon from './icons/ArrowDownIcon';
 import MinusIcon from './icons/MinusIcon';
+import ShareIcon from './icons/ShareIcon';
 import FormGuide from './ui/FormGuide';
 import { calculateStandings, findInMap } from '../services/utils';
 import CollapsibleSelector from './ui/CollapsibleSelector';
@@ -107,6 +108,23 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
     return () => unsubscribe();
   }, [selectedLeague]);
 
+  const handleShare = async () => {
+    const shareData = {
+        title: `${competition?.name || 'League'} Standings`,
+        text: `Check out the latest standings for ${competition?.name || 'the league'} on Football Eswatini!`,
+        url: window.location.href,
+    };
+    
+    if (navigator.share) {
+        try { await navigator.share(shareData); } catch (err) {}
+    } else {
+        try {
+            await navigator.clipboard.writeText(window.location.href);
+            alert('Link copied to clipboard!');
+        } catch (err) {}
+    }
+  };
+
   return (
     <section>
         <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
@@ -114,15 +132,24 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                 {competition?.logoUrl && <img src={competition.logoUrl} alt="" className="h-10 object-contain" />}
                 <h2 className="text-3xl font-display font-bold">{competition?.name || 'Standings'}</h2>
             </div>
-            {showSelector && (
-                <div className="min-w-[280px]">
-                    <CollapsibleSelector 
-                        value={selectedLeague} 
-                        onChange={setSelectedLeague} 
-                        options={leagueOptions} 
-                    />
-                </div>
-            )}
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={handleShare} 
+                    className="p-2.5 text-gray-500 hover:text-primary transition-all bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md"
+                    title="Share Standings"
+                >
+                    <ShareIcon className="w-5 h-5" />
+                </button>
+                {showSelector && (
+                    <div className="min-w-[240px]">
+                        <CollapsibleSelector 
+                            value={selectedLeague} 
+                            onChange={setSelectedLeague} 
+                            options={leagueOptions} 
+                        />
+                    </div>
+                )}
+            </div>
         </div>
 
         <Card className="shadow-lg overflow-hidden border border-gray-100">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -66,13 +65,6 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 
     const crestA = teamADirectory?.crestUrl || teamA?.crestUrl;
     const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
-
-    const { homeGoals, awayGoals } = useMemo(() => {
-        const events = fixture.events || [];
-        const home = events.filter(e => e.type === 'goal' && (e.teamName === fixture.teamA || (!e.teamName && !fixture.teamB))).map(e => `${e.playerName || 'Goal'} ${e.minute}'`);
-        const away = events.filter(e => e.type === 'goal' && (e.teamName === fixture.teamB)).map(e => `${e.playerName || 'Goal'} ${e.minute}'`);
-        return { homeGoals: home, awayGoals: away };
-    }, [fixture.events, fixture.teamA, fixture.teamB]);
 
     const getLinkProps = (teamObj: Team | undefined, teamName: string) => {
         if (teamObj?.id) {
@@ -149,8 +141,8 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     };
 
     return (
-        <div className={`flex items-stretch hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${fixture.status === 'live' ? 'border-secondary' : 'border-transparent'}`}>
-            <div className="flex-grow relative flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer" onClick={onToggleDetails}>
+        <div className={`flex flex-col items-stretch hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${fixture.status === 'live' ? 'border-secondary' : 'border-transparent'}`}>
+            <div className="relative flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer" onClick={onToggleDetails}>
                 {getStatusBadge()}
                 <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
                     <span className="font-bold text-base leading-tight">{fixture.date}</span>
@@ -175,6 +167,16 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                         {crestB && <img src={crestB} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
                         {renderTeamName(fixture.teamB, teamBLink)}
                     </div>
+                </div>
+                <div className="flex items-center gap-1">
+                    <button 
+                        onClick={handleShare} 
+                        className="p-2 text-gray-400 hover:text-primary transition-colors rounded-full hover:bg-white shadow-sm border border-transparent hover:border-gray-200"
+                        title="Share Match"
+                    >
+                        <ShareIcon className="w-4 h-4" />
+                    </button>
+                    <ChevronDownIcon className={`w-5 h-5 text-gray-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 </div>
             </div>
             {isExpanded && (
