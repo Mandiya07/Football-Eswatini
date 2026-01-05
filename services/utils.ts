@@ -23,83 +23,12 @@ export const removeUndefinedProps = (obj: any): any => {
 
 /**
  * Super-normalization for robust matching.
- * Strips all non-alphanumeric chars and collapses whitespace.
  */
 export const superNormalize = (s: string) => {
     if (!s) return '';
     return s.toLowerCase()
-        .replace(/[^a-z0-9]/g, '') // Remove everything except letters and numbers
+        .replace(/[^a-z0-9]/g, '')
         .trim();
-};
-
-/**
- * Simple normalization for display and basic search.
- */
-export const normalize = (name: string) => 
-    (name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/\.|\,/g, '') 
-    .replace(/\s+/g, ' ') 
-    .trim();
-
-/**
- * Finds a team entity from the directory map using a more robust matching logic.
- */
-export const findInMap = (name: string, map: Map<string, DirectoryEntity>): DirectoryEntity | undefined => {
-    if (!name) return undefined;
-    const lowerName = name.trim().toLowerCase();
-    const exactMatch = map.get(lowerName);
-    if (exactMatch) return exactMatch;
-    
-    // Try super normalization fallback
-    const target = superNormalize(name);
-    for (const [key, value] of map.entries()) {
-        if (superNormalize(key) === target) return value;
-    }
-
-    // Try Fuzzy Matching as last resort
-    let bestMatch: DirectoryEntity | undefined = undefined;
-    let lowestDistance = 4; // Threshold for fuzzy match
-
-    for (const entry of map.values()) {
-        const dist = levenshtein(superNormalize(name), superNormalize(entry.name));
-        if (dist < lowestDistance) {
-            lowestDistance = dist;
-            bestMatch = entry;
-        }
-    }
-
-    return bestMatch;
-};
-
-/**
- * Normalizes a team name and tries to find a match in a list of official team names.
- * Includes fuzzy matching for variations.
- */
-export const normalizeTeamName = (name: string, officialNames: string[]): string | null => {
-    if (!name) return null;
-    const target = superNormalize(name);
-    
-    // 1. Try Super Normalize match
-    for (const official of officialNames) {
-        if (superNormalize(official) === target) return official;
-    }
-
-    // 2. Try Fuzzy Match (Levenshtein)
-    let bestMatch: string | null = null;
-    let lowestDistance = 3; // Threshold
-
-    for (const official of officialNames) {
-        const dist = levenshtein(target, superNormalize(official));
-        if (dist < lowestDistance) {
-            lowestDistance = dist;
-            bestMatch = official;
-        }
-    }
-
-    return bestMatch;
 };
 
 /**
@@ -120,99 +49,116 @@ export const levenshtein = (a: string, b: string): number => {
 };
 
 /**
- * Calculates league standings from a list of teams and finished matches.
- * CRITICAL FIX: Now prioritizes name-based mapping to ensure "Ghost" teams are captured
- * but uses official list as the source of truth for IDs.
+ * Normalizes a team name and tries to find a match.
  */
-export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
+export const normalizeTeamName = (name: string, officialNames: string[]): string | null => {
+    if (!name) return null;
+    const target = superNormalize(name);
+    for (const official of officialNames) {
+        if (superNormalize(official) === target) return official;
+    }
+    let bestMatch: string | null = null;
+    let lowestDistance = 3;
+    for (const official of officialNames) {
+        const dist = levenshtein(target, superNormalize(official));
+        if (dist < lowestDistance) {
+            lowestDistance = dist;
+            bestMatch = official;
+        }
+    }
+    return bestMatch;
+};
+
+export const findInMap = (name: string, map: Map<string, DirectoryEntity>): DirectoryEntity | undefined => {
+    if (!name) return undefined;
+    const lowerName = name.trim().toLowerCase();
+    const exactMatch = map.get(lowerName);
+    if (exactMatch) return exactMatch;
+    const target = superNormalize(name);
+    for (const [key, value] of map.entries()) {
+        if (superNormalize(key) === target) return value;
+    }
+    return undefined;
+};
+
+/**
+ * Internal logic to compute team stats from a set of matches
+ */
+const computeStats = (baseTeams: Team[], matches: CompetitionFixture[]) => {
     const teamsMap: Map<string, Team> = new Map();
-    
-    // 1. Initialize map with existing official teams
     baseTeams.forEach(team => {
-        const teamCopy = { ...team };
+        const teamCopy = JSON.parse(JSON.stringify(team));
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' };
         teamsMap.set(superNormalize(team.name), teamCopy);
     });
-    
-    const allMatches = [...(allResults || []), ...(allFixtures || [])];
 
-    // 2. Scan matches for any "Ghost" teams not in our list and add them temporarily
-    allMatches.forEach(m => {
-        [m.teamA, m.teamB].forEach(name => {
-            if (!name) return;
-            const norm = superNormalize(name);
-            if (!teamsMap.has(norm)) {
-                const newTeam: Team = {
-                    id: Math.floor(Math.random() * 1000000), 
-                    name: name.trim(),
-                    crestUrl: `https://via.placeholder.com/128/333333/FFFFFF?text=${name.charAt(0)}`,
-                    stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
-                    players: [], fixtures: [], results: [], staff: []
-                };
-                teamsMap.set(norm, newTeam);
-            }
-        });
-    });
-
-    // 3. Process finished matches strictly by date
-    const finishedMatches = allMatches.filter(r => 
-        (r.status === 'finished' || r.status === 'abandoned') && 
-        r.scoreA != null && 
-        r.scoreB != null
-    );
-    
-    // Sort matches oldest to newest to build form guide chronologically (appending to front)
-    const sortedMatches = finishedMatches
-        .filter(fixture => fixture.fullDate)
-        .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
+    const sortedMatches = [...matches].sort((a, b) => new Date(a.fullDate || 0).getTime() - new Date(b.fullDate || 0).getTime());
 
     for (const fixture of sortedMatches) {
         const teamA = teamsMap.get(superNormalize(fixture.teamA));
         const teamB = teamsMap.get(superNormalize(fixture.teamB));
-        
-        if (!teamA || !teamB || superNormalize(teamA.name) === superNormalize(teamB.name)) continue;
+        if (!teamA || !teamB || teamA.name === teamB.name) continue;
 
-        const scoreA = fixture.scoreA!;
-        const scoreB = fixture.scoreB!;
-        
-        teamA.stats.p += 1;
-        teamB.stats.p += 1;
-        teamA.stats.gs += scoreA;
-        teamA.stats.gc += scoreB;
-        teamB.stats.gs += scoreB;
-        teamB.stats.gc += scoreA;
+        const sA = fixture.scoreA ?? 0;
+        const sB = fixture.scoreB ?? 0;
+        teamA.stats.p++; teamB.stats.p++;
+        teamA.stats.gs += sA; teamA.stats.gc += sB;
+        teamB.stats.gs += sB; teamB.stats.gc += sA;
         teamA.stats.gd = teamA.stats.gs - teamA.stats.gc;
         teamB.stats.gd = teamB.stats.gs - teamB.stats.gc;
 
-        if (scoreA > scoreB) {
-            teamA.stats.w += 1;
-            teamA.stats.pts += 3;
-            teamB.stats.l += 1;
-            // Prepend new results so index 0 is newest
+        if (sA > sB) {
+            teamA.stats.w++; teamA.stats.pts += 3; teamB.stats.l++;
             teamA.stats.form = ['W', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
             teamB.stats.form = ['L', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
-        } else if (scoreB > scoreA) {
-            teamB.stats.w += 1;
-            teamB.stats.pts += 3;
-            teamA.stats.l += 1;
+        } else if (sB > sA) {
+            teamB.stats.w++; teamB.stats.pts += 3; teamA.stats.l++;
             teamB.stats.form = ['W', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
             teamA.stats.form = ['L', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         } else {
-            teamA.stats.d += 1;
-            teamB.stats.d += 1;
-            teamA.stats.pts += 1;
-            teamB.stats.pts += 1;
+            teamA.stats.d++; teamB.stats.d++; teamA.stats.pts += 1; teamB.stats.pts += 1;
             teamA.stats.form = ['D', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
             teamB.stats.form = ['D', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         }
     }
 
-    // 4. Return sorted list
     return Array.from(teamsMap.values()).sort((a, b) => {
         if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
         if (b.stats.gd !== a.stats.gd) return b.stats.gd - a.stats.gd;
-        if (b.stats.gs !== a.stats.gs) return b.stats.gs - a.stats.gs;
-        return a.name.localeCompare(b.name);
+        return b.stats.gs - a.stats.gs;
+    });
+};
+
+/**
+ * Calculates standings and determines movement (up/down)
+ */
+export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
+    const finishedMatches = allResults.filter(r => (r.status === 'finished' || r.status === 'abandoned') && r.scoreA != null && r.scoreB != null);
+    
+    // 1. Current Standings
+    const currentStandings = computeStats(baseTeams, finishedMatches);
+
+    // 2. Previous Standings (Identify most recent match date and exclude those matches)
+    const sortedDates = Array.from(new Set(finishedMatches.map(m => m.fullDate || ''))).sort();
+    const latestDate = sortedDates[sortedDates.length - 1];
+    const previousMatches = finishedMatches.filter(m => (m.fullDate || '') < latestDate);
+    
+    const previousStandings = computeStats(baseTeams, previousMatches);
+
+    // 3. Map ranks and calculate change
+    return currentStandings.map((team, currentRank) => {
+        const prevRank = previousStandings.findIndex(t => superNormalize(t.name) === superNormalize(team.name));
+        let posChange: 'up' | 'down' | 'same' = 'same';
+        
+        if (prevRank !== -1) {
+            if (currentRank < prevRank) posChange = 'up';
+            else if (currentRank > prevRank) posChange = 'down';
+        }
+        
+        return {
+            ...team,
+            positionChange: posChange
+        };
     });
 };
 

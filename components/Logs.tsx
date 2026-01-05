@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from './ui/Card';
@@ -29,7 +28,7 @@ export const PositionIndicator: React.FC<{ change?: 'up' | 'down' | 'same' }> = 
 const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-premier-league', maxHeight }) => {
   const [selectedLeague, setSelectedLeague] = useState(defaultLeague);
   const [leagueOptions, setLeagueOptions] = useState<{ label: string, options: { value: string; name: string; }[] }[]>([]);
-  const [leagueData, setLeagueData] = useState<Team[]>([]);
+  const [leagueData, setLeagueData] = useState<(Team & { positionChange?: 'up' | 'down' | 'same' })[]>([]);
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [loading, setLoading] = useState(true);
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
@@ -135,7 +134,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     <table className="w-full text-sm">
                         <thead className="bg-primary text-white text-[10px] sm:text-xs uppercase font-bold sticky top-0 z-10">
                             <tr>
-                                <th className="px-2 sm:px-3 py-4 w-8 text-center">#</th>
+                                <th className="px-2 sm:px-3 py-4 w-12 text-center">#</th>
                                 <th className="px-2 sm:px-3 py-4 text-left">Team</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Played">P</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Wins">W</th>
@@ -150,22 +149,30 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                         </thead>
                         <tbody className="divide-y">
                             {leagueData.map((team, index) => (
-                                <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-2 sm:px-3 py-3 font-bold text-gray-400 text-center">{index + 1}</td>
-                                    <td className="px-2 sm:px-3 py-3">
-                                        <div className="flex items-center gap-2 sm:gap-3">
-                                            <img src={findInMap(team.name, directoryMap)?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
-                                            <span className="font-bold text-gray-900 truncate max-w-[80px] sm:max-w-none">{team.name}</span>
+                                <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors border-l-4 border-secondary group relative">
+                                    <td className="px-2 sm:px-3 py-3 text-center">
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <span className="font-bold text-gray-900 text-sm">{index + 1}</span>
+                                            <PositionIndicator change={team.positionChange} />
                                         </div>
                                     </td>
-                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.p}</td>
+                                    <td className="px-2 sm:px-3 py-3">
+                                        <Link 
+                                            to={`/competitions/${selectedLeague}/teams/${team.id}`}
+                                            className="flex items-center gap-2 sm:gap-3 group-hover:translate-x-1 transition-transform"
+                                        >
+                                            <img src={findInMap(team.name, directoryMap)?.crestUrl || team.crestUrl} className="w-6 h-6 sm:w-8 sm:h-8 object-contain bg-white rounded shadow-sm p-0.5" alt="" />
+                                            <span className="font-bold text-gray-900 truncate max-w-[100px] sm:max-w-none group-hover:text-primary transition-colors">{team.name}</span>
+                                        </Link>
+                                    </td>
+                                    <td className="px-1 sm:px-2 py-3 text-center font-medium">{team.stats.p}</td>
                                     <td className="px-1 sm:px-2 py-3 text-center">{team.stats.w}</td>
                                     <td className="px-1 sm:px-2 py-3 text-center">{team.stats.d}</td>
                                     <td className="px-1 sm:px-2 py-3 text-center">{team.stats.l}</td>
                                     <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gs}</td>
                                     <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gc}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center font-black text-primary">{team.stats.pts}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center font-medium">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
+                                    <td className="px-1 sm:px-2 py-3 text-center font-black text-primary bg-primary/5">{team.stats.pts}</td>
                                     <td className="px-2 sm:px-3 py-3"><FormGuide form={team.stats.form} /></td>
                                 </tr>
                             ))}

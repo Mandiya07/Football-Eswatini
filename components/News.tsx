@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -9,6 +8,8 @@ import ChevronRightIcon from './icons/ChevronRightIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import { fetchNews } from '../services/api';
 import MegaphoneIcon from './icons/MegaphoneIcon';
+// Added missing import for Spinner
+import Spinner from './ui/Spinner';
 
 const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -18,14 +19,11 @@ const formatDate = (dateStr: string) => {
     return dateStr;
 }
 
-export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact' }> = React.memo(({ item, variant = 'default' }) => {
+export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact' | 'featured' }> = React.memo(({ item, variant = 'default' }) => {
     const [copied, setCopied] = useState(false);
     
-    // Helper to get categories as array
     const categories = Array.isArray(item.category) ? item.category : [item.category];
     const mainCategory = categories[0];
-    
-    // Detect if this is a sponsored article
     const isSponsored = categories.some(c => c === 'Sponsored' || c === 'Partner Feature');
 
     let categoryColor = 'bg-green-100 text-green-800';
@@ -37,132 +35,88 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
         categoryColor = 'bg-pink-100 text-pink-800';
     } else if (mainCategory === 'International') {
         categoryColor = 'bg-purple-100 text-purple-800';
-    } else if (mainCategory === 'Schools') {
-        categoryColor = 'bg-orange-100 text-orange-800';
     }
-
-    const isCompact = variant === 'compact';
 
     const handleShare = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-
-        // Use current page base + hash path to ensure valid absolute URL
         const baseUrl = window.location.href.split('#')[0];
         const articleUrl = `${baseUrl}#${item.url}`;
-
-        const shareData = {
-          title: item.title,
-          text: `Check out this article from Football Eswatini: ${item.title}`,
-          url: articleUrl,
-        };
+        const shareData = { title: item.title, text: item.summary, url: articleUrl };
     
         if (navigator.share) {
-          try {
-            await navigator.share(shareData);
-          } catch (err) {
-            if ((err as Error).name !== 'AbortError') {
-                 console.error('Error sharing:', err);
-            }
-          }
+          try { await navigator.share(shareData); } catch (err) {}
         } else {
           try {
             await navigator.clipboard.writeText(shareData.url);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000); 
-          } catch (err) {
-            console.error('Failed to copy to clipboard:', err);
-            alert('Could not copy link to clipboard.');
-          }
+          } catch (err) {}
         }
     };
 
-    if (isCompact) {
+    if (variant === 'featured') {
         return (
-            <Link to={item.url} className="group block h-full">
-                <Card className={`transition-all duration-300 hover:shadow-lg flex flex-row h-32 overflow-hidden ${isSponsored ? 'border-l-4 border-yellow-400 bg-yellow-50/30' : ''}`}>
-                    {/* Image on the left - Made larger */}
-                    <div className="relative w-32 flex-shrink-0">
-                        <img src={item.image} alt={item.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+            <Link to={item.url} className="group relative block h-[450px] overflow-hidden rounded-2xl shadow-2xl">
+                <img src={item.image} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 p-8 w-full">
+                    <span className={`inline-block mb-4 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest ${categoryColor}`}>
+                        {mainCategory}
+                    </span>
+                    <h2 className="text-3xl md:text-5xl font-display font-black text-white leading-tight mb-4 group-hover:text-[#FDB913] transition-colors">
+                        {item.title}
+                    </h2>
+                    <p className="text-slate-200 line-clamp-2 max-w-2xl mb-6">{item.summary}</p>
+                    <div className="flex items-center gap-2 text-white font-bold text-sm">
+                        READ ARTICLE <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
                     </div>
-                    {/* Content on the right - Improved spacing and layout */}
-                    <CardContent className="flex flex-col flex-grow p-4 overflow-hidden">
-                         <h3 className="font-bold font-display text-base text-gray-900 group-hover:text-primary transition-colors duration-300 line-clamp-2 leading-snug mb-2">
-                            {item.title}
-                        </h3>
-                        {/* Summary preview added since card is taller now */}
-                        <p className="hidden sm:line-clamp-1 text-[11px] text-gray-500 mb-2">{item.summary}</p>
-                        
-                        <div className="flex justify-between items-center mt-auto">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${categoryColor} w-fit flex items-center gap-1 shadow-sm`}>
-                                {isSponsored && <MegaphoneIcon className="w-2.5 h-2.5" />}
-                                {mainCategory}
-                            </span>
-                            <p className="text-gray-400 text-[10px] font-medium">{formatDate(item.date)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                </div>
             </Link>
         );
     }
 
-    // Default Card Layout
+    if (variant === 'compact') {
+        return (
+            <Link to={item.url} className="group flex gap-4 items-center bg-white p-3 rounded-xl border border-slate-100 hover:border-[#002B7F]/20 hover:shadow-md transition-all">
+                <div className="w-24 h-20 flex-shrink-0 overflow-hidden rounded-lg">
+                    <img src={item.image} alt={item.title} className="h-full w-full object-cover group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="min-w-0 flex-grow">
+                    <h4 className="text-sm font-bold text-slate-900 line-clamp-2 leading-tight mb-1 group-hover:text-[#002B7F] transition-colors">{item.title}</h4>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-400">{formatDate(item.date)}</span>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${categoryColor}`}>{mainCategory}</span>
+                    </div>
+                </div>
+            </Link>
+        );
+    }
+
     return (
         <Link to={item.url} className="group block h-full">
-            <Card className={`transition-all duration-300 hover:shadow-xl flex flex-col relative h-full ${isSponsored ? 'border-2 border-yellow-400 ring-4 ring-yellow-50' : ''}`}>
-                <div className="relative overflow-hidden">
-                    <img src={item.image} alt={item.title} loading="lazy" className="w-full object-cover group-hover:scale-105 transition-transform duration-300 h-48" />
-                     <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-                        {categories.map(cat => {
-                            const isCatSponsored = cat === 'Sponsored' || cat === 'Partner Feature';
-                            return (
-                                <span key={cat} className={`text-xs font-bold px-2 py-1 rounded-full bg-opacity-90 flex items-center gap-1 ${
-                                    isCatSponsored ? 'bg-yellow-400 text-yellow-900 shadow-sm' :
-                                    cat === 'National' ? 'bg-blue-100 text-blue-800' : 
-                                    cat === 'International' ? 'bg-purple-100 text-purple-800' : 
-                                    'bg-green-100 text-green-800'
-                                }`}>
-                                    {isCatSponsored && <MegaphoneIcon className="w-3 h-3" />}
-                                    {cat}
-                                </span>
-                            );
-                        })}
-                     </div>
-                </div>
-                <CardContent className={`flex flex-col flex-grow p-4 ${isSponsored ? 'bg-yellow-50/20' : ''}`}>
-                    <div className="flex-grow">
-                        <div className="flex justify-between items-start mb-2">
-                            <p className="text-sm text-gray-500">{formatDate(item.date)}</p>
-                            <div className="relative z-10 -mt-1">
-                                <button
-                                    onClick={handleShare}
-                                    className="text-gray-400 hover:text-blue-600 p-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                                    aria-label={`Share article: ${item.title}`}
-                                >
-                                    <ShareIcon className="w-5 h-5" />
-                                </button>
-                                {copied && (
-                                     <span className="absolute bottom-full mb-2 -right-2 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10 animate-fade-in-tooltip">
-                                        Link Copied!
-                                        <div className="absolute top-full right-3 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-800"></div>
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <h3 className="font-bold font-display mb-2 text-gray-900 group-hover:text-blue-600 transition-colors duration-300 line-clamp-2 text-lg">
-                            {item.title}
-                        </h3>
-                        <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
-                            {item.summary}
-                        </p>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                        <span
-                            className={`text-sm font-semibold transition-colors flex items-center gap-1 ${isSponsored ? 'text-yellow-700 group-hover:text-yellow-900' : 'text-blue-600 group-hover:text-blue-800'}`}
-                        >
-                            {isSponsored ? 'Read Feature' : 'Read More'}
-                            <ArrowRightIcon className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+            <Card className="h-full transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden border-0 bg-white">
+                <div className="relative h-56 overflow-hidden">
+                    <img src={item.image} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div className="absolute top-4 left-4">
+                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg ${categoryColor}`}>
+                            {mainCategory}
                         </span>
+                    </div>
+                </div>
+                <CardContent className="p-6">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">{formatDate(item.date)}</p>
+                    <h3 className="text-xl font-display font-black text-slate-900 mb-3 group-hover:text-[#002B7F] transition-colors line-clamp-2">
+                        {item.title}
+                    </h3>
+                    <p className="text-sm text-slate-600 line-clamp-3 mb-6 leading-relaxed">{item.summary}</p>
+                    <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                        <span className="text-xs font-black text-[#002B7F] flex items-center gap-1 group-hover:gap-2 transition-all">
+                            EXPLORE <ArrowRightIcon className="w-4 h-4" />
+                        </span>
+                        <button onClick={handleShare} className="text-slate-300 hover:text-[#002B7F] transition-colors">
+                            <ShareIcon className="w-5 h-5" />
+                        </button>
                     </div>
                 </CardContent>
             </Card>
@@ -171,7 +125,6 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
 });
 
 const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [allNews, setAllNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -185,77 +138,56 @@ const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
         loadNews();
     }, []);
 
-    const newsItems = category 
+    const filteredNews = category 
         ? allNews.filter(item => {
             const cats = Array.isArray(item.category) ? item.category : [item.category];
             return cats.includes(category);
         })
         : allNews.filter(item => {
             const cats = Array.isArray(item.category) ? item.category : [item.category];
-            const isCommunityExclusive = cats.includes('Community Football Hub') && cats.length === 1;
-            return !isCommunityExclusive;
+            return !cats.includes('Community Football Hub') || cats.length > 1;
         });
 
+    // Spinner is now properly imported from ./ui/Spinner
+    if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
+    if (filteredNews.length === 0) return null;
 
-    const scroll = (direction: 'left' | 'right') => {
-        if (scrollContainerRef.current) {
-            const scrollAmount = scrollContainerRef.current.clientWidth * 0.8;
-            scrollContainerRef.current.scrollBy({
-                left: direction === 'left' ? -scrollAmount : scrollAmount,
-                behavior: 'smooth',
-            });
-        }
-    };
-
-    const renderSkeletons = () => (
-        <div className="flex -mx-4 px-4 gap-6 pb-4">
-             {[...Array(3)].map((_, index) => (
-                <div key={index} className="snap-center sm:snap-start flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[31%]">
-                    <Card className="animate-pulse">
-                        <div className="h-48 bg-gray-200"></div>
-                        <CardContent className="p-4 space-y-3">
-                            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                            <div className="h-6 bg-gray-200 rounded w-full"></div>
-                            <div className="space-y-2">
-                                <div className="h-4 bg-gray-200 rounded w-full"></div>
-                                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            ))}
-        </div>
-    );
+    const featuredItem = filteredNews[0];
+    const gridItems = filteredNews.slice(1, 4);
+    const compactItems = filteredNews.slice(4, 10);
 
     return (
-        <section>
-            <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-display font-bold">{category ? `${category === 'Schools' ? 'Schools Tournament' : category}'s News` : 'Latest News'}</h2>
-                <div className="hidden sm:flex items-center gap-2">
-                    <button onClick={() => scroll('left')} className="p-2 rounded-full bg-white hover:bg-gray-100 transition-colors border border-gray-200" aria-label="Previous news item">
-                        <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <button onClick={() => scroll('right')} className="p-2 rounded-full bg-white hover:bg-gray-100 transition-colors border border-gray-200" aria-label="Next news item">
-                        <ChevronRightIcon className="w-5 h-5 text-gray-600" />
-                    </button>
+        <section className="space-y-12">
+            <div className="flex items-center justify-between">
+                <h2 className="text-4xl font-display font-black text-slate-900 tracking-tighter">
+                    {category || 'LATEST STORIES'}
+                </h2>
+                <Link to="/news" className="text-[#002B7F] font-bold text-sm hover:underline">See All Stories</Link>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Main Featured Column */}
+                <div className="lg:col-span-8">
+                    <NewsCard item={featuredItem} variant="featured" />
+                </div>
+
+                {/* Compact List Side */}
+                <div className="lg:col-span-4 space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Trending Now</h3>
+                    <div className="space-y-4">
+                        {compactItems.map(item => (
+                            <NewsCard key={item.id} item={item} variant="compact" />
+                        ))}
+                    </div>
                 </div>
             </div>
-            {loading ? renderSkeletons() : (
-                <div
-                    ref={scrollContainerRef}
-                    className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth -mx-4 px-4 gap-6 pb-4 scrollbar-hide"
-                >
-                    {newsItems.length > 0 ? newsItems.map(item => (
-                        <div key={item.id} className="snap-center sm:snap-start flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[31%]">
-                            <NewsCard item={item} />
-                        </div>
-                    )) : (
-                        <div className="w-full text-center py-8 text-gray-500">
-                            No news available in this category yet.
-                        </div>
-                    )}
-                </div>
-            )}
+
+            {/* Sub Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {gridItems.map(item => (
+                    <NewsCard key={item.id} item={item} />
+                ))}
+            </div>
         </section>
     );
 };
