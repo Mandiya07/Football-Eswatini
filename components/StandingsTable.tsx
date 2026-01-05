@@ -30,7 +30,7 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, compId }) =>
     <Card className="shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
             <table className="w-full text-sm">
-                <thead className="bg-primary text-white text-left font-semibold uppercase text-[10px] tracking-wider">
+                <thead className="bg-primary text-white text-left font-semibold uppercase text-[10px] tracking-wider border-b-4 border-secondary">
                     <tr>
                         <th className="px-4 py-3 w-12 text-center">#</th>
                         <th className="px-4 py-3">Team</th>
@@ -47,7 +47,7 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, compId }) =>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                     {validStandings.map((team, index) => (
-                        <tr key={team.id || team.name} className="hover:bg-gray-50/50 border-l-4 border-secondary group">
+                        <tr key={team.id || team.name} className="hover:bg-gray-50/50 group">
                             <td className="px-4 py-2">
                                 <div className="flex flex-col items-center">
                                     <span className="font-bold text-gray-700">{index + 1}</span>
@@ -66,7 +66,7 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, compId }) =>
                                             {team.name.charAt(0)}
                                         </div>
                                     )}
-                                    <span className="font-bold text-gray-800 truncate max-w-[120px] sm:max-w-none group-hover:text-primary transition-colors">{team.name}</span>
+                                    <span className="font-bold text-gray-800 truncate max-w-[120px] sm:max-w-none group-hover:text-primary transition-colors hover:underline decoration-2 underline-offset-2">{team.name}</span>
                                 </Link>
                             </td>
                             <td className="px-2 py-2 text-center font-medium">{team.stats.p}</td>

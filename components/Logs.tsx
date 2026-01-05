@@ -8,7 +8,6 @@ import Spinner from './ui/Spinner';
 import ArrowUpIcon from './icons/ArrowUpIcon';
 import ArrowDownIcon from './icons/ArrowDownIcon';
 import MinusIcon from './icons/MinusIcon';
-import ShareIcon from './icons/ShareIcon';
 import FormGuide from './ui/FormGuide';
 import { calculateStandings, findInMap } from '../services/utils';
 import CollapsibleSelector from './ui/CollapsibleSelector';
@@ -132,7 +131,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     <div className="flex justify-center items-center py-20"><Spinner /></div>
                  ) : leagueData.length > 0 ? (
                     <table className="w-full text-sm">
-                        <thead className="bg-primary text-white text-[10px] sm:text-xs uppercase font-bold sticky top-0 z-10">
+                        <thead className="bg-primary text-white text-[10px] sm:text-xs uppercase font-bold sticky top-0 z-10 border-b-4 border-secondary">
                             <tr>
                                 <th className="px-2 sm:px-3 py-4 w-12 text-center">#</th>
                                 <th className="px-2 sm:px-3 py-4 text-left">Team</th>
@@ -149,7 +148,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                         </thead>
                         <tbody className="divide-y">
                             {leagueData.map((team, index) => (
-                                <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors border-l-4 border-secondary group relative">
+                                <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors group relative">
                                     <td className="px-2 sm:px-3 py-3 text-center">
                                         <div className="flex flex-col items-center gap-0.5">
                                             <span className="font-bold text-gray-900 text-sm">{index + 1}</span>
@@ -162,7 +161,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                             className="flex items-center gap-2 sm:gap-3 group-hover:translate-x-1 transition-transform"
                                         >
                                             <img src={findInMap(team.name, directoryMap)?.crestUrl || team.crestUrl} className="w-6 h-6 sm:w-8 sm:h-8 object-contain bg-white rounded shadow-sm p-0.5" alt="" />
-                                            <span className="font-bold text-gray-900 truncate max-w-[100px] sm:max-w-none group-hover:text-primary transition-colors">{team.name}</span>
+                                            <span className="font-bold text-gray-900 truncate max-w-[100px] sm:max-w-none group-hover:text-primary transition-colors hover:underline decoration-2 underline-offset-2">{team.name}</span>
                                         </Link>
                                     </td>
                                     <td className="px-1 sm:px-2 py-3 text-center font-medium">{team.stats.p}</td>
