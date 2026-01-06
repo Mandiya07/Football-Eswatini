@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { listenToAllCompetitions, fetchNews, fetchCommunityEvents } from '../services/api';
@@ -21,50 +22,70 @@ const LiveTicker: React.FC = () => {
 
         const updateTicker = () => {
             const combined: TickerItem[] = [];
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            
+            const last48h = new Date(now.getTime() - (48 * 60 * 60 * 1000));
+            const next7d = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
 
-            // 1. Live/Suspended Matches (Highest Priority)
+            // 1. Live/Suspended Matches (All Competitions)
             const activeMatches = matches.filter(m => m.status === 'live' || m.status === 'suspended' || m.status === 'abandoned');
             activeMatches.forEach(m => combined.push({ type: 'match', data: m }));
 
             // 2. Breaking News
-            news.slice(0, 3).forEach(n => combined.push({ type: 'news', data: n }));
+            news.slice(0, 5).forEach(n => combined.push({ type: 'news', data: n }));
 
-            // 3. Postponed/Cancelled Matches (Important Updates)
-            const alerts = matches.filter(m => m.status === 'postponed' || m.status === 'cancelled').slice(0, 3);
+            // 3. Recent Results (Last 48 hours, All Competitions)
+            const recentResults = matches.filter(m => 
+                m.status === 'finished' && 
+                m.fullDate && 
+                new Date(m.fullDate).getTime() >= last48h.getTime()
+            ).sort((a, b) => new Date(b.fullDate!).getTime() - new Date(a.fullDate!).getTime());
+            recentResults.forEach(m => combined.push({ type: 'match', data: m }));
+
+            // 4. Important Match Alerts
+            const alerts = matches.filter(m => 
+                (m.status === 'postponed' || m.status === 'cancelled') &&
+                m.fullDate && 
+                new Date(m.fullDate).getTime() >= last48h.getTime()
+            );
             alerts.forEach(m => combined.push({ type: 'match', data: m }));
 
-            // 4. Upcoming Fixtures (Shortlist)
-            const upcoming = matches.filter(m => m.status === 'scheduled').slice(0, 4);
-            upcoming.forEach(m => combined.push({ type: 'match', data: m }));
+            // 5. Upcoming Fixtures (Next 7 days, All Competitions)
+            const upcoming = matches.filter(m => 
+                m.status === 'scheduled' && 
+                m.fullDate && 
+                new Date(m.fullDate).getTime() > now.getTime() &&
+                new Date(m.fullDate).getTime() <= next7d.getTime()
+            ).sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
+            
+            upcoming.slice(0, 15).forEach(m => combined.push({ type: 'match', data: m }));
 
-            // 5. Local Events
-            community.slice(0, 2).forEach(c => combined.push({ type: 'community', data: c }));
+            // 6. Upcoming Local Events
+            community.filter(c => c.date >= todayStr).slice(0, 3).forEach(c => combined.push({ type: 'community', data: c }));
 
-            // 6. Match CTA
-            combined.push({ type: 'cta', text: "⚽ Predict match outcomes & level up!", link: "/interactive" });
-
-            // Ensure we have enough items for a smooth marquee loop (min 8)
-            if (combined.length > 0 && combined.length < 8) {
-                combined.push({ type: 'cta', text: "🏆 Support your local clubs via the Directory", link: "/directory" });
-                combined.push({ type: 'cta', text: "📣 Follow Football Eswatini on Facebook!", link: "https://www.facebook.com/61584176729752/" });
-            }
+            // 7. CTA
+            combined.push({ type: 'cta', text: "⚽ Predict match outcomes & win!", link: "/interactive" });
 
             setItems(combined);
         };
 
         const unsubscribeMatches = listenToAllCompetitions((allComps) => {
             const allMatches: CompetitionFixture[] = [];
-            Object.values(allComps).forEach(comp => {
-                if (comp.fixtures) allMatches.push(...comp.fixtures);
-                if (comp.results) allMatches.push(...comp.results);
+            Object.entries(allComps).forEach(([compId, comp]) => {
+                const compLabel = comp.displayName || comp.name;
+                if (comp.fixtures) {
+                    comp.fixtures.forEach(f => {
+                        allMatches.push({ ...f, competition: compLabel });
+                    });
+                }
+                if (comp.results) {
+                    comp.results.forEach(r => {
+                        allMatches.push({ ...r, competition: compLabel });
+                    });
+                }
             });
-            matches = allMatches.sort((a, b) => {
-                const priority = { 'live': 0, 'suspended': 1, 'abandoned': 1, 'scheduled': 2, 'postponed': 3, 'cancelled': 4, 'finished': 5 };
-                const pA = priority[a.status || 'scheduled'] ?? 99;
-                const pB = priority[b.status || 'scheduled'] ?? 99;
-                if (pA !== pB) return pA - pB;
-                return new Date(a.fullDate || 0).getTime() - new Date(b.fullDate || 0).getTime();
-            });
+            matches = allMatches;
             updateTicker();
         });
 
@@ -87,30 +108,30 @@ const LiveTicker: React.FC = () => {
     };
 
     const getStatusColor = (m: CompetitionFixture) => {
-        if (m.status === 'live') return 'bg-accent text-primary-dark animate-pulse';
+        if (m.status === 'live') return 'bg-red-600 text-white animate-pulse';
         if (m.status === 'suspended' || m.status === 'abandoned') return 'bg-orange-600 text-white';
-        if (m.status === 'postponed' || m.status === 'cancelled') return 'bg-red-600 text-white';
-        if (m.status === 'finished') return 'bg-white/10 text-white/50';
+        if (m.status === 'postponed' || m.status === 'cancelled') return 'bg-slate-700 text-white';
+        if (m.status === 'finished') return 'bg-green-600 text-white';
         return 'bg-blue-600 text-white';
     };
 
     return (
         <div className="bg-primary-dark border-y border-white/5 h-10 flex items-center overflow-hidden relative z-[90] shadow-inner">
             <div className="flex-shrink-0 bg-secondary px-4 h-full flex items-center z-20 shadow-[8px_0_15px_rgba(0,0,0,0.5)]">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2"></div>
-                <span className="text-white text-[10px] font-black uppercase tracking-tighter">Live Updates</span>
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse mr-2"></div>
+                <span className="text-white text-[10px] font-black uppercase tracking-widest">Pulse</span>
             </div>
             
             <div className="flex whitespace-nowrap animate-marquee hover:pause-animation items-center">
-                {/* Render four times to guarantee a seamless loop on 4K/ultra-wide screens */}
-                {[...items, ...items, ...items, ...items].map((item, idx) => (
+                {[...items, ...items].map((item, idx) => (
                     <div key={`${idx}`} className="inline-flex items-center px-10 border-r border-white/5">
                         {item.type === 'match' && (
                             <>
-                                <span className={`text-[9px] font-black mr-3 px-2 py-0.5 rounded shadow-sm ${getStatusColor(item.data)}`}>
+                                <span className={`text-[8px] font-black mr-3 px-2 py-0.5 rounded shadow-sm ${getStatusColor(item.data)}`}>
                                     {getStatusLabel(item.data)}
                                 </span>
                                 <span className="text-white text-xs font-bold tracking-tight">
+                                    <span className="opacity-40 font-black mr-2 text-[9px] uppercase">{item.data.competition}</span>
                                     {item.data.teamA} 
                                     <span className="mx-2 text-accent">
                                         {item.data.status === 'scheduled' || item.data.status === 'postponed' || item.data.status === 'cancelled' 
@@ -124,7 +145,7 @@ const LiveTicker: React.FC = () => {
 
                         {item.type === 'news' && (
                             <>
-                                <span className="text-[9px] font-black mr-3 px-2 py-0.5 rounded bg-blue-500 text-white uppercase shadow-sm">News</span>
+                                <span className="text-[8px] font-black mr-3 px-2 py-0.5 rounded bg-blue-500 text-white uppercase shadow-sm">News</span>
                                 <Link to={item.data.url} className="text-white text-xs font-medium hover:text-accent transition-colors">
                                     {item.data.title}
                                 </Link>
@@ -133,15 +154,15 @@ const LiveTicker: React.FC = () => {
 
                         {item.type === 'community' && (
                             <>
-                                <span className="text-[9px] font-black mr-3 px-2 py-0.5 rounded bg-green-600 text-white uppercase shadow-sm">Events</span>
+                                <span className="text-[8px] font-black mr-3 px-2 py-0.5 rounded bg-green-600 text-white uppercase shadow-sm">Local</span>
                                 <span className="text-white text-xs font-medium italic opacity-90">
-                                    {item.data.title} @ {item.data.venue}
+                                    {item.data.title} • {item.data.venue}
                                 </span>
                             </>
                         )}
 
                         {item.type === 'cta' && (
-                            <Link to={item.link} className="text-accent text-[11px] font-black uppercase tracking-widest hover:underline decoration-2 underline-offset-4 decoration-white/20">
+                            <Link to={item.link} className="text-accent text-[10px] font-black uppercase tracking-widest hover:underline">
                                 {item.text}
                             </Link>
                         )}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -66,6 +67,13 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const crestA = teamADirectory?.crestUrl || teamA?.crestUrl;
     const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
 
+    const { homeGoals, awayGoals } = useMemo(() => {
+        const events = fixture.events || [];
+        const home = events.filter(e => e.type === 'goal' && (e.teamName === fixture.teamA || (!e.teamName && !fixture.teamB))).map(e => `${e.playerName || 'Goal'} ${e.minute}'`);
+        const away = events.filter(e => e.type === 'goal' && (e.teamName === fixture.teamB)).map(e => `${e.playerName || 'Goal'} ${e.minute}'`);
+        return { homeGoals: home, awayGoals: away };
+    }, [fixture.events, fixture.teamA, fixture.teamB]);
+
     const getLinkProps = (teamObj: Team | undefined, teamName: string) => {
         if (teamObj?.id) {
             return { type: 'profile', url: `/competitions/${competitionId}/teams/${teamObj.id}` };
@@ -88,13 +96,10 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
         e.preventDefault();
 
         let title = `⚽ Match: ${fixture.teamA} vs ${fixture.teamB}`;
-        let text = `Check out this Football Eswatini match!\n\n${fixture.teamA} vs ${fixture.teamB}`;
+        let text = `Check out this match on Football Eswatini!\n\n${fixture.teamA} vs ${fixture.teamB}`;
 
         if (fixture.status === 'live' || fixture.status === 'finished') {
             text += `\nScore: ${fixture.scoreA} - ${fixture.scoreB}`;
-            if (fixture.scoreAPen !== undefined && fixture.scoreBPen !== undefined) {
-                text += ` (${fixture.scoreAPen}-${fixture.scoreBPen} on penalties)`;
-            }
         }
         
         const shareData = { title, text, url: window.location.href };
@@ -141,8 +146,8 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     };
 
     return (
-        <div className={`flex flex-col items-stretch hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${fixture.status === 'live' ? 'border-secondary' : 'border-transparent'}`}>
-            <div className="relative flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer" onClick={onToggleDetails}>
+        <div className={`flex items-stretch hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${fixture.status === 'live' ? 'border-secondary' : 'border-transparent'}`}>
+            <div className="flex-grow relative flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer" onClick={onToggleDetails}>
                 {getStatusBadge()}
                 <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
                     <span className="font-bold text-base leading-tight">{fixture.date}</span>
@@ -168,16 +173,9 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                         {renderTeamName(fixture.teamB, teamBLink)}
                     </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <button 
-                        onClick={handleShare} 
-                        className="p-2 text-gray-400 hover:text-primary transition-colors rounded-full hover:bg-white shadow-sm border border-transparent hover:border-gray-200"
-                        title="Share Match"
-                    >
-                        <ShareIcon className="w-4 h-4" />
-                    </button>
-                    <ChevronDownIcon className={`w-5 h-5 text-gray-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                </div>
+                <button onClick={handleShare} className="p-2 text-gray-400 hover:text-primary transition-colors flex-shrink-0" title="Share Match">
+                    <ShareIcon className="w-4 h-4" />
+                </button>
             </div>
             {isExpanded && (
                 <div className="w-full basis-full border-t border-gray-100 bg-gray-50/50 p-2">
@@ -197,7 +195,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     const [compOptions, setCompOptions] = useState<{ label: string, options: { value: string; name: string; }[] }[]>([]);
 
-    // Sync selectedComp with prop if it changes (crucial for Hub pages)
     useEffect(() => {
         if (defaultCompetition) setSelectedComp(defaultCompetition);
     }, [defaultCompetition]);

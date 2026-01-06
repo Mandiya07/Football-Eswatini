@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -91,9 +92,9 @@ const Navigation: React.FC = () => {
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
-    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[12px] xl:text-[13px] font-bold tracking-wide h-full flex items-center px-3 xl:px-4 border-b-4 border-transparent whitespace-nowrap";
+    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[13px] xl:text-[14px] font-bold tracking-tight h-full flex items-center px-3 border-b-4 border-transparent whitespace-nowrap";
     const activeClass = "text-accent !border-accent active-mobile-nav bg-white/5";
-    return `${baseClass} ${isActive ? activeClass : 'opacity-80 hover:opacity-100 hover:bg-white/5'}`;
+    return `${baseClass} ${isActive ? activeClass : 'opacity-90 hover:opacity-100 hover:bg-white/5'}`;
   };
 
   return (
@@ -102,7 +103,6 @@ const Navigation: React.FC = () => {
         <SecondaryNavigation />
         
         <div className="bg-[#002B7F] backdrop-blur-xl shadow-2xl border-b border-white/10 relative overflow-hidden">
-          {/* Decorative subtle gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-r from-primary-dark/50 to-transparent pointer-events-none"></div>
 
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -120,7 +120,7 @@ const Navigation: React.FC = () => {
                 )}
               </div>
               
-              <div className="hidden lg:flex items-center h-full">
+              <div className="hidden lg:flex items-center h-full overflow-x-auto scrollbar-hide">
                   {navItems.map((item) => (
                     <NavLink key={item.name} to={item.to} className={getNavLinkClass}>
                       {item.name}
@@ -175,8 +175,8 @@ const Navigation: React.FC = () => {
                                           </Link>
                                           {isSuperAdmin && (
                                               <>
-                                                  <Link to="/data-management" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
-                                                      <SparklesIcon className="w-5 h-5 text-purple-600" /> Content & AI Engine
+                                                  <Link to="/ai-assistant" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
+                                                      <SparklesIcon className="w-5 h-5 text-purple-600" /> Article AI Engine
                                                   </Link>
                                                   <Link to="/admin-panel" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
                                                       <ShieldIcon className="w-5 h-5 text-red-600" /> Admin Control
@@ -189,11 +189,10 @@ const Navigation: React.FC = () => {
                           )}
                           <Link to="/profile" className="block relative group">
                             <img src={user.avatar} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white/20 group-hover:border-accent transition-all shadow-xl object-cover" />
-                            <div className="absolute inset-0 rounded-full bg-accent/0 group-hover:bg-accent/10 transition-all"></div>
                           </Link>
                       </div>
                     ) : (
-                      <Button variant="accent" size="sm" onClick={openAuthModal} className="uppercase text-[11px] font-black rounded-full px-6 shadow-xl hover:scale-105 active:scale-95 transition-all">
+                      <Button variant="accent" size="sm" onClick={openAuthModal} className="text-[11px] font-black rounded-full px-6 shadow-xl hover:scale-105 active:scale-95 transition-all">
                         Sign In
                       </Button>
                     )}
@@ -209,22 +208,25 @@ const Navigation: React.FC = () => {
 
         {/* Mobile Sidebar/Menu */}
         {isOpen && (
-          <div className="lg:hidden fixed inset-0 z-[130] bg-slate-900/98 backdrop-blur-lg animate-in fade-in">
-             <div className="flex justify-between items-center p-6 border-b border-white/10">
+          <div className="lg:hidden fixed inset-0 z-[130] bg-slate-900 animate-in fade-in slide-in-from-top">
+             <div className="flex justify-between items-center p-6 border-b border-white/10 bg-[#002B7F]">
                 <Logo className="h-8 w-auto" />
                 <button onClick={() => setIsOpen(false)} className="text-white p-2"><XIcon className="w-8 h-8" /></button>
              </div>
-             <nav className="flex flex-col items-center gap-6 pt-12">
+             <nav className="flex flex-col items-center gap-4 pt-10 px-6 h-full overflow-y-auto pb-20">
                 {navItems.map((item) => (
                     <NavLink 
                         key={item.name} 
                         to={item.to} 
                         onClick={() => setIsOpen(false)}
-                        className={({ isActive }) => `text-3xl font-black transition-all ${isActive ? 'text-[#FDB913] scale-110' : 'text-white/40 hover:text-white hover:scale-105'}`}
+                        className={({ isActive }) => `text-2xl font-bold py-2 w-full text-center transition-all ${isActive ? 'text-accent border-b-2 border-accent' : 'text-white hover:text-accent'}`}
                     >
                         {item.name}
                     </NavLink>
                 ))}
+                {!isLoggedIn && (
+                  <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="mt-8 w-full py-4 text-lg font-bold" variant="accent">Sign In / Register</Button>
+                )}
              </nav>
           </div>
         )}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Hero from './Hero';
 import QuickAccess from './QuickAccess';
@@ -51,7 +52,7 @@ const Home: React.FC = () => {
         </Suspense>
 
         <Suspense fallback={<SectionLoader />}>
-          <NewsSection />
+          <NewsSection limit={3} />
         </Suspense>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">

@@ -16,6 +16,8 @@ import WhistleIcon from './icons/WhistleIcon';
 import { DirectoryEntity } from '../data/directory';
 import AdBanner from './AdBanner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
+// Added missing Button import
+import Button from './ui/Button';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
     switch (type) {
@@ -46,25 +48,13 @@ interface MergedLiveMatch {
 }
 
 const getMatchTimestamp = (fixture: CompetitionFixture): number => {
-    let timestamp = 0;
-    if (fixture.fullDate) {
-        let time = fixture.time ? fixture.time.trim() : '00:00';
-        if (time.length === 5) time += ':00'; 
-        if (time.length === 4) time = '0' + time + ':00';
-        try {
-            const dateStr = `${fixture.fullDate}T${time}`;
-            const ts = new Date(dateStr).getTime();
-            if (!isNaN(ts)) timestamp = ts;
-        } catch (e) {}
+    if (!fixture.fullDate) return 0;
+    const time = fixture.time || '15:00';
+    try {
+        return new Date(`${fixture.fullDate}T${time}`).getTime();
+    } catch (e) {
+        return new Date(fixture.fullDate).getTime();
     }
-    if (timestamp === 0 && fixture.fullDate) {
-        const ts = new Date(fixture.fullDate).getTime();
-        if (!isNaN(ts)) timestamp = ts;
-    }
-    if (timestamp === 0 && typeof fixture.id === 'number' && fixture.id > 1600000000000) {
-         timestamp = fixture.id;
-    }
-    return timestamp;
 };
 
 const LiveUpdatesPage: React.FC = () => {
@@ -78,56 +68,55 @@ const LiveUpdatesPage: React.FC = () => {
 
     useEffect(() => {
         setLoading(true);
-        // Real-time listener for ALL competitions
         const unsubscribeComps = listenToAllCompetitions((allCompetitions) => {
             const active: { fixture: CompetitionFixture, competitionName: string, competitionId: string }[] = [];
             const upcoming: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
             const results: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
+            
             const now = new Date();
+            // Relevance window for results: last 7 days
+            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+            // Relevance window for upcoming: next 14 days
+            const twoWeeksAhead = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
             
             Object.entries(allCompetitions).forEach(([compId, comp]) => {
                 const compName = comp.displayName || comp.name;
+                
+                // Process Fixtures
                 if (comp.fixtures) {
                     comp.fixtures.forEach(f => {
-                        if (f.status === 'live' || f.status === 'suspended') {
+                        const ts = getMatchTimestamp(f);
+                        const matchDate = new Date(ts);
+                        
+                        const isCurrentlyActive = f.status === 'live' || f.status === 'suspended' || f.status === 'abandoned' || 
+                                                 (ts > 0 && Math.abs(now.getTime() - ts) < 4 * 60 * 60 * 1000); // within 4h window
+
+                        if (isCurrentlyActive) {
                             active.push({ fixture: f, competitionName: compName, competitionId: compId });
-                        } else if (f.status === 'scheduled' && f.fullDate) {
-                            const ts = getMatchTimestamp(f);
-                            if (ts > 0) {
-                                const matchDateTime = new Date(ts);
-                                const threeHoursFromStart = new Date(matchDateTime.getTime() + 3 * 60 * 60 * 1000);
-                                if (now >= matchDateTime && now < threeHoursFromStart) {
-                                    active.push({ fixture: f, competitionName: compName, competitionId: compId });
-                                } else if (matchDateTime > now) {
-                                    upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
-                                }
-                            } else {
-                                upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
-                            }
-                        } else if (f.status === 'scheduled') {
-                             upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
+                        } else if (ts > now.getTime() && ts <= twoWeeksAhead.getTime()) {
+                            upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
                         }
                     });
                 }
+
+                // Process Results
                 if (comp.results) {
                     comp.results.forEach(r => {
-                        results.push({ fixture: r, competitionId: compId, competitionName: compName });
+                        const ts = getMatchTimestamp(r);
+                        if (ts >= oneWeekAgo.getTime() && ts < now.getTime()) {
+                            results.push({ fixture: r, competitionId: compId, competitionName: compName });
+                        }
                     });
                 }
             });
 
-            upcoming.sort((a, b) => getMatchTimestamp(a.fixture) - getMatchTimestamp(b.fixture));
-            results.sort((a, b) => getMatchTimestamp(b.fixture) - getMatchTimestamp(a.fixture));
-            
+            setUpcomingMatches(upcoming.sort((a, b) => getMatchTimestamp(a.fixture) - getMatchTimestamp(b.fixture)));
+            setRecentResults(results.sort((a, b) => getMatchTimestamp(b.fixture) - getMatchTimestamp(a.fixture)));
             setActiveFixtures(active);
-            setUpcomingMatches(upcoming.slice(0, 100)); 
-            setRecentResults(results.slice(0, 100));
             setLoading(false);
         });
 
-        // Real-time listener for event commentary
         const unsubscribeUpdates = listenToLiveUpdates(setUpdates);
-
         return () => {
             unsubscribeComps();
             unsubscribeUpdates();
@@ -153,41 +142,8 @@ const LiveUpdatesPage: React.FC = () => {
 
         updates.forEach(u => {
             let matchKey = u.fixture_id ? String(u.fixture_id) : null;
-            if ((!matchKey || !matchesMap.has(matchKey))) {
-                for (const [key, match] of matchesMap.entries()) {
-                    if ((match.teamA === u.home_team && match.teamB === u.away_team) || 
-                        (match.teamA === u.away_team && match.teamB === u.home_team)) {
-                        matchKey = key;
-                        break;
-                    }
-                }
-            }
-
             if (matchKey && matchesMap.has(matchKey)) {
                 matchesMap.get(matchKey)!.events.push(u);
-                if (u.score_home !== undefined && u.score_away !== undefined) {
-                     const match = matchesMap.get(matchKey)!;
-                     match.scoreA = u.score_home;
-                     match.scoreB = u.score_away;
-                     match.liveMinute = u.minute;
-                }
-            } else {
-                const newKey = u.fixture_id || `${u.home_team}-${u.away_team}`;
-                if (!matchesMap.has(newKey)) {
-                    matchesMap.set(newKey, {
-                        id: newKey,
-                        competitionName: u.competition,
-                        teamA: u.home_team,
-                        teamB: u.away_team,
-                        scoreA: u.score_home,
-                        scoreB: u.score_away,
-                        liveMinute: u.minute,
-                        status: 'live', 
-                        events: [u]
-                    });
-                } else {
-                     matchesMap.get(newKey)!.events.push(u);
-                }
             }
         });
         return Array.from(matchesMap.values());
@@ -196,110 +152,128 @@ const LiveUpdatesPage: React.FC = () => {
     return (
         <div className="bg-gray-50 py-12">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
-                <div className="text-center mb-8">
-                     <RadioIcon className="w-12 h-12 mx-auto text-primary mb-2" />
-                    <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">Match Center</h1>
-                    <p className="text-lg text-gray-600 max-w-3xl mx-auto">Real-time updates and results from across all leagues.</p>
+                <div className="text-center mb-10">
+                     <RadioIcon className="w-12 h-12 mx-auto text-primary mb-3" />
+                    <h1 className="text-4xl md:text-5xl font-display font-black text-slate-900 mb-2">Match Hub</h1>
+                    <p className="text-lg text-slate-600 max-w-3xl mx-auto">Track the Kingdom's elite competitions and international campaigns in real-time.</p>
                 </div>
 
-                <AdBanner placement="live-scoreboard-banner" className="mb-8" />
-                
-                <div className="flex justify-center mb-8">
-                    <div className="bg-white p-1 rounded-full shadow-sm border border-gray-200 inline-flex">
-                        <button onClick={() => setFilter('live')} className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${filter === 'live' ? 'bg-red-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}>
-                            <div className={`w-2 h-2 rounded-full ${filter === 'live' ? 'bg-white' : 'bg-red-500 animate-pulse'}`}></div>
-                            Live <span className="ml-1 text-[10px] bg-white/20 px-1.5 rounded-full">{liveMatches.length}</span>
+                <div className="flex justify-center mb-10">
+                    <div className="bg-white p-1.5 rounded-2xl shadow-xl border border-slate-200 inline-flex">
+                        <button onClick={() => setFilter('live')} className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all flex items-center gap-3 ${filter === 'live' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+                            <div className={`w-2 h-2 rounded-full ${filter === 'live' ? 'bg-white' : 'bg-red-600 animate-pulse'}`}></div>
+                            LIVE NOW <span className="ml-1 opacity-60 font-medium">({liveMatches.length})</span>
                         </button>
-                        <button onClick={() => setFilter('upcoming')} className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${filter === 'upcoming' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}>
-                            <CalendarIcon className="w-4 h-4" /> Upcoming
+                        <button onClick={() => setFilter('upcoming')} className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all flex items-center gap-3 ${filter === 'upcoming' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+                            <CalendarIcon className="w-4 h-4" /> UPCOMING
                         </button>
-                        <button onClick={() => setFilter('results')} className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 flex items-center gap-2 ${filter === 'results' ? 'bg-green-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}>
-                            <CheckCircleIcon className="w-4 h-4" /> Results
+                        <button onClick={() => setFilter('results')} className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all flex items-center gap-3 ${filter === 'results' ? 'bg-green-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+                            <CheckCircleIcon className="w-4 h-4" /> RECENT RESULTS
                         </button>
                     </div>
                 </div>
 
-                {loading ? <div className="flex justify-center py-8"><Spinner /></div> : (
-                    <div className="max-w-4xl mx-auto min-h-[400px]">
+                {loading ? <div className="flex justify-center py-20"><Spinner /></div> : (
+                    <div className="max-w-5xl mx-auto min-h-[500px]">
                         {filter === 'live' && (
                             liveMatches.length > 0 ? (
-                                <div className="space-y-8 animate-fade-in">
+                                <div className="space-y-10 animate-fade-in">
                                     {liveMatches.map((match) => (
-                                        <Card key={match.id} className="shadow-lg overflow-hidden border-t-4 border-secondary">
+                                        <Card key={match.id} className="shadow-2xl overflow-hidden border-0 ring-1 ring-black/5 bg-white">
                                             <CardContent className="p-0">
-                                                <header className="p-4 bg-gray-50 border-b">
-                                                    <div className="flex justify-between items-center">
-                                                        <p className="text-sm text-gray-600 font-semibold">{match.competitionName || 'Match Update'}</p>
-                                                        <div className={`flex items-center space-x-1.5 ${match.status === 'suspended' ? 'text-orange-600' : 'text-secondary'} font-bold text-sm`}>
-                                                            <span className={`relative flex h-2 w-2`}>
-                                                                {match.status !== 'suspended' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
-                                                                <span className={`relative inline-flex rounded-full h-2 w-2 ${match.status === 'suspended' ? 'bg-orange-600' : 'bg-secondary'}`}></span>
-                                                            </span>
-                                                            <span className="uppercase">{match.status || 'LIVE'}</span>
-                                                            {match.liveMinute && <span className="font-mono ml-1">{match.liveMinute !== 'Live' ? match.liveMinute + "'" : ''}</span>}
+                                                <header className="p-8 bg-slate-900 text-white">
+                                                    <div className="flex justify-between items-center mb-6">
+                                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-accent">{match.competitionName}</span>
+                                                        <div className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-lg">
+                                                            <span className="w-2 h-2 bg-white rounded-full animate-ping"></span>
+                                                            <span className="text-[10px] font-black">MATCH LIVE</span>
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2 mt-4 mb-2">
-                                                        <p className="font-bold text-xl truncate text-right">{match.teamA}</p>
-                                                        <div className="bg-white px-3 py-1 rounded shadow-sm border border-gray-200">
-                                                            <p className="font-bold text-3xl tracking-wider text-primary">
-                                                                {match.scoreA ?? 0} - {match.scoreB ?? 0}
+                                                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-6 md:gap-12">
+                                                        <div className="text-center md:text-right">
+                                                            <p className="text-2xl md:text-4xl font-display font-black truncate">{match.teamA}</p>
+                                                        </div>
+                                                        <div className="bg-white/10 backdrop-blur-xl px-8 py-4 rounded-2xl border border-white/20">
+                                                            <p className="text-5xl md:text-7xl font-black tracking-tighter text-accent">
+                                                                {match.scoreA ?? 0} : {match.scoreB ?? 0}
                                                             </p>
                                                         </div>
-                                                        <p className="font-bold text-xl truncate text-left">{match.teamB}</p>
+                                                        <div className="text-center md:text-left">
+                                                            <p className="text-2xl md:text-4xl font-display font-black truncate">{match.teamB}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-center mt-6">
+                                                        <span className="font-mono text-xl font-bold opacity-60">{match.liveMinute}'</span>
                                                     </div>
                                                 </header>
-                                                <div className="p-4 bg-white">
+                                                <div className="p-8 bg-white">
                                                     {match.events.length > 0 ? (
-                                                        <ul className="space-y-3 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
-                                                            {match.events.sort((a,b) => (b.minute || 0) - (a.minute || 0)).map((event) => (
-                                                                <li key={event.id} className="flex items-start gap-3 text-sm relative pl-8 animate-fade-in">
-                                                                    <div className="absolute left-0 top-1 bg-white border-2 border-gray-200 rounded-full w-2.5 h-2.5 z-10"></div>
-                                                                    <span className="font-mono font-bold text-gray-500 min-w-[2rem]">{event.minute ? `${event.minute}'` : '-'}</span>
-                                                                    <EventIcon type={event.type} />
-                                                                    <div>
-                                                                        <p className="font-semibold text-gray-900">{event.description}</p>
-                                                                        {event.player && <p className="text-xs text-gray-500 mt-0.5">{event.player}</p>}
-                                                                    </div>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    ) : <p className="p-4 text-center text-gray-500 text-sm italic">Waiting for match events...</p>}
+                                                        <div className="space-y-6">
+                                                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2 mb-6">Match Timeline</h4>
+                                                            <ul className="space-y-6 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
+                                                                {match.events.sort((a,b) => (b.minute || 0) - (a.minute || 0)).map((event) => (
+                                                                    <li key={event.id} className="flex items-start gap-6 relative pl-10 animate-fade-in">
+                                                                        <div className="absolute left-0 top-1 bg-white border-2 border-slate-200 rounded-full w-2.5 h-2.5 z-10"></div>
+                                                                        <span className="font-mono font-black text-slate-400 text-lg w-12">{event.minute}'</span>
+                                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-grow shadow-sm">
+                                                                            <div className="flex items-center gap-3 mb-1">
+                                                                                <EventIcon type={event.type} />
+                                                                                <p className="font-black text-slate-900 uppercase text-xs tracking-tight">{event.type.replace('_', ' ')}</p>
+                                                                            </div>
+                                                                            <p className="text-sm text-slate-700 font-medium">{event.description}</p>
+                                                                            {event.player && <p className="text-xs text-primary font-bold mt-2">{event.player}</p>}
+                                                                        </div>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="py-12 text-center text-slate-400">
+                                                            <WhistleIcon className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                                                            <p className="italic">Awaiting kickoff and key events...</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>
                                     ))}
                                 </div>
                             ) : (
-                                <Card className="text-center p-8 bg-blue-50 border border-blue-100 shadow-md">
-                                    <ClockIcon className="w-12 h-12 mx-auto text-blue-300 mb-4" />
-                                    <h3 className="text-xl font-bold text-blue-800">No Live Matches</h3>
-                                    <p className="text-blue-600 mt-2">Check the Upcoming tab for scheduled fixtures.</p>
+                                <Card className="text-center p-16 bg-white border-0 shadow-xl rounded-[2.5rem]">
+                                    <ClockIcon className="w-16 h-16 mx-auto text-slate-200 mb-6" />
+                                    <h3 className="text-3xl font-display font-black text-slate-900 mb-4">No Matches Currently Live</h3>
+                                    <p className="text-slate-500 max-w-md mx-auto text-lg">There are no matches currently in progress. Check the upcoming tab for this weekend's MTN Premier League and International action.</p>
+                                    <Button onClick={() => setFilter('upcoming')} className="mt-8 bg-blue-600 text-white h-12 px-8 rounded-xl font-bold hover:scale-105 transition-transform">View Full Schedule</Button>
                                 </Card>
                             )
                         )}
                         {filter === 'upcoming' && (
-                             <div className="space-y-4 animate-fade-in">
+                             <div className="space-y-6 animate-fade-in">
+                                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 mb-8 border-b pb-4">Upcoming Fixtures (This Week)</h3>
                                 {upcomingMatches.length > 0 ? upcomingMatches.map(({ fixture, competitionId, competitionName }) => (
-                                    <Card key={`${competitionId}-${fixture.id}`} className="overflow-hidden hover:shadow-md transition-shadow relative pt-6">
-                                        <div className="absolute top-0 left-4 z-10 bg-blue-100 text-blue-800 text-[9px] font-bold px-2 py-0.5 rounded-b shadow-sm uppercase tracking-wide border border-blue-200 border-t-0">{competitionName}</div>
+                                    <div key={`${competitionId}-${fixture.id}`} className="group bg-white rounded-3xl p-2 border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 relative">
+                                        <div className="absolute top-0 right-8 z-10 bg-blue-600 text-white text-[10px] font-black px-3 py-1 rounded-b-xl shadow-lg uppercase tracking-widest">{competitionName}</div>
                                         <FixtureItem fixture={fixture} isExpanded={false} onToggleDetails={() => {}} teams={[]} onDeleteFixture={() => {}} isDeleting={false} directoryMap={emptyMap} competitionId={competitionId} />
-                                    </Card>
-                                )) : <p className="text-center text-gray-500 py-12">No upcoming matches found.</p>}
+                                    </div>
+                                )) : <p className="text-center text-gray-500 py-12">No upcoming matches scheduled for the coming week.</p>}
                             </div>
                         )}
                         {filter === 'results' && (
-                             <div className="space-y-4 animate-fade-in">
+                             <div className="space-y-6 animate-fade-in">
+                                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 mb-8 border-b pb-4">Recent Match Results (Past 7 Days)</h3>
                                 {recentResults.length > 0 ? recentResults.map(({ fixture, competitionId, competitionName }) => (
-                                    <Card key={`${competitionId}-${fixture.id}`} className="overflow-hidden hover:shadow-md transition-shadow border-l-4 border-gray-400 relative pt-6">
-                                        <div className="absolute top-0 left-4 z-10 bg-gray-100 text-gray-600 text-[9px] font-bold px-2 py-0.5 rounded-b shadow-sm uppercase tracking-wide border border-gray-200 border-t-0">{competitionName}</div>
+                                    <div key={`${competitionId}-${fixture.id}`} className="group bg-white rounded-3xl p-2 border border-slate-100 hover:shadow-2xl transition-all duration-500 relative">
+                                        <div className="absolute top-0 right-8 z-10 bg-green-600 text-white text-[10px] font-black px-3 py-1 rounded-b-xl shadow-lg uppercase tracking-widest">{competitionName}</div>
                                         <FixtureItem fixture={fixture} isExpanded={false} onToggleDetails={() => {}} teams={[]} onDeleteFixture={() => {}} isDeleting={false} directoryMap={emptyMap} competitionId={competitionId} />
-                                    </Card>
-                                )) : <p className="text-center text-gray-500 py-12">No recent results found.</p>}
+                                    </div>
+                                )) : <p className="text-center text-gray-500 py-12">No results found for the past 7 days.</p>}
                             </div>
                         )}
                     </div>
                 )}
+            </div>
+            <div className="container mx-auto px-4 mt-20">
+                <AdBanner placement="live-scoreboard-banner" className="h-40 rounded-[2rem] shadow-2xl" />
             </div>
         </div>
     );

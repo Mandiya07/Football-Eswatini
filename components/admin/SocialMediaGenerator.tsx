@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
@@ -56,11 +57,9 @@ const SocialMediaGenerator: React.FC = () => {
     const [selectedMatchIds, setSelectedMatchIds] = useState<string[]>([]);
     const [imageCache, setImageCache] = useState<Map<string, HTMLImageElement>>(new Map());
     const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-    const [isSharing, setIsSharing] = useState(false);
     const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // Robust Normalization for Crest Matching
     const normalizeName = (name: string) => (name || '').trim().toLowerCase().replace(/\s+fc$/i, '').replace(/\s+football club$/i, '').trim();
 
     const fetchRecentData = async () => {
@@ -85,6 +84,7 @@ const SocialMediaGenerator: React.FC = () => {
             
             let relevantText = `CONTEXTUAL DATA FOR ${division} (${new Date().toLocaleDateString()}):\n\n`;
             
+            // 1. NEWS CONTEXT
             const relevantNews = allNews.filter(n => {
                 const cats = Array.isArray(n.category) ? n.category : [n.category];
                 return cats.some(c => c.includes(division.split(' ')[0]));
@@ -96,6 +96,7 @@ const SocialMediaGenerator: React.FC = () => {
                 relevantText += "\n";
             }
 
+            // 2. MATCH CONTEXT
             const extractedMatches: SocialMatch[] = [];
 
             Object.values(allComps).forEach(comp => {
@@ -107,7 +108,7 @@ const SocialMediaGenerator: React.FC = () => {
                 else if (division === 'National First Division' && (nameLower.includes('first division') || nameLower.includes('nfd'))) isRelevant = true;
                 else if (division === 'Regional' && (nameLower.includes('regional') || nameLower.includes('super league'))) isRelevant = true;
                 else if (division === 'International' && (nameLower.includes('caf') || nameLower.includes('uefa') || nameLower.includes('cl'))) isRelevant = true;
-                else if (division === 'National Team' && nameLower.includes('sihlangu')) isRelevant = true;
+                else if (division === 'National Team' && (nameLower.includes('sihlangu') || nameLower.includes('national'))) isRelevant = true;
                 else if (division === 'Womens Football' && nameLower.includes('women')) isRelevant = true;
 
                 if (isRelevant) {
@@ -176,7 +177,12 @@ const SocialMediaGenerator: React.FC = () => {
             } else {
                 prompt = `You are an expert Eswatini football pundit and editor. 
                 Based on this data: "${contextData}", write a comprehensive ${division} Weekly Summary. 
-                The summary should include Markdown formatting.`;
+                The summary should include:
+                1. A bold catchy headline.
+                2. A summary of the week's key results and standout performers.
+                3. A look ahead at the next big fixtures.
+                4. A concluding thought on the state of the league.
+                Use a professional, magazine-style editorial tone. Use Markdown for formatting.`;
             }
             
             const response = await ai.models.generateContent({ 
@@ -217,7 +223,9 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.font = `bold ${Math.floor(h * 0.4)}px "Inter", sans-serif`;
         ctx.textAlign = align;
         ctx.textBaseline = 'middle';
+        
         let displayX = align === 'left' ? x + 20 : x + w - 20;
+
         let displayText = text;
         const maxWidth = w - 40;
         if (ctx.measureText(displayText).width > maxWidth) {
@@ -226,6 +234,7 @@ const SocialMediaGenerator: React.FC = () => {
             }
             displayText += "...";
         }
+
         ctx.fillText(displayText, displayX, y + h / 2);
         ctx.restore();
     };
@@ -273,8 +282,15 @@ const SocialMediaGenerator: React.FC = () => {
         for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
         for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
 
+        const glow = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, W);
+        glow.addColorStop(0, 'rgba(0, 53, 102, 0.6)');
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, W, H);
+
         const topComp = matchesToDraw[0];
         const headerY = 80;
+        
         if (topComp.competitionLogoUrl && newCache.has(topComp.competitionLogoUrl)) {
             const logo = newCache.get(topComp.competitionLogoUrl)!;
             ctx.drawImage(logo, (W - 120) / 2, headerY, 120, 120);
@@ -297,18 +313,23 @@ const SocialMediaGenerator: React.FC = () => {
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '900 92px "Poppins", sans-serif';
-        const titleText = topComp.type === 'result' ? `MATCH RESULTS` : `UPCOMING FIXTURES`;
+        const isResults = topComp.type === 'result';
+        const titleText = isResults ? `MATCHDAY RESULTS` : `UPCOMING FIXTURES`;
         ctx.fillText(titleText, W / 2, leaguePillY + 170);
 
+        const isSingle = matchesToDraw.length === 1;
         const startY = 480;
-        const rowH = matchesToDraw.length === 1 ? 500 : (H - 650) / matchesToDraw.length;
+        const rowH = isSingle ? 500 : (H - 650) / matchesToDraw.length;
         
         matchesToDraw.forEach((m, i) => {
-            const midY = startY + (i * rowH) + (rowH / 2);
-            const scoreW = matchesToDraw.length === 1 ? 260 : 160;
-            const scoreH = matchesToDraw.length === 1 ? 160 : 80;
-            const teamW = matchesToDraw.length === 1 ? 420 : 380;
-            const crestSize = matchesToDraw.length === 1 ? 180 : 80;
+            const y = startY + (i * rowH);
+            const midY = y + (rowH / 2);
+            
+            const scoreW = isSingle ? 260 : 160;
+            const scoreH = isSingle ? 160 : 80;
+            const teamW = isSingle ? 420 : 380;
+            const teamH = scoreH;
+            const crestSize = isSingle ? 180 : 80;
 
             const scoreGrad = ctx.createLinearGradient(0, midY - scoreH/2, 0, midY + scoreH/2);
             scoreGrad.addColorStop(0, '#FDB913');
@@ -323,28 +344,40 @@ const SocialMediaGenerator: React.FC = () => {
 
             ctx.fillStyle = '#000814';
             ctx.textAlign = 'center';
-            ctx.font = `900 ${matchesToDraw.length === 1 ? 110 : 52}px "Poppins", sans-serif`;
-            ctx.fillText(m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : 'VS', W / 2, midY + (matchesToDraw.length === 1 ? 25 : 15));
+            ctx.textBaseline = 'middle';
+            ctx.font = `900 ${isSingle ? 110 : 52}px "Poppins", sans-serif`;
+            const scoreText = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : 'VS';
+            ctx.fillText(scoreText, W / 2, midY + (isSingle ? 6 : 4));
 
             const homeX = (W - scoreW) / 2 - teamW - 15;
             ctx.save();
             ctx.beginPath();
-            ctx.roundRect(homeX, midY - scoreH / 2, teamW, scoreH, 15);
+            ctx.roundRect(homeX, midY - teamH / 2, teamW, teamH, 15);
             ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
             ctx.fill();
             ctx.restore();
-            drawTextInRect(ctx, m.teamA, homeX, midY - scoreH / 2, teamW, scoreH, 'right', '#FFFFFF');
-            if (m.teamACrest && newCache.has(m.teamACrest)) ctx.drawImage(newCache.get(m.teamACrest)!, homeX - crestSize - 10, midY - crestSize / 2, crestSize, crestSize);
+
+            drawTextInRect(ctx, m.teamA, homeX, midY - teamH / 2, teamW, teamH, 'right', '#FFFFFF');
+            
+            if (m.teamACrest && newCache.has(m.teamACrest)) {
+                const img = newCache.get(m.teamACrest)!;
+                ctx.drawImage(img, homeX - crestSize - 10, midY - crestSize / 2, crestSize, crestSize);
+            }
 
             const awayX = (W + scoreW) / 2 + 15;
             ctx.save();
             ctx.beginPath();
-            ctx.roundRect(awayX, midY - scoreH / 2, teamW, scoreH, 15);
+            ctx.roundRect(awayX, midY - teamH / 2, teamW, teamH, 15);
             ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
             ctx.fill();
             ctx.restore();
-            drawTextInRect(ctx, m.teamB, awayX, midY - scoreH / 2, teamW, scoreH, 'left', '#FFFFFF');
-            if (m.teamBCrest && newCache.has(m.teamBCrest)) ctx.drawImage(newCache.get(m.teamBCrest)!, awayX + teamW + 10, midY - crestSize / 2, crestSize, crestSize);
+
+            drawTextInRect(ctx, m.teamB, awayX, midY - teamH / 2, teamW, teamH, 'left', '#FFFFFF');
+
+            if (m.teamBCrest && newCache.has(m.teamBCrest)) {
+                const img = newCache.get(m.teamBCrest)!;
+                ctx.drawImage(img, awayX + teamW + 10, midY - crestSize / 2, crestSize, crestSize);
+            }
         });
 
         ctx.fillStyle = '#000000';
@@ -366,31 +399,25 @@ const SocialMediaGenerator: React.FC = () => {
         link.click();
     };
 
-    const handleShareGraphic = async () => {
+    const shareGraphic = async () => {
         const canvas = canvasRef.current;
-        if (!canvas || !navigator.share) return alert("Sharing is not supported in this browser.");
-
-        setIsSharing(true);
+        if (!canvas) return;
         try {
             canvas.toBlob(async (blob) => {
                 if (!blob) return;
-                const file = new File([blob], `fe-graphic-${Date.now()}.png`, { type: 'image/png' });
-                const shareData = {
-                    title: 'Football Eswatini Update',
-                    text: 'Latest news from the Beautiful Game!',
-                    files: [file],
-                };
-
-                if (navigator.canShare && navigator.canShare(shareData)) {
-                    await navigator.share(shareData);
+                const file = new File([blob], 'football-eswatini-post.png', { type: 'image/png' });
+                if (navigator.share && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Match Day Update',
+                        text: 'Check out the latest from Football Eswatini!'
+                    });
                 } else {
-                    alert("Your browser does not support sharing files.");
+                    alert("Sharing files is not supported by your browser. Use the Download button.");
                 }
             });
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsSharing(false);
+        } catch (e) {
+            console.error(e);
         }
     };
 
@@ -422,53 +449,17 @@ const SocialMediaGenerator: React.FC = () => {
                                     <option value="Regional">Regional / Super League</option>
                                     <option value="International">International Hub</option>
                                     <option value="National Team">National Team</option>
+                                    <option value="Womens Football">Women's Football</option>
                                 </select>
                             </div>
                             <div>
                                 <label className="block text-xs font-black uppercase text-gray-400 mb-2">Sync Latest</label>
                                 <button onClick={fetchRecentData} disabled={isFetchingData} className="w-full bg-gray-100 hover:bg-gray-200 border rounded-xl px-3 py-2.5 text-xs font-bold text-gray-700 flex items-center justify-center gap-2">
                                     {isFetchingData ? <Spinner className="w-3 h-3 border-2" /> : <RefreshIcon className="w-3 h-3" />}
-                                    Refresh Context
+                                    Sync Data
                                 </button>
                             </div>
                         </div>
-
-                        {activeTab === 'image' && (
-                            <div className="space-y-4">
-                                <p className="text-xs font-bold text-gray-400 uppercase">Step 1: Select Records (Max 8)</p>
-                                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar border rounded-2xl p-2 bg-gray-50">
-                                    {rawMatches.length > 0 ? rawMatches.map(m => (
-                                        <div 
-                                            key={m.id} 
-                                            onClick={() => toggleMatchSelection(m.id)}
-                                            className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm' : 'bg-white hover:bg-gray-100 border-gray-100'}`}
-                                        >
-                                            <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-blue-600" />
-                                            <div className="flex-grow min-w-0">
-                                                <p className="font-bold text-xs truncate text-gray-900">{m.teamA} vs {m.teamB}</p>
-                                                <p className="text-[10px] text-gray-500 font-medium">{m.date} &bull; {m.competition}</p>
-                                            </div>
-                                            <div className="flex-shrink-0 flex items-center gap-1.5">
-                                                {m.teamACrest && m.teamBCrest && <CheckCircleIcon className="w-3 h-3 text-green-500" />}
-                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${m.type === 'result' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{m.type.toUpperCase()}</span>
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <div className="text-center py-12 text-gray-400">
-                                            <PhotoIcon className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                                            <p className="text-sm font-medium">No matches in queue. Sync data first.</p>
-                                        </div>
-                                    )}
-                                </div>
-                                <Button 
-                                    onClick={generateGraphic} 
-                                    disabled={isGeneratingImage || selectedMatchIds.length === 0} 
-                                    className="w-full bg-primary text-white h-12 rounded-2xl shadow-xl flex justify-center items-center gap-2 hover:bg-primary-dark transition-all"
-                                >
-                                    {isGeneratingImage ? <Spinner className="w-5 h-5 border-2" /> : <><PhotoIcon className="w-5 h-5" /> Render Graphic</>}
-                                </Button>
-                            </div>
-                        )}
 
                         {(activeTab === 'captions' || activeTab === 'summary') && (
                             <div className="space-y-4">
@@ -480,10 +471,39 @@ const SocialMediaGenerator: React.FC = () => {
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-gray-400 uppercase">Context Snapshot</label>
-                                    <textarea rows={6} value={contextData} onChange={(e) => setContextData(e.target.value)} className="block w-full p-4 border rounded-2xl text-xs font-mono bg-gray-50 shadow-inner" />
+                                    <textarea rows={6} value={contextData} onChange={(e) => setContextData(e.target.value)} placeholder="Type context manually or click Sync above..." className="block w-full p-4 border rounded-2xl text-xs font-mono bg-gray-50 shadow-inner" />
                                 </div>
                                 <Button onClick={handleGenerateContent} disabled={isGenerating || !contextData} className="w-full bg-purple-600 text-white h-12 rounded-2xl shadow-lg hover:bg-purple-700 flex justify-center items-center gap-2">
                                     {isGenerating ? <Spinner className="w-5 h-5 border-2" /> : <><SparklesIcon className="w-5 h-5" /> Generate Content</>}
+                                </Button>
+                            </div>
+                        )}
+
+                        {activeTab === 'image' && (
+                            <div className="space-y-4">
+                                <p className="text-xs font-bold text-gray-400 uppercase">1. Pick Match Records (Max 8)</p>
+                                <div className="space-y-2 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar border rounded-2xl p-2 bg-gray-50">
+                                    {rawMatches.length > 0 ? rawMatches.map(m => (
+                                        <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm' : 'bg-white hover:bg-gray-100 border-gray-100'}`}>
+                                            <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-blue-600" />
+                                            <div className="flex-grow min-w-0">
+                                                <p className="font-bold text-xs truncate text-gray-900">{m.teamA} vs {m.teamB}</p>
+                                                <p className="text-[10px] text-gray-500 font-medium">{m.date} &bull; {m.competition}</p>
+                                            </div>
+                                            <div className="flex-shrink-0 flex items-center gap-1.5">
+                                                {m.teamACrest && m.teamBCrest && <CheckCircleIcon className="w-3 h-3 text-green-500" title="Crests OK" />}
+                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${m.type === 'result' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{m.type.toUpperCase()}</span>
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="text-center py-12 text-gray-400">
+                                            <PhotoIcon className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                                            <p className="text-sm font-medium">No matches available. Click Sync Data first.</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <Button onClick={generateGraphic} disabled={isGeneratingImage || selectedMatchIds.length === 0} className="w-full bg-primary text-white h-12 rounded-2xl shadow-xl flex justify-center items-center gap-2 hover:bg-primary-dark transition-all">
+                                    {isGeneratingImage ? <Spinner className="w-5 h-5 border-2" /> : <><PhotoIcon className="w-5 h-5" /> Render Graphic</>}
                                 </Button>
                             </div>
                         )}
@@ -491,51 +511,63 @@ const SocialMediaGenerator: React.FC = () => {
                 </Card>
 
                 <div className="space-y-6">
-                    {activeTab === 'image' && (
-                        <div className="space-y-6 animate-fade-in">
-                            <div className="flex items-center justify-between gap-3">
-                                <h3 className="text-lg font-bold font-display text-gray-800 flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div> Preview
+                    {activeTab === 'captions' && (
+                        <Card className="shadow-xl border-2 border-dashed border-gray-200 min-h-[450px] rounded-3xl bg-gray-50/50">
+                            <CardContent className="p-6">
+                                <h3 className="text-sm font-black uppercase text-gray-400 mb-5 tracking-widest flex items-center gap-2">
+                                    <MessageSquareIcon className="w-4 h-4" /> AI Output
                                 </h3>
-                                {selectedMatchIds.length > 0 && (
-                                    <div className="flex gap-2">
-                                        <Button onClick={handleShareGraphic} disabled={isSharing} className="bg-blue-600 text-white h-10 px-4 flex items-center gap-2 text-xs rounded-xl shadow-lg hover:bg-blue-700">
-                                            {isSharing ? <Spinner className="w-4 h-4 border-2" /> : <ShareIcon className="w-4 h-4" />} Share
-                                        </Button>
-                                        <Button onClick={downloadGraphic} className="bg-green-600 text-white h-10 px-4 flex items-center gap-2 text-xs rounded-xl shadow-lg hover:bg-green-700">
-                                            <DownloadIcon className="w-4 h-4" /> Download
-                                        </Button>
+                                {isGenerating ? (
+                                    <div className="flex flex-col items-center justify-center py-24">
+                                        <Spinner className="w-12 h-12 border-4 border-purple-500 mb-6" />
+                                        <p className="font-black text-purple-600 uppercase tracking-widest">Writing...</p>
+                                    </div>
+                                ) : generatedCaptions.length > 0 ? (
+                                    <div className="space-y-5">
+                                        {generatedCaptions.map((text, i) => (
+                                            <div key={i} className="bg-white p-5 rounded-2xl border border-gray-100 flex justify-between gap-4 group shadow-sm hover:shadow-md transition-shadow">
+                                                <p className="text-sm leading-relaxed text-gray-800">{text}</p>
+                                                <button onClick={() => { navigator.clipboard.writeText(text); alert("Copied!"); }} className="p-2 text-gray-300 hover:text-primary transition-colors h-fit flex-shrink-0"><CopyIcon className="w-5 h-5"/></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-24 text-gray-300 opacity-60">
+                                        <RadioIcon className="w-16 h-16 mb-4" />
+                                        <p className="text-sm font-bold uppercase tracking-widest text-center">Ready to generate.</p>
                                     </div>
                                 )}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {activeTab === 'image' && (
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-bold font-display text-gray-800">Preview</h3>
+                                <div className="flex gap-2">
+                                    {selectedMatchIds.length > 0 && (
+                                        <>
+                                            <Button onClick={downloadGraphic} className="bg-green-600 text-white h-10 px-4 text-xs rounded-xl shadow-lg flex items-center gap-2">
+                                                <DownloadIcon className="w-4 h-4" /> Download
+                                            </Button>
+                                            <Button onClick={shareGraphic} className="bg-blue-600 text-white h-10 px-4 text-xs rounded-xl shadow-lg flex items-center gap-2">
+                                                <ShareIcon className="w-4 h-4" /> Share
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             <div className="relative border-4 border-white shadow-2xl rounded-[2rem] overflow-hidden aspect-[4/5] bg-gray-900">
                                 <canvas ref={canvasRef} className="w-full h-full object-contain" />
-                                {!selectedMatchIds.length && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 p-12 text-center">
-                                        <PhotoIcon className="w-16 h-16 mb-6 opacity-10" />
-                                        <p className="text-sm font-black opacity-40 uppercase">Studio Canvas</p>
-                                    </div>
-                                )}
                                 {isGeneratingImage && (
                                     <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center z-20">
                                         <Spinner className="w-16 h-16 border-4 border-white" />
-                                        <p className="text-white font-black mt-6 uppercase tracking-widest text-sm">Rendering...</p>
+                                        <p className="text-white font-black mt-6 uppercase tracking-widest text-sm">Rendering Frame...</p>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    )}
-                    
-                    {activeTab === 'captions' && (
-                        <Card className="shadow-xl border-2 border-dashed border-gray-200 min-h-[450px] rounded-3xl bg-gray-50/50 p-6">
-                            <h3 className="text-sm font-black uppercase text-gray-400 mb-5 tracking-widest">AI Copy Output</h3>
-                            {generatedCaptions.map((text, i) => (
-                                <div key={i} className="bg-white p-5 rounded-2xl border border-gray-100 mb-4 flex justify-between shadow-sm">
-                                    <p className="text-sm leading-relaxed text-gray-800">{text}</p>
-                                    <button onClick={() => { navigator.clipboard.writeText(text); alert("Copied!"); }} className="p-2 text-gray-300 hover:text-primary h-fit"><CopyIcon className="w-5 h-5"/></button>
-                                </div>
-                            ))}
-                        </Card>
                     )}
                 </div>
             </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -8,7 +9,6 @@ import ChevronRightIcon from './icons/ChevronRightIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import { fetchNews } from '../services/api';
 import MegaphoneIcon from './icons/MegaphoneIcon';
-// Added missing import for Spinner
 import Spinner from './ui/Spinner';
 
 const formatDate = (dateStr: string) => {
@@ -124,7 +124,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     );
 });
 
-const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
+const NewsSection: React.FC<{ category?: string, limit?: number }> = ({ category, limit }) => {
     const [allNews, setAllNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -148,9 +148,27 @@ const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
             return !cats.includes('Community Football Hub') || cats.length > 1;
         });
 
-    // Spinner is now properly imported from ./ui/Spinner
     if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
     if (filteredNews.length === 0) return null;
+
+    // Home page simple layout (3 cards)
+    if (limit === 3) {
+        return (
+            <section className="space-y-8">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-3xl font-display font-black text-slate-900 tracking-tighter">
+                        LATEST STORIES
+                    </h2>
+                    <Link to="/news" className="text-[#002B7F] font-bold text-sm hover:underline">View All</Link>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {filteredNews.slice(0, 3).map(item => (
+                        <NewsCard key={item.id} item={item} />
+                    ))}
+                </div>
+            </section>
+        );
+    }
 
     const featuredItem = filteredNews[0];
     const gridItems = filteredNews.slice(1, 4);
@@ -166,12 +184,9 @@ const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Main Featured Column */}
                 <div className="lg:col-span-8">
                     <NewsCard item={featuredItem} variant="featured" />
                 </div>
-
-                {/* Compact List Side */}
                 <div className="lg:col-span-4 space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Trending Now</h3>
                     <div className="space-y-4">
@@ -182,7 +197,6 @@ const NewsSection: React.FC<{ category?: string }> = ({ category }) => {
                 </div>
             </div>
 
-            {/* Sub Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {gridItems.map(item => (
                     <NewsCard key={item.id} item={item} />
