@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { Card } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
@@ -11,7 +10,8 @@ import FilmIcon from '../icons/FilmIcon';
 import RadioIcon from '../icons/RadioIcon';
 import UploadIcon from '../icons/UploadIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
-import { fetchAllCompetitions, addVideo, handleFirestoreError } from '../../services/api';
+import { fetchAllCompetitions, addVideo, handleFirestoreError, fetchDirectoryEntries } from '../../services/api';
+import { superNormalize } from '../../services/utils';
 
 interface MatchSummary {
     id: string;
@@ -145,7 +145,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
             const decodedBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
             audioBufferRef.current = decodedBuffer;
-            console.log("Audio loaded successfully");
             setAudioError(false);
             setIsAudioEnabled(true);
         } catch (error) {
@@ -201,10 +200,22 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         if (selectedCompIds.length === 0) return alert("Please select a league.");
         
         setLoading(true);
-        setStatusText("Fetching match data...");
+        setStatusText("Gathering match data...");
 
         try {
-            const allCompsData = await fetchAllCompetitions();
+            const [allCompsData, dirEntries] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchDirectoryEntries()
+            ]);
+
+            // Create robust directory map for crests
+            const dirCrestMap = new Map<string, string>();
+            dirEntries.forEach(e => {
+                if (e.crestUrl && e.name) {
+                    dirCrestMap.set(superNormalize(e.name), e.crestUrl);
+                }
+            });
+
             const rawMatches: MatchSummary[] = [];
             const today = new Date();
             const cutoffDate = new Date();
@@ -212,12 +223,11 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             if (mode === 'results') cutoffDate.setDate(today.getDate() - days);
             else cutoffDate.setDate(today.getDate() + days);
 
-            // 1. Gather Data
+            // Gather Matches
             selectedCompIds.forEach(compId => {
                 const comp = allCompsData[compId];
                 const source = mode === 'results' ? comp.results : comp.fixtures;
-                const teamMap = new Map(comp.teams?.map(t => [t.name, t.crestUrl]));
-
+                
                 if (source) {
                     source.forEach(m => {
                         const mDate = new Date(m.fullDate || '');
@@ -229,6 +239,13 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                         }
 
                         if (include) {
+                            const getCrest = (name: string) => {
+                                const norm = superNormalize(name);
+                                if (dirCrestMap.has(norm)) return dirCrestMap.get(norm);
+                                const team = comp.teams?.find(t => superNormalize(t.name) === norm);
+                                return team?.crestUrl;
+                            };
+
                             rawMatches.push({
                                 id: String(m.id),
                                 home: m.teamA,
@@ -240,8 +257,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                 venue: m.venue,
                                 competition: comp.name,
                                 competitionLogoUrl: comp.logoUrl, 
-                                teamACrest: teamMap.get(m.teamA),
-                                teamBCrest: teamMap.get(m.teamB)
+                                teamACrest: getCrest(m.teamA),
+                                teamBCrest: getCrest(m.teamB)
                             });
                         }
                     });
@@ -253,14 +270,14 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
             if (limitedMatches.length === 0) {
                 setLoading(false);
-                return alert("No matches found for criteria.");
+                return alert("No matches found for the selected period.");
             }
 
             setMatches(limitedMatches);
             setStep(2); // Move to Asset Loading
             
-            // 3. Load Assets
-            setStatusText("Loading visual assets...");
+            // Asset Pre-loading
+            setStatusText("Syncing logos and crests...");
             const cache = new Map<string, HTMLImageElement>();
             const imageUrls = new Set<string>();
             
@@ -284,7 +301,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         } catch (e) {
             console.error(e);
-            alert("Error preparing recap.");
+            alert("Error preparing recap studio assets.");
             setLoading(false);
             setStep(1);
         }
@@ -301,33 +318,25 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
         ctx.lineWidth = 1.5;
         ctx.stroke();
-        ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
         ctx.restore();
     };
 
-    // Helper to wrap text and fit it within width
     const fitText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, fontSize: number, x: number, y: number) => {
         ctx.font = `italic bold ${fontSize}px "Inter", sans-serif`;
         const words = text.split(' ');
         let line = '';
         let lineHeight = fontSize * 1.2;
         
-        // Check if full text fits first
         if (ctx.measureText(text).width <= maxWidth) {
              ctx.fillText(text, x, y);
              return;
         }
 
-        // If not, we might need to wrap or scale down.
         const lines: string[] = [];
         for(let n = 0; n < words.length; n++) {
           const testLine = line + words[n] + ' ';
           const metrics = ctx.measureText(testLine);
-          const testWidth = metrics.width;
-          if (testWidth > maxWidth && n > 0) {
+          if (metrics.width > maxWidth && n > 0) {
             lines.push(line);
             line = words[n] + ' ';
           } else {
@@ -336,9 +345,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         }
         lines.push(line);
 
-        // Adjust Y based on number of lines to keep centered
         const totalHeight = lines.length * lineHeight;
-        let startY = y - (totalHeight / 2) + (lineHeight / 2); // approximate centering
+        let startY = y - (totalHeight / 2) + (lineHeight / 2);
 
         lines.forEach(l => {
             ctx.fillText(l.trim(), x, startY);
@@ -355,178 +363,90 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         const width = canvas.width;
         const height = canvas.height;
 
-        // Clear
         ctx.clearRect(0, 0, width, height);
 
         // 1. Dynamic Background
         const gradient = ctx.createLinearGradient(0, 0, width, height);
         gradient.addColorStop(0, '#001e5a');
-        gradient.addColorStop(0.5 + (progress * 0.1), '#002B7F');
+        gradient.addColorStop(0.5, '#002B7F');
         gradient.addColorStop(1, '#1a4a9f');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
         
-        // Animated Pattern
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-        ctx.lineWidth = 3;
-        const offset = progress * 100;
-        for(let i = -200; i < width + 200; i+= 60) {
-            ctx.beginPath();
-            ctx.moveTo(i + offset, 0);
-            ctx.lineTo(i - 150 + offset, height);
-            ctx.stroke();
-        }
-        ctx.restore();
-
         // 2. Animations
         const fadeIn = Math.min(1, progress * 4); 
         const slideUp = (1 - fadeIn) * 30;
         
         // --- TOP SECTION (League Info) ---
-        // Restricted to top 15%
-        const topSectionY = 20; 
-        const logoH = 60; 
+        const topSectionY = 30; 
+        const logoSize = 100; 
 
-        // Draw League Logo if available
         if (match.competitionLogoUrl && imageCache.has(match.competitionLogoUrl)) {
              const logo = imageCache.get(match.competitionLogoUrl)!;
-             const ratio = logoH / logo.height;
+             const ratio = Math.min(logoSize/logo.width, logoSize/logo.height);
              const logoW = logo.width * ratio;
-             
+             const logoH = logo.height * ratio;
              ctx.globalAlpha = fadeIn;
-             ctx.save();
-             ctx.shadowColor = 'rgba(0,0,0,0.3)';
-             ctx.shadowBlur = 10;
-             // Draw centered at top
              ctx.drawImage(logo, (width - logoW) / 2, topSectionY + slideUp, logoW, logoH);
-             ctx.restore();
         }
 
-        // Competition Name
         ctx.globalAlpha = fadeIn;
         ctx.fillStyle = '#FDB913';
-        ctx.font = 'bold 20px "Poppins", sans-serif';
+        ctx.font = 'bold 24px "Poppins", sans-serif';
         ctx.textAlign = 'center';
-        // Position below logo space
-        const textStartY = match.competitionLogoUrl ? topSectionY + logoH + 20 : topSectionY + 30;
-        ctx.fillText(match.competition.toUpperCase(), width / 2, textStartY + slideUp);
+        ctx.fillText(match.competition.toUpperCase(), width / 2, topSectionY + logoSize + 40 + slideUp);
         
         // --- CENTER SECTION (Teams & Score) ---
-        // Approx 55% down the screen
-        const centerY = height * 0.55; 
-        const crestSize = 100; 
-        const crestY = centerY - 30; // Shift crests up relative to center line
+        const centerY = height * 0.6; 
+        const crestBoxSize = 120; 
 
-        ctx.textAlign = 'center';
-
-        // Home Team Crest
+        // Home Team
         if (match.teamACrest && imageCache.has(match.teamACrest)) {
             const img = imageCache.get(match.teamACrest)!;
-            const ratio = Math.min(crestSize/img.width, crestSize/img.height);
+            const ratio = Math.min(crestBoxSize/img.width, crestBoxSize/img.height);
             const w = img.width * ratio;
             const h = img.height * ratio;
-            
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.4)';
-            ctx.shadowBlur = 20;
-            ctx.drawImage(img, (width / 4) - w/2, crestY - h/2 + slideUp, w, h);
-            ctx.restore();
-        } else {
-            ctx.beginPath();
-            ctx.arc(width / 4, crestY + slideUp, 40, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,0.1)';
-            ctx.fill();
-            ctx.fillStyle = '#FFF';
-            ctx.font = 'bold 30px Arial';
-            ctx.fillText(match.home.charAt(0), width/4, crestY + 10 + slideUp);
+            ctx.drawImage(img, (width / 4) - w/2, centerY - h/2 + slideUp, w, h);
         }
-        
-        // Home Team Name
         ctx.fillStyle = '#FFFFFF';
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 4;
-        fitText(ctx, match.home, 180, 20, width / 4, crestY + 90 + slideUp);
-        ctx.shadowBlur = 0;
+        fitText(ctx, match.home, 200, 24, width / 4, centerY + 100 + slideUp);
 
-        // Away Team Crest
+        // Away Team
         if (match.teamBCrest && imageCache.has(match.teamBCrest)) {
             const img = imageCache.get(match.teamBCrest)!;
-            const ratio = Math.min(crestSize/img.width, crestSize/img.height);
+            const ratio = Math.min(crestBoxSize/img.width, crestBoxSize/img.height);
             const w = img.width * ratio;
             const h = img.height * ratio;
-            
-            ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.4)';
-            ctx.shadowBlur = 20;
-            ctx.drawImage(img, (width * 0.75) - w/2, crestY - h/2 + slideUp, w, h);
-            ctx.restore();
-        } else {
-             ctx.beginPath();
-            ctx.arc(width * 0.75, crestY + slideUp, 40, 0, Math.PI*2);
-            ctx.fillStyle = 'rgba(255,255,255,0.1)';
-            ctx.fill();
-            ctx.fillStyle = '#FFF';
-            ctx.font = 'bold 30px Arial';
-            ctx.fillText(match.away.charAt(0), width * 0.75, crestY + 10 + slideUp);
+            ctx.drawImage(img, (width * 0.75) - w/2, centerY - h/2 + slideUp, w, h);
         }
+        fitText(ctx, match.away, 200, 24, width * 0.75, centerY + 100 + slideUp);
 
-        // Away Team Name
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 4;
-        fitText(ctx, match.away, 180, 20, width * 0.75, crestY + 90 + slideUp);
-        ctx.shadowBlur = 0;
-
-
-        // --- SCORE BOARD (GLASSY) ---
+        // Score
         const scoreBoxW = 160;
         const scoreBoxH = 80;
-        // Draw Glass Background for Score in visual center between crests
-        drawGlassRect(ctx, (width - scoreBoxW)/2, crestY - scoreBoxH/2 + slideUp, scoreBoxW, scoreBoxH, 20);
-
+        drawGlassRect(ctx, (width - scoreBoxW)/2, centerY - scoreBoxH/2 + slideUp, scoreBoxW, scoreBoxH, 20);
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 48px "Poppins", sans-serif';
+        ctx.font = 'bold 56px "Poppins", sans-serif';
         const centerText = mode === 'results' ? `${match.scoreA}-${match.scoreB}` : 'VS';
-        ctx.shadowColor = 'rgba(0,0,0,0.3)';
-        ctx.shadowBlur = 5;
-        // Center text vertically in scorebox
-        ctx.fillText(centerText, width/2, crestY + 18 + slideUp);
-        ctx.shadowBlur = 0;
+        ctx.fillText(centerText, width/2, centerY + 20 + slideUp);
 
+        // Footer
+        const infoY = height - 100;
+        ctx.fillStyle = '#FFDD57';
+        ctx.font = '600 18px "Inter", sans-serif';
+        const info = [match.date, match.time, match.venue].filter(Boolean).join('  •  ');
+        ctx.fillText(info, width/2, infoY + slideUp);
 
-        // --- INFO PILL (Date/Venue/Time) ---
-        // Moved to bottom area (85% height)
-        const infoY = height - 90; 
-        const infoBoxW = 450;
-        const infoBoxH = 45;
-        
-        drawGlassRect(ctx, (width - infoBoxW)/2, infoY, infoBoxW, infoBoxH, 22);
-        
-        ctx.fillStyle = '#FFDD57'; // Gold-ish
-        ctx.font = '600 15px "Inter", sans-serif';
-        
-        const infoParts = [];
-        if (match.date) infoParts.push(match.date);
-        if (match.time) infoParts.push(match.time); // Added Time
-        if (match.venue) infoParts.push(match.venue);
-        
-        ctx.fillText(infoParts.join('  •  '), width/2, infoY + 28);
-
-        // Branding Footer
-        ctx.fillStyle = '#D22730';
-        ctx.fillRect(0, height - 10, width, 10);
-        
-        // Progress Bar (Yellow)
+        // Animated Progress Bar
         ctx.fillStyle = '#FDB913';
-        ctx.fillRect(0, height - 10, width * progress, 10);
+        ctx.fillRect(0, height - 12, width * progress, 12);
         
         ctx.globalAlpha = 1;
     };
 
     // --- Animation Loop ---
 
-    const DURATION_PER_SLIDE = 4000; // 4 seconds per match
+    const DURATION_PER_SLIDE = 4000; 
 
     const animate = (timestamp: number) => {
         if (!startTimeRef.current) startTimeRef.current = timestamp;
@@ -535,21 +455,12 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         const totalDuration = DURATION_PER_SLIDE * matches.length;
         const globalProgress = elapsed / totalDuration;
         
-        // Determine current slide
         const slideIndex = Math.floor(elapsed / DURATION_PER_SLIDE);
         const slideProgress = (elapsed % DURATION_PER_SLIDE) / DURATION_PER_SLIDE;
 
         if (slideIndex >= matches.length) {
-            // End of sequence
-            if (isRecording) {
-                stopRecording();
-                return;
-            } else {
-                // Loop for playback
-                startTimeRef.current = timestamp;
-                requestRef.current = requestAnimationFrame(animate);
-                return;
-            }
+            if (isRecording) { stopRecording(); return; } 
+            else { startTimeRef.current = timestamp; requestRef.current = requestAnimationFrame(animate); return; }
         }
 
         setCurrentMatchIndex(slideIndex);
@@ -564,17 +475,13 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
     const startPlayback = async (record: boolean = false) => {
         if (isRecording || isPlaying) return;
-        
-        // Reset save state
         setGeneratedBlobUrl(null);
         setSaveSuccess(false);
 
-        // IMPORTANT: Resume audio context on user gesture
-        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        if (audioContextRef.current?.state === 'suspended') {
             await audioContextRef.current.resume();
         }
 
-        // Reset
         setCurrentMatchIndex(0);
         setProgress(0);
         startTimeRef.current = 0;
@@ -583,19 +490,16 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         if (record) {
             try {
-                // Video Stream
                 const canvasStream = (canvasRef.current as any)?.captureStream(30);
-                if (!canvasStream) throw new Error("Canvas stream capture failed");
+                if (!canvasStream) throw new Error("Stream capture failed");
                 const tracks = [...canvasStream.getVideoTracks()];
 
-                // Audio Stream using Web Audio API
                 if (isAudioEnabled && !audioError && audioContextRef.current) {
                     audioDest = audioContextRef.current.createMediaStreamDestination();
-                    // Connect audio source to this destination
                     playAudio(audioDest);
                     tracks.push(...audioDest.stream.getAudioTracks());
                 } else {
-                     playAudio(); // Just play locally if not recording audio or disabled
+                     playAudio(); 
                 }
                 
                 const combinedStream = new MediaStream(tracks);
@@ -610,8 +514,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 recorder.onstop = () => {
                     const blob = new Blob(chunksRef.current, { type: 'video/webm' });
                     const url = URL.createObjectURL(blob);
-                    setGeneratedBlobUrl(url); // Store the blob URL for saving/downloading
-                    
+                    setGeneratedBlobUrl(url);
                     setIsRecording(false);
                     setIsPlaying(false);
                     stopAudio();
@@ -621,7 +524,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 setIsRecording(true);
             } catch (err) {
                 console.error(err);
-                alert("Recording failed. Your browser might not support canvas recording.");
+                alert("Recording failed. Please try a different browser.");
                 return;
             }
         } else {
@@ -650,27 +553,25 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         setIsSaving(true);
         try {
             await addVideo({
-                title: `AI Recap: ${mode === 'results' ? 'Match Results' : 'Upcoming Fixtures'} - ${new Date().toLocaleDateString()}`,
-                description: `Generated video recap of recent ${mode === 'results' ? 'results' : 'fixtures'} for selected leagues.`,
-                thumbnailUrl: 'https://via.placeholder.com/600x400/002B7F/FFFFFF?text=Recap', 
-                videoUrl: generatedBlobUrl, // Using Blob URL locally
+                title: `AI Recap: ${mode === 'results' ? 'Results' : 'Fixtures'} - ${new Date().toLocaleDateString()}`,
+                description: `Automatically generated video of ${mode === 'results' ? 'recent results' : 'upcoming matches'}.`,
+                thumbnailUrl: 'https://via.placeholder.com/600x400/002B7F/FFFFFF?text=AI+Recap', 
+                videoUrl: generatedBlobUrl,
                 duration: `${matches.length * 4}s`,
                 category: 'recap'
             });
             setSaveSuccess(true);
             setTimeout(() => {
                 setSaveSuccess(false);
-                setGeneratedBlobUrl(null); // Clear after save to encourage new generation
+                setGeneratedBlobUrl(null);
             }, 3000);
         } catch (err) {
-            handleFirestoreError(err, 'save generated recap');
-            alert("Failed to save to Hub.");
+            handleFirestoreError(err, 'save ai recap');
         } finally {
             setIsSaving(false);
         }
     };
     
-    // Initial Draw on Step 3
     useEffect(() => {
         if (step === 3 && matches.length > 0) {
             drawMatchFrame(matches[0], 0);
@@ -683,10 +584,10 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             <Card className="w-full max-w-4xl bg-gray-900 border-gray-700 text-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
                     <div className="flex items-center gap-3">
-                        <div className="bg-purple-600 p-1.5 rounded-lg"><SparklesIcon className="w-5 h-5 text-white" /></div>
-                        <h2 className="text-lg font-bold font-display">AI Recap Studio</h2>
+                        <div className="bg-purple-600 p-1.5 rounded-lg shadow-lg"><SparklesIcon className="w-5 h-5 text-white" /></div>
+                        <h2 className="text-lg font-bold font-display uppercase tracking-tight">AI Recap Video Studio</h2>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white"><XIcon className="w-6 h-6" /></button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><XIcon className="w-6 h-6" /></button>
                 </div>
 
                 <div className="flex-grow overflow-y-auto p-6">
@@ -694,33 +595,34 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                          <div className="space-y-6 animate-fade-in">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div>
-                                    <label className="block font-bold text-gray-300 mb-2">1. Select Leagues</label>
-                                    <div className="bg-gray-800 p-2 rounded border border-gray-600 max-h-60 overflow-y-auto">
+                                    <label className="block font-bold text-gray-300 mb-2 uppercase text-xs tracking-widest">1. Select Target Leagues</label>
+                                    <div className="bg-gray-800 p-2 rounded-xl border border-gray-600 max-h-64 overflow-y-auto">
                                         {competitions.map(comp => (
-                                            <label key={comp.id} className="flex items-center gap-3 p-2 hover:bg-gray-700 rounded cursor-pointer">
-                                                <input type="checkbox" checked={selectedCompIds.includes(comp.id)} onChange={() => toggleComp(comp.id)} className="h-4 w-4 rounded bg-gray-700 border-gray-500 text-purple-600 focus:ring-purple-500" />
-                                                <span className="text-sm">{comp.name}</span>
+                                            <label key={comp.id} className="flex items-center gap-3 p-3 hover:bg-gray-700 rounded-lg cursor-pointer transition-colors border-b border-gray-700 last:border-0">
+                                                <input type="checkbox" checked={selectedCompIds.includes(comp.id)} onChange={() => toggleComp(comp.id)} className="h-5 w-5 rounded bg-gray-700 border-gray-500 text-purple-600 focus:ring-purple-500" />
+                                                <span className="text-sm font-semibold">{comp.name}</span>
                                             </label>
                                         ))}
                                     </div>
                                 </div>
-                                <div className="space-y-6">
+                                <div className="space-y-8">
                                     <div>
-                                        <label className="block font-bold text-gray-300 mb-2">2. Mode</label>
+                                        <label className="block font-bold text-gray-300 mb-2 uppercase text-xs tracking-widest">2. Video Mode</label>
                                         <div className="flex gap-2">
-                                            <button onClick={() => setMode('results')} className={`flex-1 py-2 rounded text-sm font-bold ${mode === 'results' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'}`}>Past Results</button>
-                                            <button onClick={() => setMode('fixtures')} className={`flex-1 py-2 rounded text-sm font-bold ${mode === 'fixtures' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>Upcoming Fixtures</button>
+                                            <button onClick={() => setMode('results')} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${mode === 'results' ? 'bg-green-600 text-white shadow-lg' : 'bg-gray-700 text-gray-400'}`}>MATCH RESULTS</button>
+                                            <button onClick={() => setMode('fixtures')} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${mode === 'fixtures' ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-700 text-gray-400'}`}>FIXTURES</button>
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block font-bold text-gray-300 mb-2">3. Range ({days} Days)</label>
+                                        <label className="block font-bold text-gray-300 mb-2 uppercase text-xs tracking-widest">3. Period ({days} Days)</label>
                                         <input type="range" min="1" max="14" value={days} onChange={e => setDays(parseInt(e.target.value))} className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                                        <div className="flex justify-between text-[10px] text-gray-500 mt-2 font-bold"><span>1 DAY</span><span>14 DAYS</span></div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex justify-end pt-4 border-t border-gray-700">
-                                <Button onClick={handlePrepare} disabled={loading} className="bg-purple-600 hover:bg-purple-700 text-white px-8 h-12 text-lg shadow-lg transform hover:scale-105 transition-transform">
-                                    {loading ? <div className="flex items-center gap-2"><Spinner className="w-5 h-5 border-2"/> {statusText}</div> : 'Generate Recap'}
+                            <div className="flex justify-end pt-6 border-t border-gray-700">
+                                <Button onClick={handlePrepare} disabled={loading} className="bg-purple-600 hover:bg-purple-700 text-white px-10 h-14 text-lg font-black shadow-xl transform hover:scale-105 transition-all">
+                                    {loading ? <div className="flex items-center gap-3"><Spinner className="w-6 h-6 border-2"/> {statusText}</div> : 'START GENERATION'}
                                 </Button>
                             </div>
                         </div>
@@ -728,48 +630,38 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
                     {step === 2 && (
                          <div className="flex flex-col items-center justify-center h-64 animate-fade-in">
-                            <Spinner className="w-12 h-12 border-4 border-purple-500" />
-                            <p className="mt-4 text-lg font-bold text-purple-300">{statusText}</p>
-                            <p className="text-gray-400 text-sm mt-2">Analyzing matches & loading assets...</p>
+                            <Spinner className="w-16 h-16 border-4 border-purple-500" />
+                            <p className="mt-6 text-xl font-black text-purple-300 animate-pulse uppercase tracking-widest">{statusText}</p>
                          </div>
                     )}
 
                     {step === 3 && (
                         <div className="flex flex-col items-center animate-fade-in">
-                            
-                            {/* Monitor */}
-                            <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-gray-700 bg-black mb-6 w-full max-w-[600px] aspect-video">
+                            <div className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-gray-700 bg-black mb-8 w-full max-w-[640px] aspect-video">
                                 <canvas ref={canvasRef} width={800} height={450} className="w-full h-full object-contain" />
-                                <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold animate-pulse flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-white rounded-full"></div> LIVE MONITOR
-                                </div>
                                 {isRecording && (
-                                    <div className="absolute top-4 right-4 bg-black/50 backdrop-blur text-white px-3 py-1 rounded text-[10px] font-mono border border-red-500/50">
-                                        REC {Math.round(progress * 100)}%
+                                    <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-1.5 rounded-full text-xs font-black animate-pulse flex items-center gap-2 border-2 border-white/20">
+                                        <div className="w-2.5 h-2.5 bg-white rounded-full"></div> RECORDING {Math.round(progress * 100)}%
                                     </div>
                                 )}
                             </div>
 
-                            {/* Controls */}
-                            <div className="flex gap-4 items-center w-full justify-center flex-wrap bg-gray-800 p-4 rounded-xl border border-gray-700">
-                                <Button onClick={() => { stopPlayback(); setStep(1); setGeneratedBlobUrl(null); }} className="bg-gray-700 hover:bg-gray-600 text-white px-4">
-                                    Back
+                            <div className="flex gap-4 items-center w-full justify-center flex-wrap bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-inner">
+                                <Button onClick={() => { stopPlayback(); setStep(1); setGeneratedBlobUrl(null); }} className="bg-gray-700 hover:bg-gray-600 text-white px-6 h-12 font-bold">
+                                    RESET
                                 </Button>
                                 
-                                {/* Audio Controls */}
-                                <div className="flex items-center gap-2 border-l border-r border-gray-600 px-4 mx-2">
+                                <div className="flex items-center gap-3 border-l border-r border-gray-600 px-6 mx-2">
                                     <button 
                                         onClick={() => setIsAudioEnabled(!isAudioEnabled)}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded font-bold transition-colors text-sm ${isAudioEnabled && !audioError ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                                        className={`flex items-center justify-center h-12 w-12 rounded-full transition-all ${isAudioEnabled && !audioError ? 'bg-blue-600 text-white shadow-lg scale-110' : 'bg-gray-700 text-gray-500'}`}
                                         disabled={isRecording || isPlaying || audioError}
-                                        title={audioError ? "Audio Failed" : "Toggle Music"}
                                     >
-                                        <RadioIcon className="w-4 h-4" /> {isAudioEnabled ? 'ON' : 'OFF'}
+                                        <RadioIcon className="w-6 h-6" />
                                     </button>
                                     
-                                    <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium transition-colors">
-                                        <UploadIcon className="w-4 h-4" />
-                                        <span>{customAudioName ? 'Change Music' : 'Upload Music'}</span>
+                                    <label className="cursor-pointer flex flex-col items-center justify-center p-2 rounded-xl bg-gray-700 hover:bg-gray-600 border border-gray-600 transition-colors w-32 h-12">
+                                        <span className="text-[10px] font-black uppercase text-gray-400">{customAudioName ? 'MUSIC OK' : 'ADD MUSIC'}</span>
                                         <input 
                                             type="file" 
                                             accept="audio/*" 
@@ -778,49 +670,46 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                             onChange={handleAudioUpload}
                                         />
                                     </label>
-                                    {customAudioName && <span className="text-xs text-green-400 truncate max-w-[100px]" title={customAudioName}>{customAudioName}</span>}
                                 </div>
 
                                 {!isPlaying && !isRecording ? (
-                                    <Button onClick={() => startPlayback(false)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 flex items-center gap-2">
-                                        <PlayIcon className="w-5 h-5" /> Preview
+                                    <Button onClick={() => startPlayback(false)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 h-12 font-black shadow-lg flex items-center gap-3">
+                                        <PlayIcon className="w-6 h-6" /> PREVIEW
                                     </Button>
                                 ) : (
-                                    <Button onClick={stopPlayback} className="bg-yellow-600 hover:bg-yellow-700 text-white px-6">
-                                        Stop
+                                    <Button onClick={stopPlayback} className="bg-yellow-600 hover:bg-yellow-700 text-black px-8 h-12 font-black">
+                                        STOP
                                     </Button>
                                 )}
                                 
                                 <Button 
                                     onClick={() => startPlayback(true)} 
                                     disabled={isRecording || isPlaying} 
-                                    className={`px-6 flex items-center gap-2 ${isRecording ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                                    className={`px-8 h-12 font-black shadow-lg flex items-center gap-3 ${isRecording ? 'bg-gray-600 cursor-not-allowed opacity-50' : 'bg-red-600 hover:bg-red-700 text-white'}`}
                                 >
-                                    {isRecording ? <Spinner className="w-4 h-4 border-2"/> : <FilmIcon className="w-5 h-5" />} 
-                                    {isRecording ? 'Recording...' : 'Record Video'}
+                                    {isRecording ? <Spinner className="w-5 h-5 border-2 border-white"/> : <FilmIcon className="w-6 h-6" />} 
+                                    {isRecording ? 'RECORDING...' : 'RENDER MP4'}
                                 </Button>
                             </div>
                             
-                            {/* Save Actions */}
                             {generatedBlobUrl && !isRecording && !isPlaying && (
-                                <div className="mt-4 p-4 bg-green-900/30 border border-green-700 rounded-lg flex flex-col sm:flex-row items-center gap-4 animate-fade-in">
-                                    <p className="text-sm text-green-300 font-bold flex items-center gap-2">
-                                        <CheckCircleIcon className="w-5 h-5"/> Video Ready!
-                                    </p>
-                                    <div className="flex gap-2">
-                                         <a href={generatedBlobUrl} download={`fe-recap-${Date.now()}.webm`} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-bold transition-colors">
-                                            Download File
+                                <div className="mt-6 p-6 bg-green-900/40 border-2 border-green-600 rounded-2xl flex flex-col sm:flex-row items-center gap-6 animate-fade-in shadow-xl">
+                                    <div className="flex flex-col items-center sm:items-start">
+                                        <p className="text-lg text-white font-black flex items-center gap-2 mb-1 uppercase tracking-wide">
+                                            <CheckCircleIcon className="w-6 h-6 text-green-400"/> VIDEO RENDERED!
+                                        </p>
+                                        <p className="text-xs text-green-300 font-medium">Your AI match recap is ready for distribution.</p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                         <a href={generatedBlobUrl} download={`fe-ai-recap-${Date.now()}.webm`} className="bg-white hover:bg-gray-100 text-gray-900 px-6 py-3 rounded-xl text-sm font-black transition-transform hover:scale-105 shadow-lg">
+                                            DOWNLOAD
                                          </a>
-                                         <Button onClick={handleSaveToHub} disabled={isSaving || saveSuccess} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-sm font-bold flex items-center gap-2">
-                                            {isSaving ? <Spinner className="w-4 h-4 border-2"/> : saveSuccess ? 'Saved!' : 'Save to Video Hub'}
+                                         <Button onClick={handleSaveToHub} disabled={isSaving || saveSuccess} className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 h-auto text-sm font-black transition-transform hover:scale-105 shadow-lg flex items-center gap-2">
+                                            {isSaving ? <Spinner className="w-4 h-4 border-2"/> : saveSuccess ? 'UPLOADED!' : 'PUBLISH TO HUB'}
                                          </Button>
                                     </div>
                                 </div>
                             )}
-
-                            <p className="text-xs text-gray-500 mt-4 max-w-md text-center">
-                                Note: Audio recording relies on browser capabilities. If you hear silence in the exported video, ensure your system audio is not muted.
-                            </p>
                         </div>
                     )}
                 </div>

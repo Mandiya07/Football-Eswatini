@@ -22,6 +22,7 @@ const WomensPage: React.FC = () => {
         </div>
 
         <div className="space-y-16">
+          {/* Ensure the full Trending layout is shown by NOT passing limit=3 */}
           <NewsSection category="Womens" />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">

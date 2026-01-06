@@ -86,12 +86,12 @@ const Hero: React.FC = () => {
       {/* Background with subtle zoom effect */}
       <div 
         className="absolute inset-0 bg-cover bg-center transition-transform duration-[30000ms] scale-100 hover:scale-110"
-        style={{ backgroundImage: `url(${heroImageUrl})` }}
+        style={{ backgroundImage: `url(${heroImageUrl})`, zIndex: 0 }}
       ></div>
       
       {/* Cinematic Overlays: Heavy vignettes and deep blue gradients */}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-transparent to-slate-950"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" style={{ zIndex: 1 }}></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-transparent to-slate-950" style={{ zIndex: 1 }}></div>
       
       <div className="relative container mx-auto px-4 z-10">
         <div className="max-w-6xl mx-auto text-center">
@@ -208,8 +208,8 @@ const Hero: React.FC = () => {
       </div>
       
       {/* Texture Overlays & Bottom Vignette */}
-      <div className="absolute inset-0 pointer-events-none opacity-5 mix-blend-overlay bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
-      <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-slate-950 to-transparent"></div>
+      <div className="absolute inset-0 pointer-events-none opacity-5 mix-blend-overlay bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]" style={{ zIndex: 2 }}></div>
+      <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-slate-950 to-transparent" style={{ zIndex: 2 }}></div>
 
       <style>{`
         @keyframes sweep {

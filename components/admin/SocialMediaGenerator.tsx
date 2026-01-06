@@ -60,8 +60,6 @@ const SocialMediaGenerator: React.FC = () => {
     const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    const normalizeName = (name: string) => (name || '').trim().toLowerCase().replace(/\s+fc$/i, '').replace(/\s+football club$/i, '').trim();
-
     const fetchRecentData = async () => {
         setIsFetchingData(true);
         try {
@@ -71,11 +69,11 @@ const SocialMediaGenerator: React.FC = () => {
                 fetchNews().catch(() => [])
             ]);
 
+            // Create a normalized directory map for robust crest lookup
             const dirCrestMap = new Map<string, string>();
             dirEntries.forEach(e => {
                 if (e.crestUrl && e.name) {
-                    dirCrestMap.set(e.name.toLowerCase().trim(), e.crestUrl);
-                    dirCrestMap.set(normalizeName(e.name), e.crestUrl);
+                    dirCrestMap.set(superNormalize(e.name), e.crestUrl);
                 }
             });
 
@@ -87,7 +85,7 @@ const SocialMediaGenerator: React.FC = () => {
             // 1. NEWS CONTEXT
             const relevantNews = allNews.filter(n => {
                 const cats = Array.isArray(n.category) ? n.category : [n.category];
-                return cats.some(c => c.includes(division.split(' ')[0]));
+                return cats.some(c => superNormalize(c).includes(superNormalize(division.split(' ')[0])));
             }).slice(0, 5);
             
             if (relevantNews.length > 0) {
@@ -102,21 +100,26 @@ const SocialMediaGenerator: React.FC = () => {
             Object.values(allComps).forEach(comp => {
                 if (!comp || !comp.name) return;
                 
-                const nameLower = comp.name.toLowerCase();
+                const compNameNorm = superNormalize(comp.name);
+                const divisionNorm = superNormalize(division);
+                
                 let isRelevant = false;
-                if (division === 'MTN Premier League' && nameLower.includes('mtn premier')) isRelevant = true;
-                else if (division === 'National First Division' && (nameLower.includes('first division') || nameLower.includes('nfd'))) isRelevant = true;
-                else if (division === 'Regional' && (nameLower.includes('regional') || nameLower.includes('super league'))) isRelevant = true;
-                else if (division === 'International' && (nameLower.includes('caf') || nameLower.includes('uefa') || nameLower.includes('cl'))) isRelevant = true;
-                else if (division === 'National Team' && (nameLower.includes('sihlangu') || nameLower.includes('national'))) isRelevant = true;
-                else if (division === 'Womens Football' && nameLower.includes('women')) isRelevant = true;
+                if (division === 'MTN Premier League' && compNameNorm.includes('premier')) isRelevant = true;
+                else if (division === 'National First Division' && (compNameNorm.includes('firstdivision') || compNameNorm.includes('nfd'))) isRelevant = true;
+                else if (division === 'Regional' && (compNameNorm.includes('regional') || compNameNorm.includes('superleague'))) isRelevant = true;
+                else if (division === 'International' && (compNameNorm.includes('caf') || compNameNorm.includes('uefa') || compNameNorm.includes('cl'))) isRelevant = true;
+                else if (division === 'National Team' && (compNameNorm.includes('sihlangu') || compNameNorm.includes('national'))) isRelevant = true;
+                else if (division === 'Womens Football' && (compNameNorm.includes('women') || compNameNorm.includes('ladies'))) isRelevant = true;
 
                 if (isRelevant) {
                     const getCrest = (name: string) => {
                         if (!name) return undefined;
-                        const lower = name.toLowerCase().trim();
-                        const norm = normalizeName(name);
-                        return dirCrestMap.get(lower) || dirCrestMap.get(norm) || (comp.teams?.find(t => t.name === name)?.crestUrl);
+                        const normalized = superNormalize(name);
+                        // Check directory first (centralized logo source)
+                        if (dirCrestMap.has(normalized)) return dirCrestMap.get(normalized);
+                        // Fallback to competition team list
+                        const team = comp.teams?.find(t => superNormalize(t.name) === normalized);
+                        return team?.crestUrl;
                     };
 
                     const combined = [...(comp.results || []), ...(comp.fixtures || [])];
@@ -136,7 +139,7 @@ const SocialMediaGenerator: React.FC = () => {
                                 fullDate: m.fullDate,
                                 time: m.time,
                                 competition: comp.name,
-                                competitionLogoUrl: comp.logoUrl,
+                                competitionLogoUrl: comp.logoUrl, // Ensure this is stored
                                 venue: m.venue,
                                 matchday: m.matchday
                             });
@@ -270,6 +273,7 @@ const SocialMediaGenerator: React.FC = () => {
         }));
         setImageCache(newCache);
 
+        // --- DRAWING ---
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
         bgGrad.addColorStop(0, '#000814');
         bgGrad.addColorStop(0.4, '#002B7F');
@@ -291,14 +295,19 @@ const SocialMediaGenerator: React.FC = () => {
         const topComp = matchesToDraw[0];
         const headerY = 80;
         
+        // LEAGUE LOGO
         if (topComp.competitionLogoUrl && newCache.has(topComp.competitionLogoUrl)) {
             const logo = newCache.get(topComp.competitionLogoUrl)!;
-            ctx.drawImage(logo, (W - 120) / 2, headerY, 120, 120);
+            const logoSize = 150;
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 20;
+            ctx.drawImage(logo, (W - logoSize) / 2, headerY, logoSize, logoSize);
+            ctx.shadowBlur = 0;
         }
 
         const leaguePillW = 650;
         const leaguePillH = 60;
-        const leaguePillY = headerY + 140;
+        const leaguePillY = headerY + 180;
         ctx.save();
         ctx.beginPath();
         ctx.roundRect((W - leaguePillW) / 2, leaguePillY, leaguePillW, leaguePillH, 15);
@@ -308,18 +317,18 @@ const SocialMediaGenerator: React.FC = () => {
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FDB913';
-        ctx.font = '800 32px "Inter", sans-serif';
-        ctx.fillText(topComp.competition.toUpperCase(), W / 2, leaguePillY + 42);
+        ctx.font = '800 36px "Inter", sans-serif';
+        ctx.fillText(topComp.competition.toUpperCase(), W / 2, leaguePillY + 45);
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '900 92px "Poppins", sans-serif';
         const isResults = topComp.type === 'result';
         const titleText = isResults ? `MATCHDAY RESULTS` : `UPCOMING FIXTURES`;
-        ctx.fillText(titleText, W / 2, leaguePillY + 170);
+        ctx.fillText(titleText, W / 2, leaguePillY + 180);
 
         const isSingle = matchesToDraw.length === 1;
-        const startY = 480;
-        const rowH = isSingle ? 500 : (H - 650) / matchesToDraw.length;
+        const startY = 520;
+        const rowH = isSingle ? 500 : (H - 680) / matchesToDraw.length;
         
         matchesToDraw.forEach((m, i) => {
             const y = startY + (i * rowH);
@@ -329,7 +338,7 @@ const SocialMediaGenerator: React.FC = () => {
             const scoreH = isSingle ? 160 : 80;
             const teamW = isSingle ? 420 : 380;
             const teamH = scoreH;
-            const crestSize = isSingle ? 180 : 80;
+            const crestSize = isSingle ? 220 : 90;
 
             const scoreGrad = ctx.createLinearGradient(0, midY - scoreH/2, 0, midY + scoreH/2);
             scoreGrad.addColorStop(0, '#FDB913');
@@ -349,6 +358,7 @@ const SocialMediaGenerator: React.FC = () => {
             const scoreText = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : 'VS';
             ctx.fillText(scoreText, W / 2, midY + (isSingle ? 6 : 4));
 
+            // Home Team Box
             const homeX = (W - scoreW) / 2 - teamW - 15;
             ctx.save();
             ctx.beginPath();
@@ -364,6 +374,7 @@ const SocialMediaGenerator: React.FC = () => {
                 ctx.drawImage(img, homeX - crestSize - 10, midY - crestSize / 2, crestSize, crestSize);
             }
 
+            // Away Team Box
             const awayX = (W + scoreW) / 2 + 15;
             ctx.save();
             ctx.beginPath();
@@ -380,6 +391,7 @@ const SocialMediaGenerator: React.FC = () => {
             }
         });
 
+        // Branding Footer
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, H - 100, W, 100);
         ctx.fillStyle = '#FFFFFF';
@@ -405,12 +417,12 @@ const SocialMediaGenerator: React.FC = () => {
         try {
             canvas.toBlob(async (blob) => {
                 if (!blob) return;
-                const file = new File([blob], 'football-eswatini-post.png', { type: 'image/png' });
+                const file = new File([blob], 'matchday-update.png', { type: 'image/png' });
                 if (navigator.share && navigator.canShare({ files: [file] })) {
                     await navigator.share({
                         files: [file],
                         title: 'Match Day Update',
-                        text: 'Check out the latest from Football Eswatini!'
+                        text: 'Check out the latest results from Football Eswatini!'
                     });
                 } else {
                     alert("Sharing files is not supported by your browser. Use the Download button.");
@@ -436,14 +448,14 @@ const SocialMediaGenerator: React.FC = () => {
                 <Card className="shadow-xl border-0 bg-white">
                     <CardContent className="p-6 space-y-6">
                         <div className="flex items-center gap-3">
-                            <div className="bg-purple-100 p-3 rounded-2xl"><SparklesIcon className="w-6 h-6 text-purple-600" /></div>
+                            <div className="bg-indigo-100 p-3 rounded-2xl"><SparklesIcon className="w-6 h-6 text-indigo-600" /></div>
                             <h3 className="text-2xl font-bold font-display text-gray-800">Content Engine</h3>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-black uppercase text-gray-400 mb-2">Target League</label>
-                                <select value={division} onChange={(e) => setDivision(e.target.value as DivisionType)} className="block w-full px-3 py-2.5 border rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-purple-500">
+                                <select value={division} onChange={(e) => setDivision(e.target.value as DivisionType)} className="block w-full px-3 py-2.5 border rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-indigo-500">
                                     <option value="MTN Premier League">Premier League</option>
                                     <option value="National First Division">NFD</option>
                                     <option value="Regional">Regional / Super League</option>
@@ -466,14 +478,14 @@ const SocialMediaGenerator: React.FC = () => {
                                 <label className="block text-xs font-black uppercase text-gray-400 mb-1">Target Platform</label>
                                 <div className="flex gap-2 p-1 bg-gray-100 rounded-xl flex-wrap">
                                     {(activeTab === 'captions' ? ['Instagram', 'Facebook', 'Twitter/X'] : ['Facebook', 'Newsletter', 'Web Article']).map(p => (
-                                        <button key={p} onClick={() => setPlatform(p as PlatformType)} className={`flex-1 min-w-[80px] py-1.5 rounded-lg text-xs font-bold transition-all ${platform === p ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>{p}</button>
+                                        <button key={p} onClick={() => setPlatform(p as PlatformType)} className={`flex-1 min-w-[80px] py-1.5 rounded-lg text-xs font-bold transition-all ${platform === p ? 'bg-white shadow text-indigo-600' : 'text-gray-500'}`}>{p}</button>
                                     ))}
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-gray-400 uppercase">Context Snapshot</label>
                                     <textarea rows={6} value={contextData} onChange={(e) => setContextData(e.target.value)} placeholder="Type context manually or click Sync above..." className="block w-full p-4 border rounded-2xl text-xs font-mono bg-gray-50 shadow-inner" />
                                 </div>
-                                <Button onClick={handleGenerateContent} disabled={isGenerating || !contextData} className="w-full bg-purple-600 text-white h-12 rounded-2xl shadow-lg hover:bg-purple-700 flex justify-center items-center gap-2">
+                                <Button onClick={handleGenerateContent} disabled={isGenerating || !contextData} className="w-full bg-indigo-600 text-white h-12 rounded-2xl shadow-lg hover:bg-indigo-700 flex justify-center items-center gap-2 font-bold">
                                     {isGenerating ? <Spinner className="w-5 h-5 border-2" /> : <><SparklesIcon className="w-5 h-5" /> Generate Content</>}
                                 </Button>
                             </div>
@@ -502,7 +514,7 @@ const SocialMediaGenerator: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                <Button onClick={generateGraphic} disabled={isGeneratingImage || selectedMatchIds.length === 0} className="w-full bg-primary text-white h-12 rounded-2xl shadow-xl flex justify-center items-center gap-2 hover:bg-primary-dark transition-all">
+                                <Button onClick={generateGraphic} disabled={isGeneratingImage || selectedMatchIds.length === 0} className="w-full bg-primary text-white h-12 rounded-2xl shadow-xl flex justify-center items-center gap-2 hover:bg-primary-dark transition-all font-bold">
                                     {isGeneratingImage ? <Spinner className="w-5 h-5 border-2" /> : <><PhotoIcon className="w-5 h-5" /> Render Graphic</>}
                                 </Button>
                             </div>
@@ -519,8 +531,8 @@ const SocialMediaGenerator: React.FC = () => {
                                 </h3>
                                 {isGenerating ? (
                                     <div className="flex flex-col items-center justify-center py-24">
-                                        <Spinner className="w-12 h-12 border-4 border-purple-500 mb-6" />
-                                        <p className="font-black text-purple-600 uppercase tracking-widest">Writing...</p>
+                                        <Spinner className="w-12 h-12 border-4 border-indigo-500 mb-6" />
+                                        <p className="font-black text-indigo-600 uppercase tracking-widest">Writing...</p>
                                     </div>
                                 ) : generatedCaptions.length > 0 ? (
                                     <div className="space-y-5">
@@ -548,10 +560,10 @@ const SocialMediaGenerator: React.FC = () => {
                                 <div className="flex gap-2">
                                     {selectedMatchIds.length > 0 && (
                                         <>
-                                            <Button onClick={downloadGraphic} className="bg-green-600 text-white h-10 px-4 text-xs rounded-xl shadow-lg flex items-center gap-2">
+                                            <Button onClick={downloadGraphic} className="bg-green-600 text-white h-10 px-4 text-xs rounded-xl shadow-lg flex items-center gap-2 font-bold">
                                                 <DownloadIcon className="w-4 h-4" /> Download
                                             </Button>
-                                            <Button onClick={shareGraphic} className="bg-blue-600 text-white h-10 px-4 text-xs rounded-xl shadow-lg flex items-center gap-2">
+                                            <Button onClick={shareGraphic} className="bg-blue-600 text-white h-10 px-4 text-xs rounded-xl shadow-lg flex items-center gap-2 font-bold">
                                                 <ShareIcon className="w-4 h-4" /> Share
                                             </Button>
                                         </>
