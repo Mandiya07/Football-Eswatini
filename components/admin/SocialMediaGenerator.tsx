@@ -17,8 +17,9 @@ import FileTextIcon from '../icons/FileTextIcon';
 import ShareIcon from '../icons/ShareIcon';
 import MessageSquareIcon from '../icons/MessageSquareIcon';
 import { fetchAllCompetitions, fetchDirectoryEntries, fetchNews } from '../../services/api';
-import { superNormalize } from '../../services/utils';
+import { superNormalize, findInMap } from '../../services/utils';
 import RecapGeneratorModal from './RecapGeneratorModal';
+import { DirectoryEntity } from '../../data/directory';
 
 type DivisionType = 'MTN Premier League' | 'National First Division' | 'Regional' | 'International' | 'National Team' | 'Womens Football';
 type ContentType = 'captions' | 'summary' | 'image' | 'video';
@@ -69,12 +70,10 @@ const SocialMediaGenerator: React.FC = () => {
                 fetchNews().catch(() => [])
             ]);
 
-            // Create a normalized directory map for robust crest lookup
-            const dirCrestMap = new Map<string, string>();
+            // Create a normalized directory map for robust crest lookup (Logos & Crests section)
+            const dirMap = new Map<string, DirectoryEntity>();
             dirEntries.forEach(e => {
-                if (e.crestUrl && e.name) {
-                    dirCrestMap.set(superNormalize(e.name), e.crestUrl);
-                }
+                if (e.name) dirMap.set(e.name.trim().toLowerCase(), e);
             });
 
             const sevenDaysAgo = new Date();
@@ -114,11 +113,12 @@ const SocialMediaGenerator: React.FC = () => {
                 if (isRelevant) {
                     const getCrest = (name: string) => {
                         if (!name) return undefined;
-                        const normalized = superNormalize(name);
-                        // Check directory first (centralized logo source)
-                        if (dirCrestMap.has(normalized)) return dirCrestMap.get(normalized);
-                        // Fallback to competition team list
-                        const team = comp.teams?.find(t => superNormalize(t.name) === normalized);
+                        // PRIMARY: Directory (Logos & Crests Admin Section)
+                        const dirEntry = findInMap(name, dirMap);
+                        if (dirEntry?.crestUrl) return dirEntry.crestUrl;
+                        
+                        // SECONDARY: Local Competition team list
+                        const team = comp.teams?.find(t => superNormalize(t.name) === superNormalize(name));
                         return team?.crestUrl;
                     };
 
@@ -139,7 +139,7 @@ const SocialMediaGenerator: React.FC = () => {
                                 fullDate: m.fullDate,
                                 time: m.time,
                                 competition: comp.name,
-                                competitionLogoUrl: comp.logoUrl, // Ensure this is stored
+                                competitionLogoUrl: comp.logoUrl, // CENTRALIZED LEAGUE LOGO
                                 venue: m.venue,
                                 matchday: m.matchday
                             });
@@ -295,19 +295,19 @@ const SocialMediaGenerator: React.FC = () => {
         const topComp = matchesToDraw[0];
         const headerY = 80;
         
-        // LEAGUE LOGO
+        // LEAGUE LOGO rendering - Sourced from central Competition record
         if (topComp.competitionLogoUrl && newCache.has(topComp.competitionLogoUrl)) {
             const logo = newCache.get(topComp.competitionLogoUrl)!;
-            const logoSize = 150;
+            const logoSize = 180;
             ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 25;
             ctx.drawImage(logo, (W - logoSize) / 2, headerY, logoSize, logoSize);
             ctx.shadowBlur = 0;
         }
 
-        const leaguePillW = 650;
-        const leaguePillH = 60;
-        const leaguePillY = headerY + 180;
+        const leaguePillW = 750;
+        const leaguePillH = 70;
+        const leaguePillY = headerY + 220;
         ctx.save();
         ctx.beginPath();
         ctx.roundRect((W - leaguePillW) / 2, leaguePillY, leaguePillW, leaguePillH, 15);
@@ -317,8 +317,8 @@ const SocialMediaGenerator: React.FC = () => {
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FDB913';
-        ctx.font = '800 36px "Inter", sans-serif';
-        ctx.fillText(topComp.competition.toUpperCase(), W / 2, leaguePillY + 45);
+        ctx.font = '800 42px "Inter", sans-serif';
+        ctx.fillText(topComp.competition.toUpperCase(), W / 2, leaguePillY + 50);
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '900 92px "Poppins", sans-serif';
@@ -327,8 +327,8 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.fillText(titleText, W / 2, leaguePillY + 180);
 
         const isSingle = matchesToDraw.length === 1;
-        const startY = 520;
-        const rowH = isSingle ? 500 : (H - 680) / matchesToDraw.length;
+        const startY = 560;
+        const rowH = isSingle ? 500 : (H - 720) / matchesToDraw.length;
         
         matchesToDraw.forEach((m, i) => {
             const y = startY + (i * rowH);

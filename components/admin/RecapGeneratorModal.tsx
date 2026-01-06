@@ -11,7 +11,8 @@ import RadioIcon from '../icons/RadioIcon';
 import UploadIcon from '../icons/UploadIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { fetchAllCompetitions, addVideo, handleFirestoreError, fetchDirectoryEntries } from '../../services/api';
-import { superNormalize } from '../../services/utils';
+import { superNormalize, findInMap } from '../../services/utils';
+import { DirectoryEntity } from '../../data/directory';
 
 interface MatchSummary {
     id: string;
@@ -115,7 +116,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             
             img.onload = () => resolve(img);
             img.onerror = () => {
-                console.warn(`Failed to load image safely: ${url}. Trying direct load as fallback.`);
                 const fallbackImg = new Image();
                 fallbackImg.crossOrigin = "anonymous";
                 fallbackImg.onload = () => resolve(fallbackImg);
@@ -129,18 +129,16 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     // Helper: Load Audio Buffer
     const loadAudio = async (file?: File) => {
         try {
-            // Initialize AudioContext if not exists
             if (!audioContextRef.current) {
                 audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
             }
 
             let arrayBuffer: ArrayBuffer;
-            
             if (file) {
                 arrayBuffer = await file.arrayBuffer();
                 setCustomAudioName(file.name);
             } else {
-                 return; // Don't load default automatically if it fails, wait for user upload
+                 return;
             }
 
             const decodedBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
@@ -148,10 +146,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             setAudioError(false);
             setIsAudioEnabled(true);
         } catch (error) {
-            console.warn("Failed to load audio.", error);
             setAudioError(true);
             setIsAudioEnabled(false);
-            alert("Could not load audio file. Please try a different MP3/WAV.");
+            alert("Could not load audio file.");
         }
     };
 
@@ -165,26 +162,19 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const playAudio = async (destination?: MediaStreamAudioDestinationNode) => {
         if (!isAudioEnabled || !audioContextRef.current || !audioBufferRef.current || audioError) return;
 
-        // Ensure context is running (fixes autoplay policy issues)
         if (audioContextRef.current.state === 'suspended') {
             await audioContextRef.current.resume();
         }
 
-        // Stop any existing source
         stopAudio();
-
         const source = audioContextRef.current.createBufferSource();
         source.buffer = audioBufferRef.current;
         source.loop = true;
 
-        // Connect to destination (recording stream) AND local speakers (if not recording, or if monitoring)
         if (destination) {
             source.connect(destination);
         }
-        
-        // Always connect to speakers for monitoring
         source.connect(audioContextRef.current.destination);
-        
         source.start(0);
         audioSourceNodeRef.current = source;
     };
@@ -208,12 +198,10 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 fetchDirectoryEntries()
             ]);
 
-            // Create robust directory map for crests
-            const dirCrestMap = new Map<string, string>();
+            // Robust metadata mapping from Directory (Logos & Crests section)
+            const dirMap = new Map<string, DirectoryEntity>();
             dirEntries.forEach(e => {
-                if (e.crestUrl && e.name) {
-                    dirCrestMap.set(superNormalize(e.name), e.crestUrl);
-                }
+                if (e.name) dirMap.set(e.name.trim().toLowerCase(), e);
             });
 
             const rawMatches: MatchSummary[] = [];
@@ -223,7 +211,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             if (mode === 'results') cutoffDate.setDate(today.getDate() - days);
             else cutoffDate.setDate(today.getDate() + days);
 
-            // Gather Matches
             selectedCompIds.forEach(compId => {
                 const comp = allCompsData[compId];
                 const source = mode === 'results' ? comp.results : comp.fixtures;
@@ -240,9 +227,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
                         if (include) {
                             const getCrest = (name: string) => {
-                                const norm = superNormalize(name);
-                                if (dirCrestMap.has(norm)) return dirCrestMap.get(norm);
-                                const team = comp.teams?.find(t => superNormalize(t.name) === norm);
+                                const dirEntry = findInMap(name, dirMap);
+                                if (dirEntry?.crestUrl) return dirEntry.crestUrl;
+                                const team = comp.teams?.find(t => superNormalize(t.name) === superNormalize(name));
                                 return team?.crestUrl;
                             };
 
@@ -256,7 +243,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                 time: m.time,
                                 venue: m.venue,
                                 competition: comp.name,
-                                competitionLogoUrl: comp.logoUrl, 
+                                competitionLogoUrl: comp.logoUrl, // CENTRALIZED LEAGUE LOGO
                                 teamACrest: getCrest(m.teamA),
                                 teamBCrest: getCrest(m.teamB)
                             });
@@ -274,9 +261,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             }
 
             setMatches(limitedMatches);
-            setStep(2); // Move to Asset Loading
+            setStep(2);
             
-            // Asset Pre-loading
             setStatusText("Syncing logos and crests...");
             const cache = new Map<string, HTMLImageElement>();
             const imageUrls = new Set<string>();
@@ -295,9 +281,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             await Promise.all(promises);
             setImageCache(cache);
             setAssetsLoaded(true);
-            
             setLoading(false);
-            setStep(3); // Enter Studio
+            setStep(3);
 
         } catch (e) {
             console.error(e);
@@ -306,8 +291,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             setStep(1);
         }
     };
-
-    // --- Canvas Drawing Helper ---
 
     const drawGlassRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
         ctx.save();
@@ -362,10 +345,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         const width = canvas.width;
         const height = canvas.height;
-
         ctx.clearRect(0, 0, width, height);
 
-        // 1. Dynamic Background
         const gradient = ctx.createLinearGradient(0, 0, width, height);
         gradient.addColorStop(0, '#001e5a');
         gradient.addColorStop(0.5, '#002B7F');
@@ -373,13 +354,11 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
         
-        // 2. Animations
         const fadeIn = Math.min(1, progress * 4); 
         const slideUp = (1 - fadeIn) * 30;
         
-        // --- TOP SECTION (League Info) ---
         const topSectionY = 30; 
-        const logoSize = 100; 
+        const logoSize = 120; 
 
         if (match.competitionLogoUrl && imageCache.has(match.competitionLogoUrl)) {
              const logo = imageCache.get(match.competitionLogoUrl)!;
@@ -396,11 +375,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.textAlign = 'center';
         ctx.fillText(match.competition.toUpperCase(), width / 2, topSectionY + logoSize + 40 + slideUp);
         
-        // --- CENTER SECTION (Teams & Score) ---
         const centerY = height * 0.6; 
         const crestBoxSize = 120; 
 
-        // Home Team
         if (match.teamACrest && imageCache.has(match.teamACrest)) {
             const img = imageCache.get(match.teamACrest)!;
             const ratio = Math.min(crestBoxSize/img.width, crestBoxSize/img.height);
@@ -411,7 +388,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.fillStyle = '#FFFFFF';
         fitText(ctx, match.home, 200, 24, width / 4, centerY + 100 + slideUp);
 
-        // Away Team
         if (match.teamBCrest && imageCache.has(match.teamBCrest)) {
             const img = imageCache.get(match.teamBCrest)!;
             const ratio = Math.min(crestBoxSize/img.width, crestBoxSize/img.height);
@@ -421,7 +397,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         }
         fitText(ctx, match.away, 200, 24, width * 0.75, centerY + 100 + slideUp);
 
-        // Score
         const scoreBoxW = 160;
         const scoreBoxH = 80;
         drawGlassRect(ctx, (width - scoreBoxW)/2, centerY - scoreBoxH/2 + slideUp, scoreBoxW, scoreBoxH, 20);
@@ -430,31 +405,24 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         const centerText = mode === 'results' ? `${match.scoreA}-${match.scoreB}` : 'VS';
         ctx.fillText(centerText, width/2, centerY + 20 + slideUp);
 
-        // Footer
         const infoY = height - 100;
         ctx.fillStyle = '#FFDD57';
         ctx.font = '600 18px "Inter", sans-serif';
         const info = [match.date, match.time, match.venue].filter(Boolean).join('  •  ');
         ctx.fillText(info, width/2, infoY + slideUp);
 
-        // Animated Progress Bar
         ctx.fillStyle = '#FDB913';
         ctx.fillRect(0, height - 12, width * progress, 12);
-        
         ctx.globalAlpha = 1;
     };
-
-    // --- Animation Loop ---
 
     const DURATION_PER_SLIDE = 4000; 
 
     const animate = (timestamp: number) => {
         if (!startTimeRef.current) startTimeRef.current = timestamp;
         const elapsed = timestamp - startTimeRef.current;
-        
         const totalDuration = DURATION_PER_SLIDE * matches.length;
         const globalProgress = elapsed / totalDuration;
-        
         const slideIndex = Math.floor(elapsed / DURATION_PER_SLIDE);
         const slideProgress = (elapsed % DURATION_PER_SLIDE) / DURATION_PER_SLIDE;
 
@@ -465,11 +433,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         setCurrentMatchIndex(slideIndex);
         setProgress(globalProgress);
-
-        if (matches[slideIndex]) {
-            drawMatchFrame(matches[slideIndex], slideProgress);
-        }
-        
+        if (matches[slideIndex]) drawMatchFrame(matches[slideIndex], slideProgress);
         requestRef.current = requestAnimationFrame(animate);
     };
 
@@ -524,14 +488,13 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 setIsRecording(true);
             } catch (err) {
                 console.error(err);
-                alert("Recording failed. Please try a different browser.");
+                alert("Recording failed.");
                 return;
             }
         } else {
             setIsPlaying(true);
             playAudio();
         }
-
         requestRef.current = requestAnimationFrame(animate);
     };
 
@@ -554,7 +517,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         try {
             await addVideo({
                 title: `AI Recap: ${mode === 'results' ? 'Results' : 'Fixtures'} - ${new Date().toLocaleDateString()}`,
-                description: `Automatically generated video of ${mode === 'results' ? 'recent results' : 'upcoming matches'}.`,
+                description: `Automatically generated video summary.`,
                 thumbnailUrl: 'https://via.placeholder.com/600x400/002B7F/FFFFFF?text=AI+Recap', 
                 videoUrl: generatedBlobUrl,
                 duration: `${matches.length * 4}s`,
