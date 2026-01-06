@@ -1,3 +1,4 @@
+
 import { Team, CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 
@@ -33,18 +34,6 @@ export const superNormalize = (s: string) => {
 };
 
 /**
- * Simple normalization for display and basic search.
- */
-export const normalize = (name: string) => 
-    (name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/\.|\,/g, '') 
-    .replace(/\s+/g, ' ') 
-    .trim();
-
-/**
  * Finds a team entity from the directory map using a more robust matching logic.
  */
 export const findInMap = (name: string, map: Map<string, DirectoryEntity>): DirectoryEntity | undefined => {
@@ -53,81 +42,34 @@ export const findInMap = (name: string, map: Map<string, DirectoryEntity>): Dire
     const exactMatch = map.get(lowerName);
     if (exactMatch) return exactMatch;
     
-    // Try super normalization fallback
     const target = superNormalize(name);
     for (const [key, value] of map.entries()) {
         if (superNormalize(key) === target) return value;
     }
-
-    // Try Fuzzy Matching as last resort
-    let bestMatch: DirectoryEntity | undefined = undefined;
-    let lowestDistance = 4; // Threshold for fuzzy match
-
-    for (const entry of map.values()) {
-        const dist = levenshtein(superNormalize(name), superNormalize(entry.name));
-        if (dist < lowestDistance) {
-            lowestDistance = dist;
-            bestMatch = entry;
-        }
-    }
-
-    return bestMatch;
+    return undefined;
 };
 
 /**
  * Normalizes a team name and tries to find a match in a list of official team names.
- * Includes fuzzy matching for variations.
  */
 export const normalizeTeamName = (name: string, officialNames: string[]): string | null => {
     if (!name) return null;
     const target = superNormalize(name);
-    
-    // 1. Try Super Normalize match
     for (const official of officialNames) {
         if (superNormalize(official) === target) return official;
     }
-
-    // 2. Try Fuzzy Match (Levenshtein)
-    let bestMatch: string | null = null;
-    let lowestDistance = 3; // Threshold
-
-    for (const official of officialNames) {
-        const dist = levenshtein(target, superNormalize(official));
-        if (dist < lowestDistance) {
-            lowestDistance = dist;
-            bestMatch = official;
-        }
-    }
-
-    return bestMatch;
+    return null;
 };
 
 /**
- * Calculates the Levenshtein distance between two strings.
- */
-export const levenshtein = (a: string, b: string): number => {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
-    const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
-    matrix[0] = Array.from({ length: a.length + 1 }, (_, i) => i);
-    for (let i = 1; i <= b.length; i++) {
-        for (let j = 1; j <= a.length; j++) {
-            if (b[i - 1] === a[j - 1]) matrix[i][j] = matrix[i - 1][j - 1];
-            else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
-        }
-    }
-    return matrix[b.length][a.length];
-};
-
-/**
- * Calculates league standings from a list of teams and finished matches.
- * CRITICAL FIX: Now prioritizes name-based mapping to ensure "Ghost" teams are captured
- * but uses official list as the source of truth for IDs.
+ * Calculates league standings.
+ * FIXED: Uses super-normalization for match-to-team pairing to ensure 
+ * naming inconsistencies (spaces, casing) don't cause matches to be skipped in the logs.
  */
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
     const teamsMap: Map<string, Team> = new Map();
     
-    // 1. Initialize map with existing official teams
+    // 1. Initialize map with official teams using normalized keys
     baseTeams.forEach(team => {
         const teamCopy = { ...team };
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' };
@@ -136,41 +78,26 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     
     const allMatches = [...(allResults || []), ...(allFixtures || [])];
 
-    // 2. Scan matches for any "Ghost" teams not in our list and add them temporarily
-    allMatches.forEach(m => {
-        [m.teamA, m.teamB].forEach(name => {
-            if (!name) return;
-            const norm = superNormalize(name);
-            if (!teamsMap.has(norm)) {
-                const newTeam: Team = {
-                    id: Math.floor(Math.random() * 1000000), 
-                    name: name.trim(),
-                    crestUrl: `https://via.placeholder.com/128/333333/FFFFFF?text=${name.charAt(0)}`,
-                    stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
-                    players: [], fixtures: [], results: [], staff: []
-                };
-                teamsMap.set(norm, newTeam);
-            }
-        });
-    });
-
-    // 3. Process finished matches strictly by date
+    // 2. Process finished matches
     const finishedMatches = allMatches.filter(r => 
         (r.status === 'finished' || r.status === 'abandoned') && 
         r.scoreA != null && 
         r.scoreB != null
     );
     
-    // Sort matches oldest to newest to build form guide chronologically (appending to front)
+    // Sort by date to ensure form is calculated correctly
     const sortedMatches = finishedMatches
-        .filter(fixture => fixture.fullDate)
-        .sort((a, b) => new Date(a.fullDate!).getTime() - new Date(b.fullDate!).getTime());
+        .sort((a, b) => new Date(a.fullDate || 0).getTime() - new Date(b.fullDate || 0).getTime());
 
     for (const fixture of sortedMatches) {
-        const teamA = teamsMap.get(superNormalize(fixture.teamA));
-        const teamB = teamsMap.get(superNormalize(fixture.teamB));
+        const teamAKey = superNormalize(fixture.teamA);
+        const teamBKey = superNormalize(fixture.teamB);
         
-        if (!teamA || !teamB || superNormalize(teamA.name) === superNormalize(teamB.name)) continue;
+        const teamA = teamsMap.get(teamAKey);
+        const teamB = teamsMap.get(teamBKey);
+        
+        // Only process if BOTH teams are found in the official team list
+        if (!teamA || !teamB) continue;
 
         const scoreA = fixture.scoreA!;
         const scoreB = fixture.scoreB!;
@@ -188,7 +115,6 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
             teamA.stats.w += 1;
             teamA.stats.pts += 3;
             teamB.stats.l += 1;
-            // Prepend new results so index 0 is newest
             teamA.stats.form = ['W', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
             teamB.stats.form = ['L', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
         } else if (scoreB > scoreA) {
@@ -207,12 +133,10 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         }
     }
 
-    // 4. Return sorted list
     return Array.from(teamsMap.values()).sort((a, b) => {
         if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
         if (b.stats.gd !== a.stats.gd) return b.stats.gd - a.stats.gd;
-        if (b.stats.gs !== a.stats.gs) return b.stats.gs - a.stats.gs;
-        return a.name.localeCompare(b.name);
+        return b.stats.gs - a.stats.gs;
     });
 };
 
