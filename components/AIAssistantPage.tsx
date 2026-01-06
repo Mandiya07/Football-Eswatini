@@ -17,7 +17,6 @@ import NewspaperIcon from './icons/NewspaperIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import CopyIcon from './icons/CopyIcon';
-// Added missing import for FileTextIcon
 import FileTextIcon from './icons/FileTextIcon';
 
 interface ChatMessage {

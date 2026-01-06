@@ -13,7 +13,7 @@ const Hero: React.FC = () => {
     const [teams, setTeams] = useState<Team[]>([]);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     
-    // Using a high-quality stadium crowd image for cinematic effect
+    // High-quality stadium crowd image for cinematic effect
     const heroImageUrl = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=2070&auto=format&fit=crop";
 
     useEffect(() => {
@@ -90,14 +90,9 @@ const Hero: React.FC = () => {
       ></div>
       
       {/* Cinematic Overlays: Heavy vignettes and deep blue gradients */}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
       <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-transparent to-slate-950"></div>
       
-      {/* Cinematic Light Sweep Animation */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 -left-[100%] w-[50%] h-full bg-gradient-to-r from-transparent via-white to-transparent transform -skew-x-12 animate-[sweep_8s_infinite]"></div>
-      </div>
-
       <div className="relative container mx-auto px-4 z-10">
         <div className="max-w-6xl mx-auto text-center">
             {nextMatch ? (
@@ -128,7 +123,6 @@ const Hero: React.FC = () => {
                         <div className="flex flex-col items-center justify-center py-8">
                             {isLiveMode ? (
                                 <div className="relative group">
-                                    {/* Pulse aura for live score */}
                                     <div className="absolute -inset-10 bg-red-600/20 rounded-full blur-[80px] animate-pulse"></div>
                                     <div className="relative bg-white/10 backdrop-blur-3xl px-12 py-6 rounded-[2rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/30">
                                         <div className="text-7xl md:text-[8rem] font-black tracking-tighter leading-none flex items-center">
