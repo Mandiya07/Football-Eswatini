@@ -38,13 +38,10 @@ export const superNormalize = (s: string) => {
  */
 export const findInMap = (name: string, map: Map<string, DirectoryEntity>): DirectoryEntity | undefined => {
     if (!name) return undefined;
-    const lowerName = name.trim().toLowerCase();
-    const exactMatch = map.get(lowerName);
-    if (exactMatch) return exactMatch;
-    
     const target = superNormalize(name);
-    for (const [key, value] of map.entries()) {
-        if (superNormalize(key) === target) return value;
+    // Check values for normalized name matches
+    for (const entry of map.values()) {
+        if (superNormalize(entry.name) === target) return entry;
     }
     return undefined;
 };
@@ -63,8 +60,9 @@ export const normalizeTeamName = (name: string, officialNames: string[]): string
 
 /**
  * Calculates league standings.
- * FIXED: Uses super-normalization for match-to-team pairing to ensure 
- * naming inconsistencies (spaces, casing) don't cause matches to be skipped in the logs.
+ * FIXED: Uses super-normalization to pair match results with team objects.
+ * This ensures that naming variances (like trailing spaces or different case) in the results 
+ * array don't cause match data to be lost in the logs.
  */
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
     const teamsMap: Map<string, Team> = new Map();
@@ -78,14 +76,14 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     
     const allMatches = [...(allResults || []), ...(allFixtures || [])];
 
-    // 2. Process finished matches
+    // 2. Process finished matches only
     const finishedMatches = allMatches.filter(r => 
         (r.status === 'finished' || r.status === 'abandoned') && 
         r.scoreA != null && 
         r.scoreB != null
     );
     
-    // Sort by date to ensure form is calculated correctly
+    // Sort by date to ensure form guide is accurate
     const sortedMatches = finishedMatches
         .sort((a, b) => new Date(a.fullDate || 0).getTime() - new Date(b.fullDate || 0).getTime());
 
@@ -96,7 +94,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         const teamA = teamsMap.get(teamAKey);
         const teamB = teamsMap.get(teamBKey);
         
-        // Only process if BOTH teams are found in the official team list
+        // If one of the teams in the result isn't in the official league team list, skip it
         if (!teamA || !teamB) continue;
 
         const scoreA = fixture.scoreA!;

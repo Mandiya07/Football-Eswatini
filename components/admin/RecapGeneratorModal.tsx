@@ -8,7 +8,6 @@ import SparklesIcon from '../icons/SparklesIcon';
 import PlayIcon from '../icons/PlayIcon';
 import FilmIcon from '../icons/FilmIcon';
 import RadioIcon from '../icons/RadioIcon';
-import UploadIcon from '../icons/UploadIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { fetchAllCompetitions, addVideo, handleFirestoreError, fetchDirectoryEntries } from '../../services/api';
 import { superNormalize, findInMap } from '../../services/utils';
@@ -78,6 +77,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 fetchDirectoryEntries()
             ]);
 
+            // Construct Directory map with consistent normalization
             const dirMap = new Map<string, DirectoryEntity>();
             dirEntries.forEach(e => {
                 if (e.name) dirMap.set(superNormalize(e.name), e);
@@ -93,8 +93,11 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 if (source) {
                     source.forEach(m => {
                         const getCrest = (name: string) => {
+                            if (!name) return undefined;
+                            // PRIMARY: Directory priority (fuzzy matched)
                             const dirEntry = dirMap.get(superNormalize(name));
                             if (dirEntry?.crestUrl) return dirEntry.crestUrl;
+                            // SECONDARY: Local team data
                             return comp.teams?.find(t => superNormalize(t.name) === superNormalize(name))?.crestUrl;
                         };
 
@@ -102,7 +105,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                             id: String(m.id),
                             home: m.teamA, away: m.teamB,
                             scoreA: m.scoreA, scoreB: m.scoreB,
-                            date: m.fullDate || '', time: m.time,
+                            date: m.fullDate || m.date || '', time: m.time,
                             competition: comp.name,
                             competitionLogoUrl: comp.logoUrl,
                             teamACrest: getCrest(m.teamA),
@@ -148,18 +151,26 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.fillStyle = '#002B7F';
         ctx.fillRect(0, 0, W, H);
 
+        // Render League Logo at Top
         if (match.competitionLogoUrl && imageCache.has(match.competitionLogoUrl)) {
-             ctx.drawImage(imageCache.get(match.competitionLogoUrl)!, (W - 100)/2, 30, 100, 100);
+             const logo = imageCache.get(match.competitionLogoUrl)!;
+             const size = 120;
+             ctx.drawImage(logo, (W - size)/2, 40, size, size);
         }
 
         ctx.fillStyle = '#FDB913';
-        ctx.font = 'bold 24px "Poppins"';
+        ctx.font = 'bold 24px "Poppins", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(match.competition.toUpperCase(), W/2, 160);
+        ctx.fillText(match.competition.toUpperCase(), W/2, 185);
 
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 40px "Poppins"';
-        ctx.fillText(`${match.home}  ${match.scoreA ?? ''} - ${match.scoreB ?? ''}  ${match.away}`, W/2, H/2);
+        ctx.font = 'bold 36px "Poppins", sans-serif';
+        const centerLine = `${match.home}  ${match.scoreA ?? ''} - ${match.scoreB ?? ''}  ${match.away}`;
+        ctx.fillText(centerLine, W/2, H/2 + 20);
+
+        ctx.font = 'normal 18px "Inter", sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText(`${match.date} • ${match.venue || 'Match Center'}`, W/2, H - 40);
     };
 
     useEffect(() => {
@@ -169,37 +180,50 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     return (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
             <Card className="w-full max-w-4xl bg-gray-900 border-gray-700 text-white shadow-2xl overflow-hidden">
-                <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-                    <h2 className="text-lg font-bold font-display uppercase tracking-tight">AI Recap Studio</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white"><XIcon className="w-6 h-6" /></button>
+                <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
+                    <div className="flex items-center gap-2">
+                        <SparklesIcon className="w-5 h-5 text-purple-400" />
+                        <h2 className="text-lg font-bold font-display uppercase tracking-tight">AI Recap Studio</h2>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><XIcon className="w-6 h-6" /></button>
                 </div>
 
                 <div className="p-8">
                     {step === 1 && (
                         <div className="space-y-6">
-                             <div className="grid grid-cols-2 gap-4">
+                             <div className="grid grid-cols-2 gap-4 max-h-60 overflow-y-auto p-2 bg-gray-800 rounded-xl border border-gray-700">
                                 {competitions.map(c => (
-                                    <label key={c.id} className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg cursor-pointer">
-                                        <input type="checkbox" checked={selectedCompIds.includes(c.id)} onChange={() => setSelectedCompIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} />
+                                    <label key={c.id} className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors">
+                                        <input type="checkbox" checked={selectedCompIds.includes(c.id)} onChange={() => setSelectedCompIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="h-5 w-5 rounded text-primary" />
                                         <span className="text-sm font-semibold">{c.name}</span>
                                     </label>
                                 ))}
                              </div>
-                             <Button onClick={handlePrepare} className="bg-purple-600 w-full h-12">Start Data Sync</Button>
+                             <div className="flex justify-end">
+                                <Button onClick={handlePrepare} className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto px-10 h-12 font-bold shadow-lg">Start Data Sync</Button>
+                             </div>
                         </div>
                     )}
 
                     {step === 2 && (
-                         <div className="flex flex-col items-center justify-center h-64">
-                            <Spinner />
-                            <p className="mt-4">{statusText}</p>
+                         <div className="flex flex-col items-center justify-center h-64 animate-pulse">
+                            <Spinner className="w-12 h-12 border-4 border-purple-500 mb-4" />
+                            <p className="text-purple-300 font-bold uppercase tracking-widest">{statusText}</p>
                          </div>
                     )}
 
                     {step === 3 && (
-                        <div className="flex flex-col items-center">
-                            <canvas ref={canvasRef} width={800} height={450} className="w-full bg-black rounded-xl" />
-                            <p className="mt-4 text-xs text-gray-400">Assets linked from Directory. Video ready to record.</p>
+                        <div className="flex flex-col items-center animate-fade-in">
+                            <div className="relative border-4 border-gray-700 rounded-2xl overflow-hidden shadow-2xl bg-black w-full max-w-[700px] aspect-video">
+                                <canvas ref={canvasRef} width={800} height={450} className="w-full h-full object-contain" />
+                            </div>
+                            <div className="mt-6 flex gap-4">
+                                <Button onClick={() => setStep(1)} className="bg-gray-700 text-white px-6">Reset</Button>
+                                <Button className="bg-red-600 text-white px-10 font-bold flex items-center gap-2">
+                                    <FilmIcon className="w-5 h-5"/> Render MP4
+                                </Button>
+                            </div>
+                            <p className="mt-4 text-xs text-gray-500">Assets sourced from central Logos & Crests repository.</p>
                         </div>
                     )}
                 </div>

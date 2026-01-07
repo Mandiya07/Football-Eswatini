@@ -58,31 +58,23 @@ const AIAssistantPage: React.FC = () => {
       ]);
 
       const siteContext = {
-          recentNews: news.slice(0, 15).map(n => ({ title: n.title, date: n.date, summary: n.summary })),
-          standings: leagueData?.teams?.slice(0, 15).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form }))
+          recentNews: news.slice(0, 10).map(n => ({ title: n.title, date: n.date, summary: n.summary })),
+          standings: leagueData?.teams?.slice(0, 10).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form }))
       };
 
-      const systemInstruction = `You are a high-level Editor and Article Developer for Football Eswatini. 
-      Your goal is to write professional, engaging, and accurate articles for the website.
+      const systemInstruction = `You are a high-level Editor for Football Eswatini. 
+      Use Markdown formatting. If sourcing from the internet, list source URLs at the bottom as "References".
       
       SITE CONTEXT (Our internal data):
-      ${JSON.stringify(siteContext, null, 2)}
-      
-      YOUR CAPABILITIES:
-      1. Write full feature articles (300-800 words) using site data and web research.
-      2. Develop match previews using site standings, recent results, and team form.
-      3. Use Google Search to find latest external news, player transfers, or international results involving Eswatini national teams or players abroad.
-      4. Suggest catchy, SEO-friendly headlines and subheadings.
-      
-      RULES:
-      1. Always prioritize site context for internal league facts.
-      2. If drafting an article, use Markdown for professional formatting (bolding, lists, etc).
-      3. If sourcing from the internet, list the source URLs clearly at the bottom as "References".
-      4. Maintain a journalistic tone: professional, objective, yet passionate about Eswatini football.`;
+      ${JSON.stringify(siteContext, null, 2)}`;
+
+      if (!process.env.API_KEY) {
+          throw new Error("API Key is missing from environment.");
+      }
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-3-flash-preview',
           contents: text,
           config: {
               systemInstruction,
@@ -90,7 +82,9 @@ const AIAssistantPage: React.FC = () => {
           }
       });
 
+      const textOutput = response.text || 'I encountered an error while drafting. Please try rephrasing your prompt.';
       const sources: { uri: string; title: string }[] = [];
+      
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks) {
           chunks.forEach((chunk: any) => {
@@ -102,12 +96,15 @@ const AIAssistantPage: React.FC = () => {
 
       setChatHistory([...newHistory, { 
           role: 'model', 
-          text: response.text || 'I encountered an error while drafting. Please try rephrasing your prompt.',
+          text: textOutput,
           sources: sources.length > 0 ? Array.from(new Map(sources.map(s => [s.uri, s])).values()) : undefined
       }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setChatHistory([...newHistory, { role: 'model', text: 'Connection error. Please ensure your API key is valid and try again.' }]);
+      const errorMsg = error?.message?.includes("API Key") 
+        ? "API Key Configuration Error. Please verify deployment settings."
+        : "Connection error. Please try again in a moment.";
+      setChatHistory([...newHistory, { role: 'model', text: errorMsg }]);
     } finally {
       setIsLoading(false);
     }
