@@ -1,17 +1,33 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Team } from '../data/teams';
 import { Card } from './ui/Card';
 import { PositionIndicator } from './Logs';
 import FormGuide from './ui/FormGuide';
 import { Link } from 'react-router-dom';
+import { DirectoryEntity } from '../data/directory';
+import { fetchDirectoryEntries } from '../services/api';
+import { findInMap } from '../services/utils';
 
 interface StandingsTableProps {
   standings: Team[];
+  competitionId?: string;
 }
 
-const StandingsTable: React.FC<StandingsTableProps> = ({ standings }) => {
+const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionId }) => {
+    const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
+
+    useEffect(() => {
+        const loadDir = async () => {
+            const entries = await fetchDirectoryEntries();
+            const map = new Map<string, DirectoryEntity>();
+            entries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
+            setDirectoryMap(map);
+        };
+        loadDir();
+    }, []);
+
     // Robustness check: filter out any null, undefined, or malformed entries.
-    // Ensure that team.stats exists and that form is a valid string before rendering.
     const validStandings = (standings || []).filter((t): t is Team => {
         return !!(t && t.stats && typeof t.stats.form === 'string' && t.name);
     });
@@ -44,39 +60,58 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings }) => {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                    {validStandings.map((team, index) => (
-                        <tr key={team.id || team.name} className="hover:bg-gray-50/50">
-                            <td className="px-4 py-2 font-bold text-gray-700">
-                                <div className="flex items-center gap-2">
-                                    <span>{index + 1}</span>
-                                    <PositionIndicator change={'same'} />
-                                </div>
-                            </td>
-                            <td className="px-4 py-2">
-                                <div className="flex items-center space-x-3 group">
-                                    {team.crestUrl ? (
-                                        <img src={team.crestUrl} alt={`${team.name} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
+                    {validStandings.map((team, index) => {
+                        const dirEntry = findInMap(team.name, directoryMap);
+                        const profileUrl = (team.id && competitionId) ? `/competitions/${competitionId}/teams/${team.id}` : 
+                                          (dirEntry?.teamId && dirEntry?.competitionId) ? `/competitions/${dirEntry.competitionId}/teams/${dirEntry.teamId}` : null;
+
+                        return (
+                            <tr key={team.id || team.name} className="hover:bg-gray-50/50">
+                                <td className="px-4 py-2 font-bold text-gray-700">
+                                    <div className="flex items-center gap-2">
+                                        <span>{index + 1}</span>
+                                        <PositionIndicator change={'same'} />
+                                    </div>
+                                </td>
+                                <td className="px-4 py-2">
+                                    {profileUrl ? (
+                                        <Link to={profileUrl} className="flex items-center space-x-3 group">
+                                            {team.crestUrl ? (
+                                                <img src={team.crestUrl} alt={`${team.name} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
+                                            ) : (
+                                                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-400">
+                                                    {team.name.charAt(0)}
+                                                </div>
+                                            )}
+                                            <span className="font-semibold text-gray-800 truncate max-w-[120px] sm:max-w-none group-hover:text-primary group-hover:underline transition-colors">{team.name}</span>
+                                        </Link>
                                     ) : (
-                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-400">
-                                            {team.name.charAt(0)}
+                                        <div className="flex items-center space-x-3">
+                                            {team.crestUrl ? (
+                                                <img src={team.crestUrl} alt={`${team.name} crest`} loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
+                                            ) : (
+                                                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-400">
+                                                    {team.name.charAt(0)}
+                                                </div>
+                                            )}
+                                            <span className="font-semibold text-gray-800 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
                                         </div>
                                     )}
-                                    <span className="font-semibold text-gray-800 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
-                                </div>
-                            </td>
-                            <td className="px-2 py-2 text-center">{team.stats.p}</td>
-                            <td className="px-2 py-2 text-center">{team.stats.w}</td>
-                            <td className="px-2 py-2 text-center">{team.stats.d}</td>
-                            <td className="px-2 py-2 text-center">{team.stats.l}</td>
-                            <td className="px-2 py-2 text-center hidden md:table-cell">{team.stats.gs}</td>
-                            <td className="px-2 py-2 text-center hidden md:table-cell">{team.stats.gc}</td>
-                            <td className="px-2 py-2 text-center font-bold">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
-                            <td className="px-2 py-2 text-center font-bold bg-gray-50/50">{team.stats.pts}</td>
-                            <td className="px-4 py-2">
-                                <FormGuide form={team.stats.form} />
-                            </td>
-                        </tr>
-                    ))}
+                                </td>
+                                <td className="px-2 py-2 text-center">{team.stats.p}</td>
+                                <td className="px-2 py-2 text-center">{team.stats.w}</td>
+                                <td className="px-2 py-2 text-center">{team.stats.d}</td>
+                                <td className="px-2 py-2 text-center">{team.stats.l}</td>
+                                <td className="px-2 py-2 text-center hidden md:table-cell">{team.stats.gs}</td>
+                                <td className="px-2 py-2 text-center hidden md:table-cell">{team.stats.gc}</td>
+                                <td className="px-2 py-2 text-center font-bold">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
+                                <td className="px-2 py-2 text-center font-bold bg-gray-50/50">{team.stats.pts}</td>
+                                <td className="px-4 py-2">
+                                    <FormGuide form={team.stats.form} />
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>

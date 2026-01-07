@@ -171,26 +171,40 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {leagueData.map((team, index) => (
-                                <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-2 sm:px-3 py-3 font-bold text-gray-400 text-center">{index + 1}</td>
-                                    <td className="px-2 sm:px-3 py-3">
-                                        <div className="flex items-center gap-2 sm:gap-3">
-                                            <img src={findInMap(team.name, directoryMap)?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
-                                            <span className="font-bold text-gray-900 truncate max-w-[80px] sm:max-w-none">{team.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.p}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.w}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.d}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.l}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gs}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gc}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
-                                    <td className="px-1 sm:px-2 py-3 text-center font-black text-primary">{team.stats.pts}</td>
-                                    <td className="px-2 sm:px-3 py-3"><FormGuide form={team.stats.form} /></td>
-                                </tr>
-                            ))}
+                            {leagueData.map((team, index) => {
+                                const dirEntry = findInMap(team.name, directoryMap);
+                                // Determine profile URL: Priority 1 is current competition team ID. Priority 2 is Directory link.
+                                const profileUrl = team.id ? `/competitions/${selectedLeague}/teams/${team.id}` : 
+                                                  (dirEntry?.teamId && dirEntry?.competitionId) ? `/competitions/${dirEntry.competitionId}/teams/${dirEntry.teamId}` : null;
+
+                                return (
+                                    <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="px-2 sm:px-3 py-3 font-bold text-gray-400 text-center">{index + 1}</td>
+                                        <td className="px-2 sm:px-3 py-3">
+                                            {profileUrl ? (
+                                                <Link to={profileUrl} className="flex items-center gap-2 sm:gap-3 group">
+                                                    <img src={dirEntry?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
+                                                    <span className="font-bold text-gray-900 truncate max-w-[80px] sm:max-w-none group-hover:text-primary group-hover:underline transition-colors">{team.name}</span>
+                                                </Link>
+                                            ) : (
+                                                <div className="flex items-center gap-2 sm:gap-3">
+                                                    <img src={dirEntry?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
+                                                    <span className="font-bold text-gray-900 truncate max-w-[80px] sm:max-w-none">{team.name}</span>
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.p}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.w}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.d}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.l}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gs}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gc}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center font-black text-primary">{team.stats.pts}</td>
+                                        <td className="px-2 sm:px-3 py-3"><FormGuide form={team.stats.form} /></td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                  ) : (
