@@ -172,7 +172,7 @@ const NewsSection: React.FC<{ category?: string, limit?: number }> = ({ category
 
     const featuredItem = filteredNews[0];
     const gridItems = filteredNews.slice(1, 4);
-    const compactItems = filteredNews.slice(4, 10);
+    const compactItems = filteredNews.slice(4, 8);
 
     return (
         <section className="space-y-12">
