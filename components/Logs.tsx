@@ -126,6 +126,14 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
       }
   };
 
+  // Logic to determine if a team is moving up or down based on last result
+  const getTrend = (form: string) => {
+      const last = form.split(' ')[0];
+      if (last === 'W') return 'up';
+      if (last === 'L') return 'down';
+      return 'same';
+  };
+
   return (
     <section>
         <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
@@ -157,7 +165,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     <table className="w-full text-sm">
                         <thead className="bg-primary text-white text-[10px] sm:text-xs uppercase font-bold sticky top-0 z-10">
                             <tr>
-                                <th className="px-2 sm:px-3 py-4 w-8 text-center">#</th>
+                                <th className="px-2 sm:px-3 py-4 w-12 text-center">#</th>
                                 <th className="px-2 sm:px-3 py-4 text-left">Team</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Played">P</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Wins">W</th>
@@ -173,13 +181,17 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                         <tbody className="divide-y">
                             {leagueData.map((team, index) => {
                                 const dirEntry = findInMap(team.name, directoryMap);
-                                // Determine profile URL: Priority 1 is current competition team ID. Priority 2 is Directory link.
                                 const profileUrl = team.id ? `/competitions/${selectedLeague}/teams/${team.id}` : 
                                                   (dirEntry?.teamId && dirEntry?.competitionId) ? `/competitions/${dirEntry.competitionId}/teams/${dirEntry.teamId}` : null;
 
                                 return (
                                     <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-2 sm:px-3 py-3 font-bold text-gray-400 text-center">{index + 1}</td>
+                                        <td className="px-2 sm:px-3 py-3 text-center">
+                                            <div className="flex flex-col items-center">
+                                                <span className="font-black text-gray-900">{index + 1}</span>
+                                                <PositionIndicator change={getTrend(team.stats.form)} />
+                                            </div>
+                                        </td>
                                         <td className="px-2 sm:px-3 py-3">
                                             {profileUrl ? (
                                                 <Link to={profileUrl} className="flex items-center gap-2 sm:gap-3 group">
@@ -200,7 +212,10 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                         <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gs}</td>
                                         <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gc}</td>
                                         <td className="px-1 sm:px-2 py-3 text-center">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center font-black text-primary">{team.stats.pts}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center font-black relative">
+                                            <div className="absolute inset-0 bg-primary/5 backdrop-blur-[2px] rounded m-0.5"></div>
+                                            <span className="relative z-10 text-primary">{team.stats.pts}</span>
+                                        </td>
                                         <td className="px-2 sm:px-3 py-3"><FormGuide form={team.stats.form} /></td>
                                     </tr>
                                 );

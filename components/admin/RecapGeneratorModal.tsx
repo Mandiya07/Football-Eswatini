@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Card } from '../ui/Card';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
 import Spinner from '../ui/Spinner';
@@ -43,6 +43,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const [statusText, setStatusText] = useState('');
     const [imageCache, setImageCache] = useState<Map<string, HTMLImageElement>>(new Map());
     
+    const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -64,7 +65,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             img.crossOrigin = "anonymous"; 
             img.onload = () => resolve(img);
             img.onerror = () => resolve(null);
-            // Detecting Base64 strings to bypass proxy
             if (url.startsWith('data:')) {
                 img.src = url;
             } else {
@@ -73,17 +73,11 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         });
     };
 
-    const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setAudioFile(e.target.files[0]);
-        }
-    };
-
     const handlePrepare = async () => {
         if (selectedCompIds.length === 0) return alert("Please select a league.");
         setLoading(true);
         setStep(2);
-        setStatusText("Gathering Assets from Repository...");
+        setStatusText("Gathering Assets...");
 
         try {
             const [allCompsData, dirEntries] = await Promise.all([
@@ -106,10 +100,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                     source.forEach(m => {
                         const getCrest = (name: string) => {
                             if (!name) return undefined;
-                            // Priority: Directory (High-Res from Logos & Crests Page)
                             const dirEntry = findInMap(name, dirMap);
                             if (dirEntry?.crestUrl) return dirEntry.crestUrl;
-                            // Fallback: Team list within competition
                             return comp.teams?.find(t => superNormalize(t.name) === superNormalize(name))?.crestUrl;
                         };
 
@@ -128,7 +120,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 }
             });
 
-            setMatches(rawMatches.slice(0, 10));
+            setMatches(rawMatches.slice(0, 15));
             
             const cache = new Map<string, HTMLImageElement>();
             const imageUrls = new Set<string>();
@@ -153,7 +145,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         }
     };
 
-    const drawMatchFrame = (match: MatchSummary) => {
+    const drawMatchFrame = useCallback((match: MatchSummary) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -161,18 +153,18 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         const W = canvas.width, H = canvas.height;
         
-        // Background Gradient
+        ctx.fillStyle = '#001E5A';
+        ctx.fillRect(0, 0, W, H);
+
         const grad = ctx.createLinearGradient(0, 0, W, H);
         grad.addColorStop(0, '#001E5A');
         grad.addColorStop(1, '#002B7F');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, W, H);
 
-        // Grid overlay
         ctx.strokeStyle = 'rgba(255,255,255,0.05)';
         for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
 
-        // Header: Competition Logo
         if (match.competitionLogoUrl && imageCache.has(match.competitionLogoUrl)) {
              const logo = imageCache.get(match.competitionLogoUrl)!;
              const size = 150;
@@ -184,7 +176,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.textAlign = 'center';
         ctx.fillText((match.competition || '').toUpperCase(), W/2, 210);
 
-        // Team Crests (Large)
         if (match.teamACrest && imageCache.has(match.teamACrest)) {
             ctx.drawImage(imageCache.get(match.teamACrest)!, W/2 - 340, H/2 - 130, 240, 240);
         }
@@ -197,23 +188,35 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         const resultLine = mode === 'results' ? `${match.scoreA ?? 0} - ${match.scoreB ?? 0}` : 'VS';
         ctx.fillText(resultLine, W/2, H/2 + 20);
 
-        ctx.font = 'bold 42px "Inter", sans-serif';
-        ctx.fillText(match.home.toUpperCase(), W/2 - 220, H/2 + 180);
-        ctx.fillText(match.away.toUpperCase(), W/2 + 220, H/2 + 180);
+        ctx.font = 'bold 36px "Inter", sans-serif';
+        ctx.fillText(match.home, W/2 - 220, H/2 + 180, 280);
+        ctx.fillText(match.away, W/2 + 220, H/2 + 180, 280);
 
         ctx.font = '600 24px "Inter", sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.fillText(`${match.date} • ${match.venue || 'Mavuso Sports Centre'}`, W/2, H - 60);
-    };
+        ctx.fillText(`${match.date} • ${match.venue || 'Mavuso Centre'}`, W/2, H - 60);
+    }, [imageCache, mode]);
+
+    // CAROUSEL LOGIC
+    useEffect(() => {
+        if (step === 3 && matches.length > 0) {
+            const timer = setInterval(() => {
+                setCurrentFrameIndex(prev => (prev + 1) % matches.length);
+            }, 3000);
+            return () => clearInterval(timer);
+        }
+    }, [step, matches.length]);
 
     useEffect(() => {
-        if (step === 3 && matches.length > 0) drawMatchFrame(matches[0]);
-    }, [step, matches]);
+        if (step === 3 && matches[currentFrameIndex]) {
+            drawMatchFrame(matches[currentFrameIndex]);
+        }
+    }, [step, currentFrameIndex, drawMatchFrame, matches]);
 
     return (
         <div className="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center p-4">
             <Card className="w-full max-w-4xl bg-slate-900 border-slate-800 text-white shadow-2xl overflow-hidden rounded-[2rem]">
-                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <div className="bg-purple-600/20 p-2 rounded-xl"><SparklesIcon className="w-6 h-6 text-purple-400" /></div>
                         <h2 className="text-xl font-black font-display uppercase tracking-tight">AI Recap Studio</h2>
@@ -221,38 +224,27 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                     <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full"><XIcon className="w-6 h-6" /></button>
                 </div>
 
-                <div className="p-8">
+                <div className="p-8 max-h-[85vh] overflow-y-auto custom-scrollbar">
                     {step === 1 && (
                         <div className="space-y-8 animate-fade-in">
                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <button onClick={() => setMode('results')} className={`p-6 rounded-2xl border-2 transition-all text-left ${mode === 'results' ? 'bg-purple-600 border-purple-400 shadow-xl' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
-                                    <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-1">Type</p>
                                     <h4 className="text-xl font-bold">Match Results</h4>
                                 </button>
                                 <button onClick={() => setMode('fixtures')} className={`p-6 rounded-2xl border-2 transition-all text-left ${mode === 'fixtures' ? 'bg-purple-600 border-purple-400 shadow-xl' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
-                                    <p className="text-xs font-black uppercase tracking-widest opacity-60 mb-1">Type</p>
                                     <h4 className="text-xl font-bold">Upcoming Fixtures</h4>
                                 </button>
                              </div>
 
                              <div>
                                 <label className="block text-xs font-black uppercase text-slate-500 tracking-widest mb-3">Target Competitions</label>
-                                <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto p-2 bg-slate-800 rounded-2xl border border-slate-700 custom-scrollbar">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-48 overflow-y-auto p-2 bg-slate-800 rounded-2xl border border-slate-700">
                                     {competitions.map(c => (
                                         <label key={c.id} className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-xl cursor-pointer hover:bg-slate-700 transition-colors">
                                             <input type="checkbox" checked={selectedCompIds.includes(c.id)} onChange={() => setSelectedCompIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])} className="h-5 w-5 rounded text-purple-600 focus:ring-purple-500" />
                                             <span className="text-sm font-bold truncate">{c.name}</span>
                                         </label>
                                     ))}
-                                </div>
-                             </div>
-
-                             <div>
-                                <label className="block text-xs font-black uppercase text-slate-500 tracking-widest mb-3">Background Music (Optional)</label>
-                                <div className="flex items-center gap-4 bg-slate-800 p-4 rounded-xl border border-slate-700">
-                                    <MusicIcon className="w-6 h-6 text-purple-400" />
-                                    <input type="file" accept="audio/*" onChange={handleAudioChange} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" />
-                                    {audioFile && <span className="text-xs text-green-400 font-bold">{audioFile.name}</span>}
                                 </div>
                              </div>
 
@@ -266,35 +258,27 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
                     {step === 2 && (
                          <div className="flex flex-col items-center justify-center h-[400px] animate-fade-in text-center">
-                            <div className="relative mb-6">
-                                <Spinner className="w-20 h-20 border-4 border-purple-500" />
-                                <SparklesIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-purple-400 animate-pulse" />
-                            </div>
+                            <Spinner className="w-16 h-16 border-4 border-purple-500 mb-6" />
                             <p className="text-purple-300 font-black uppercase tracking-[0.3em]">{statusText}</p>
-                            <p className="text-slate-500 text-sm mt-4">Sourcing high-res logos from Repository & Directory...</p>
                          </div>
                     )}
 
                     {step === 3 && (
-                        <div className="flex flex-col items-center animate-fade-in">
-                            <div className="relative border-8 border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl bg-black w-full max-w-[800px] aspect-video">
+                        <div className="flex flex-col items-center animate-fade-in space-y-8">
+                            <div className="w-full max-w-[700px] aspect-video relative border-8 border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl bg-black">
                                 <canvas ref={canvasRef} width={1280} height={720} className="w-full h-full object-contain" />
+                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1">
+                                    {matches.map((_, i) => (
+                                        <div key={i} className={`h-1 rounded-full transition-all ${i === currentFrameIndex ? 'w-8 bg-purple-500 shadow-[0_0_10px_#a855f7]' : 'w-2 bg-white/20'}`}></div>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full justify-center">
-                                <Button onClick={() => setStep(1)} className="bg-slate-700 text-white px-8 h-12 rounded-xl font-bold">Back to Configuration</Button>
+                            
+                            <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+                                <Button onClick={() => setStep(1)} className="bg-slate-700 text-white px-8 h-12 rounded-xl font-bold">Configure</Button>
                                 <Button className="bg-purple-600 text-white px-12 font-black h-12 rounded-xl shadow-xl flex items-center gap-2">
-                                    <FilmIcon className="w-5 h-5"/> Export High-Res MP4
+                                    <FilmIcon className="w-5 h-5"/> Export Recap MP4
                                 </Button>
-                            </div>
-                            <div className="mt-8 grid grid-cols-2 gap-4 w-full max-w-[800px]">
-                                <Card className="bg-slate-800 border-slate-700 p-4">
-                                    <p className="text-xs font-black uppercase text-purple-400 mb-2">Visual Fidelity</p>
-                                    <p className="text-sm">Using Directory vector crests for edge-to-edge sharpness.</p>
-                                </Card>
-                                <Card className="bg-slate-800 border-slate-700 p-4">
-                                    <p className="text-xs font-black uppercase text-purple-400 mb-2">Dynamic Branding</p>
-                                    <p className="text-sm">League identifiers merged with match metadata.</p>
-                                </Card>
                             </div>
                         </div>
                     )}

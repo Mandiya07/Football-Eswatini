@@ -8,7 +8,6 @@ import CopyIcon from '../icons/CopyIcon';
 import SparklesIcon from '../icons/SparklesIcon';
 import RefreshIcon from '../icons/RefreshIcon';
 import PhotoIcon from '../icons/PhotoIcon';
-import DownloadIcon from '../icons/DownloadIcon';
 import FilmIcon from '../icons/FilmIcon';
 import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api';
 import { superNormalize, findInMap } from '../../services/utils';
@@ -92,11 +91,15 @@ const SocialMediaGenerator: React.FC = () => {
                 return teamInComp?.crestUrl;
             };
 
-            const combined = [...(comp.results || []), ...(comp.fixtures || [])];
+            // SYNC BOTH: Results and Upcoming Fixtures
+            const results = (comp.results || []).map(m => ({ ...m, type: 'result' as const }));
+            const fixtures = (comp.fixtures || []).map(m => ({ ...m, type: 'fixture' as const }));
+            
+            const combined = [...results, ...fixtures];
             combined.forEach(m => {
                 extractedMatches.push({
                     id: `${selectedLeagueId}-${m.id}`,
-                    type: m.status === 'finished' ? 'result' : 'fixture',
+                    type: m.type,
                     teamA: m.teamA,
                     teamB: m.teamB,
                     teamACrest: getCrest(m.teamA),
@@ -114,7 +117,9 @@ const SocialMediaGenerator: React.FC = () => {
             const sorted = extractedMatches.sort((a,b) => {
                 const dateA = a.fullDate ? new Date(a.fullDate).getTime() : 0;
                 const dateB = b.fullDate ? new Date(b.fullDate).getTime() : 0;
-                return dateA - dateB;
+                // Results first (descending), then fixtures
+                if (a.type !== b.type) return a.type === 'result' ? -1 : 1;
+                return dateB - dateA;
             });
 
             setRawMatches(sorted);
@@ -178,13 +183,11 @@ const SocialMediaGenerator: React.FC = () => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Poster Format: 9:16 Vertical
         const W = 1080;
         const H = 1920; 
         canvas.width = W;
         canvas.height = H;
 
-        // Preload all assets
         const urlsToLoad = new Set<string>();
         matchesToDraw.forEach(m => {
             if (m.teamACrest) urlsToLoad.add(m.teamACrest);
@@ -201,7 +204,6 @@ const SocialMediaGenerator: React.FC = () => {
         }));
         setImageCache(newCache);
 
-        // BACKGROUND: Deep Cinematic Blue
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
         bgGrad.addColorStop(0, '#001E5A');
         bgGrad.addColorStop(0.5, '#002B7F');
@@ -209,7 +211,6 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
-        // GRID PATTERN
         ctx.strokeStyle = 'rgba(255,255,255,0.03)';
         ctx.lineWidth = 1;
         for (let i = 0; i < W; i += 60) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
@@ -217,77 +218,70 @@ const SocialMediaGenerator: React.FC = () => {
 
         const topComp = matchesToDraw[0];
         
-        // 1. LEAGUE LOGO (TOP CENTER)
         if (topComp.competitionLogoUrl && newCache.has(topComp.competitionLogoUrl)) {
             const logo = newCache.get(topComp.competitionLogoUrl)!;
-            const logoW = 240;
+            const logoW = 200;
             const logoH = (logo.height / logo.width) * logoW;
-            ctx.drawImage(logo, (W - logoW) / 2, 70, logoW, logoH);
+            ctx.drawImage(logo, (W - logoW) / 2, 80, logoW, logoH);
         }
 
-        // 2. COMPETITION NAME (YELLOW) - Reduced size
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FDB913';
-        ctx.font = '800 42px "Poppins", sans-serif';
-        ctx.fillText(topComp.competition, W / 2, 360);
+        ctx.font = '800 36px "Poppins", sans-serif';
+        ctx.fillText(topComp.competition, W / 2, 340);
 
-        // 3. MAIN HEADER (WHITE) - Reduced size & removed uppercase
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 95px "Poppins", sans-serif';
-        const headerText = topComp.type === 'result' ? "Match Results" : (topComp.matchday ? `Matchday ${topComp.matchday} Fixtures` : "Match Fixtures");
-        ctx.fillText(headerText, W / 2, 470);
+        ctx.font = '900 85px "Poppins", sans-serif';
+        const headerText = matchesToDraw.every(m => m.type === 'result') ? "Match Results" : (topComp.matchday ? `Matchday ${topComp.matchday}` : "Football Eswatini");
+        ctx.fillText(headerText, W / 2, 440);
 
-        // 4. FIXTURE ROWS - Adjusted for 8 matches
-        const startY = 560;
-        const rowH = 145;
+        // GRID CALCULATION
+        const startY = 530;
+        const rowH = 150;
         const rowGap = 15;
-        const textMaxW = 320; // Prevent bleeding
+        const textMaxW = 280; // STRICT LIMIT to prevent overlap with center or logos
 
         matchesToDraw.forEach((m, i) => {
             const y = startY + (i * (rowH + rowGap));
             
-            // Row Box
-            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
             ctx.beginPath();
-            ctx.roundRect(60, y, W - 120, rowH, 20);
+            ctx.roundRect(50, y, W - 100, rowH, 20);
             ctx.fill();
 
-            // Team A Crest
             if (m.teamACrest && newCache.has(m.teamACrest)) {
-                ctx.drawImage(newCache.get(m.teamACrest)!, 100, y + 25, 95, 95);
+                ctx.drawImage(newCache.get(m.teamACrest)!, 80, y + 25, 100, 100);
             }
             
-            // Team B Crest
             if (m.teamBCrest && newCache.has(m.teamBCrest)) {
-                ctx.drawImage(newCache.get(m.teamBCrest)!, W - 195, y + 25, 95, 95);
+                ctx.drawImage(newCache.get(m.teamBCrest)!, W - 180, y + 25, 100, 100);
             }
 
-            // Teams Names - Smaller & MaxWidth protection
             ctx.fillStyle = '#FFFFFF';
-            ctx.font = '800 28px "Inter", sans-serif';
+            ctx.font = '800 24px "Inter", sans-serif';
+            
+            // Home Team: Anchored left-of-center
             ctx.textAlign = 'right';
             ctx.fillText(m.teamA, W/2 - 140, y + 75, textMaxW);
             
+            // Away Team: Anchored right-of-center
             ctx.textAlign = 'left';
             ctx.fillText(m.teamB, W/2 + 140, y + 75, textMaxW);
 
-            // Time / Score in Center - Reduced size
             ctx.textAlign = 'center';
-            ctx.font = '900 55px "Poppins", sans-serif';
-            const centerContent = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : m.time || '15:00';
-            ctx.fillText(centerContent, W/2, y + 85);
+            ctx.font = '900 65px "Poppins", sans-serif';
+            const centerInfo = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : m.time || '15:00';
+            ctx.fillText(centerInfo, W/2, y + 85);
 
-            // Date Sub-info
-            ctx.font = '600 20px "Inter", sans-serif';
+            ctx.font = '600 18px "Inter", sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.4)';
-            ctx.fillText(m.date, W/2, y + 120);
+            ctx.fillText(m.date, W/2, y + 125);
         });
 
-        // 5. FOOTER BAR
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, H - 140, W, 140);
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 52px "Poppins", sans-serif';
+        ctx.font = '900 48px "Poppins", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText("FOOTBALL ESWATINI", W / 2, H - 55);
 
