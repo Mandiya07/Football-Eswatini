@@ -146,8 +146,8 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     };
 
     return (
-        <div className={`flex items-stretch hover:bg-gray-50/50 transition-colors duration-200 border-l-4 ${fixture.status === 'live' ? 'border-secondary' : 'border-transparent'}`}>
-            <div className="flex-grow relative flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer" onClick={onToggleDetails}>
+        <div className={`flex flex-col border-l-4 ${fixture.status === 'live' ? 'border-secondary' : 'border-transparent'} hover:bg-gray-50/50 transition-colors duration-200`}>
+            <div className="flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer relative" onClick={onToggleDetails}>
                 {getStatusBadge()}
                 <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
                     <span className="font-bold text-base leading-tight">{fixture.date}</span>
@@ -173,12 +173,17 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                         {renderTeamName(fixture.teamB, teamBLink)}
                     </div>
                 </div>
-                <button onClick={handleShare} className="p-2 text-gray-400 hover:text-primary transition-colors flex-shrink-0" title="Share Match">
-                    <ShareIcon className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={handleShare} className="p-2 text-gray-400 hover:text-primary transition-colors" title="Share Match">
+                        <ShareIcon className="w-4 h-4" />
+                    </button>
+                    <div className={`p-1 text-gray-300 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                        <ChevronDownIcon className="w-5 h-5" />
+                    </div>
+                </div>
             </div>
             {isExpanded && (
-                <div className="w-full basis-full border-t border-gray-100 bg-gray-50/50 p-2">
+                <div className="w-full border-t border-gray-100 bg-gray-50/50">
                     <FixtureDetail fixture={fixture} competitionId={competitionId} />
                 </div>
             )}
@@ -311,7 +316,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     {groupedData.map((group) => (
                         <div key={group.title} className="mb-8">
                             <h3 className="text-sm font-black uppercase text-gray-400 mb-3 tracking-widest pl-2 border-l-4 border-accent">{group.title}</h3>
-                            <Card className="divide-y">
+                            <Card className="divide-y overflow-hidden">
                                 {group.fixtures.map(f => (
                                     <FixtureItem 
                                         key={f.id} fixture={f} isExpanded={expandedFixtureId === f.id} 
