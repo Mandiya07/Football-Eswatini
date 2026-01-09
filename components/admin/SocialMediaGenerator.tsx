@@ -91,7 +91,7 @@ const SocialMediaGenerator: React.FC = () => {
                 return teamInComp?.crestUrl;
             };
 
-            // SYNC BOTH: Results and Upcoming Fixtures
+            // SYNC BOTH: Results and Fixtures
             const results = (comp.results || []).map(m => ({ ...m, type: 'result' as const }));
             const fixtures = (comp.fixtures || []).map(m => ({ ...m, type: 'fixture' as const }));
             
@@ -114,12 +114,10 @@ const SocialMediaGenerator: React.FC = () => {
                 });
             });
 
-            const sorted = extractedMatches.sort((a,b) => {
-                const dateA = a.fullDate ? new Date(a.fullDate).getTime() : 0;
-                const dateB = b.fullDate ? new Date(b.fullDate).getTime() : 0;
-                // Results first (descending), then fixtures
+            // Sort: Results first, then fixtures
+            const sorted = extractedMatches.sort((a, b) => {
                 if (a.type !== b.type) return a.type === 'result' ? -1 : 1;
-                return dateB - dateA;
+                return new Date(b.date).getTime() - new Date(a.date).getTime();
             });
 
             setRawMatches(sorted);
@@ -132,14 +130,14 @@ const SocialMediaGenerator: React.FC = () => {
     };
 
     const handleGenerateCaptions = async () => {
-        if (selectedMatchIds.length === 0) return alert("Select matches from the list first.");
+        if (selectedMatchIds.length === 0) return alert("Select matches first.");
         if (!process.env.API_KEY) return alert('API Key missing.');
 
         setIsGenerating(true);
         try {
             const matchesToSummarize = rawMatches.filter(m => selectedMatchIds.includes(m.id));
             const dataToProcess = matchesToSummarize.map(m => 
-                `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (${m.date})`
+                `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (${m.date} ${m.time || ''})`
             ).join(', ');
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -211,7 +209,7 @@ const SocialMediaGenerator: React.FC = () => {
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
-        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
         ctx.lineWidth = 1;
         for (let i = 0; i < W; i += 60) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
         for (let i = 0; i < H; i += 60) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
@@ -220,26 +218,25 @@ const SocialMediaGenerator: React.FC = () => {
         
         if (topComp.competitionLogoUrl && newCache.has(topComp.competitionLogoUrl)) {
             const logo = newCache.get(topComp.competitionLogoUrl)!;
-            const logoW = 200;
+            const logoW = 220;
             const logoH = (logo.height / logo.width) * logoW;
-            ctx.drawImage(logo, (W - logoW) / 2, 80, logoW, logoH);
+            ctx.drawImage(logo, (W - logoW) / 2, 70, logoW, logoH);
         }
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FDB913';
-        ctx.font = '800 36px "Poppins", sans-serif';
-        ctx.fillText(topComp.competition, W / 2, 340);
+        ctx.font = '800 38px "Poppins", sans-serif';
+        ctx.fillText(topComp.competition.toUpperCase(), W / 2, 340);
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '900 85px "Poppins", sans-serif';
         const headerText = matchesToDraw.every(m => m.type === 'result') ? "Match Results" : (topComp.matchday ? `Matchday ${topComp.matchday}` : "Football Eswatini");
         ctx.fillText(headerText, W / 2, 440);
 
-        // GRID CALCULATION
         const startY = 530;
         const rowH = 150;
-        const rowGap = 15;
-        const textMaxW = 280; // STRICT LIMIT to prevent overlap with center or logos
+        const rowGap = 12;
+        const textMaxW = 260; // STRICT LIMIT to prevent logo overlap
 
         matchesToDraw.forEach((m, i) => {
             const y = startY + (i * (rowH + rowGap));
@@ -249,27 +246,28 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.roundRect(50, y, W - 100, rowH, 20);
             ctx.fill();
 
+            // Aligned Crests
             if (m.teamACrest && newCache.has(m.teamACrest)) {
                 ctx.drawImage(newCache.get(m.teamACrest)!, 80, y + 25, 100, 100);
             }
-            
             if (m.teamBCrest && newCache.has(m.teamBCrest)) {
                 ctx.drawImage(newCache.get(m.teamBCrest)!, W - 180, y + 25, 100, 100);
             }
 
             ctx.fillStyle = '#FFFFFF';
-            ctx.font = '800 24px "Inter", sans-serif';
+            ctx.font = '800 22px "Inter", sans-serif';
             
-            // Home Team: Anchored left-of-center
-            ctx.textAlign = 'right';
-            ctx.fillText(m.teamA, W/2 - 140, y + 75, textMaxW);
-            
-            // Away Team: Anchored right-of-center
+            // HOME TEAM: Starts after logo (80+100+20=200)
             ctx.textAlign = 'left';
-            ctx.fillText(m.teamB, W/2 + 140, y + 75, textMaxW);
+            ctx.fillText(m.teamA, 200, y + 80, textMaxW);
+            
+            // AWAY TEAM: Ends before logo (W-180-20=W-200)
+            ctx.textAlign = 'right';
+            ctx.fillText(m.teamB, W - 200, y + 80, textMaxW);
 
+            // CENTER METADATA
             ctx.textAlign = 'center';
-            ctx.font = '900 65px "Poppins", sans-serif';
+            ctx.font = '900 62px "Poppins", sans-serif';
             const centerInfo = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : m.time || '15:00';
             ctx.fillText(centerInfo, W/2, y + 85);
 
@@ -329,20 +327,20 @@ const SocialMediaGenerator: React.FC = () => {
                             <div className="flex items-end">
                                 <button onClick={fetchRecentData} disabled={isFetchingData} className="w-full bg-indigo-600 text-white hover:bg-indigo-700 border rounded-xl px-3 py-2.5 text-xs font-bold flex items-center justify-center gap-2 h-10 shadow-md">
                                     {isFetchingData ? <Spinner className="w-3 h-3 border-2" /> : <RefreshIcon className="w-3 h-3" />}
-                                    Sync Data
+                                    Sync Results & Fixtures
                                 </button>
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <p className="text-xs font-bold text-gray-400 uppercase">Pick Match Records (Max 8)</p>
+                            <p className="text-xs font-bold text-gray-400 uppercase">Select Match Data (Max 8)</p>
                             <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 border rounded-2xl p-2 bg-gray-50 custom-scrollbar">
                                 {rawMatches.map(m => (
                                     <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
                                         <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-blue-600" />
                                         <div className="flex-grow min-w-0">
                                             <p className="font-bold text-xs truncate">{m.teamA} vs {m.teamB}</p>
-                                            <p className="text-[10px] text-gray-500">{m.date} &bull; {m.competition}</p>
+                                            <p className="text-[10px] text-gray-500">{m.date} &bull; {m.time || 'TBA'} &bull; {m.competition}</p>
                                         </div>
                                         <div className="flex-shrink-0">
                                             {m.type === 'result' ? <span className="text-[9px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded">RESULT</span> : <span className="text-[9px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">FIXTURE</span>}

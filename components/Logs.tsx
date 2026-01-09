@@ -21,7 +21,7 @@ interface LogsProps {
 }
 
 export const PositionIndicator: React.FC<{ change?: 'up' | 'down' | 'same' }> = ({ change }) => {
-    if (!change || change === 'same') return <MinusIcon className="w-3 h-3 text-gray-400" />;
+    if (!change || change === 'same') return <MinusIcon className="w-2.5 h-2.5 text-gray-300" />;
     if (change === 'up') return <ArrowUpIcon className="w-3 h-3 text-green-500" />;
     return <ArrowDownIcon className="w-3 h-3 text-red-500" />;
 };
@@ -126,7 +126,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
       }
   };
 
-  // Logic to determine if a team is moving up or down based on last result
   const getTrend = (form: string) => {
       const last = form.split(' ')[0];
       if (last === 'W') return 'up';
@@ -171,10 +170,7 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Wins">W</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Draws">D</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Losses">L</th>
-                                <th className="px-1 sm:px-2 py-4 text-center hidden md:table-cell" title="Goals Scored">GS</th>
-                                <th className="px-1 sm:px-2 py-4 text-center hidden md:table-cell" title="Goals Conceded">GC</th>
-                                <th className="px-1 sm:px-2 py-4 text-center" title="Goal Difference">GD</th>
-                                <th className="px-1 sm:px-2 py-4 text-center font-black">Pts</th>
+                                <th className="px-1 sm:px-2 py-4 text-center font-black bg-primary-dark shadow-inner">Pts</th>
                                 <th className="px-2 sm:px-3 py-4 w-20 sm:w-24">Form</th>
                             </tr>
                         </thead>
@@ -185,35 +181,31 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                                   (dirEntry?.teamId && dirEntry?.competitionId) ? `/competitions/${dirEntry.competitionId}/teams/${dirEntry.teamId}` : null;
 
                                 return (
-                                    <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors">
+                                    <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors group">
                                         <td className="px-2 sm:px-3 py-3 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className="font-black text-gray-900">{index + 1}</span>
+                                            <div className="flex flex-col items-center justify-center">
+                                                <span className="font-black text-gray-900 leading-none">{index + 1}</span>
                                                 <PositionIndicator change={getTrend(team.stats.form)} />
                                             </div>
                                         </td>
                                         <td className="px-2 sm:px-3 py-3">
                                             {profileUrl ? (
-                                                <Link to={profileUrl} className="flex items-center gap-2 sm:gap-3 group">
+                                                <Link to={profileUrl} className="flex items-center gap-2 sm:gap-3 group/link">
                                                     <img src={dirEntry?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
-                                                    <span className="font-bold text-gray-900 truncate max-w-[80px] sm:max-w-none group-hover:text-primary group-hover:underline transition-colors">{team.name}</span>
+                                                    <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none group-hover/link:text-primary group-hover/link:underline transition-colors">{team.name}</span>
                                                 </Link>
                                             ) : (
                                                 <div className="flex items-center gap-2 sm:gap-3">
                                                     <img src={dirEntry?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
-                                                    <span className="font-bold text-gray-900 truncate max-w-[80px] sm:max-w-none">{team.name}</span>
+                                                    <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.p}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.w}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.d}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.l}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gs}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center hidden md:table-cell">{team.stats.gc}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center font-black relative">
-                                            <div className="absolute inset-0 bg-primary/5 backdrop-blur-[2px] rounded m-0.5"></div>
+                                        <td className="px-1 sm:px-2 py-3 text-center text-gray-600 font-medium">{team.stats.p}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.w}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.d}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.l}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center font-black bg-primary/5 border-x border-primary/5 relative">
                                             <span className="relative z-10 text-primary">{team.stats.pts}</span>
                                         </td>
                                         <td className="px-2 sm:px-3 py-3"><FormGuide form={team.stats.form} /></td>
