@@ -16,20 +16,20 @@ import ChevronDownIcon from './icons/ChevronDownIcon';
 import SparklesIcon from './icons/SparklesIcon';
 import WifiOffIcon from './icons/WifiOffIcon';
 import LiveTicker from './LiveTicker';
+import LogOutIcon from './icons/LogOutIcon';
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const location = useLocation();
   
-  const { isLoggedIn, user, openAuthModal } = useAuth();
+  const { isLoggedIn, user, openAuthModal, logout } = useAuth();
   const { cartCount } = useCart();
-  const managementRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const isSuperAdmin = user?.role === 'super_admin';
@@ -63,18 +63,9 @@ const Navigation: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-        const activeItem = scrollRef.current.querySelector('.active-mobile-nav');
-        if (activeItem) {
-            activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        }
-    }
-  }, [location.pathname]);
-
-  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (managementRef.current && !managementRef.current.contains(event.target as Node)) {
-        setIsManagementOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -102,7 +93,7 @@ const Navigation: React.FC = () => {
       <header className="sticky top-0 z-[120] w-full">
         <SecondaryNavigation />
         
-        <div className="bg-[#002B7F] backdrop-blur-xl shadow-2xl border-b border-white/10 relative overflow-hidden">
+        <div className="bg-[#002B7F] backdrop-blur-xl shadow-2xl border-b border-white/10 relative">
           <div className="absolute inset-0 bg-gradient-to-r from-primary-dark/50 to-transparent pointer-events-none"></div>
 
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -154,45 +145,74 @@ const Navigation: React.FC = () => {
 
                   <div className="flex items-center gap-3">
                     {isLoggedIn && user ? (
-                      <div className="flex items-center gap-3">
-                          {isAdmin && (
-                              <div className="relative" ref={managementRef}>
-                                  <Button 
-                                      variant="accent"
-                                      size="sm"
-                                      onClick={() => setIsManagementOpen(!isManagementOpen)}
-                                      className="hidden sm:flex items-center gap-1.5 rounded-full px-5 py-2.5 shadow-lg transform hover:scale-105 active:scale-95 transition-all"
-                                  >
-                                      <BriefcaseIcon className="w-4 h-4" />
-                                      Portal
-                                      <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform duration-300 ${isManagementOpen ? 'rotate-180' : ''}`} />
-                                  </Button>
-                                  
-                                  {isManagementOpen && (
-                                      <div className="absolute top-full right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden py-3 text-slate-900 z-[140] animate-in fade-in slide-in-from-top-2">
-                                          <Link to="/club-management" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
-                                              <BriefcaseIcon className="w-5 h-5 text-blue-600" /> Management Portal
-                                          </Link>
-                                          {isSuperAdmin && (
-                                              <>
-                                                  <Link to="/ai-assistant" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
-                                                      <SparklesIcon className="w-5 h-5 text-purple-600" /> Article AI Engine
-                                                  </Link>
-                                                  <Link to="/admin-panel" onClick={() => setIsManagementOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
-                                                      <ShieldIcon className="w-5 h-5 text-red-600" /> Admin Control
-                                                  </Link>
-                                              </>
-                                          )}
-                                      </div>
-                                  )}
+                      <div className="relative" ref={userMenuRef}>
+                        <button 
+                          onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                          className="flex items-center gap-2 group focus:outline-none"
+                        >
+                          <div className="relative">
+                            <img 
+                              src={user.avatar} 
+                              alt="Profile" 
+                              className="w-10 h-10 rounded-full border-2 border-white/20 group-hover:border-accent transition-all shadow-xl object-cover" 
+                            />
+                            {isAdmin && (
+                              <div className="absolute -bottom-1 -right-1 bg-accent rounded-full p-0.5 border border-[#002B7F]">
+                                <ShieldIcon className="w-2.5 h-2.5 text-primary" />
                               </div>
-                          )}
-                          <Link to="/profile" className="block relative group">
-                            <img src={user.avatar} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white/20 group-hover:border-accent transition-all shadow-xl object-cover" />
-                          </Link>
+                            )}
+                          </div>
+                          <ChevronDownIcon className={`w-4 h-4 text-white transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {isUserMenuOpen && (
+                          <div className="absolute top-full right-0 mt-3 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden py-3 text-slate-900 z-[150] animate-in fade-in slide-in-from-top-2">
+                            <div className="px-5 py-3 border-b border-slate-50">
+                                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Signed in as</p>
+                                <p className="font-bold text-sm truncate">{user.name}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+                            </div>
+                            
+                            <div className="py-2">
+                              <Link to="/profile" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
+                                <UserCircleIcon className="w-5 h-5 text-blue-600" /> My Fan Profile
+                              </Link>
+                              
+                              {isAdmin && (
+                                <>
+                                  <div className="px-5 py-2 mt-2">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Management</p>
+                                  </div>
+                                  <Link to="/club-management" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
+                                      <BriefcaseIcon className="w-5 h-5 text-indigo-600" /> Club Management
+                                  </Link>
+                                  {isSuperAdmin && (
+                                      <>
+                                          <Link to="/ai-assistant" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
+                                              <SparklesIcon className="w-5 h-5 text-purple-600" /> Article AI Engine
+                                          </Link>
+                                          <Link to="/admin-panel" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
+                                              <ShieldIcon className="w-5 h-5 text-red-600" /> Platform Admin
+                                          </Link>
+                                      </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                            
+                            <div className="border-t border-slate-50 mt-2 pt-2">
+                              <button 
+                                onClick={() => { setIsUserMenuOpen(false); logout(); }}
+                                className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-red-600 hover:bg-red-50 w-full text-left transition-colors"
+                              >
+                                <LogOutIcon className="w-5 h-5" /> Sign Out
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <Button variant="accent" size="sm" onClick={openAuthModal} className="text-[11px] font-black rounded-full px-6 shadow-xl hover:scale-105 active:scale-95 transition-all">
+                      <Button variant="accent" size="sm" onClick={openAuthModal} className="text-[11px] font-black rounded-full px-6 shadow-xl hover:scale-105 active:scale-95 transition-all ring-offset-primary">
                         Sign In
                       </Button>
                     )}
@@ -226,6 +246,9 @@ const Navigation: React.FC = () => {
                 ))}
                 {!isLoggedIn && (
                   <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="mt-8 w-full py-4 text-lg font-bold" variant="accent">Sign In / Register</Button>
+                )}
+                {isLoggedIn && (
+                   <button onClick={() => { setIsOpen(false); logout(); }} className="mt-8 w-full py-4 text-lg font-bold text-red-500 border border-red-500/20 rounded-xl">Sign Out</button>
                 )}
              </nav>
           </div>
