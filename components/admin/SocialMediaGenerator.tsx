@@ -10,15 +10,10 @@ import RefreshIcon from '../icons/RefreshIcon';
 import PhotoIcon from '../icons/PhotoIcon';
 import DownloadIcon from '../icons/DownloadIcon';
 import FilmIcon from '../icons/FilmIcon';
-import RadioIcon from '../icons/RadioIcon';
-import CheckCircleIcon from '../icons/CheckCircleIcon';
-import ShareIcon from '../icons/ShareIcon';
-import MessageSquareIcon from '../icons/MessageSquareIcon';
 import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api';
 import { superNormalize, findInMap } from '../../services/utils';
 import RecapGeneratorModal from './RecapGeneratorModal';
 import { DirectoryEntity } from '../../data/directory';
-import { Competition } from '../../data/teams';
 
 type ContentType = 'captions' | 'image';
 type PlatformType = 'Twitter/X' | 'Facebook' | 'Instagram';
@@ -35,6 +30,7 @@ interface SocialMatch {
     date: string;
     fullDate?: string;
     time?: string;
+    matchday?: number;
     competition: string;
     competitionLogoUrl?: string;
 }
@@ -42,16 +38,13 @@ interface SocialMatch {
 const SocialMediaGenerator: React.FC = () => {
     const [activeTab, setActiveTab] = useState<ContentType>('captions');
     const [platform, setPlatform] = useState<PlatformType>('Instagram');
-    const [contextData, setContextData] = useState('');
     const [generatedCaptions, setGeneratedCaptions] = useState<string[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isFetchingData, setIsFetchingData] = useState(false);
     
-    // Dynamic League Selection
-    const [allLeagues, setAllLeagues] = useState<{ id: string, name: string }[]>([]);
+    const [allLeagues, setAllLeagues] = useState<{ id: string, name: string, logoUrl?: string }[]>([]);
     const [selectedLeagueId, setSelectedLeagueId] = useState('');
     
-    // Image Gen State
     const [rawMatches, setRawMatches] = useState<SocialMatch[]>([]);
     const [selectedMatchIds, setSelectedMatchIds] = useState<string[]>([]);
     const [imageCache, setImageCache] = useState<Map<string, HTMLImageElement>>(new Map());
@@ -63,7 +56,7 @@ const SocialMediaGenerator: React.FC = () => {
         const loadLeagues = async () => {
             const comps = await fetchAllCompetitions();
             const list = Object.entries(comps)
-                .map(([id, c]) => ({ id, name: c.name }))
+                .map(([id, c]) => ({ id, name: c.name, logoUrl: c.logoUrl }))
                 .sort((a, b) => a.name.localeCompare(b.name));
             setAllLeagues(list);
             if (list.length > 0) setSelectedLeagueId(list[0].id);
@@ -82,7 +75,6 @@ const SocialMediaGenerator: React.FC = () => {
                 fetchDirectoryEntries()
             ]);
 
-            // Create Directory Source of Truth map
             const dirMap = new Map<string, DirectoryEntity>();
             dirEntries.forEach(e => {
                 if (e.name) dirMap.set(superNormalize(e.name), e);
@@ -94,12 +86,10 @@ const SocialMediaGenerator: React.FC = () => {
             const extractedMatches: SocialMatch[] = [];
             const getCrest = (name: string) => {
                 if (!name) return undefined;
-                // PRIMARY: Directory (Logos & Crests Admin Section)
-                const dirEntry = dirMap.get(superNormalize(name));
+                const dirEntry = findInMap(name, dirMap);
                 if (dirEntry?.crestUrl) return dirEntry.crestUrl;
-                // SECONDARY: Local fallback
-                const team = comp.teams?.find(t => superNormalize(t.name) === superNormalize(name));
-                return team?.crestUrl;
+                const teamInComp = comp.teams?.find(t => superNormalize(t.name) === superNormalize(name));
+                return teamInComp?.crestUrl;
             };
 
             const combined = [...(comp.results || []), ...(comp.fixtures || [])];
@@ -114,21 +104,21 @@ const SocialMediaGenerator: React.FC = () => {
                     scoreA: m.scoreA,
                     scoreB: m.scoreB,
                     date: m.fullDate || m.date || '',
-                    fullDate: m.fullDate,
                     time: m.time,
-                    competition: comp.name,
+                    matchday: m.matchday,
+                    competition: comp.displayName || comp.name,
                     competitionLogoUrl: comp.logoUrl
                 });
             });
 
-            let contextText = `MATCH LIST FOR ${comp.name}:\n`;
-            contextText += extractedMatches.map(m => 
-                `${m.type.toUpperCase()}: ${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (${m.date})`
-            ).join('\n');
+            const sorted = extractedMatches.sort((a,b) => {
+                const dateA = a.fullDate ? new Date(a.fullDate).getTime() : 0;
+                const dateB = b.fullDate ? new Date(b.fullDate).getTime() : 0;
+                return dateA - dateB;
+            });
 
-            setContextData(contextText);
-            setRawMatches(extractedMatches.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            if (extractedMatches.length > 0) setSelectedMatchIds([extractedMatches[0].id]);
+            setRawMatches(sorted);
+            if (sorted.length > 0) setSelectedMatchIds(sorted.slice(0, 8).map(m => m.id));
         } catch (error) {
             console.error(error);
         } finally {
@@ -165,11 +155,16 @@ const SocialMediaGenerator: React.FC = () => {
 
     const loadImage = (url: string): Promise<HTMLImageElement | null> => {
         return new Promise((resolve) => {
+            if (!url) return resolve(null);
             const img = new Image();
             img.crossOrigin = "anonymous";
             img.onload = () => resolve(img);
             img.onerror = () => resolve(null);
-            img.src = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            if (url.startsWith('data:')) {
+                img.src = url;
+            } else {
+                img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            }
         });
     };
 
@@ -183,11 +178,13 @@ const SocialMediaGenerator: React.FC = () => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
+        // Poster Format: 9:16 Vertical
         const W = 1080;
-        const H = 1350;
+        const H = 1920; 
         canvas.width = W;
         canvas.height = H;
 
+        // Preload all assets
         const urlsToLoad = new Set<string>();
         matchesToDraw.forEach(m => {
             if (m.teamACrest) urlsToLoad.add(m.teamACrest);
@@ -195,7 +192,7 @@ const SocialMediaGenerator: React.FC = () => {
             if (m.competitionLogoUrl) urlsToLoad.add(m.competitionLogoUrl);
         });
 
-        const newCache = new Map(imageCache);
+        const newCache = new Map<string, HTMLImageElement>(imageCache);
         await Promise.all(Array.from(urlsToLoad).map(async url => {
             if (!newCache.has(url)) {
                 const img = await loadImage(url);
@@ -204,76 +201,95 @@ const SocialMediaGenerator: React.FC = () => {
         }));
         setImageCache(newCache);
 
-        // Background
+        // BACKGROUND: Deep Cinematic Blue
         const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-        bgGrad.addColorStop(0, '#000814');
+        bgGrad.addColorStop(0, '#001E5A');
         bgGrad.addColorStop(0.5, '#002B7F');
-        bgGrad.addColorStop(1, '#003566');
+        bgGrad.addColorStop(1, '#00143C');
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, W, H);
 
+        // GRID PATTERN
+        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < W; i += 60) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+        for (let i = 0; i < H; i += 60) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+
         const topComp = matchesToDraw[0];
         
+        // 1. LEAGUE LOGO (TOP CENTER)
         if (topComp.competitionLogoUrl && newCache.has(topComp.competitionLogoUrl)) {
             const logo = newCache.get(topComp.competitionLogoUrl)!;
-            const logoSize = 220;
-            ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 40;
-            ctx.drawImage(logo, (W - logoSize) / 2, 80, logoSize, logoSize);
-            ctx.shadowBlur = 0;
+            const logoW = 240;
+            const logoH = (logo.height / logo.width) * logoW;
+            ctx.drawImage(logo, (W - logoW) / 2, 70, logoW, logoH);
         }
 
+        // 2. COMPETITION NAME (YELLOW) - Reduced size
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FDB913';
-        ctx.font = '800 52px "Inter", sans-serif';
-        ctx.fillText(topComp.competition.toUpperCase(), W / 2, 360);
+        ctx.font = '800 42px "Poppins", sans-serif';
+        ctx.fillText(topComp.competition, W / 2, 360);
 
+        // 3. MAIN HEADER (WHITE) - Reduced size & removed uppercase
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 100px "Poppins", sans-serif';
-        const mainTitle = topComp.type === 'result' ? 'RESULTS' : 'FIXTURES';
-        ctx.fillText(mainTitle, W / 2, 480);
+        ctx.font = '900 95px "Poppins", sans-serif';
+        const headerText = topComp.type === 'result' ? "Match Results" : (topComp.matchday ? `Matchday ${topComp.matchday} Fixtures` : "Match Fixtures");
+        ctx.fillText(headerText, W / 2, 470);
 
-        const rowH = (H - 650) / Math.max(1, matchesToDraw.length);
-        const startY = 580;
+        // 4. FIXTURE ROWS - Adjusted for 8 matches
+        const startY = 560;
+        const rowH = 145;
+        const rowGap = 15;
+        const textMaxW = 320; // Prevent bleeding
 
         matchesToDraw.forEach((m, i) => {
-            const midY = startY + (i * rowH) + (rowH / 2);
+            const y = startY + (i * (rowH + rowGap));
             
-            const boxW = 200, boxH = 100;
-            const scoreGrad = ctx.createLinearGradient(0, midY - 50, 0, midY + 50);
-            scoreGrad.addColorStop(0, '#D22730');
-            scoreGrad.addColorStop(1, '#9e1b22');
-            ctx.fillStyle = scoreGrad;
+            // Row Box
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
             ctx.beginPath();
-            ctx.roundRect((W - boxW) / 2, midY - boxH / 2, boxW, boxH, 20);
+            ctx.roundRect(60, y, W - 120, rowH, 20);
             ctx.fill();
 
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = 'bold 60px "Poppins", sans-serif';
-            ctx.textBaseline = 'middle';
-            const scoreText = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : 'VS';
-            ctx.fillText(scoreText, W/2, midY + 5);
-
-            ctx.font = '800 36px "Inter", sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText(m.teamA.toUpperCase(), W/2 - boxW/2 - 30, midY + 5);
+            // Team A Crest
             if (m.teamACrest && newCache.has(m.teamACrest)) {
-                ctx.drawImage(newCache.get(m.teamACrest)!, W/2 - boxW/2 - 400, midY - 60, 120, 120);
+                ctx.drawImage(newCache.get(m.teamACrest)!, 100, y + 25, 95, 95);
+            }
+            
+            // Team B Crest
+            if (m.teamBCrest && newCache.has(m.teamBCrest)) {
+                ctx.drawImage(newCache.get(m.teamBCrest)!, W - 195, y + 25, 95, 95);
             }
 
+            // Teams Names - Smaller & MaxWidth protection
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '800 28px "Inter", sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(m.teamA, W/2 - 140, y + 75, textMaxW);
+            
             ctx.textAlign = 'left';
-            ctx.fillText(m.teamB.toUpperCase(), W/2 + boxW/2 + 30, midY + 5);
-            if (m.teamBCrest && newCache.has(m.teamBCrest)) {
-                ctx.drawImage(newCache.get(m.teamBCrest)!, W/2 + boxW/2 + 280, midY - 60, 120, 120);
-            }
+            ctx.fillText(m.teamB, W/2 + 140, y + 75, textMaxW);
+
+            // Time / Score in Center - Reduced size
+            ctx.textAlign = 'center';
+            ctx.font = '900 55px "Poppins", sans-serif';
+            const centerContent = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : m.time || '15:00';
+            ctx.fillText(centerContent, W/2, y + 85);
+
+            // Date Sub-info
+            ctx.font = '600 20px "Inter", sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillText(m.date, W/2, y + 120);
         });
 
+        // 5. FOOTER BAR
         ctx.fillStyle = '#000000';
-        ctx.fillRect(0, H - 100, W, 100);
+        ctx.fillRect(0, H - 140, W, 140);
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 42px "Poppins", sans-serif';
+        ctx.font = '900 52px "Poppins", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText("FOOTBALL ESWATINI", W / 2, H - 40);
+        ctx.fillText("FOOTBALL ESWATINI", W / 2, H - 55);
 
         setIsGeneratingImage(false);
     };
@@ -282,7 +298,7 @@ const SocialMediaGenerator: React.FC = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const link = document.createElement('a');
-        link.download = `fe-social-${Date.now()}.png`;
+        link.download = `FE-SOCIAL-${Date.now()}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
     };
@@ -305,7 +321,6 @@ const SocialMediaGenerator: React.FC = () => {
                             <h3 className="text-2xl font-bold font-display text-gray-800">Media Studio</h3>
                         </div>
 
-                        {/* 1. SYNC CONTROL (VISIBLE TO BOTH) */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
                             <div>
                                 <label className="block text-xs font-black uppercase text-gray-400 mb-2">Select League</label>
@@ -320,14 +335,13 @@ const SocialMediaGenerator: React.FC = () => {
                             <div className="flex items-end">
                                 <button onClick={fetchRecentData} disabled={isFetchingData} className="w-full bg-indigo-600 text-white hover:bg-indigo-700 border rounded-xl px-3 py-2.5 text-xs font-bold flex items-center justify-center gap-2 h-10 shadow-md">
                                     {isFetchingData ? <Spinner className="w-3 h-3 border-2" /> : <RefreshIcon className="w-3 h-3" />}
-                                    Sync Recent Data
+                                    Sync Data
                                 </button>
                             </div>
                         </div>
 
-                        {/* 2. MATCH SELECTION (VISIBLE TO BOTH) */}
                         <div className="space-y-4">
-                            <p className="text-xs font-bold text-gray-400 uppercase">1. Pick Synced Match Records (Max 8)</p>
+                            <p className="text-xs font-bold text-gray-400 uppercase">Pick Match Records (Max 8)</p>
                             <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 border rounded-2xl p-2 bg-gray-50 custom-scrollbar">
                                 {rawMatches.map(m => (
                                     <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
@@ -342,11 +356,9 @@ const SocialMediaGenerator: React.FC = () => {
                                     </div>
                                 ))}
                                 {rawMatches.length === 0 && !isFetchingData && <p className="text-center py-12 text-gray-400 text-xs italic">Sync data to load match records.</p>}
-                                {isFetchingData && <div className="flex justify-center py-12"><Spinner /></div>}
                             </div>
                         </div>
 
-                        {/* 3. TAB SPECIFIC TRIGGER */}
                         {activeTab === 'image' ? (
                             <Button onClick={generateGraphic} disabled={isGeneratingImage || selectedMatchIds.length === 0} className="w-full bg-primary text-white h-12 rounded-2xl shadow-xl font-bold flex justify-center items-center gap-2">
                                 {isGeneratingImage ? <Spinner className="w-5 h-5 border-2" /> : <><PhotoIcon className="w-5 h-5" /> Render Social Graphic</>}
@@ -360,14 +372,13 @@ const SocialMediaGenerator: React.FC = () => {
                                     </select>
                                 </div>
                                 <Button onClick={handleGenerateCaptions} disabled={isGenerating || selectedMatchIds.length === 0} className="w-full bg-indigo-600 text-white h-12 rounded-2xl shadow-xl font-bold flex justify-center items-center gap-2">
-                                    {isGenerating ? <Spinner className="w-5 h-5 border-2" /> : <><SparklesIcon className="w-5 h-5" /> Generate Captions</>}
+                                    {isGenerating ? <Spinner className="w-4 h-4 border-2" /> : <><SparklesIcon className="w-5 h-5" /> Generate Captions</>}
                                 </Button>
                              </div>
                         )}
                     </CardContent>
                 </Card>
 
-                {/* 4. PREVIEW AREA */}
                 <div>
                     <h3 className="text-lg font-bold font-display text-gray-800 mb-4 flex justify-between items-center">
                         Live Preview
@@ -376,7 +387,7 @@ const SocialMediaGenerator: React.FC = () => {
                         )}
                     </h3>
                     {activeTab === 'image' ? (
-                        <div className="relative border-4 border-white shadow-2xl rounded-[2rem] overflow-hidden aspect-[4/5] bg-gray-900">
+                        <div className="relative border-4 border-white shadow-2xl rounded-[2rem] overflow-hidden aspect-[9/16] bg-gray-900 max-h-[800px] mx-auto">
                             <canvas ref={canvasRef} className="w-full h-full object-contain" />
                         </div>
                     ) : (
