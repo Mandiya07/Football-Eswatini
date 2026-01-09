@@ -29,6 +29,7 @@ interface SocialMatch {
     date: string;
     fullDate?: string;
     time?: string;
+    venue?: string;
     matchday?: number;
     competition: string;
     competitionLogoUrl?: string;
@@ -91,7 +92,6 @@ const SocialMediaGenerator: React.FC = () => {
                 return teamInComp?.crestUrl;
             };
 
-            // SYNC BOTH: Results and Fixtures
             const results = (comp.results || []).map(m => ({ ...m, type: 'result' as const }));
             const fixtures = (comp.fixtures || []).map(m => ({ ...m, type: 'fixture' as const }));
             
@@ -108,16 +108,20 @@ const SocialMediaGenerator: React.FC = () => {
                     scoreB: m.scoreB,
                     date: m.fullDate || m.date || '',
                     time: m.time,
+                    venue: m.venue,
                     matchday: m.matchday,
                     competition: comp.displayName || comp.name,
                     competitionLogoUrl: comp.logoUrl
                 });
             });
 
-            // Sort: Results first, then fixtures
+            // Re-sorting logic: Fixtures first (ascending date), then Results (descending date)
             const sorted = extractedMatches.sort((a, b) => {
-                if (a.type !== b.type) return a.type === 'result' ? -1 : 1;
-                return new Date(b.date).getTime() - new Date(a.date).getTime();
+                if (a.type !== b.type) return a.type === 'fixture' ? -1 : 1;
+                const timeA = new Date(a.date).getTime();
+                const timeB = new Date(b.date).getTime();
+                if (a.type === 'fixture') return timeA - timeB; // Upcoming first
+                return timeB - timeA; // Recent first
             });
 
             setRawMatches(sorted);
@@ -137,7 +141,7 @@ const SocialMediaGenerator: React.FC = () => {
         try {
             const matchesToSummarize = rawMatches.filter(m => selectedMatchIds.includes(m.id));
             const dataToProcess = matchesToSummarize.map(m => 
-                `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (${m.date} ${m.time || ''})`
+                `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (${m.date} ${m.time || ''} at ${m.venue || 'TBA'})`
             ).join(', ');
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -218,25 +222,25 @@ const SocialMediaGenerator: React.FC = () => {
         
         if (topComp.competitionLogoUrl && newCache.has(topComp.competitionLogoUrl)) {
             const logo = newCache.get(topComp.competitionLogoUrl)!;
-            const logoW = 220;
+            const logoW = 200;
             const logoH = (logo.height / logo.width) * logoW;
-            ctx.drawImage(logo, (W - logoW) / 2, 70, logoW, logoH);
+            ctx.drawImage(logo, (W - logoW) / 2, 60, logoW, logoH);
         }
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FDB913';
-        ctx.font = '800 38px "Poppins", sans-serif';
-        ctx.fillText(topComp.competition.toUpperCase(), W / 2, 340);
+        ctx.font = '800 36px "Poppins", sans-serif';
+        ctx.fillText(topComp.competition.toUpperCase(), W / 2, 320);
 
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 85px "Poppins", sans-serif';
+        ctx.font = '900 80px "Poppins", sans-serif';
         const headerText = matchesToDraw.every(m => m.type === 'result') ? "Match Results" : (topComp.matchday ? `Matchday ${topComp.matchday}` : "Football Eswatini");
-        ctx.fillText(headerText, W / 2, 440);
+        ctx.fillText(headerText, W / 2, 410);
 
-        const startY = 530;
-        const rowH = 150;
-        const rowGap = 12;
-        const textMaxW = 260; // STRICT LIMIT to prevent logo overlap
+        const startY = 500;
+        const rowH = 155;
+        const rowGap = 10;
+        const textMaxW = 260; 
 
         matchesToDraw.forEach((m, i) => {
             const y = startY + (i * (rowH + rowGap));
@@ -257,11 +261,9 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.fillStyle = '#FFFFFF';
             ctx.font = '800 22px "Inter", sans-serif';
             
-            // HOME TEAM: Starts after logo (80+100+20=200)
             ctx.textAlign = 'left';
             ctx.fillText(m.teamA, 200, y + 80, textMaxW);
             
-            // AWAY TEAM: Ends before logo (W-180-20=W-200)
             ctx.textAlign = 'right';
             ctx.fillText(m.teamB, W - 200, y + 80, textMaxW);
 
@@ -271,17 +273,20 @@ const SocialMediaGenerator: React.FC = () => {
             const centerInfo = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : m.time || '15:00';
             ctx.fillText(centerInfo, W/2, y + 85);
 
-            ctx.font = '600 18px "Inter", sans-serif';
+            ctx.font = '600 16px "Inter", sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.4)';
-            ctx.fillText(m.date, W/2, y + 125);
+            const subLine = m.venue ? `${m.date} • ${m.venue}` : m.date;
+            ctx.fillText(subLine, W/2, y + 125, W - 450);
         });
 
+        // Reduced Footer Height
+        const footerH = 100;
         ctx.fillStyle = '#000000';
-        ctx.fillRect(0, H - 140, W, 140);
+        ctx.fillRect(0, H - footerH, W, footerH);
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 48px "Poppins", sans-serif';
+        ctx.font = '900 42px "Poppins", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText("FOOTBALL ESWATINI", W / 2, H - 55);
+        ctx.fillText("FOOTBALL ESWATINI", W / 2, H - 35);
 
         setIsGeneratingImage(false);
     };
@@ -294,6 +299,9 @@ const SocialMediaGenerator: React.FC = () => {
         link.href = canvas.toDataURL('image/png');
         link.click();
     };
+
+    const fixtureList = rawMatches.filter(m => m.type === 'fixture');
+    const resultList = rawMatches.filter(m => m.type === 'result');
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -334,19 +342,37 @@ const SocialMediaGenerator: React.FC = () => {
 
                         <div className="space-y-4">
                             <p className="text-xs font-bold text-gray-400 uppercase">Select Match Data (Max 8)</p>
-                            <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 border rounded-2xl p-2 bg-gray-50 custom-scrollbar">
-                                {rawMatches.map(m => (
-                                    <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
-                                        <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-blue-600" />
-                                        <div className="flex-grow min-w-0">
-                                            <p className="font-bold text-xs truncate">{m.teamA} vs {m.teamB}</p>
-                                            <p className="text-[10px] text-gray-500">{m.date} &bull; {m.time || 'TBA'} &bull; {m.competition}</p>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            {m.type === 'result' ? <span className="text-[9px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded">RESULT</span> : <span className="text-[9px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">FIXTURE</span>}
-                                        </div>
+                            <div className="space-y-6 max-h-[450px] overflow-y-auto pr-2 border rounded-2xl p-4 bg-gray-50 custom-scrollbar">
+                                {fixtureList.length > 0 && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-[10px] font-black uppercase text-blue-500 tracking-widest border-b pb-1">Upcoming Fixtures</h4>
+                                        {fixtureList.map(m => (
+                                            <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
+                                                <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-blue-600" />
+                                                <div className="flex-grow min-w-0">
+                                                    <p className="font-bold text-xs truncate">{m.teamA} vs {m.teamB}</p>
+                                                    <p className="text-[10px] text-gray-500">{m.date} &bull; {m.time || 'TBA'} &bull; {m.venue || 'TBA'}</p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                )}
+                                
+                                {resultList.length > 0 && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-[10px] font-black uppercase text-green-600 tracking-widest border-b pb-1">Recent Results</h4>
+                                        {resultList.map(m => (
+                                            <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-green-50 border-green-400 ring-1 ring-green-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
+                                                <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-green-600" />
+                                                <div className="flex-grow min-w-0">
+                                                    <p className="font-bold text-xs truncate">{m.teamA} {m.scoreA}-{m.scoreB} {m.teamB}</p>
+                                                    <p className="text-[10px] text-gray-500">{m.date} &bull; {m.competition}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {rawMatches.length === 0 && !isFetchingData && <p className="text-center py-12 text-gray-400 text-xs italic">Sync data to load match records.</p>}
                             </div>
                         </div>
