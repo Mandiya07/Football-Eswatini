@@ -73,8 +73,9 @@ const AIAssistantPage: React.FC = () => {
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Upgraded to gemini-3-pro-preview for more stable search grounding and better complex reasoning
       const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-3-pro-preview',
           contents: text,
           config: {
               systemInstruction,

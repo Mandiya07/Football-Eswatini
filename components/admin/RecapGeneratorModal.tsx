@@ -180,11 +180,13 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.textAlign = 'center';
         ctx.fillText((match.competition || '').toUpperCase(), W/2, 210);
 
+        // Position logos with significant buffer from center text
+        // Increased from 340 to 440 and 100 to 200
         if (match.teamACrest && imageCache.has(match.teamACrest)) {
-            ctx.drawImage(imageCache.get(match.teamACrest)!, W/2 - 340, H/2 - 130, 240, 240);
+            ctx.drawImage(imageCache.get(match.teamACrest)!, W/2 - 440, H/2 - 130, 240, 240);
         }
         if (match.teamBCrest && imageCache.has(match.teamBCrest)) {
-            ctx.drawImage(imageCache.get(match.teamBCrest)!, W/2 + 100, H/2 - 130, 240, 240);
+            ctx.drawImage(imageCache.get(match.teamBCrest)!, W/2 + 200, H/2 - 130, 240, 240);
         }
 
         ctx.fillStyle = '#FFFFFF';
@@ -195,8 +197,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.fillText(mainLine, W/2, H/2 + 20);
 
         ctx.font = 'bold 36px "Inter", sans-serif';
-        ctx.fillText(match.home, W/2 - 220, H/2 + 180, 280);
-        ctx.fillText(match.away, W/2 + 220, H/2 + 180, 280);
+        ctx.fillText(match.home, W/2 - 300, H/2 + 180, 280);
+        ctx.fillText(match.away, W/2 + 300, H/2 + 180, 280);
 
         ctx.font = '600 24px "Inter", sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
