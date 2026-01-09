@@ -28,7 +28,7 @@ const AIAssistantPage: React.FC = () => {
   const { user, isLoggedIn } = useAuth();
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([{
       role: 'model',
-      text: "Hello, Editor. I am your specialized Article Development Assistant. I have access to our site's live data and Google Search. Input your specific article query or topic below to start drafting."
+      text: "Hello, Editor. I am your specialized Article Development Assistant. I have access to our site's live data and can search the web. Input your specific article query or topic below to start drafting."
   }]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -69,21 +69,37 @@ const AIAssistantPage: React.FC = () => {
       ${JSON.stringify(siteContext, null, 2)}`;
 
       if (!process.env.API_KEY) {
-          throw new Error("API Key is missing from environment.");
+          throw new Error("API Key is missing from environment. Please verify secrets in your hosting provider.");
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      // Upgraded to gemini-3-pro-preview for more stable search grounding and better complex reasoning
-      const response = await ai.models.generateContent({
-          model: 'gemini-3-pro-preview',
-          contents: text,
-          config: {
-              systemInstruction,
-              tools: [{ googleSearch: {} }]
-          }
-      });
+      
+      let response;
+      try {
+          // Attempt with Google Search grounding first
+          response = await ai.models.generateContent({
+              model: 'gemini-3-flash-preview',
+              contents: [{ parts: [{ text: text }] }],
+              config: {
+                  systemInstruction,
+                  tools: [{ googleSearch: {} }],
+                  thinkingConfig: { thinkingBudget: 0 }
+              }
+          });
+      } catch (searchError) {
+          console.warn("Retrying without Google Search due to error:", searchError);
+          // Fallback: Retry WITHOUT tools if grounding service is blocked or failing
+          response = await ai.models.generateContent({
+              model: 'gemini-3-flash-preview',
+              contents: [{ parts: [{ text: text }] }],
+              config: {
+                  systemInstruction,
+                  thinkingConfig: { thinkingBudget: 0 }
+              }
+          });
+      }
 
-      const textOutput = response.text || 'I encountered an error while drafting. Please try rephrasing your prompt.';
+      const textOutput = response.text || 'I encountered an empty response. Please try rephrasing your prompt.';
       const sources: { uri: string; title: string }[] = [];
       
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
@@ -101,10 +117,9 @@ const AIAssistantPage: React.FC = () => {
           sources: sources.length > 0 ? Array.from(new Map(sources.map(s => [s.uri, s])).values()) : undefined
       }]);
     } catch (error: any) {
-      console.error(error);
-      const errorMsg = error?.message?.includes("API Key") 
-        ? "API Key Configuration Error. Please verify deployment settings."
-        : "Connection error. Please try again in a moment.";
+      console.error("AI Assistant Error:", error);
+      const rawError = error?.message || "Unknown communication failure";
+      const errorMsg = `Communication Error: ${rawError}. Please ensure your API key is correctly configured and has sufficient quota.`;
       setChatHistory([...newHistory, { role: 'model', text: errorMsg }]);
     } finally {
       setIsLoading(false);

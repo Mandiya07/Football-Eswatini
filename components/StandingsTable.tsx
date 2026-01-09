@@ -58,8 +58,8 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
                         <th className="px-2 py-4 text-center w-10">W</th>
                         <th className="px-2 py-4 text-center w-10">D</th>
                         <th className="px-2 py-4 text-center w-10">L</th>
-                        <th className="px-2 py-4 text-center w-10 hidden md:table-cell">GS</th>
-                        <th className="px-2 py-4 text-center w-10 hidden md:table-cell">GC</th>
+                        <th className="px-2 py-4 text-center w-10 hidden sm:table-cell">GS</th>
+                        <th className="px-2 py-4 text-center w-10 hidden sm:table-cell">GC</th>
                         <th className="px-2 py-4 text-center w-10 font-bold">GD</th>
                         <th className="px-2 py-4 text-center w-12 font-black">Pts</th>
                         <th className="px-4 py-4 w-32">Form</th>
@@ -96,9 +96,11 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
                                 <td className="px-2 py-3 text-center">{team.stats.w}</td>
                                 <td className="px-2 py-3 text-center">{team.stats.d}</td>
                                 <td className="px-2 py-3 text-center">{team.stats.l}</td>
-                                <td className="px-2 py-3 text-center hidden md:table-cell">{team.stats.gs}</td>
-                                <td className="px-2 py-3 text-center hidden md:table-cell">{team.stats.gc}</td>
-                                <td className="px-2 py-3 text-center font-bold">{team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}</td>
+                                <td className="px-2 py-3 text-center hidden sm:table-cell">{team.stats.gs}</td>
+                                <td className="px-2 py-3 text-center hidden sm:table-cell">{team.stats.gc}</td>
+                                <td className={`px-2 py-3 text-center font-bold ${team.stats.gd > 0 ? 'text-green-600' : team.stats.gd < 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                    {team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}
+                                </td>
                                 <td className="px-2 py-3 text-center font-black relative">
                                     <div className="absolute inset-0 bg-primary/5 backdrop-blur-[2px] rounded m-1"></div>
                                     <span className="relative z-10 text-primary">{team.stats.pts}</span>

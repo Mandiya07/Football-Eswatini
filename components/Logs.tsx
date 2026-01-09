@@ -170,6 +170,9 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Wins">W</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Draws">D</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Losses">L</th>
+                                <th className="px-1 sm:px-2 py-4 text-center hidden sm:table-cell" title="Goals For">GF</th>
+                                <th className="px-1 sm:px-2 py-4 text-center hidden sm:table-cell" title="Goals Against">GA</th>
+                                <th className="px-1 sm:px-2 py-4 text-center" title="Goal Difference">GD</th>
                                 <th className="px-1 sm:px-2 py-4 text-center font-black bg-primary-dark shadow-inner">Pts</th>
                                 <th className="px-2 sm:px-3 py-4 w-20 sm:w-24">Form</th>
                             </tr>
@@ -205,6 +208,11 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                         <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.w}</td>
                                         <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.d}</td>
                                         <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.l}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center text-gray-400 hidden sm:table-cell">{team.stats.gs}</td>
+                                        <td className="px-1 sm:px-2 py-3 text-center text-gray-400 hidden sm:table-cell">{team.stats.gc}</td>
+                                        <td className={`px-1 sm:px-2 py-3 text-center font-medium ${team.stats.gd > 0 ? 'text-green-600' : team.stats.gd < 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                            {team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}
+                                        </td>
                                         <td className="px-1 sm:px-2 py-3 text-center font-black bg-primary/5 border-x border-primary/5 relative">
                                             <span className="relative z-10 text-primary">{team.stats.pts}</span>
                                         </td>
