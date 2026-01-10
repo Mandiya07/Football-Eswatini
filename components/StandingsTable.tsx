@@ -51,7 +51,7 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
         if (!isUCL) return 'hover:bg-gray-50/50';
         const pos = index + 1;
         if (pos <= 8) return 'bg-green-50/40 hover:bg-green-100/60 border-l-4 border-l-green-500';
-        if (pos <= 16) return 'bg-blue-50/40 hover:bg-blue-100/60 border-l-4 border-l-blue-500';
+        if (pos <= 16) return 'bg-blue-50/40 hover:bg-blue-100/60 border-l-4 border-l-blue-600';
         if (pos <= 24) return 'bg-blue-50/20 hover:bg-blue-100/40 border-l-4 border-l-blue-300';
         return 'bg-gray-50/80 grayscale-[0.5] opacity-80 hover:bg-gray-100 border-l-4 border-l-gray-400';
     };
@@ -59,10 +59,10 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
     const getStatusLabel = (index: number) => {
         if (!isUCL) return null;
         const pos = index + 1;
-        if (pos <= 8) return <span className="text-[8px] font-black text-green-700 bg-green-200/50 px-1 rounded ml-2 uppercase">R16</span>;
+        if (pos <= 8) return <span className="text-[8px] font-black text-green-700 bg-green-200/50 px-1 rounded ml-2 uppercase">R16 Qual</span>;
         if (pos <= 16) return <span className="text-[8px] font-black text-blue-700 bg-blue-200/50 px-1 rounded ml-2 uppercase">Seeded</span>;
         if (pos <= 24) return <span className="text-[8px] font-black text-blue-500 bg-blue-100/50 px-1 rounded ml-2 uppercase">Unseeded</span>;
-        return null;
+        return <span className="text-[8px] font-black text-gray-400 bg-gray-200/50 px-1 rounded ml-2 uppercase">Out</span>;
     };
     
   return (

@@ -29,12 +29,11 @@ export const internationalData: HybridTournament[] = [
     {
         id: 'uefa-champions-league',
         name: 'UEFA Champions League 2025-26',
-        description: "The revolutionary 36-team league phase. No more groups—just one giant table. Teams ranked 1-8 go directly to the Round of 16, while 9-24 enter a high-stakes knockout play-off.",
+        description: "The new 36-team league phase. All clubs are ranked in a single league table. Each team plays 8 matches against 8 different opponents to determine who advances to the knockout rounds.",
         logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/b/bf/UEFA_Champions_League_logo_2.svg/1200px-UEFA_Champions_League_logo_2.svg.png',
         type: 'hybrid',
         categoryId: 'international-leagues',
         teams: [
-            // Pot 1
             { name: 'Manchester City', crestUrl: 'https://via.placeholder.com/64/6CABDD/FFFFFF?text=MCI' },
             { name: 'Bayern München', crestUrl: 'https://via.placeholder.com/64/DC052D/FFFFFF?text=FCB' },
             { name: 'Real Madrid', crestUrl: 'https://via.placeholder.com/64/FFFFFF/000000?text=RMA' },
@@ -44,7 +43,6 @@ export const internationalData: HybridTournament[] = [
             { name: 'Borussia Dortmund', crestUrl: 'https://via.placeholder.com/64/FDE100/000000?text=BVB' },
             { name: 'RB Leipzig', crestUrl: 'https://via.placeholder.com/64/DD013F/FFFFFF?text=RBL' },
             { name: 'Barcelona', crestUrl: 'https://via.placeholder.com/64/A50044/FFFFFF?text=BAR' },
-            // Pot 2
             { name: 'Bayer Leverkusen', crestUrl: 'https://via.placeholder.com/64/E32221/000000?text=B04' },
             { name: 'Atlético Madrid', crestUrl: 'https://via.placeholder.com/64/CB3524/FFFFFF?text=ATM' },
             { name: 'Atalanta', crestUrl: 'https://via.placeholder.com/64/1E71B8/000000?text=ATA' },
@@ -54,7 +52,6 @@ export const internationalData: HybridTournament[] = [
             { name: 'Club Brugge', crestUrl: 'https://via.placeholder.com/64/003E7E/FFFFFF?text=CLU' },
             { name: 'Shakhtar Donetsk', crestUrl: 'https://via.placeholder.com/64/FF6600/000000?text=SHA' },
             { name: 'AC Milan', crestUrl: 'https://via.placeholder.com/64/FB090B/000000?text=ACM' },
-            // Pot 3
             { name: 'Feyenoord', crestUrl: 'https://via.placeholder.com/64/ED1C24/FFFFFF?text=FEY' },
             { name: 'Sporting CP', crestUrl: 'https://via.placeholder.com/64/008050/FFFFFF?text=SCP' },
             { name: 'PSV Eindhoven', crestUrl: 'https://via.placeholder.com/64/EF3333/FFFFFF?text=PSV' },
@@ -64,7 +61,6 @@ export const internationalData: HybridTournament[] = [
             { name: 'Crvena Zvezda', crestUrl: 'https://via.placeholder.com/64/E1000F/FFFFFF?text=CZV' },
             { name: 'Young Boys', crestUrl: 'https://via.placeholder.com/64/FEE000/000000?text=YB' },
             { name: 'Celtic', crestUrl: 'https://via.placeholder.com/64/018749/FFFFFF?text=CEL' },
-            // Pot 4
             { name: 'Slovan Bratislava', crestUrl: 'https://via.placeholder.com/64/005CAB/FFFFFF?text=SLO' },
             { name: 'AS Monaco', crestUrl: 'https://via.placeholder.com/64/E41B17/FFFFFF?text=ASM' },
             { name: 'Sparta Praha', crestUrl: 'https://via.placeholder.com/64/D3010C/FFFFFF?text=SPA' },

@@ -65,7 +65,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     
     baseTeams.forEach(team => {
         const teamCopy = { ...team };
-        // Add 'aw' for Away Wins
+        // Add 'aw' for Away Wins tracking
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '', aw: 0 } as any;
         teamsMap.set(superNormalize(team.name), teamCopy);
     });
@@ -111,7 +111,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
             teamB.stats.w += 1;
             teamB.stats.pts += 3;
             teamA.stats.l += 1;
-            // Team B is away, increment away wins
+            // Track away win for teamB
             (teamB.stats as any).aw = ((teamB.stats as any).aw || 0) + 1;
             teamB.stats.form = ['W', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
             teamA.stats.form = ['L', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
@@ -134,7 +134,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
         if (b.stats.gs !== a.stats.gs) return b.stats.gs - a.stats.gs;
         // 4. Wins
         if (b.stats.w !== a.stats.w) return b.stats.w - a.stats.w;
-        // 5. Away Wins (UCL Tie-breaker 7)
+        // 5. Away Wins
         const awB = (b.stats as any).aw || 0;
         const awA = (a.stats as any).aw || 0;
         return awB - awA;

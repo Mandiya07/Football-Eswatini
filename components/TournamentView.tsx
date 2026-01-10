@@ -21,29 +21,43 @@ interface TournamentViewProps {
 
 const UCLLegend: React.FC = () => (
     <div className="space-y-4 mb-8">
-        <div className="bg-gray-900 text-white p-4 rounded-xl border border-white/10 shadow-lg">
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-accent mb-2">League Phase Format</h4>
-            <p className="text-sm text-gray-300 leading-relaxed">
-                All 36 teams compete in a single table. Each team plays 8 matches against 8 different opponents. 
-                Tie-breakers prioritize Points, Goal Difference, Goals Scored, and Away Wins.
+        <div className="bg-gray-900 text-white p-6 rounded-2xl border border-white/10 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 rounded-full blur-3xl"></div>
+            <h4 className="text-xs font-black uppercase tracking-[0.3em] text-accent mb-3 flex items-center gap-2">
+                <InfoIcon className="w-4 h-4"/> New League Phase Format
+            </h4>
+            <p className="text-sm text-gray-300 leading-relaxed max-w-3xl">
+                All 36 teams are ranked in <span className="text-white font-bold">ONE single league table</span>. Each club plays 8 matches (4 home, 4 away) against 8 different opponents. Tie-breakers prioritize Points, Goal Difference, Goals Scored, and Away Wins.
             </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-green-50 border border-green-200 p-3 rounded-lg flex items-center gap-3">
-                <div className="w-4 h-4 bg-green-500 rounded-full shadow-sm"></div>
-                <p className="text-xs font-bold text-green-900">1–8: Direct Round of 16</p>
+            <div className="bg-green-50 border border-green-200 p-4 rounded-xl flex items-center gap-3 shadow-sm">
+                <div className="w-4 h-4 bg-green-500 rounded-full shadow-inner"></div>
+                <div>
+                    <p className="text-xs font-black text-green-900 uppercase">1 – 8</p>
+                    <p className="text-[10px] text-green-700 font-medium leading-tight">Direct Round of 16</p>
+                </div>
             </div>
-            <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex items-center gap-3">
-                <div className="w-4 h-4 bg-blue-600 rounded-full shadow-sm"></div>
-                <p className="text-xs font-bold text-blue-900">9–16: Play-offs (Seeded)</p>
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center gap-3 shadow-sm">
+                <div className="w-4 h-4 bg-blue-600 rounded-full shadow-inner"></div>
+                <div>
+                    <p className="text-xs font-black text-blue-900 uppercase">9 – 16</p>
+                    <p className="text-[10px] text-blue-700 font-medium leading-tight">Play-offs (Seeded)</p>
+                </div>
             </div>
-            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-center gap-3">
-                <div className="w-4 h-4 bg-blue-400 rounded-full shadow-sm"></div>
-                <p className="text-xs font-bold text-blue-800">17–24: Play-offs (Unseeded)</p>
+            <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl flex items-center gap-3 shadow-sm">
+                <div className="w-4 h-4 bg-blue-400 rounded-full shadow-inner"></div>
+                <div>
+                    <p className="text-xs font-black text-blue-800 uppercase">17 – 24</p>
+                    <p className="text-[10px] text-blue-600 font-medium leading-tight">Play-offs (Unseeded)</p>
+                </div>
             </div>
-            <div className="bg-gray-100 border border-gray-300 p-3 rounded-lg flex items-center gap-3">
-                <div className="w-4 h-4 bg-gray-400 rounded-full shadow-sm"></div>
-                <p className="text-xs font-bold text-gray-600">25–36: Eliminated</p>
+            <div className="bg-gray-100 border border-gray-300 p-4 rounded-xl flex items-center gap-3 shadow-sm">
+                <div className="w-4 h-4 bg-gray-400 rounded-full shadow-inner"></div>
+                <div>
+                    <p className="text-xs font-black text-gray-700 uppercase">25 – 36</p>
+                    <p className="text-[10px] text-gray-500 font-medium leading-tight">Eliminated</p>
+                </div>
             </div>
         </div>
     </div>
