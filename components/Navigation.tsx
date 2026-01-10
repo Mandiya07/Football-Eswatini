@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -17,6 +16,7 @@ import SparklesIcon from './icons/SparklesIcon';
 import WifiOffIcon from './icons/WifiOffIcon';
 import LiveTicker from './LiveTicker';
 import LogOutIcon from './icons/LogOutIcon';
+import DatabaseIcon from './icons/DatabaseIcon';
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,6 +48,7 @@ const Navigation: React.FC = () => {
     { name: 'Women', to: '/womens' },
     { name: 'Regional', to: '/regional' },
     { name: 'Youth', to: '/youth' },
+    { name: 'Int\'l Hub', to: '/international' },
     { name: 'Shop', to: '/shop'},
   ];
 
@@ -83,9 +84,9 @@ const Navigation: React.FC = () => {
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
-    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[13px] xl:text-[14px] font-bold tracking-tight h-full flex items-center px-3 border-b-4 border-transparent whitespace-nowrap";
+    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[10px] xl:text-[12px] font-black uppercase tracking-tight h-full flex items-center px-1.5 xl:px-2 border-b-2 border-transparent whitespace-nowrap";
     const activeClass = "text-accent !border-accent active-mobile-nav bg-white/5";
-    return `${baseClass} ${isActive ? activeClass : 'opacity-90 hover:opacity-100 hover:bg-white/5'}`;
+    return `${baseClass} ${isActive ? activeClass : 'opacity-80 hover:opacity-100 hover:bg-white/5'}`;
   };
 
   return (
@@ -96,22 +97,23 @@ const Navigation: React.FC = () => {
         <div className="bg-[#002B7F] backdrop-blur-xl shadow-2xl border-b border-white/10 relative">
           <div className="absolute inset-0 bg-gradient-to-r from-primary-dark/50 to-transparent pointer-events-none"></div>
 
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="flex items-center justify-between h-16 lg:h-20">
-              <div className="flex-shrink-0 flex items-center gap-4">
+          <div className="container mx-auto px-2 sm:px-4 relative z-10">
+            <div className="flex items-center justify-between h-16 lg:h-18">
+              {/* Logo Section */}
+              <div className="flex-shrink-0 flex items-center gap-2 xl:gap-4 mr-2">
                 <NavLink to="/" onClick={() => setIsOpen(false)}>
-                  <Logo className="h-10 lg:h-12 w-auto drop-shadow-lg" />
+                  <Logo className="h-8 xl:h-10 w-auto drop-shadow-lg" />
                 </NavLink>
                 
                 {!isOnline && (
-                  <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 bg-red-500/20 border border-red-500/30 rounded-full text-red-400 text-[9px] font-black uppercase tracking-widest animate-pulse">
-                    <WifiOffIcon className="w-3.5 h-3.5" />
-                    No Connection
+                  <div className="hidden xl:flex items-center gap-1.5 px-2 py-0.5 bg-red-500/20 border border-red-500/30 rounded-full text-red-400 text-[8px] font-black uppercase tracking-widest animate-pulse">
+                    Offline
                   </div>
                 )}
               </div>
               
-              <div className="hidden lg:flex items-center h-full overflow-x-auto scrollbar-hide">
+              {/* Main Nav Links - Minimal Gaps and Padding */}
+              <div className="hidden lg:flex items-center h-full gap-0.5 xl:gap-1">
                   {navItems.map((item) => (
                     <NavLink key={item.name} to={item.to} className={getNavLinkClass}>
                       {item.name}
@@ -119,80 +121,70 @@ const Navigation: React.FC = () => {
                   ))}
               </div>
 
-              <div className="flex items-center gap-2 lg:gap-4">
-                  <div className="relative hidden xl:block" ref={searchRef}>
+              {/* Actions Section - Reduced width for search to make room */}
+              <div className="flex items-center gap-1 xl:gap-3 flex-shrink-0 ml-2">
+                  <div className="relative hidden lg:block" ref={searchRef}>
                       <input
                           type="text"
-                          placeholder="Explore..."
+                          placeholder="Search..."
                           value={searchQuery}
                           onChange={handleSearchChange}
                           onKeyDown={handleSearchSubmit}
-                          className="bg-white/10 text-white placeholder-white/50 rounded-full py-2.5 pl-11 pr-5 text-xs w-48 focus:outline-none focus:ring-2 focus:ring-[#FDB913] focus:w-72 transition-all duration-500 border border-white/10 hover:bg-white/15"
+                          className="bg-white/10 text-white placeholder-white/40 rounded-full py-1.5 pl-8 pr-3 text-[10px] w-24 focus:outline-none focus:ring-1 focus:ring-[#FDB913] focus:w-40 transition-all duration-300 border border-white/5 hover:bg-white/15"
                       />
-                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                          <SearchIcon className="h-4 w-4 text-white/40" />
+                      <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
+                          <SearchIcon className="h-3 w-3 text-white/40" />
                       </div>
                   </div>
 
-                  <button onClick={() => setIsCartOpen(true)} className="relative text-white p-2.5 hover:text-accent transition-all hover:scale-110" aria-label="Cart">
-                    <ShoppingCartIcon className="w-6 h-6" />
+                  <button onClick={() => setIsCartOpen(true)} className="relative text-white p-2 hover:text-accent transition-all" aria-label="Cart">
+                    <ShoppingCartIcon className="w-5 h-5" />
                     {cartCount > 0 && (
-                        <span className="absolute top-1 right-1 h-5 w-5 rounded-full bg-secondary text-white text-[10px] font-black flex items-center justify-center border-2 border-[#002B7F] shadow-lg animate-bounce">
+                        <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-secondary text-white text-[8px] font-black flex items-center justify-center border border-[#002B7F] shadow-lg">
                             {cartCount}
                         </span>
                     )}
                   </button>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     {isLoggedIn && user ? (
                       <div className="relative" ref={userMenuRef}>
                         <button 
                           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                          className="flex items-center gap-2 group focus:outline-none"
+                          className="flex items-center gap-1.5 group focus:outline-none"
                         >
-                          <div className="relative">
-                            <img 
-                              src={user.avatar} 
-                              alt="Profile" 
-                              className="w-10 h-10 rounded-full border-2 border-white/20 group-hover:border-accent transition-all shadow-xl object-cover" 
-                            />
-                            {isAdmin && (
-                              <div className="absolute -bottom-1 -right-1 bg-accent rounded-full p-0.5 border border-[#002B7F]">
-                                <ShieldIcon className="w-2.5 h-2.5 text-primary" />
-                              </div>
-                            )}
-                          </div>
-                          <ChevronDownIcon className={`w-4 h-4 text-white transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                          <img 
+                            src={user.avatar} 
+                            alt="Profile" 
+                            className="w-8 h-8 rounded-full border border-white/20 group-hover:border-accent transition-all object-cover" 
+                          />
+                          <ChevronDownIcon className={`w-3 h-3 text-white/70 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                         </button>
                         
                         {isUserMenuOpen && (
-                          <div className="absolute top-full right-0 mt-3 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden py-3 text-slate-900 z-[150] animate-in fade-in slide-in-from-top-2">
-                            <div className="px-5 py-3 border-b border-slate-50">
-                                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Signed in as</p>
-                                <p className="font-bold text-sm truncate">{user.name}</p>
-                                <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+                          <div className="absolute top-full right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden py-2 text-slate-900 z-[150] animate-in fade-in slide-in-from-top-2">
+                            <div className="px-4 py-2 border-b border-slate-50">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Signed in as</p>
+                                <p className="font-bold text-xs truncate">{user.name}</p>
                             </div>
                             
-                            <div className="py-2">
-                              <Link to="/profile" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
-                                <UserCircleIcon className="w-5 h-5 text-blue-600" /> My Fan Profile
+                            <div className="py-1">
+                              <Link to="/profile" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold hover:bg-slate-50 transition-colors">
+                                <UserCircleIcon className="w-4 h-4 text-blue-600" /> My Profile
                               </Link>
                               
                               {isAdmin && (
                                 <>
-                                  <div className="px-5 py-2 mt-2">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Management</p>
-                                  </div>
-                                  <Link to="/club-management" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
-                                      <BriefcaseIcon className="w-5 h-5 text-indigo-600" /> Club Management
+                                  <Link to="/club-management" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold hover:bg-slate-50 transition-colors">
+                                      <BriefcaseIcon className="w-4 h-4 text-indigo-600" /> Management
                                   </Link>
                                   {isSuperAdmin && (
                                       <>
-                                          <Link to="/ai-assistant" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
-                                              <SparklesIcon className="w-5 h-5 text-purple-600" /> Article AI Engine
+                                          <Link to="/data-management" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold hover:bg-slate-50 transition-colors">
+                                              <DatabaseIcon className="w-4 h-4 text-green-600" /> Data Center
                                           </Link>
-                                          <Link to="/admin-panel" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-5 py-3 text-sm font-bold hover:bg-slate-50 transition-colors">
-                                              <ShieldIcon className="w-5 h-5 text-red-600" /> Platform Admin
+                                          <Link to="/admin-panel" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold hover:bg-slate-50 transition-colors">
+                                              <ShieldIcon className="w-4 h-4 text-red-600" /> Admin
                                           </Link>
                                       </>
                                   )}
@@ -200,25 +192,25 @@ const Navigation: React.FC = () => {
                               )}
                             </div>
                             
-                            <div className="border-t border-slate-50 mt-2 pt-2">
+                            <div className="border-t border-slate-50 mt-1 pt-1">
                               <button 
                                 onClick={() => { setIsUserMenuOpen(false); logout(); }}
-                                className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-red-600 hover:bg-red-50 w-full text-left transition-colors"
+                                className="flex items-center gap-2.5 px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 w-full text-left"
                               >
-                                <LogOutIcon className="w-5 h-5" /> Sign Out
+                                <LogOutIcon className="w-4 h-4" /> Sign Out
                               </button>
                             </div>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <Button variant="accent" size="sm" onClick={openAuthModal} className="text-[11px] font-black rounded-full px-6 shadow-xl hover:scale-105 active:scale-95 transition-all ring-offset-primary">
+                      <Button variant="accent" size="sm" onClick={openAuthModal} className="text-[10px] h-8 font-black rounded-full px-4 shadow-lg hover:scale-105 transition-all">
                         Sign In
                       </Button>
                     )}
                     
-                    <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden text-white p-2.5 rounded-lg hover:bg-white/10 transition-colors">
-                      {isOpen ? <XIcon className="w-7 h-7" /> : <MenuIcon className="w-7 h-7" />}
+                    <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden text-white p-2 rounded-lg hover:bg-white/10">
+                      {isOpen ? <XIcon className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
                     </button>
                   </div>
               </div>
@@ -244,12 +236,6 @@ const Navigation: React.FC = () => {
                         {item.name}
                     </NavLink>
                 ))}
-                {!isLoggedIn && (
-                  <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="mt-8 w-full py-4 text-lg font-bold" variant="accent">Sign In / Register</Button>
-                )}
-                {isLoggedIn && (
-                   <button onClick={() => { setIsOpen(false); logout(); }} className="mt-8 w-full py-4 text-lg font-bold text-red-500 border border-red-500/20 rounded-xl">Sign Out</button>
-                )}
              </nav>
           </div>
         )}

@@ -15,6 +15,7 @@ const Footer: React.FC = () => {
         { name: 'Domestic Cups', to: '/cups' },
         { name: 'Women\'s Football', to: '/womens' },
         { name: 'Regional Leagues', to: '/regional' },
+        { name: 'International Hub', to: '/international' },
       ]
     },
     {

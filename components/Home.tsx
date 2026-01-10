@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Hero from './Hero';
 import QuickAccess from './QuickAccess';
@@ -40,7 +39,7 @@ const Home: React.FC = () => {
         <LiveScoreboard />
       </div>
       
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-10">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-12 relative z-10">
         <QuickAccess />
       </div>
 
