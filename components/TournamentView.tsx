@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { HybridTournament, ConfigTeam } from '../data/international';
 import { Team } from '../data/teams';
@@ -14,17 +13,49 @@ import BracketIcon from './icons/BracketIcon';
 import { fetchCups } from '../services/api';
 import { Tournament } from '../data/cups';
 import Spinner from './ui/Spinner';
+import InfoIcon from './icons/InfoIcon';
 
 interface TournamentViewProps {
     tournament: HybridTournament;
 }
+
+const UCLLegend: React.FC = () => (
+    <div className="space-y-4 mb-8">
+        <div className="bg-gray-900 text-white p-4 rounded-xl border border-white/10 shadow-lg">
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-accent mb-2">League Phase Format</h4>
+            <p className="text-sm text-gray-300 leading-relaxed">
+                All 36 teams compete in a single table. Each team plays 8 matches against 8 different opponents. 
+                Tie-breakers prioritize Points, Goal Difference, Goals Scored, and Away Wins.
+            </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-green-50 border border-green-200 p-3 rounded-lg flex items-center gap-3">
+                <div className="w-4 h-4 bg-green-500 rounded-full shadow-sm"></div>
+                <p className="text-xs font-bold text-green-900">1–8: Direct Round of 16</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex items-center gap-3">
+                <div className="w-4 h-4 bg-blue-600 rounded-full shadow-sm"></div>
+                <p className="text-xs font-bold text-blue-900">9–16: Play-offs (Seeded)</p>
+            </div>
+            <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg flex items-center gap-3">
+                <div className="w-4 h-4 bg-blue-400 rounded-full shadow-sm"></div>
+                <p className="text-xs font-bold text-blue-800">17–24: Play-offs (Unseeded)</p>
+            </div>
+            <div className="bg-gray-100 border border-gray-300 p-3 rounded-lg flex items-center gap-3">
+                <div className="w-4 h-4 bg-gray-400 rounded-full shadow-sm"></div>
+                <p className="text-xs font-bold text-gray-600">25–36: Eliminated</p>
+            </div>
+        </div>
+    </div>
+);
 
 const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
     const [activeTab, setActiveTab] = useState<'groups' | 'knockout' | 'fixtures'>('groups');
     const [linkedBracket, setLinkedBracket] = useState<Tournament | null>(null);
     const [loadingBracket, setLoadingBracket] = useState(false);
 
-    // Fetch linked bracket if ID provided
+    const isUCL = tournament.id === 'uefa-champions-league';
+
     useEffect(() => {
         const loadBracket = async () => {
             if (tournament.bracketId) {
@@ -45,7 +76,6 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
         loadBracket();
     }, [tournament.bracketId, tournament.bracket]);
 
-    // 1. Transform ConfigTeams into full Team objects for the StandingsTable component
     const allTeamsObj: Team[] = useMemo(() => {
         return (tournament.teams || []).map((ct: ConfigTeam) => ({
             id: ct.dbId || Math.random(),
@@ -62,7 +92,6 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
         return map;
     }, [allTeamsObj]);
 
-    // 2. Calculate Standings for Each Group
     const groupStandings = useMemo(() => {
         if (!tournament.groups) return {};
         const standings: Record<string, Team[]> = {};
@@ -76,7 +105,6 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
         return standings;
     }, [tournament.groups, tournament.matches, teamMap]);
 
-    // 3. Filter Fixtures
     const upcomingFixtures = useMemo(() => {
         return (tournament.matches || [])
             .filter(m => m.status !== 'finished')
@@ -100,7 +128,6 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
 
     return (
         <div className="space-y-8 animate-fade-in">
-            {/* Header */}
             <div className="flex flex-col md:flex-row items-center gap-6 mb-8 text-center md:text-left bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <img 
                     src={tournament.logoUrl || 'https://via.placeholder.com/150'} 
@@ -113,16 +140,16 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
                 </div>
             </div>
 
-            {/* Navigation */}
+            {isUCL && activeTab === 'groups' && <UCLLegend />}
+
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
                 <div className="flex">
-                    {tournament.groups && tournament.groups.length > 0 && <TabButton tab="groups" label="Group Stage" Icon={UsersIcon} />}
+                    {tournament.groups && tournament.groups.length > 0 && <TabButton tab="groups" label={isUCL ? "League Table" : "Group Stage"} Icon={UsersIcon} />}
                     {linkedBracket && <TabButton tab="knockout" label="Knockout Phase" Icon={BracketIcon} />}
                     <TabButton tab="fixtures" label="Matches" Icon={CalendarIcon} />
                 </div>
             </div>
 
-            {/* Content */}
             <div className="min-h-[400px]">
                 {activeTab === 'groups' && tournament.groups && (
                     <div className="grid grid-cols-1 gap-8">
@@ -132,7 +159,7 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
                                     <TrophyIcon className="w-6 h-6 text-yellow-400" />
                                     <h3 className="text-xl font-bold font-display">{group.name}</h3>
                                 </div>
-                                <StandingsTable standings={groupStandings[group.name] || []} />
+                                <StandingsTable standings={groupStandings[group.name] || []} competitionId={tournament.id} />
                             </div>
                         ))}
                     </div>

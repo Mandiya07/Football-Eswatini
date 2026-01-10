@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Team } from '../data/teams';
 import { Card } from './ui/Card';
@@ -45,6 +44,26 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
         if (last === 'L') return 'down';
         return 'same';
     };
+
+    const isUCL = competitionId === 'uefa-champions-league';
+
+    const getRowStyle = (index: number) => {
+        if (!isUCL) return 'hover:bg-gray-50/50';
+        const pos = index + 1;
+        if (pos <= 8) return 'bg-green-50/40 hover:bg-green-100/60 border-l-4 border-l-green-500';
+        if (pos <= 16) return 'bg-blue-50/40 hover:bg-blue-100/60 border-l-4 border-l-blue-500';
+        if (pos <= 24) return 'bg-blue-50/20 hover:bg-blue-100/40 border-l-4 border-l-blue-300';
+        return 'bg-gray-50/80 grayscale-[0.5] opacity-80 hover:bg-gray-100 border-l-4 border-l-gray-400';
+    };
+
+    const getStatusLabel = (index: number) => {
+        if (!isUCL) return null;
+        const pos = index + 1;
+        if (pos <= 8) return <span className="text-[8px] font-black text-green-700 bg-green-200/50 px-1 rounded ml-2 uppercase">R16</span>;
+        if (pos <= 16) return <span className="text-[8px] font-black text-blue-700 bg-blue-200/50 px-1 rounded ml-2 uppercase">Seeded</span>;
+        if (pos <= 24) return <span className="text-[8px] font-black text-blue-500 bg-blue-100/50 px-1 rounded ml-2 uppercase">Unseeded</span>;
+        return null;
+    };
     
   return (
     <Card className="shadow-lg overflow-hidden border-0 ring-1 ring-black/5">
@@ -72,7 +91,7 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
                                           (dirEntry?.teamId && dirEntry?.competitionId) ? `/competitions/${dirEntry.competitionId}/teams/${dirEntry.teamId}` : null;
 
                         return (
-                            <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors">
+                            <tr key={team.id || team.name} className={`${getRowStyle(index)} transition-colors group`}>
                                 <td className="px-4 py-3 text-center">
                                     <div className="flex flex-col items-center">
                                         <span className="font-black text-gray-900">{index + 1}</span>
@@ -80,17 +99,20 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
                                     </div>
                                 </td>
                                 <td className="px-4 py-3">
-                                    {profileUrl ? (
-                                        <Link to={profileUrl} className="flex items-center space-x-3 group">
-                                            <img src={dirEntry?.crestUrl || team.crestUrl} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
-                                            <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none group-hover:text-primary group-hover:underline transition-colors">{team.name}</span>
-                                        </Link>
-                                    ) : (
-                                        <div className="flex items-center space-x-3">
-                                            <img src={dirEntry?.crestUrl || team.crestUrl} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
-                                            <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {profileUrl ? (
+                                            <Link to={profileUrl} className="flex items-center space-x-3 group/link">
+                                                <img src={dirEntry?.crestUrl || team.crestUrl} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
+                                                <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none group-hover/link:text-primary group-hover/link:underline transition-colors">{team.name}</span>
+                                            </Link>
+                                        ) : (
+                                            <div className="flex items-center space-x-3">
+                                                <img src={dirEntry?.crestUrl || team.crestUrl} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
+                                                <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
+                                            </div>
+                                        )}
+                                        {getStatusLabel(index)}
+                                    </div>
                                 </td>
                                 <td className="px-2 py-3 text-center">{team.stats.p}</td>
                                 <td className="px-2 py-3 text-center">{team.stats.w}</td>
