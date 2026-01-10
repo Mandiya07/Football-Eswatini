@@ -38,7 +38,7 @@ const SeedDatabase: React.FC = () => {
     const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
     const handleSync = async () => {
-        if (!window.confirm("This will sync structural metadata (Hybrid Tournaments, Ad placements, Sponsors, and Categories). Your match results and fixtures will NOT be touched. Proceed?")) return;
+        if (!window.confirm("This will FORCE SYNC structural metadata. This OVERWRITES tournament stage definitions (like AFCON pots and matches) with the current code. Match results for standard leagues are NOT touched. Proceed?")) return;
         setLoading(true);
         setStatus(null);
 
@@ -57,20 +57,16 @@ const SeedDatabase: React.FC = () => {
             });
 
             // 3. Hybrid Tournaments (International + Youth)
-            // This collection only stores tournament definitions (pots, stages, bracket links).
-            // It does NOT store the fixtures of your Super Leagues.
+            // FORCE OVERWRITE (no merge) to ensure the file is the absolute source of truth for these structures.
             const allHybrids = [...internationalData, ...youthHybridData];
             allHybrids.forEach(tourn => {
                 const tournRef = doc(db, 'hybrid_tournaments', tourn.id);
                 const { id, ...data } = tourn;
-                batch.set(tournRef, data, m);
+                batch.set(tournRef, data); // No merge option here -> Force Overwrite
             });
 
-            // CRITICAL FIX: Removed the loop that generated 'competitions' collection data.
-            // Your Lubombo and Manzini Super League data is now safe from this function.
-
             await batch.commit();
-            setStatus({ type: 'success', msg: 'System structures synced! Youth pages and International Hub are now active.' });
+            setStatus({ type: 'success', msg: 'System structures synced! AFCON 2025 results forced to Cloud.' });
         } catch (error: any) {
             console.error("Sync error:", error);
             setStatus({ type: 'error', msg: 'Failed: ' + (error.message || 'Check browser console.') });
@@ -87,8 +83,8 @@ const SeedDatabase: React.FC = () => {
                     <h3 className="text-2xl font-bold font-display text-gray-800">Sync System Structures</h3>
                 </div>
                 <p className="text-sm text-gray-600 mb-6 italic">
-                    Safely update the application's framework. This syncs tournament stage definitions (like Instacash or UCL), categories, and ad placements. 
-                    <span className="text-green-700 font-bold ml-1">Note: This will NOT overwrite your league results or fixtures.</span>
+                    Use this to push AFCON results and International Hub structures to the live site.
+                    <span className="text-red-700 font-bold ml-1">Tip: If results aren't updating, use "Purge Cache" in Maintenance Tools first.</span>
                 </p>
                 
                 <div className="flex flex-col gap-4">
@@ -101,7 +97,7 @@ const SeedDatabase: React.FC = () => {
                     </Button>
                     
                     {status && (
-                        <div className={`p-4 rounded-lg text-sm font-bold flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <div className={`p-4 rounded-lg text-sm font-bold flex items-center gap-2 animate-fade-in ${status.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                             {status.type === 'success' ? <CheckCircleIcon className="w-5 h-5" /> : <AlertTriangleIcon className="w-5 h-5" />}
                             <div>
                                 <p>{status.msg}</p>

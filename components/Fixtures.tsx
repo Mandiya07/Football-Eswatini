@@ -67,13 +67,6 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     const crestA = teamADirectory?.crestUrl || teamA?.crestUrl;
     const crestB = teamBDirectory?.crestUrl || teamB?.crestUrl;
 
-    const { homeGoals, awayGoals } = useMemo(() => {
-        const events = fixture.events || [];
-        const home = events.filter(e => e.type === 'goal' && (e.teamName === fixture.teamA || (!e.teamName && !fixture.teamB))).map(e => `${e.playerName || 'Goal'} ${e.minute}'`);
-        const away = events.filter(e => e.type === 'goal' && (e.teamName === fixture.teamB)).map(e => `${e.playerName || 'Goal'} ${e.minute}'`);
-        return { homeGoals: home, awayGoals: away };
-    }, [fixture.events, fixture.teamA, fixture.teamB]);
-
     const getLinkProps = (teamObj: Team | undefined, teamName: string) => {
         if (teamObj?.id) {
             return { type: 'profile', url: `/competitions/${competitionId}/teams/${teamObj.id}` };
@@ -161,6 +154,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                     {isScoreVisible ? (
                         <div className="text-center min-w-[5rem]">
                             <p className={`font-bold text-xl ${fixture.status === 'live' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}>{fixture.scoreA ?? '-'} - {fixture.scoreB ?? '-'}</p>
+                            {fixture.status === 'live' && <p className="text-[10px] font-mono font-bold text-red-600">{displayMinute}'</p>}
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center min-w-[5rem]">

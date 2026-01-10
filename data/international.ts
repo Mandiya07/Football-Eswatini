@@ -95,6 +95,97 @@ export const internationalData: HybridTournament[] = [
             }
         ],
         matches: []
+    },
+    {
+        id: 'afcon-2025',
+        name: 'Africa Cup of Nations 2025',
+        description: "The 35th edition of the biennial African association football tournament. Morocco hosts the continent's finest in a thrilling group stage battle for continental dominance.",
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/0/00/2023_Africa_Cup_of_Nations_logo.svg/1200px-2023_Africa_Cup_of_Nations_logo.svg.png',
+        type: 'hybrid',
+        categoryId: 'international-leagues',
+        teams: [
+            { name: 'Morocco', crestUrl: 'https://via.placeholder.com/64/C1272D/FFFFFF?text=MAR' },
+            { name: 'Mali', crestUrl: 'https://via.placeholder.com/64/FDE100/000000?text=MLI' },
+            { name: 'Zambia', crestUrl: 'https://via.placeholder.com/64/006633/FFFFFF?text=ZAM' },
+            { name: 'Comoros', crestUrl: 'https://via.placeholder.com/64/009543/FFFFFF?text=COM' },
+            { name: 'Egypt', crestUrl: 'https://via.placeholder.com/64/C1272D/FFFFFF?text=EGY' },
+            { name: 'South Africa', crestUrl: 'https://via.placeholder.com/64/006633/FFFFFF?text=RSA' },
+            { name: 'Angola', crestUrl: 'https://via.placeholder.com/64/000000/FFFFFF?text=ANG' },
+            { name: 'Zimbabwe', crestUrl: 'https://via.placeholder.com/64/006633/FFFFFF?text=ZIM' },
+            { name: 'Nigeria', crestUrl: 'https://via.placeholder.com/64/008751/FFFFFF?text=NGA' },
+            { name: 'Tunisia', crestUrl: 'https://via.placeholder.com/64/E70013/FFFFFF?text=TUN' },
+            { name: 'Uganda', crestUrl: 'https://via.placeholder.com/64/000000/FFFFFF?text=UGA' },
+            { name: 'Tanzania', crestUrl: 'https://via.placeholder.com/64/1EB53A/FFFFFF?text=TAN' },
+            { name: 'Senegal', crestUrl: 'https://via.placeholder.com/64/00853F/FFFFFF?text=SEN' },
+            { name: 'DR Congo', crestUrl: 'https://via.placeholder.com/64/007FFF/FFFFFF?text=DRC' },
+            { name: 'Benin', crestUrl: 'https://via.placeholder.com/64/E1000F/000000?text=BEN' },
+            { name: 'Botswana', crestUrl: 'https://via.placeholder.com/64/75AADB/FFFFFF?text=BOT' },
+            { name: 'Algeria', crestUrl: 'https://via.placeholder.com/64/006233/FFFFFF?text=ALG' },
+            { name: 'Burkina Faso', crestUrl: 'https://via.placeholder.com/64/EF2B2D/FFFFFF?text=BFA' },
+            { name: 'Equatorial Guinea', crestUrl: 'https://via.placeholder.com/64/E1000F/FFFFFF?text=EQG' },
+            { name: 'Sudan', crestUrl: 'https://via.placeholder.com/64/D21034/FFFFFF?text=SUD' },
+            { name: 'Ivory Coast', crestUrl: 'https://via.placeholder.com/64/FF8200/FFFFFF?text=CIV' },
+            { name: 'Cameroon', crestUrl: 'https://via.placeholder.com/64/007A5E/FFFFFF?text=CMR' },
+            { name: 'Gabon', crestUrl: 'https://via.placeholder.com/64/313292/FFFFFF?text=GAB' },
+            { name: 'Mozambique', crestUrl: 'https://via.placeholder.com/64/D21034/FFFFFF?text=MOZ' }
+        ],
+        groups: [
+            { name: 'GROUP A', teamNames: ['Morocco', 'Mali', 'Zambia', 'Comoros'] },
+            { name: 'GROUP B', teamNames: ['Egypt', 'South Africa', 'Angola', 'Zimbabwe'] },
+            { name: 'GROUP C', teamNames: ['Nigeria', 'Tunisia', 'Uganda', 'Tanzania'] },
+            { name: 'GROUP D', teamNames: ['Senegal', 'DR Congo', 'Benin', 'Botswana'] },
+            { name: 'GROUP E', teamNames: ['Algeria', 'Burkina Faso', 'Equatorial Guinea', 'Sudan'] },
+            { name: 'GROUP F', teamNames: ['Ivory Coast', 'Cameroon', 'Gabon', 'Mozambique'] }
+        ],
+        matches: [
+            // GROUP A
+            { id: 'afcon-a1', teamA: 'Morocco', teamB: 'Comoros', scoreA: 2, scoreB: 0, fullDate: '2025-12-21', date: '21', day: 'SUN', time: '15:00', status: 'finished' },
+            { id: 'afcon-a2', teamA: 'Mali', teamB: 'Zambia', scoreA: 1, scoreB: 1, fullDate: '2025-12-22', date: '22', day: 'MON', time: '15:00', status: 'finished' },
+            { id: 'afcon-a3', teamA: 'Morocco', teamB: 'Mali', scoreA: 1, scoreB: 1, fullDate: '2025-12-26', date: '26', day: 'FRI', time: '15:00', status: 'finished' },
+            { id: 'afcon-a4', teamA: 'Zambia', teamB: 'Comoros', scoreA: 0, scoreB: 0, fullDate: '2025-12-26', date: '26', day: 'FRI', time: '18:00', status: 'finished' },
+            { id: 'afcon-a5', teamA: 'Zambia', teamB: 'Morocco', scoreA: 0, scoreB: 3, fullDate: '2025-12-29', date: '29', day: 'MON', time: '15:00', status: 'finished' },
+            { id: 'afcon-a6', teamA: 'Comoros', teamB: 'Mali', scoreA: 0, scoreB: 0, fullDate: '2025-12-29', date: '29', day: 'MON', time: '18:00', status: 'finished' },
+            
+            // GROUP B
+            { id: 'afcon-b1', teamA: 'Egypt', teamB: 'Zimbabwe', scoreA: 2, scoreB: 1, fullDate: '2025-12-22', date: '22', day: 'MON', time: '18:00', status: 'finished' },
+            { id: 'afcon-b2', teamA: 'South Africa', teamB: 'Angola', scoreA: 2, scoreB: 1, fullDate: '2025-12-22', date: '22', day: 'MON', time: '21:00', status: 'finished' },
+            { id: 'afcon-b3', teamA: 'Egypt', teamB: 'South Africa', scoreA: 1, scoreB: 0, fullDate: '2025-12-26', date: '26', day: 'FRI', time: '21:00', status: 'finished' },
+            { id: 'afcon-b4', teamA: 'Angola', teamB: 'Zimbabwe', scoreA: 1, scoreB: 1, fullDate: '2025-12-26', date: '26', day: 'FRI', time: '15:00', status: 'finished' },
+            { id: 'afcon-b5', teamA: 'Angola', teamB: 'Egypt', scoreA: 0, scoreB: 0, fullDate: '2025-12-29', date: '29', day: 'MON', time: '21:00', status: 'finished' },
+            { id: 'afcon-b6', teamA: 'Zimbabwe', teamB: 'South Africa', scoreA: 2, scoreB: 3, fullDate: '2025-12-29', date: '29', day: 'MON', time: '21:00', status: 'finished' },
+            
+            // GROUP C
+            { id: 'afcon-c1', teamA: 'Nigeria', teamB: 'Tanzania', scoreA: 2, scoreB: 1, fullDate: '2025-12-23', date: '23', day: 'TUE', time: '15:00', status: 'finished' },
+            { id: 'afcon-c2', teamA: 'Tunisia', teamB: 'Uganda', scoreA: 3, scoreB: 1, fullDate: '2025-12-23', date: '23', day: 'TUE', time: '18:00', status: 'finished' },
+            { id: 'afcon-c3', teamA: 'Nigeria', teamB: 'Tunisia', scoreA: 3, scoreB: 2, fullDate: '2025-12-27', date: '27', day: 'SAT', time: '15:00', status: 'finished' },
+            { id: 'afcon-c4', teamA: 'Uganda', teamB: 'Tanzania', scoreA: 1, scoreB: 1, fullDate: '2025-12-27', date: '27', day: 'SAT', time: '18:00', status: 'finished' },
+            { id: 'afcon-c5', teamA: 'Uganda', teamB: 'Nigeria', scoreA: 1, scoreB: 3, fullDate: '2025-12-30', date: '30', day: 'TUE', time: '15:00', status: 'finished' },
+            { id: 'afcon-c6', teamA: 'Tanzania', teamB: 'Tunisia', scoreA: 1, scoreB: 1, fullDate: '2025-12-30', date: '30', day: 'TUE', time: '18:00', status: 'finished' },
+            
+            // GROUP D
+            { id: 'afcon-d1', teamA: 'Senegal', teamB: 'Botswana', scoreA: 3, scoreB: 0, fullDate: '2025-12-23', date: '23', day: 'TUE', time: '21:00', status: 'finished' },
+            { id: 'afcon-d2', teamA: 'DR Congo', teamB: 'Benin', scoreA: 1, scoreB: 0, fullDate: '2025-12-23', date: '23', day: 'TUE', time: '15:00', status: 'finished' },
+            { id: 'afcon-d3', teamA: 'Senegal', teamB: 'DR Congo', scoreA: 1, scoreB: 1, fullDate: '2025-12-27', date: '27', day: 'SAT', time: '21:00', status: 'finished' },
+            { id: 'afcon-d4', teamA: 'Benin', teamB: 'Botswana', scoreA: 1, scoreB: 0, fullDate: '2025-12-27', date: '27', day: 'SAT', time: '15:00', status: 'finished' },
+            { id: 'afcon-d5', teamA: 'Benin', teamB: 'Senegal', scoreA: 0, scoreB: 3, fullDate: '2025-12-30', date: '30', day: 'TUE', time: '21:00', status: 'finished' },
+            { id: 'afcon-d6', teamA: 'Botswana', teamB: 'DR Congo', scoreA: 0, scoreB: 3, fullDate: '2025-12-30', date: '30', day: 'TUE', time: '21:00', status: 'finished' },
+            
+            // GROUP E
+            { id: 'afcon-e1', teamA: 'Algeria', teamB: 'Sudan', scoreA: 3, scoreB: 0, fullDate: '2025-12-24', date: '24', day: 'WED', time: '15:00', status: 'finished' },
+            { id: 'afcon-e2', teamA: 'Burkina Faso', teamB: 'Equatorial Guinea', scoreA: 2, scoreB: 1, fullDate: '2025-12-24', date: '24', day: 'WED', time: '18:00', status: 'finished' },
+            { id: 'afcon-e3', teamA: 'Algeria', teamB: 'Burkina Faso', scoreA: 1, scoreB: 0, fullDate: '2025-12-28', date: '28', day: 'SUN', time: '15:00', status: 'finished' },
+            { id: 'afcon-e4', teamA: 'Equatorial Guinea', teamB: 'Sudan', scoreA: 0, scoreB: 1, fullDate: '2025-12-28', date: '28', day: 'SUN', time: '18:00', status: 'finished' },
+            { id: 'afcon-e5', teamA: 'Equatorial Guinea', teamB: 'Algeria', scoreA: 1, scoreB: 3, fullDate: '2025-12-31', date: '31', day: 'WED', time: '15:00', status: 'finished' },
+            { id: 'afcon-e6', teamA: 'Sudan', teamB: 'Burkina Faso', scoreA: 0, scoreB: 2, fullDate: '2025-12-31', date: '31', day: 'WED', time: '18:00', status: 'finished' },
+            
+            // GROUP F
+            { id: 'afcon-f1', teamA: 'Ivory Coast', teamB: 'Mozambique', scoreA: 1, scoreB: 0, fullDate: '2025-12-24', date: '24', day: 'WED', time: '21:00', status: 'finished' },
+            { id: 'afcon-f2', teamA: 'Cameroon', teamB: 'Gabon', scoreA: 1, scoreB: 0, fullDate: '2025-12-24', date: '24', day: 'WED', time: '21:00', status: 'finished' },
+            { id: 'afcon-f3', teamA: 'Ivory Coast', teamB: 'Cameroon', scoreA: 1, scoreB: 1, fullDate: '2025-12-28', date: '28', day: 'SUN', time: '21:00', status: 'finished' },
+            { id: 'afcon-f4', teamA: 'Gabon', teamB: 'Mozambique', scoreA: 2, scoreB: 3, fullDate: '2025-12-28', date: '28', day: 'SUN', time: '15:00', status: 'finished' },
+            { id: 'afcon-f5', teamA: 'Gabon', teamB: 'Ivory Coast', scoreA: 2, scoreB: 3, fullDate: '2025-12-31', date: '31', day: 'WED', time: '21:00', status: 'finished' },
+            { id: 'afcon-f6', teamA: 'Mozambique', teamB: 'Cameroon', scoreA: 1, scoreB: 2, fullDate: '2025-12-31', date: '31', day: 'WED', time: '21:00', status: 'finished' }
+        ]
     }
 ];
 
