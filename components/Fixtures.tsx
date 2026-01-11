@@ -266,6 +266,17 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
         const isResults = activeTab === 'results';
         let sourceData = isResults ? (competition.results || []) : (competition.fixtures || []);
         
+        // --- ADDED FILTERING FOR PAST MATCHES IN UPCOMING VIEW ---
+        if (!isResults) {
+            const now = new Date();
+            sourceData = sourceData.filter(f => {
+                if (!f.fullDate) return true;
+                const matchTime = new Date(`${f.fullDate}T${f.time || '00:00'}`);
+                // Only show if the match hasn't happened yet (give 2 hours buffer for "today" matches)
+                return matchTime.getTime() > (now.getTime() - (2 * 60 * 60 * 1000));
+            });
+        }
+
         const groups: Record<string, CompetitionFixture[]> = {};
         sourceData.forEach(fixture => {
             const key = fixture.matchday ? `Matchday ${fixture.matchday}` : 'Other';

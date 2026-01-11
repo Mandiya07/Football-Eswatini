@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { fetchYouthData, handleFirestoreError } from '../../services/api';
 import { YouthLeague, RisingStarPlayer, YouthArticle, YouthTeam } from '../../data/youth';
@@ -8,7 +9,7 @@ import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import { db } from '../../services/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import XIcon from '../icons/XIcon';
 import YouthArticleFormModal from './YouthArticleFormModal';
 import FileTextIcon from '../icons/FileTextIcon';
@@ -20,6 +21,10 @@ const YouthManagement: React.FC = () => {
     const [activeLeagueId, setActiveLeagueId] = useState<string>('');
     const [isEditingLeague, setIsEditingLeague] = useState(false);
     const [editingLeagueDesc, setEditingLeagueDesc] = useState('');
+    
+    // Create League Modal
+    const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
+    const [newLeagueName, setNewLeagueName] = useState('');
 
     const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
     const [teamFormData, setTeamFormData] = useState({ name: '', crestUrl: '' });
@@ -35,27 +40,8 @@ const YouthManagement: React.FC = () => {
         setLoading(true);
         try {
             const data = await fetchYouthData();
-            
-            // Deduplicate logic to ensure no ghost tournaments appear
-            const leagueMap = new Map<string, YouthLeague>();
-            data.forEach(l => {
-                const nameKey = l.name.trim().toLowerCase();
-                if (!leagueMap.has(nameKey)) {
-                    leagueMap.set(nameKey, l);
-                }
-            });
-
-            const uniqueLeagues = Array.from(leagueMap.values());
-            const order = ['u20-elite-league', 'hub-hardware-u17', 'schools', 'build-it-u13'];
-            
-            const sortedData = uniqueLeagues.sort((a, b) => {
-                const indexA = order.indexOf(a.id);
-                const indexB = order.indexOf(b.id);
-                return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-            });
-
-            setLeagues(sortedData);
-            if (sortedData.length > 0 && !activeLeagueId) setActiveLeagueId(sortedData[0].id);
+            setLeagues(data);
+            if (data.length > 0 && !activeLeagueId) setActiveLeagueId(data[0].id);
         } catch(e) {
             console.error("Failed to load youth management data:", e);
         } finally {
@@ -75,6 +61,44 @@ const YouthManagement: React.FC = () => {
             setLeagues(prev => prev.map(l => l.id === updatedLeague.id ? updatedLeague : l));
         } catch (err) {
             handleFirestoreError(err, 'save youth league data');
+        }
+    };
+
+    const handleCreateLeague = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newLeagueName.trim()) return;
+        
+        const newId = newLeagueName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const newLeague: YouthLeague = {
+            id: newId,
+            name: newLeagueName,
+            description: 'New Youth League Description',
+            teams: [],
+            risingStars: [],
+            articles: []
+        };
+
+        try {
+            await setDoc(doc(db, 'youth', newId), newLeague);
+            setLeagues([...leagues, newLeague]);
+            setActiveLeagueId(newId);
+            setIsCreateLeagueModalOpen(false);
+            setNewLeagueName('');
+        } catch (err) {
+            handleFirestoreError(err, 'create youth league');
+        }
+    };
+
+    const handleDeleteLeague = async () => {
+        if (!activeLeague || !window.confirm(`Are you sure you want to PERMANENTLY delete the entire ${activeLeague.name} competition?`)) return;
+        
+        try {
+            await deleteDoc(doc(db, 'youth', activeLeague.id));
+            const remaining = leagues.filter(l => l.id !== activeLeague.id);
+            setLeagues(remaining);
+            setActiveLeagueId(remaining.length > 0 ? remaining[0].id : '');
+        } catch (err) {
+            handleFirestoreError(err, 'delete youth league');
         }
     };
 
@@ -135,9 +159,13 @@ const YouthManagement: React.FC = () => {
         <div className="max-w-full overflow-hidden w-full">
             <Card className="shadow-lg animate-fade-in border-0 w-full overflow-hidden">
                 <CardContent className="p-4 sm:p-6 w-full">
-                    <h3 className="text-2xl font-bold font-display mb-6">Youth Content Management</h3>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-2xl font-bold font-display">Youth Content Management</h3>
+                        <Button onClick={() => setIsCreateLeagueModalOpen(true)} className="bg-primary text-white text-xs h-9 px-4 flex items-center gap-2">
+                            <PlusCircleIcon className="w-4 h-4" /> New Competition
+                        </Button>
+                    </div>
                     
-                    {/* Navigation Tabs - Ensuring Wrap to prevent scroll */}
                     <div className="flex flex-wrap gap-2 mb-6 border-b pb-4">
                         {leagues.map(league => (
                             <button
@@ -155,14 +183,17 @@ const YouthManagement: React.FC = () => {
                             <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                                 <div className="flex justify-between items-center mb-3">
                                     <h4 className="font-bold text-blue-900 uppercase text-xs">League Description</h4>
-                                    {!isEditingLeague ? (
-                                        <button onClick={() => { setEditingLeagueDesc(activeLeague.description); setIsEditingLeague(true); }} className="text-xs font-bold text-blue-600 hover:underline">Edit</button>
-                                    ) : (
-                                        <div className="flex gap-3">
-                                            <button onClick={() => setIsEditingLeague(false)} className="text-xs text-gray-500">Cancel</button>
-                                            <button onClick={handleSaveLeagueDesc} className="text-xs font-bold text-blue-700">Save</button>
-                                        </div>
-                                    )}
+                                    <div className="flex gap-4">
+                                        {!isEditingLeague ? (
+                                            <button onClick={() => { setEditingLeagueDesc(activeLeague.description); setIsEditingLeague(true); }} className="text-xs font-bold text-blue-600 hover:underline">Edit Info</button>
+                                        ) : (
+                                            <div className="flex gap-3">
+                                                <button onClick={() => setIsEditingLeague(false)} className="text-xs text-gray-500">Cancel</button>
+                                                <button onClick={handleSaveLeagueDesc} className="text-xs font-bold text-blue-700">Save</button>
+                                            </div>
+                                        )}
+                                        <button onClick={handleDeleteLeague} className="text-xs font-bold text-red-600 hover:underline flex items-center gap-1"><TrashIcon className="w-3 h-3"/> Delete League</button>
+                                    </div>
                                 </div>
                                 {isEditingLeague ? <textarea rows={4} className="w-full p-3 border rounded-xl text-sm" value={editingLeagueDesc} onChange={e => setEditingLeagueDesc(e.target.value)} /> : <p className="text-sm text-blue-800 leading-relaxed break-words">{activeLeague.description}</p>}
                             </div>
@@ -191,16 +222,13 @@ const YouthManagement: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}
-                                    {(!activeLeague.articles || activeLeague.articles.length === 0) && (
-                                        <p className="text-center py-8 text-gray-400 text-xs italic border-2 border-dashed rounded-xl">No articles posted yet.</p>
-                                    )}
                                 </div>
                             </section>
 
                             {/* Teams Section */}
                             <section className="w-full">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Teams ({activeLeague.teams?.length || 0})</h4>
+                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Participating Teams ({activeLeague.teams?.length || 0})</h4>
                                     <Button onClick={() => setIsTeamModalOpen(true)} className="bg-blue-600 text-white text-[10px] h-7 px-3">Add Team</Button>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -219,14 +247,14 @@ const YouthManagement: React.FC = () => {
                             {/* Rising Stars Section */}
                             <section className="w-full">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Rising Star Profiles ({activeLeague.risingStars?.length || 0})</h4>
-                                    <Button onClick={() => { setEditingPlayer(null); setPlayerFormData({ name: '', age: 16, team: '', position: '', photoUrl: '', bio: '' }); setIsPlayerModalOpen(true); }} className="bg-green-600 text-white text-[10px] h-7 px-3">Add Star</Button>
+                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Rising Stars ({activeLeague.risingStars?.length || 0})</h4>
+                                    <Button onClick={() => { setEditingPlayer(null); setPlayerFormData({ name: '', age: 16, team: '', position: '', photoUrl: '', bio: '' }); setIsPlayerModalOpen(true); }} className="bg-green-600 text-white text-[10px] h-7 px-3">Add Player</Button>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {(activeLeague.risingStars || []).map(player => (
                                         <div key={player.id} className="p-4 border border-gray-100 rounded-2xl flex gap-4 bg-white shadow-sm hover:shadow-md transition-shadow">
                                             <div className="w-16 h-16 bg-gray-50 rounded-xl flex-shrink-0 overflow-hidden border">
-                                                {player.photoUrl ? <img src={player.photoUrl} className="w-full h-full object-cover" /> : <Spinner className="w-full h-full p-4"/>}
+                                                {player.photoUrl ? <img src={player.photoUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full p-4 flex items-center justify-center bg-gray-100"><XIcon className="text-gray-300"/></div>}
                                             </div>
                                             <div className="flex-grow min-w-0">
                                                 <p className="font-bold text-gray-900 truncate">{player.name}</p>
@@ -245,17 +273,35 @@ const YouthManagement: React.FC = () => {
                 </CardContent>
             </Card>
 
-            {/* Modals */}
+            {/* Create League Modal */}
+            {isCreateLeagueModalOpen && (
+                <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsCreateLeagueModalOpen(false)}>
+                    <Card className="w-full max-w-sm" onClick={e => e.stopPropagation()}>
+                        <CardContent className="p-8">
+                            <h4 className="font-bold text-xl mb-4">New Youth Competition</h4>
+                            <form onSubmit={handleCreateLeague} className="space-y-4">
+                                <input placeholder="Competition Name" value={newLeagueName} onChange={e => setNewLeagueName(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                                <div className="flex justify-end gap-3 pt-4">
+                                    <Button type="button" onClick={() => setIsCreateLeagueModalOpen(false)} className="bg-gray-100 text-gray-700">Cancel</Button>
+                                    <Button type="submit" className="bg-primary text-white">Create League</Button>
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Other Modals (Team, Player, Article) */}
             {isTeamModalOpen && (
                 <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsTeamModalOpen(false)}>
                     <Card className="w-full max-w-sm" onClick={e => e.stopPropagation()}>
                         <CardContent className="p-8">
                             <h4 className="font-bold text-xl mb-6">Add Youth Team</h4>
                             <form onSubmit={handleSaveTeam} className="space-y-4">
-                                <input placeholder="Club/Academy Name" value={teamFormData.name} onChange={e => setTeamFormData({...teamFormData, name: e.target.value})} className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none" required />
+                                <input placeholder="Club/Academy Name" value={teamFormData.name} onChange={e => setTeamFormData({...teamFormData, name: e.target.value})} className="w-full p-3 border rounded-xl" required />
                                 <div className="flex justify-end gap-3 mt-6">
                                     <Button type="button" onClick={() => setIsTeamModalOpen(false)} className="bg-gray-100 text-gray-700">Cancel</Button>
-                                    <Button type="submit" className="bg-primary text-white shadow-lg">Register Team</Button>
+                                    <Button type="submit" className="bg-primary text-white">Register Team</Button>
                                 </div>
                             </form>
                         </CardContent>

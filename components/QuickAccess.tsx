@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import TrophyIcon from './icons/TrophyIcon';
@@ -78,17 +79,17 @@ const QuickAccess: React.FC = () => {
   return (
     <section className="py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
           {tiles.map((tile) => (
             <Link
               key={tile.name}
               to={tile.href}
-              className="group bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-primary-light hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light"
+              className="group bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-primary-light hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col items-center text-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light min-h-[140px] md:min-h-[160px] justify-center"
             >
-              <div className="mb-3">
-                <tile.Icon className={`w-8 h-8 ${tile.color} transition-transform duration-300 group-hover:scale-110`} />
+              <div className="mb-4">
+                <tile.Icon className={`w-10 h-10 md:w-12 md:h-12 ${tile.color} transition-transform duration-300 group-hover:scale-110`} />
               </div>
-              <p className="font-semibold text-gray-700 text-sm">{tile.name}</p>
+              <p className="font-bold text-gray-800 text-sm md:text-base leading-tight tracking-tight">{tile.name}</p>
             </Link>
           ))}
         </div>

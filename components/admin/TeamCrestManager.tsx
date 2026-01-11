@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { fetchAllCompetitions, fetchDirectoryEntries, updateDirectoryEntry, addDirectoryEntry, handleFirestoreError } from '../../services/api';
+import { fetchAllCompetitions, fetchDirectoryEntries, updateDirectoryEntry, addDirectoryEntry, deleteDirectoryEntry, handleFirestoreError } from '../../services/api';
 import { DirectoryEntity } from '../../data/directory';
 import { Card, CardContent } from '../ui/Card';
 import Spinner from '../ui/Spinner';
@@ -8,8 +8,10 @@ import SearchIcon from '../icons/SearchIcon';
 import ImageUploader from '../ui/ImageUploader';
 import { findInMap } from '../../services/utils';
 import FilterIcon from '../icons/FilterIcon';
+import TrashIcon from '../icons/TrashIcon';
 
 interface EntityItem {
+    id?: string;
     name: string;
     currentCrest: string;
     source: 'directory' | 'competition';
@@ -21,57 +23,57 @@ const TeamCrestManager: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
-    const [savingStatus, setSavingStatus] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
+    const [savingStatus, setSavingStatus] = useState<Record<string, 'saving' | 'saved' | 'error' | 'deleting'>>({});
 
     const [directoryEntries, setDirectoryEntries] = useState<Map<string, DirectoryEntity>>(new Map());
 
-    useEffect(() => {
-        const loadAllData = async () => {
-            setLoading(true);
-            try {
-                const [allComps, dirEntries] = await Promise.all([
-                    fetchAllCompetitions(),
-                    fetchDirectoryEntries()
-                ]);
+    const loadAllData = async () => {
+        setLoading(true);
+        try {
+            const [allComps, dirEntries] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchDirectoryEntries()
+            ]);
 
-                const dirMap = new Map<string, DirectoryEntity>();
-                dirEntries.forEach(e => dirMap.set(e.name.trim().toLowerCase(), e));
-                setDirectoryEntries(dirMap);
+            const dirMap = new Map<string, DirectoryEntity>();
+            dirEntries.forEach(e => dirMap.set(e.name.trim().toLowerCase(), e));
+            setDirectoryEntries(dirMap);
 
-                const entityMap = new Map<string, EntityItem>();
+            const entityMap = new Map<string, EntityItem>();
 
-                // 1. Load ALL entities from the directory (Clubs, Academies, Refs, Associations)
-                for (const entry of dirEntries) {
-                    entityMap.set(entry.name, {
-                        name: entry.name,
-                        currentCrest: entry.crestUrl || '',
-                        source: 'directory',
-                        category: entry.category
-                    });
-                }
+            for (const entry of dirEntries) {
+                entityMap.set(entry.name, {
+                    id: entry.id,
+                    name: entry.name,
+                    currentCrest: entry.crestUrl || '',
+                    source: 'directory',
+                    category: entry.category
+                });
+            }
 
-                // 2. Add teams from competitions that aren't in the directory yet
-                for (const comp of Object.values(allComps)) {
-                    for (const team of comp.teams || []) {
-                        if (!entityMap.has(team.name)) {
-                            entityMap.set(team.name, {
-                                name: team.name,
-                                currentCrest: team.crestUrl || '',
-                                source: 'competition',
-                                category: 'Club' // Default assumption for competition participants
-                            });
-                        }
+            for (const comp of Object.values(allComps)) {
+                for (const team of comp.teams || []) {
+                    if (!entityMap.has(team.name)) {
+                        entityMap.set(team.name, {
+                            name: team.name,
+                            currentCrest: team.crestUrl || '',
+                            source: 'competition',
+                            category: 'Club' 
+                        });
                     }
                 }
-
-                setAllItems(Array.from(entityMap.values()).sort((a, b) => a.name.localeCompare(b.name)));
-
-            } catch (error) {
-                console.error("Failed to load entity data", error);
-            } finally {
-                setLoading(false);
             }
-        };
+
+            setAllItems(Array.from(entityMap.values()).sort((a, b) => a.name.localeCompare(b.name)));
+
+        } catch (error) {
+            console.error("Failed to load entity data", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         loadAllData();
     }, []);
 
@@ -96,22 +98,18 @@ const TeamCrestManager: React.FC = () => {
             const dirEntry = findInMap(itemName, directoryEntries);
             
             if (dirEntry) {
-                // Update existing directory entry
                 await updateDirectoryEntry(dirEntry.id, { crestUrl: newCrestUrl });
             } else {
-                // Create a new directory entry if it doesn't exist (e.g. came from competition data)
                 const newEntry: Omit<DirectoryEntity, 'id'> = {
                     name: itemName,
                     category: (item.category as any) || 'Club',
-                    region: 'Hhohho', // Default, user can edit later in Directory Manager
+                    region: 'Hhohho', 
                     crestUrl: newCrestUrl
                 };
                 await addDirectoryEntry(newEntry);
             }
             
-            // Optimistically update local state
             setAllItems(prev => prev.map(t => t.name === itemName ? { ...t, currentCrest: newCrestUrl, source: 'directory' } : t));
-            
             setSavingStatus(prev => ({ ...prev, [itemName]: 'saved' }));
             setTimeout(() => setSavingStatus(prev => ({ ...prev, [itemName]: undefined })), 2000);
 
@@ -121,13 +119,29 @@ const TeamCrestManager: React.FC = () => {
         }
     };
 
+    const handleDeleteEntity = async (item: EntityItem) => {
+        if (!window.confirm(`Are you sure you want to delete ${item.name} from the directory? This will remove their crest and public profile.`)) return;
+        
+        const itemName = item.name;
+        setSavingStatus(prev => ({ ...prev, [itemName]: 'deleting' }));
+        
+        try {
+            if (item.id) {
+                await deleteDirectoryEntry(item.id);
+            }
+            setAllItems(prev => prev.filter(i => i.name !== itemName));
+        } catch (error) {
+            handleFirestoreError(error, `delete ${itemName}`);
+            setSavingStatus(prev => ({ ...prev, [itemName]: undefined }));
+        }
+    };
+
     return (
         <Card className="shadow-lg animate-fade-in">
             <CardContent className="p-6">
                 <h3 className="text-2xl font-bold font-display mb-2">Entity Logo Manager</h3>
                 <p className="text-sm text-gray-600 mb-6">
-                    Update logos, crests, and photos for all entities (Clubs, Academies, Referees, Associations). 
-                    Changes here sync automatically to the Directory and Team profiles.
+                    Update logos, crests, and photos for all entities. Changes here sync automatically to the Directory.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -178,19 +192,22 @@ const TeamCrestManager: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="w-full sm:w-auto">
+                                <div className="w-full sm:w-auto flex items-center gap-3">
                                     <ImageUploader 
                                         onUpload={(base64) => handleSaveCrest(item, base64)} 
-                                        status={savingStatus[item.name]}
+                                        status={savingStatus[item.name] === 'deleting' ? undefined : (savingStatus[item.name] as any)}
                                     />
+                                    <button 
+                                        onClick={() => handleDeleteEntity(item)}
+                                        className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                                        title="Delete Entity"
+                                        disabled={savingStatus[item.name] === 'deleting'}
+                                    >
+                                        {savingStatus[item.name] === 'deleting' ? <Spinner className="w-4 h-4 border-red-600 border-2" /> : <TrashIcon className="w-5 h-5" />}
+                                    </button>
                                 </div>
                             </div>
                         ))}
-                        {filteredItems.length === 0 && (
-                            <div className="text-center py-12 text-gray-500">
-                                No entities found matching your filters.
-                            </div>
-                        )}
                     </div>
                 )}
             </CardContent>
