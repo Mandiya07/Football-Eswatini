@@ -79,17 +79,19 @@ const QuickAccess: React.FC = () => {
   return (
     <section className="py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {tiles.map((tile) => (
             <Link
               key={tile.name}
               to={tile.href}
-              className="group bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-200 hover:border-primary-light hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col items-center text-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light min-h-[140px] md:min-h-[160px] justify-center"
+              className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-primary/20 hover:shadow-xl hover:-translate-y-1.5 transition-all duration-500 flex flex-col items-center text-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary/30 min-h-[140px] justify-center"
             >
-              <div className="mb-4">
-                <tile.Icon className={`w-10 h-10 md:w-12 md:h-12 ${tile.color} transition-transform duration-300 group-hover:scale-110`} />
+              <div className="mb-4 p-3 bg-gray-50 rounded-2xl group-hover:bg-primary/5 transition-colors duration-500">
+                <tile.Icon className={`w-10 h-10 ${tile.color} transition-transform duration-500 group-hover:scale-110`} />
               </div>
-              <p className="font-bold text-gray-800 text-sm md:text-base leading-tight tracking-tight">{tile.name}</p>
+              <p className="font-black text-gray-900 text-xs sm:text-sm uppercase tracking-tight leading-tight group-hover:text-primary transition-colors">
+                {tile.name}
+              </p>
             </Link>
           ))}
         </div>

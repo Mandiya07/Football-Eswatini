@@ -1,9 +1,7 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { YouthLeague } from '../data/youth';
 import { fetchYouthData } from '../services/api';
-import YouthSection from './YouthSection';
-import SectionLoader from './SectionLoader';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
@@ -11,10 +9,9 @@ import SchoolIcon from './icons/SchoolIcon';
 import GlobeIcon from './icons/GlobeIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import Spinner from './ui/Spinner';
-import ShieldIcon from './icons/ShieldIcon';
 
 const YouthPage: React.FC = () => {
-  const [youthData, setYouthData] = useState<YouthLeague[]>([]);
+  const [leagues, setLeagues] = useState<YouthLeague[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,7 +19,17 @@ const YouthPage: React.FC = () => {
       setLoading(true);
       try {
           const data = await fetchYouthData();
-          setYouthData(data);
+          // Sort to put known hubs at the top if they exist
+          const order = ['u20-elite-league', 'hub-hardware-u17', 'schools', 'build-it-u13']; 
+          const sortedData = [...data].sort((a, b) => {
+              const idxA = order.indexOf(a.id);
+              const idxB = order.indexOf(b.id);
+              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+              if (idxA !== -1) return -1;
+              if (idxB !== -1) return 1;
+              return a.name.localeCompare(b.name);
+          });
+          setLeagues(sortedData);
       } catch (e) {
           console.error("Error loading youth data", e);
       } finally {
@@ -32,50 +39,29 @@ const YouthPage: React.FC = () => {
     loadData();
   }, []);
 
-  // Helper to get specific config for core legacy competitions
-  const getLeagueConfig = (leagueId: string) => {
-    switch (leagueId) {
-        case 'u20-elite-league':
-            return {
-                path: '/youth/u20',
-                Icon: TrophyIcon,
-                color: 'bg-gradient-to-br from-blue-900 to-blue-700 text-white',
-                iconColor: 'text-yellow-400',
-                iconBg: 'bg-white/20'
-            };
-        case 'schools':
-            return {
-                path: '/schools',
-                Icon: SchoolIcon,
-                color: 'bg-white border-l-8 border-orange-500',
-                iconColor: 'text-orange-600',
-                iconBg: 'bg-orange-100'
-            };
-        case 'hub-hardware-u17':
-            return {
-                path: '/youth/hub-u17',
-                Icon: TrophyIcon,
-                color: 'bg-white border-l-8 border-yellow-500',
-                iconColor: 'text-yellow-600',
-                iconBg: 'bg-yellow-100'
-            };
-        case 'build-it-u13':
-            return {
-                path: '/youth/build-it-u13',
-                Icon: GlobeIcon,
-                color: 'bg-white border-l-8 border-red-500',
-                iconColor: 'text-red-600',
-                iconBg: 'bg-red-100'
-            };
-        default:
-            return {
-                path: `/youth/competition/${leagueId}`,
-                Icon: ShieldIcon,
-                color: 'bg-white border border-gray-100 hover:border-blue-200',
-                iconColor: 'text-blue-600',
-                iconBg: 'bg-blue-50'
-            };
-    }
+  const getIconForLeague = (id: string) => {
+      if (id.includes('u20')) return <TrophyIcon className="w-8 h-8 text-yellow-400" />;
+      if (id.includes('school')) return <SchoolIcon className="w-8 h-8 text-orange-600" />;
+      if (id.includes('u17')) return <TrophyIcon className="w-8 h-8 text-yellow-600" />;
+      return <GlobeIcon className="w-8 h-8 text-blue-600" />;
+  };
+
+  const getStyleForLeague = (id: string) => {
+      if (id === 'u20-elite-league') return "bg-gradient-to-br from-blue-900 to-blue-700 text-white";
+      if (id === 'schools') return "bg-white border-l-8 border-orange-500";
+      if (id === 'hub-hardware-u17') return "bg-white border-l-8 border-yellow-500";
+      if (id === 'build-it-u13') return "bg-white border-l-8 border-red-500";
+      return "bg-white border-l-8 border-blue-500";
+  };
+  
+  const getPathForLeague = (id: string) => {
+      if (id === 'u20-elite-league') return "/youth/u20";
+      if (id === 'schools') return "/schools";
+      if (id === 'hub-hardware-u17') return "/youth/hub-u17";
+      if (id === 'build-it-u13') return "/youth/build-it-u13";
+      // Generic hubs can link to a list or similar if needed, 
+      // for now we link them back to youth to avoid 404s for unconfigured routes
+      return "/youth"; 
   };
 
   return (
@@ -86,7 +72,7 @@ const YouthPage: React.FC = () => {
             Youth Football Hub
           </h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Developing the next generation of Eswatini talent. Explore our youth leagues and development programs.
+            Developing the next generation of Eswatini talent. Explore active youth leagues, tournaments, and elite development programs.
           </p>
         </div>
 
@@ -94,41 +80,31 @@ const YouthPage: React.FC = () => {
             <div className="flex justify-center py-20"><Spinner /></div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
-                {youthData.map((league) => {
-                    const config = getLeagueConfig(league.id);
-                    const Icon = config.Icon;
-
-                    return (
-                        <Link key={league.id} to={config.path} className="group block h-full">
-                            <Card className={`h-full shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden ${config.color}`}>
-                                <CardContent className="p-8 flex flex-col h-full justify-between">
-                                    <div>
-                                        <div className="flex items-center gap-4 mb-4">
-                                            <div className={`p-3 rounded-full ${config.iconBg} flex-shrink-0`}>
-                                                {league.logoUrl ? (
-                                                    <img src={league.logoUrl} alt="" className="w-8 h-8 object-contain" />
-                                                ) : (
-                                                    <Icon className={`w-8 h-8 ${config.iconColor}`} />
-                                                )}
-                                            </div>
-                                            <h2 className="text-2xl font-bold font-display leading-tight">{league.name}</h2>
+                {leagues.map((league) => (
+                    <Link key={league.id} to={getPathForLeague(league.id)} className="group block">
+                        <Card className={`h-full shadow-lg hover:shadow-xl transition-all duration-500 hover:-translate-y-2 ${getStyleForLeague(league.id)}`}>
+                            <CardContent className="p-8 flex flex-col h-full justify-between">
+                                <div>
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-sm shadow-inner">
+                                            {getIconForLeague(league.id)}
                                         </div>
-                                        <p className={`line-clamp-3 ${config.path === '/youth/u20' ? 'text-blue-100' : 'text-gray-600'}`}>
-                                            {league.description}
-                                        </p>
+                                        <h2 className={`text-2xl font-black font-display ${league.id === 'u20-elite-league' ? 'text-white' : 'text-gray-900'}`}>{league.name}</h2>
                                     </div>
-                                    <div className={`flex items-center font-bold mt-6 group-hover:gap-2 transition-all ${config.path === '/youth/u20' ? 'text-yellow-400' : 'text-blue-600'}`}>
-                                        View Hub <ArrowRightIcon className="w-5 h-5 ml-2" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    );
-                })}
-                
-                {youthData.length === 0 && (
-                    <div className="col-span-full py-20 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200">
-                        <p className="text-gray-500 italic">No youth competitions found in the database.</p>
+                                    <p className={`${league.id === 'u20-elite-league' ? 'text-blue-100' : 'text-gray-600'} mb-6 line-clamp-3 text-sm leading-relaxed`}>
+                                        {league.description}
+                                    </p>
+                                </div>
+                                <div className={`flex items-center font-black text-xs uppercase tracking-widest ${league.id === 'u20-elite-league' ? 'text-yellow-400' : 'text-primary'} group-hover:gap-2 transition-all`}>
+                                    View Competition <ArrowRightIcon className="w-5 h-5 ml-2" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                ))}
+                {leagues.length === 0 && (
+                    <div className="col-span-full text-center py-20 border-2 border-dashed rounded-3xl bg-white">
+                        <p className="text-gray-400 font-bold">No active youth competitions found.</p>
                     </div>
                 )}
             </div>
