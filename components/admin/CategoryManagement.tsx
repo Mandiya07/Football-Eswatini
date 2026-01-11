@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { Category, fetchCategories, deleteCategory, updateCategory, fetchAllCompetitions, handleFirestoreError } from '../../services/api';
+import { Category, fetchCategories, deleteCategory, updateCategory, fetchAllCompetitions, fetchYouthData, handleFirestoreError } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -7,7 +8,6 @@ import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import ImageIcon from '../icons/ImageIcon';
 import XIcon from '../icons/XIcon';
-// Import missing PlusCircleIcon
 import PlusCircleIcon from '../icons/PlusCircleIcon';
 import { db } from '../../services/firebase';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
@@ -19,11 +19,12 @@ interface CompetitionSummary {
     logoUrl?: string;
     categoryId: string | null;
     externalApiId?: string;
+    source?: 'competition' | 'youth';
 }
 
 const CategoryManagement: React.FC = () => {
     const [categories, setCategories] = useState<Category[]>([]);
-    const [competitions, setCompetitions] = useState<CompetitionSummary[]>([]);
+    const [entities, setEntities] = useState<CompetitionSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -40,22 +41,39 @@ const CategoryManagement: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [catData, compData] = await Promise.all([
+            const [catData, compData, youthData] = await Promise.all([
                 fetchCategories(),
                 fetchAllCompetitions(),
+                fetchYouthData()
             ]);
             
             setCategories(catData);
+            
+            // Standard Competitions
             const compArray = Object.entries(compData)
                 .filter(([_, comp]) => comp && comp.name)
                 .map(([id, comp]) => ({
                     id,
-                    name: comp.name,
+                    name: comp.name!,
                     logoUrl: comp.logoUrl,
                     categoryId: comp.categoryId || null,
-                    externalApiId: comp.externalApiId
+                    externalApiId: comp.externalApiId,
+                    source: 'competition' as const
                 }));
-            setCompetitions(compArray.sort((a,b) => (a.name || '').localeCompare(b.name || '')));
+
+            // Youth Competitions (Special Handling)
+            const youthArray = youthData.map(y => ({
+                id: y.id,
+                name: y.name,
+                logoUrl: y.logoUrl,
+                // Default youth items to 'development' if not categorized
+                categoryId: (y as any).categoryId || 'development',
+                source: 'youth' as const
+            }));
+
+            const allEntities = [...compArray, ...youthArray];
+            setEntities(allEntities.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+            
         } catch (err) { handleFirestoreError(err, 'load categories'); }
         finally { setLoading(false); }
     };
@@ -64,15 +82,15 @@ const CategoryManagement: React.FC = () => {
         loadData();
     }, []);
     
-    const groupedCompetitions = useMemo(() => {
+    const groupedEntities = useMemo(() => {
         const groups: Record<string, CompetitionSummary[]> = { 'uncategorized': [] };
         categories.forEach(c => { groups[c.id] = []; });
-        competitions.forEach(comp => {
-            if (comp.categoryId && groups[comp.categoryId]) groups[comp.categoryId].push(comp);
-            else groups['uncategorized'].push(comp);
+        entities.forEach(ent => {
+            if (ent.categoryId && groups[ent.categoryId]) groups[ent.categoryId].push(ent);
+            else groups['uncategorized'].push(ent);
         });
         return groups;
-    }, [categories, competitions]);
+    }, [categories, entities]);
 
     const openCatModal = (cat?: Category) => {
         if (cat) {
@@ -92,7 +110,8 @@ const CategoryManagement: React.FC = () => {
             if (editingCategory) {
                 await updateCategory(editingCategory.id, catForm);
             } else {
-                await addDoc(collection(db, 'categories'), catForm);
+                const newId = catForm.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                await addDoc(collection(db, 'categories'), { ...catForm, id: newId });
             }
             setIsCatModalOpen(false);
             loadData();
@@ -101,7 +120,7 @@ const CategoryManagement: React.FC = () => {
     };
 
     const handleDeleteCategory = async (id: string) => {
-        if (!window.confirm("Delete this category? Any linked competitions will become uncategorized.")) return;
+        if (!window.confirm("Delete this category? Any linked entities will become uncategorized.")) return;
         setIsSubmitting(true);
         try {
             await deleteCategory(id);
@@ -120,32 +139,39 @@ const CategoryManagement: React.FC = () => {
         }
     };
 
-    const openCompModal = (comp: CompetitionSummary) => {
-        setEditingComp(comp);
+    const openCompModal = (ent: CompetitionSummary) => {
+        setEditingComp(ent);
         setCompForm({
-            name: comp.name,
-            logoUrl: comp.logoUrl || '',
-            categoryId: comp.categoryId || '',
-            externalApiId: comp.externalApiId || ''
+            name: ent.name,
+            logoUrl: ent.logoUrl || '',
+            categoryId: ent.categoryId || '',
+            externalApiId: ent.externalApiId || ''
         });
         setIsCompModalOpen(true);
     };
 
-    const handleSaveCompetition = async (e: React.FormEvent) => {
+    const handleSaveEntity = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingComp) return;
         setIsSubmitting(true);
         try {
-            const docRef = doc(db, 'competitions', editingComp.id);
-            await updateDoc(docRef, removeUndefinedProps({
+            const collectionName = editingComp.source === 'youth' ? 'youth' : 'competitions';
+            const docRef = doc(db, collectionName, editingComp.id);
+            
+            const updates: any = {
                 name: compForm.name,
                 logoUrl: compForm.logoUrl,
-                categoryId: compForm.categoryId || null,
-                externalApiId: compForm.externalApiId || null
-            }));
+                categoryId: compForm.categoryId || null
+            };
+            
+            if (editingComp.source === 'competition') {
+                updates.externalApiId = compForm.externalApiId || null;
+            }
+
+            await updateDoc(docRef, removeUndefinedProps(updates));
             setIsCompModalOpen(false);
             loadData();
-        } catch (err) { handleFirestoreError(err, 'save competition'); }
+        } catch (err) { handleFirestoreError(err, 'save entity'); }
         finally { setIsSubmitting(false); }
     };
 
@@ -157,7 +183,7 @@ const CategoryManagement: React.FC = () => {
                 <div className="bg-primary p-6 text-white flex justify-between items-center">
                     <div>
                         <h3 className="text-2xl font-bold font-display">Categorization & Taxonomy</h3>
-                        <p className="text-blue-100 text-sm">Organize leagues, edit logos, and define display order.</p>
+                        <p className="text-blue-100 text-sm">Organize leagues, edit logos, and define display order. All youth competitions are shown here.</p>
                     </div>
                     <Button onClick={() => openCatModal()} className="bg-accent text-primary-dark font-black px-4 flex items-center gap-2 shadow-lg">
                         <PlusCircleIcon className="w-5 h-5" /> New Category
@@ -185,32 +211,36 @@ const CategoryManagement: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {groupedCompetitions[cat.id]?.map(comp => (
-                                            <div key={comp.id} onClick={() => openCompModal(comp)} className="p-3 border border-gray-100 rounded-xl hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer flex items-center gap-3">
-                                                <img src={comp.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
+                                        {groupedEntities[cat.id]?.map(ent => (
+                                            <div key={ent.id} onClick={() => openCompModal(ent)} className={`p-3 border rounded-xl transition-all cursor-pointer flex items-center gap-3 ${ent.source === 'youth' ? 'border-green-100 bg-green-50/20 hover:border-green-300' : 'border-gray-100 hover:border-blue-300 hover:bg-blue-50/30'}`}>
+                                                <div className="w-8 h-8 flex items-center justify-center bg-white rounded border border-gray-100">
+                                                    {ent.logoUrl ? <img src={ent.logoUrl} className="max-h-full max-w-full object-contain" /> : <ImageIcon className="w-4 h-4 text-gray-300"/>}
+                                                </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-sm font-bold text-gray-800 truncate">{comp.name}</p>
-                                                    {comp.externalApiId && <span className="text-[9px] font-bold text-purple-600 uppercase">API: {comp.externalApiId}</span>}
+                                                    <p className="text-sm font-bold text-gray-800 truncate">{ent.name}</p>
+                                                    <span className={`text-[8px] font-black uppercase ${ent.source === 'youth' ? 'text-green-600' : 'text-blue-500'}`}>
+                                                        {ent.source === 'youth' ? 'Youth Program' : 'Std League'}
+                                                    </span>
                                                 </div>
                                             </div>
                                         ))}
-                                        {(groupedCompetitions[cat.id]?.length || 0) === 0 && <p className="text-xs text-gray-400 italic py-2 col-span-full">No competitions in this category.</p>}
+                                        {(groupedEntities[cat.id]?.length || 0) === 0 && <p className="text-xs text-gray-400 italic py-2 col-span-full">No entities assigned to this category.</p>}
                                     </div>
                                 </div>
                             ))}
 
                             {/* Uncategorized Section */}
-                            {groupedCompetitions['uncategorized'].length > 0 && (
+                            {groupedEntities['uncategorized'].length > 0 && (
                                 <div className="border border-red-100 rounded-2xl overflow-hidden bg-red-50/30">
                                     <div className="p-4 border-b border-red-100">
                                         <h4 className="font-bold text-red-800">Uncategorized Entities</h4>
-                                        <p className="text-xs text-red-600">These will not appear in the Navigation menus.</p>
+                                        <p className="text-xs text-red-600">These will not appear in dynamic site sections.</p>
                                     </div>
                                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {groupedCompetitions['uncategorized'].map(comp => (
-                                            <div key={comp.id} onClick={() => openCompModal(comp)} className="p-3 border border-red-200 bg-white rounded-xl hover:border-red-400 transition-all cursor-pointer flex items-center gap-3">
-                                                <img src={comp.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
-                                                <span className="text-sm font-bold text-gray-800 truncate">{comp.name}</span>
+                                        {groupedEntities['uncategorized'].map(ent => (
+                                            <div key={ent.id} onClick={() => openCompModal(ent)} className="p-3 border border-red-200 bg-white rounded-xl hover:border-red-400 transition-all cursor-pointer flex items-center gap-3">
+                                                <img src={ent.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
+                                                <span className="text-sm font-bold text-gray-800 truncate">{ent.name}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -253,13 +283,13 @@ const CategoryManagement: React.FC = () => {
                 </div>
             )}
 
-            {/* Competition Edit Modal */}
+            {/* Entity Edit Modal */}
             {isCompModalOpen && editingComp && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsCompModalOpen(false)}>
                     <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <CardContent className="p-8">
                             <h3 className="text-2xl font-bold mb-6">Edit Entity Info</h3>
-                            <form onSubmit={handleSaveCompetition} className="space-y-4">
+                            <form onSubmit={handleSaveEntity} className="space-y-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Display Name</label>
                                     <input value={compForm.name} onChange={e => setCompForm({...compForm, name: e.target.value})} className={inputClass} required />
@@ -279,10 +309,12 @@ const CategoryManagement: React.FC = () => {
                                     </div>
                                     {compForm.logoUrl && <img src={compForm.logoUrl} className="h-16 mx-auto mt-4 object-contain border p-2 rounded bg-gray-50" />}
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">External API ID</label>
-                                    <input value={compForm.externalApiId} onChange={e => setCompForm({...compForm, externalApiId: e.target.value})} className={inputClass} placeholder="e.g. 2021" />
-                                </div>
+                                {editingComp.source === 'competition' && (
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">External API ID</label>
+                                        <input value={compForm.externalApiId} onChange={e => setCompForm({...compForm, externalApiId: e.target.value})} className={inputClass} placeholder="e.g. 2021" />
+                                    </div>
+                                )}
                                 <div className="flex justify-end gap-3 pt-4">
                                     <Button type="button" onClick={() => setIsCompModalOpen(false)} className="bg-gray-100 text-gray-700">Cancel</Button>
                                     <Button type="submit" disabled={isSubmitting} className="bg-primary text-white">{isSubmitting ? 'Saving...' : 'Save Changes'}</Button>

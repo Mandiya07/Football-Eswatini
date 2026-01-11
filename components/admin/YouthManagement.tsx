@@ -13,7 +13,8 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import XIcon from '../icons/XIcon';
 import YouthArticleFormModal from './YouthArticleFormModal';
 import FileTextIcon from '../icons/FileTextIcon';
-import { removeUndefinedProps } from '../../services/utils';
+import { removeUndefinedProps, compressImage } from '../../services/utils';
+import ImageIcon from '../icons/ImageIcon';
 
 const YouthManagement: React.FC = () => {
     const [leagues, setLeagues] = useState<YouthLeague[]>([]);
@@ -21,6 +22,7 @@ const YouthManagement: React.FC = () => {
     const [activeLeagueId, setActiveLeagueId] = useState<string>('');
     const [isEditingLeague, setIsEditingLeague] = useState(false);
     const [editingLeagueDesc, setEditingLeagueDesc] = useState('');
+    const [editingLeagueLogo, setEditingLeagueLogo] = useState('');
     
     // Create League Modal
     const [isCreateLeagueModalOpen, setIsCreateLeagueModalOpen] = useState(false);
@@ -73,6 +75,7 @@ const YouthManagement: React.FC = () => {
             id: newId,
             name: newLeagueName,
             description: 'New Youth League Description',
+            logoUrl: '',
             teams: [],
             risingStars: [],
             articles: []
@@ -102,11 +105,26 @@ const YouthManagement: React.FC = () => {
         }
     };
 
-    const handleSaveLeagueDesc = async () => {
+    const handleSaveLeagueInfo = async () => {
         if (!activeLeague) return;
-        const updatedLeague = { ...activeLeague, description: editingLeagueDesc };
+        const updatedLeague = { 
+            ...activeLeague, 
+            description: editingLeagueDesc,
+            logoUrl: editingLeagueLogo
+        };
         await saveLeagueState(updatedLeague);
         setIsEditingLeague(false);
+    };
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            try {
+                const base64 = await compressImage(e.target.files[0], 400, 0.7);
+                setEditingLeagueLogo(base64);
+            } catch (err) {
+                console.error("Logo process failed", err);
+            }
+        }
     };
 
     const handleDeleteTeam = async (team: YouthTeam) => {
@@ -182,20 +200,43 @@ const YouthManagement: React.FC = () => {
                         <div className="space-y-10 animate-fade-in w-full overflow-hidden">
                             <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                                 <div className="flex justify-between items-center mb-3">
-                                    <h4 className="font-bold text-blue-900 uppercase text-xs">League Description</h4>
+                                    <h4 className="font-bold text-blue-900 uppercase text-xs">League Metadata</h4>
                                     <div className="flex gap-4">
                                         {!isEditingLeague ? (
-                                            <button onClick={() => { setEditingLeagueDesc(activeLeague.description); setIsEditingLeague(true); }} className="text-xs font-bold text-blue-600 hover:underline">Edit Info</button>
+                                            <button onClick={() => { setEditingLeagueDesc(activeLeague.description); setEditingLeagueLogo(activeLeague.logoUrl || ''); setIsEditingLeague(true); }} className="text-xs font-bold text-blue-600 hover:underline">Edit Info</button>
                                         ) : (
                                             <div className="flex gap-3">
                                                 <button onClick={() => setIsEditingLeague(false)} className="text-xs text-gray-500">Cancel</button>
-                                                <button onClick={handleSaveLeagueDesc} className="text-xs font-bold text-blue-700">Save</button>
+                                                <button onClick={handleSaveLeagueInfo} className="text-xs font-bold text-blue-700">Save</button>
                                             </div>
                                         )}
                                         <button onClick={handleDeleteLeague} className="text-xs font-bold text-red-600 hover:underline flex items-center gap-1"><TrashIcon className="w-3 h-3"/> Delete League</button>
                                     </div>
                                 </div>
-                                {isEditingLeague ? <textarea rows={4} className="w-full p-3 border rounded-xl text-sm" value={editingLeagueDesc} onChange={e => setEditingLeagueDesc(e.target.value)} /> : <p className="text-sm text-blue-800 leading-relaxed break-words">{activeLeague.description}</p>}
+                                {isEditingLeague ? (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-blue-900 block mb-1">Description</label>
+                                            <textarea rows={3} className="w-full p-3 border rounded-xl text-sm" value={editingLeagueDesc} onChange={e => setEditingLeagueDesc(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-blue-900 block mb-1">League Logo</label>
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-16 h-16 bg-white rounded-lg border flex items-center justify-center p-1">
+                                                    {editingLeagueLogo ? <img src={editingLeagueLogo} className="max-h-full max-w-full object-contain" /> : <ImageIcon className="text-gray-300 w-8 h-8"/>}
+                                                </div>
+                                                <input type="file" onChange={handleLogoUpload} accept="image/*" className="text-xs text-blue-900" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-6 items-start">
+                                        <div className="w-20 h-20 bg-white rounded-xl border flex items-center justify-center p-2 flex-shrink-0">
+                                            {activeLeague.logoUrl ? <img src={activeLeague.logoUrl} className="max-h-full max-w-full object-contain" /> : <ImageIcon className="text-gray-200 w-10 h-10"/>}
+                                        </div>
+                                        <p className="text-sm text-blue-800 leading-relaxed break-words">{activeLeague.description}</p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Articles Section */}
@@ -209,7 +250,7 @@ const YouthManagement: React.FC = () => {
                                         <div key={article.id} className="p-3 bg-white border border-gray-100 rounded-xl flex items-center justify-between shadow-sm group">
                                             <div className="flex items-center gap-3 overflow-hidden">
                                                 <div className="w-10 h-10 rounded-lg bg-gray-50 flex-shrink-0 flex items-center justify-center border">
-                                                    <FileTextIcon className="w-5 h-5 text-gray-400" />
+                                                    {article.imageUrl ? <img src={article.imageUrl} className="w-full h-full object-cover rounded-lg" /> : <FileTextIcon className="w-5 h-5 text-gray-400" />}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="text-sm font-bold text-gray-800 truncate">{article.title}</p>
@@ -291,7 +332,7 @@ const YouthManagement: React.FC = () => {
                 </div>
             )}
 
-            {/* Other Modals (Team, Player, Article) */}
+            {/* Team Modal */}
             {isTeamModalOpen && (
                 <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsTeamModalOpen(false)}>
                     <Card className="w-full max-w-sm" onClick={e => e.stopPropagation()}>
@@ -302,6 +343,30 @@ const YouthManagement: React.FC = () => {
                                 <div className="flex justify-end gap-3 mt-6">
                                     <Button type="button" onClick={() => setIsTeamModalOpen(false)} className="bg-gray-100 text-gray-700">Cancel</Button>
                                     <Button type="submit" className="bg-primary text-white">Register Team</Button>
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Player Modal */}
+            {isPlayerModalOpen && (
+                <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsPlayerModalOpen(false)}>
+                    <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                        <CardContent className="p-8">
+                            <h4 className="font-bold text-xl mb-6">{editingPlayer ? 'Edit Player' : 'Add Rising Star'}</h4>
+                            <form onSubmit={handleSavePlayer} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input placeholder="Name" value={playerFormData.name} onChange={e => setPlayerFormData({...playerFormData, name: e.target.value})} className="w-full p-2 border rounded" required />
+                                    <input placeholder="Age" type="number" value={playerFormData.age} onChange={e => setPlayerFormData({...playerFormData, age: parseInt(e.target.value)})} className="w-full p-2 border rounded" required />
+                                    <input placeholder="Team" value={playerFormData.team} onChange={e => setPlayerFormData({...playerFormData, team: e.target.value})} className="w-full p-2 border rounded" required />
+                                    <input placeholder="Position" value={playerFormData.position} onChange={e => setPlayerFormData({...playerFormData, position: e.target.value})} className="w-full p-2 border rounded" required />
+                                </div>
+                                <textarea placeholder="Bio / Scouting Notes" value={playerFormData.bio} onChange={e => setPlayerFormData({...playerFormData, bio: e.target.value})} className="w-full p-2 border rounded" rows={3} />
+                                <div className="flex justify-end gap-3 mt-6">
+                                    <Button type="button" onClick={() => setIsPlayerModalOpen(false)} className="bg-gray-100 text-gray-700">Cancel</Button>
+                                    <Button type="submit" className="bg-primary text-white">Save Profile</Button>
                                 </div>
                             </form>
                         </CardContent>
