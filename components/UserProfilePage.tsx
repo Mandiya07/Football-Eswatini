@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,6 +17,7 @@ import BriefcaseIcon from './icons/BriefcaseIcon';
 import ShieldIcon from './icons/ShieldIcon';
 import CloudDownloadIcon from './icons/CloudDownloadIcon';
 import SparklesIcon from './icons/SparklesIcon';
+import CreditCardIcon from './icons/CreditCardIcon';
 
 const UserProfilePage: React.FC = () => {
   const { user, isLoggedIn, logout } = useAuth();
@@ -98,6 +100,27 @@ const UserProfilePage: React.FC = () => {
                                         </div>
                                     </div>
                                 </Link>
+
+                                {isClubAdmin && user.subscription && (
+                                    <Link to="/club-management?tab=billing" className="group">
+                                        <div className={`p-6 rounded-2xl border transition-all h-full flex flex-col justify-between ${user.subscription.status === 'active' ? 'bg-white/10 border-white/20 hover:bg-white/20' : 'bg-red-500/20 border-red-500/40 hover:bg-red-500/30'}`}>
+                                            <div>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <h3 className="font-bold text-xl">Billing & Subs</h3>
+                                                    <div className="bg-green-500/30 p-2 rounded-lg"><CreditCardIcon className="w-5 h-5" /></div>
+                                                </div>
+                                                <p className="text-blue-100 text-sm leading-relaxed">
+                                                    {user.subscription.status === 'active' 
+                                                        ? `Active: Renewal ${user.subscription.nextRenewalDate}` 
+                                                        : 'Action Required: Subscription Past Due'}
+                                                </p>
+                                            </div>
+                                            <div className="mt-6 flex items-center gap-2 text-accent font-bold text-xs uppercase tracking-wider group-hover:gap-3 transition-all">
+                                                Manage Billing <ArrowRightIcon className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    </Link>
+                                )}
 
                                 {isSuperAdmin && (
                                     <>

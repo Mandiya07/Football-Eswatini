@@ -21,6 +21,15 @@ export interface NotificationPreferences {
     announcements: boolean;
 }
 
+export interface SubscriptionInfo {
+    tier: 'Basic' | 'Professional' | 'Elite' | 'Enterprise';
+    status: 'active' | 'expiring' | 'past_due' | 'canceled';
+    startDate: string;
+    nextRenewalDate: string;
+    autoRenew: boolean;
+    lastTransactionId?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -28,9 +37,10 @@ export interface User {
   avatar: string;
   role: 'user' | 'club_admin' | 'league_admin' | 'super_admin';
   club?: string;
-  managedLeagues?: string[]; // IDs of competitions managed
+  managedLeagues?: string[]; 
   favoriteTeamIds: number[];
   notificationPreferences: NotificationPreferences;
+  subscription?: SubscriptionInfo; // Added subscription tracking
   xp: number; 
   level: number; 
 }

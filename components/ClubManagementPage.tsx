@@ -7,6 +7,7 @@ import UpdateScores from './management/UpdateScores';
 import ManageSquad from './management/ManageSquad';
 import ManageMatchDay from './management/ManageMatchDay';
 import ManageStaff from './management/ManageStaff';
+import BillingManagement from './management/BillingManagement'; // Import new billing component
 import TrophyIcon from './icons/TrophyIcon';
 import UsersIcon from './icons/UsersIcon';
 import ClipboardListIcon from './icons/ClipboardListIcon';
@@ -17,6 +18,7 @@ import VoteIcon from './icons/VoteIcon';
 import ShareIcon from './icons/ShareIcon';
 import BarChartIcon from './icons/BarChartIcon';
 import PaintBucketIcon from './icons/PaintBucketIcon';
+import CreditCardIcon from './icons/CreditCardIcon'; // Added icon
 import SectionLoader from './SectionLoader';
 import FilmIcon from './icons/FilmIcon';
 
@@ -28,7 +30,7 @@ const ClubAnalytics = lazy(() => import('./management/ClubAnalytics'));
 const ClubBranding = lazy(() => import('./management/ClubBranding'));
 const ClubVideoManagement = lazy(() => import('./management/ClubVideoManagement'));
 
-type ClubTab = 'scores' | 'squad' | 'staff' | 'matchday' | 'news' | 'gallery' | 'videos' | 'polls' | 'social' | 'analytics' | 'branding';
+type ClubTab = 'scores' | 'squad' | 'staff' | 'matchday' | 'news' | 'gallery' | 'videos' | 'polls' | 'social' | 'analytics' | 'branding' | 'billing';
 
 const ClubManagementPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -36,7 +38,7 @@ const ClubManagementPage: React.FC = () => {
   
   // Get initial tab from URL or default to 'scores'
   const tabParam = searchParams.get('tab');
-  const validTabs: ClubTab[] = ['scores', 'squad', 'staff', 'matchday', 'news', 'gallery', 'videos', 'polls', 'social', 'analytics', 'branding'];
+  const validTabs: ClubTab[] = ['scores', 'squad', 'staff', 'matchday', 'news', 'gallery', 'videos', 'polls', 'social', 'analytics', 'branding', 'billing'];
   const initialTab = (tabParam && validTabs.includes(tabParam as ClubTab)) ? (tabParam as ClubTab) : 'scores';
 
   const [activeTab, setActiveTabState] = useState<ClubTab>(initialTab);
@@ -88,6 +90,8 @@ const ClubManagementPage: React.FC = () => {
         return <Suspense fallback={<SectionLoader />}><ClubSocialMedia clubName={user.club!} /></Suspense>;
       case 'analytics':
         return <Suspense fallback={<SectionLoader />}><ClubAnalytics clubName={user.club!} /></Suspense>;
+      case 'billing':
+        return <BillingManagement />;
       default:
         return null;
     }
@@ -143,8 +147,9 @@ const ClubManagementPage: React.FC = () => {
                             <TabButton tabName="social" label="Social Media Integration" Icon={ShareIcon} />
                             
                             <div className="my-4 border-t border-gray-100"></div>
-                            <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Insights</p>
+                            <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Admin & Insights</p>
                             <TabButton tabName="analytics" label="Analytics Dashboard" Icon={BarChartIcon} />
+                            <TabButton tabName="billing" label="Billing & Renewals" Icon={CreditCardIcon} />
                         </div>
                     </div>
                 </aside>
