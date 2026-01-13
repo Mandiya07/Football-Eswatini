@@ -295,7 +295,25 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
             return isResults ? numB - numA : numA - numB;
         });
 
-        return sortedKeys.map(key => ({ title: key, fixtures: groups[key] }));
+        return sortedKeys.map(key => {
+            const fixturesInGroup = [...groups[key]];
+            
+            // Sort matches within the matchday
+            fixturesInGroup.sort((a, b) => {
+                const dateTimeA = new Date(`${a.fullDate || '1970-01-01'}T${a.time || '00:00'}`).getTime();
+                const dateTimeB = new Date(`${b.fullDate || '1970-01-01'}T${b.time || '00:00'}`).getTime();
+                
+                if (isResults) {
+                    // Start with most recent results first (descending)
+                    return dateTimeB - dateTimeA;
+                } else {
+                    // Start with earliest fixtures first (ascending)
+                    return dateTimeA - dateTimeB;
+                }
+            });
+
+            return { title: key, fixtures: fixturesInGroup };
+        });
     }, [competition, activeTab]);
 
     return (

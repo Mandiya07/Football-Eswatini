@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -7,10 +6,10 @@ import Spinner from '../ui/Spinner';
 import SparklesIcon from '../icons/SparklesIcon';
 import FilmIcon from '../icons/FilmIcon';
 import RefreshIcon from '../icons/RefreshIcon';
-import MusicIcon from '../icons/RadioIcon'; 
 import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api';
 import { superNormalize, findInMap } from '../../services/utils';
 import { DirectoryEntity } from '../../data/directory';
+import DownloadIcon from '../icons/DownloadIcon';
 
 interface MatchSummary {
     id: string;
@@ -44,8 +43,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     });
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [matches, setMatches] = useState<MatchSummary[]>([]);
-    const [audioFile, setAudioFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const [statusText, setStatusText] = useState('');
     const [imageCache, setImageCache] = useState<Map<string, HTMLImageElement>>(new Map());
     
@@ -77,12 +76,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
             }
         });
-    };
-
-    const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setAudioFile(e.target.files[0]);
-        }
     };
 
     const handlePrepare = async () => {
@@ -219,14 +212,50 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.fillText(`${match.date} • ${match.venue || 'Mavuso Centre'}`, W/2, H - 60);
     }, [imageCache, mode]);
 
+    const handleExportVideo = async () => {
+        if (!canvasRef.current || matches.length === 0) return;
+        setIsExporting(true);
+        
+        const canvas = canvasRef.current;
+        const stream = canvas.captureStream(30); // 30 FPS
+        const mediaRecorder = new MediaRecorder(stream, {
+            mimeType: 'video/webm;codecs=vp9',
+            bitsPerSecond: 5000000 // 5Mbps
+        });
+
+        const chunks: Blob[] = [];
+        mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Recap-${mode}-${new Date().toISOString().split('T')[0]}.webm`;
+            a.click();
+            setIsExporting(false);
+            URL.revokeObjectURL(url);
+        };
+
+        mediaRecorder.start();
+
+        // Record each match frame for 2.5 seconds
+        for (let i = 0; i < matches.length; i++) {
+            setCurrentFrameIndex(i);
+            drawMatchFrame(matches[i]);
+            await new Promise(resolve => setTimeout(resolve, 2500));
+        }
+
+        mediaRecorder.stop();
+    };
+
     useEffect(() => {
-        if (step === 3 && matches.length > 0) {
+        if (step === 3 && matches.length > 0 && !isExporting) {
             const timer = setInterval(() => {
                 setCurrentFrameIndex(prev => (prev + 1) % matches.length);
             }, 3000);
             return () => clearInterval(timer);
         }
-    }, [step, matches.length]);
+    }, [step, matches.length, isExporting]);
 
     useEffect(() => {
         if (step === 3 && matches[currentFrameIndex]) {
@@ -304,12 +333,18 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                         <div key={i} className={`h-1 rounded-full transition-all ${i === currentFrameIndex ? 'w-8 bg-purple-500 shadow-[0_0_10px_#a855f7]' : 'w-2 bg-white/20'}`}></div>
                                     ))}
                                 </div>
+                                {isExporting && (
+                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-30">
+                                        <Spinner className="w-12 h-12 border-white mb-4" />
+                                        <p className="font-bold text-white uppercase tracking-widest animate-pulse">Encoding Video...</p>
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center pb-6">
-                                <Button onClick={() => setStep(1)} className="bg-slate-700 text-white px-8 h-12 rounded-xl font-bold">Configure</Button>
-                                <Button className="bg-purple-600 text-white px-12 font-black h-12 rounded-xl shadow-xl flex items-center gap-2">
-                                    <FilmIcon className="w-5 h-5"/> Export Recap MP4
+                                <Button onClick={() => setStep(1)} disabled={isExporting} className="bg-slate-700 text-white px-8 h-12 rounded-xl font-bold">Configure</Button>
+                                <Button onClick={handleExportVideo} disabled={isExporting} className="bg-purple-600 text-white px-12 font-black h-12 rounded-xl shadow-xl flex items-center gap-2">
+                                    {isExporting ? <Spinner className="w-5 h-5 border-white" /> : <><FilmIcon className="w-5 h-5"/> Export Recap Video</>}
                                 </Button>
                             </div>
                         </div>

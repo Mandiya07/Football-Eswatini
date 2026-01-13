@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { listenToLiveUpdates, LiveUpdate, listenToAllCompetitions } from '../services/api';
 import { CompetitionFixture } from '../data/teams';
@@ -18,6 +17,7 @@ import { DirectoryEntity } from '../data/directory';
 import AdBanner from './AdBanner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import Button from './ui/Button';
+import ChevronDownIcon from './icons/ChevronDownIcon';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
     switch (type) {
@@ -64,6 +64,8 @@ const LiveUpdatesPage: React.FC = () => {
     const [recentResults, setRecentResults] = useState<{ fixture: CompetitionFixture, competitionId: string, competitionName: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'live' | 'upcoming' | 'results'>('live');
+    const [expandedMatches, setExpandedMatches] = useState<Set<string | number>>(new Set());
+    
     const emptyMap = useMemo(() => new Map<string, DirectoryEntity>(), []);
 
     useEffect(() => {
@@ -116,6 +118,13 @@ const LiveUpdatesPage: React.FC = () => {
             unsubscribeUpdates();
         };
     }, []);
+
+    const toggleExpand = (id: string | number) => {
+        const next = new Set(expandedMatches);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        setExpandedMatches(next);
+    };
 
     const liveMatches = useMemo(() => {
         const matchesMap = new Map<string, MergedLiveMatch>();
@@ -175,12 +184,18 @@ const LiveUpdatesPage: React.FC = () => {
                                     {liveMatches.map((match) => (
                                         <Card key={match.id} className="shadow-lg overflow-hidden border-0 ring-1 ring-black/5 bg-white">
                                             <CardContent className="p-0">
-                                                <header className="p-4 bg-slate-900 text-white">
+                                                <header 
+                                                    className="p-4 bg-slate-900 text-white cursor-pointer group relative"
+                                                    onClick={() => toggleExpand(match.id)}
+                                                >
                                                     <div className="flex justify-between items-center mb-4">
                                                         <span className="text-[9px] font-black uppercase tracking-[0.2em] text-accent">{match.competitionName}</span>
-                                                        <div className="flex items-center gap-2 px-2 py-0.5 bg-red-600 rounded">
-                                                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
-                                                            <span className="text-[9px] font-black">LIVE</span>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex items-center gap-2 px-2 py-0.5 bg-red-600 rounded">
+                                                                <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
+                                                                <span className="text-[9px] font-black">LIVE</span>
+                                                            </div>
+                                                            <ChevronDownIcon className={`w-5 h-5 text-white/50 group-hover:text-white transition-transform duration-300 ${expandedMatches.has(match.id) ? 'rotate-180' : ''}`} />
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
@@ -200,32 +215,36 @@ const LiveUpdatesPage: React.FC = () => {
                                                         <span className="font-mono text-sm font-bold opacity-60">{match.liveMinute}'</span>
                                                     </div>
                                                 </header>
-                                                <div className="p-4 bg-white">
-                                                    {match.events.length > 0 ? (
-                                                        <div className="space-y-4">
-                                                            <ul className="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
-                                                                {match.events.sort((a,b) => (b.minute || 0) - (a.minute || 0)).map((event) => (
-                                                                    <li key={event.id} className="flex items-start gap-4 relative pl-8 animate-fade-in">
-                                                                        <div className="absolute left-[-2px] top-1 bg-white border-2 border-slate-200 rounded-full w-2 h-2 z-10"></div>
-                                                                        <span className="font-mono font-black text-slate-400 text-sm w-8">{event.minute}'</span>
-                                                                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-grow shadow-sm">
-                                                                            <div className="flex items-center gap-2 mb-0.5">
-                                                                                <EventIcon type={event.type} />
-                                                                                <p className="font-black text-slate-900 uppercase text-[10px] tracking-tight">{event.type.replace('_', ' ')}</p>
+                                                
+                                                {expandedMatches.has(match.id) && (
+                                                    <div className="p-4 bg-white animate-in slide-in-from-top-4 duration-300">
+                                                        {match.events.length > 0 ? (
+                                                            <div className="space-y-4">
+                                                                <ul className="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
+                                                                    {match.events.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)).map((event) => (
+                                                                        <li key={event.id} className="flex items-start gap-4 relative pl-8 animate-fade-in">
+                                                                            <div className="absolute left-[-2px] top-1 bg-white border-2 border-slate-200 rounded-full w-2 h-2 z-10"></div>
+                                                                            <span className="font-mono font-black text-slate-400 text-sm w-8">{event.minute}'</span>
+                                                                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-grow shadow-sm">
+                                                                                <div className="flex items-center gap-2 mb-0.5">
+                                                                                    <EventIcon type={event.type} />
+                                                                                    <p className="font-black text-slate-900 uppercase text-[10px] tracking-tight">{event.type.replace('_', ' ')}</p>
+                                                                                </div>
+                                                                                <p className="text-xs text-slate-700 font-medium">{event.description}</p>
+                                                                                {event.player && <p className="text-[10px] text-primary font-bold mt-1">{event.player}</p>}
                                                                             </div>
-                                                                            <p className="text-xs text-slate-700 font-medium">{event.description}</p>
-                                                                            {event.player && <p className="text-[10px] text-primary font-bold mt-1">{event.player}</p>}
-                                                                        </div>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="py-6 text-center text-slate-400">
-                                                            <p className="italic text-xs">Awaiting match events...</p>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="py-12 text-center text-slate-400 border-2 border-dashed rounded-xl bg-gray-50">
+                                                                <ClockIcon className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                                                                <p className="italic text-xs font-bold uppercase tracking-widest">Awaiting match events...</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </CardContent>
                                         </Card>
                                     ))}

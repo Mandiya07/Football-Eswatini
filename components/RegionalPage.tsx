@@ -12,6 +12,7 @@ interface Region {
   description: string;
   color: string;
   iconBg: string;
+  logoUrl?: string;
 }
 
 const regions: Region[] = [
@@ -20,28 +21,32 @@ const regions: Region[] = [
     name: 'Hhohho', 
     description: 'Home to the capital city clubs and elite regional development programs.',
     color: 'from-blue-600 to-blue-800',
-    iconBg: 'bg-blue-100 text-blue-600'
+    iconBg: 'bg-blue-100 text-blue-600',
+    logoUrl: 'https://via.placeholder.com/150/002B7F/FFFFFF?text=Hhohho'
   },
   { 
     id: 'manzini', 
     name: 'Manzini', 
     description: 'The hub of football activity in Eswatini with intense regional rivalries.',
     color: 'from-yellow-500 to-yellow-700',
-    iconBg: 'bg-yellow-100 text-yellow-700'
+    iconBg: 'bg-yellow-100 text-yellow-700',
+    logoUrl: 'https://via.placeholder.com/150/FDB913/001e5a?text=Manzini'
   },
   { 
     id: 'lubombo', 
     name: 'Lubombo', 
     description: 'Nurturing talent in the eastern lowveld with a focus on community tournaments.',
     color: 'from-green-600 to-green-800',
-    iconBg: 'bg-green-100 text-green-600'
+    iconBg: 'bg-green-100 text-green-600',
+    logoUrl: 'https://via.placeholder.com/150/228B22/FFFFFF?text=Lubombo'
   },
   { 
     id: 'shiselweni', 
     name: 'Shiselweni', 
     description: 'Developing the future of football in the southern regions of the Kingdom.',
     color: 'from-red-600 to-red-800',
-    iconBg: 'bg-red-100 text-red-600'
+    iconBg: 'bg-red-100 text-red-600',
+    logoUrl: 'https://via.placeholder.com/150/D22730/FFFFFF?text=Shiselweni'
   },
 ];
 
@@ -66,11 +71,15 @@ const RegionalPage: React.FC = () => {
             <Link key={region.id} to={`/region/${region.id}`} className="group block h-full">
               <Card className="h-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-0 overflow-hidden">
                 <div className={`h-2 bg-gradient-to-r ${region.color}`}></div>
-                <CardContent className="p-8 flex flex-col h-full">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className={`p-4 rounded-2xl ${region.iconBg}`}>
-                      <MapPinIcon className="w-8 h-8" />
-                    </div>
+                <CardContent className="p-8 flex flex-col h-full items-center text-center">
+                  <div className="h-24 w-24 mb-6 flex items-center justify-center">
+                    {region.logoUrl ? (
+                        <img src={region.logoUrl} alt={region.name} className="max-h-full max-w-full object-contain drop-shadow-md rounded-xl" />
+                    ) : (
+                        <div className={`p-6 rounded-2xl ${region.iconBg}`}>
+                          <MapPinIcon className="w-10 h-10" />
+                        </div>
+                    )}
                   </div>
                   
                   <h2 className="text-3xl font-display font-bold text-gray-900 mb-3">{region.name}</h2>
@@ -78,7 +87,7 @@ const RegionalPage: React.FC = () => {
                     {region.description}
                   </p>
                   
-                  <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-wider group-hover:gap-4 transition-all">
+                  <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-wider group-hover:gap-4 transition-all pt-4 border-t w-full justify-center">
                     Explore Region <ArrowRightIcon className="w-5 h-5" />
                   </div>
                 </CardContent>

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
@@ -14,6 +13,9 @@ import { superNormalize, findInMap } from '../../services/utils';
 import RecapGeneratorModal from './RecapGeneratorModal';
 import { DirectoryEntity } from '../../data/directory';
 import CalendarIcon from '../icons/CalendarIcon';
+import { db } from '../../services/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import CheckCircleIcon from '../icons/CheckCircleIcon';
 
 type ContentType = 'captions' | 'image' | 'weekly';
 type PlatformType = 'Twitter/X' | 'Facebook' | 'Instagram';
@@ -41,6 +43,8 @@ const SocialMediaGenerator: React.FC = () => {
     const [platform, setPlatform] = useState<PlatformType>('Instagram');
     const [generatedCaptions, setGeneratedCaptions] = useState<string[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
+    const [publishSuccess, setPublishSuccess] = useState(false);
     const [isFetchingData, setIsFetchingData] = useState(false);
     
     const [allLeagues, setAllLeagues] = useState<{ id: string, name: string, logoUrl?: string }[]>([]);
@@ -133,11 +137,12 @@ const SocialMediaGenerator: React.FC = () => {
         }
     };
 
-    const handleGenerateCaptions = async (isWeeklySummary = false) => {
+    const handleGenerateContent = async (isWeeklySummary = false) => {
         if (selectedMatchIds.length === 0) return alert("Select matches first.");
         if (!process.env.API_KEY) return alert('API Key missing.');
 
         setIsGenerating(true);
+        setPublishSuccess(false);
         try {
             const matchesToSummarize = rawMatches.filter(m => selectedMatchIds.includes(m.id));
             const dataToProcess = matchesToSummarize.map(m => 
@@ -145,17 +150,65 @@ const SocialMediaGenerator: React.FC = () => {
             ).join(', ');
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = isWeeklySummary 
-                ? `You are the chief editor for Football Eswatini. Create a long-form "Weekly Update" newsletter-style summary for ${platform} based on these matches: "${dataToProcess}". Structure it with an exciting intro, key highlights, and look ahead. Use emojis and #FootballEswatini.`
-                : `You are the social media manager for Football Eswatini. Create 3 exciting captions for ${platform} based on these matches: "${dataToProcess}". Use emojis and #FootballEswatini. Separate each with '---'.`;
             
-            const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-            setGeneratedCaptions(response.text?.split('---').map(s => s.trim()).filter(Boolean) || [response.text || '']);
+            let prompt = "";
+            if (isWeeklySummary) {
+                prompt = `You are a professional Sports Journalist for Football Eswatini. Create a detailed weekly review article based on these matches: "${dataToProcess}". 
+                The article should have:
+                1. A compelling title.
+                2. A short summary (2 sentences).
+                3. A full body (at least 500 words) with headers for 'Weekend Overview', 'The Highlights', 'Tactical Analysis', and 'Table Implications'.
+                
+                Format the response as a valid JSON object with keys: "title", "summary", "content".`;
+            } else {
+                prompt = `You are the social media manager for Football Eswatini. Create 3 exciting captions for ${platform} based on these matches: "${dataToProcess}". Use emojis and #FootballEswatini. Separate each with '---'.`;
+            }
+            
+            const response = await ai.models.generateContent({ 
+                model: 'gemini-3-flash-preview', 
+                contents: prompt,
+                config: isWeeklySummary ? { responseMimeType: "application/json" } : undefined
+            });
+
+            if (isWeeklySummary) {
+                const articleData = JSON.parse(response.text || "{}");
+                setGeneratedCaptions([JSON.stringify(articleData)]); // Store stringified JSON temporarily
+            } else {
+                setGeneratedCaptions(response.text?.split('---').map(s => s.trim()).filter(Boolean) || [response.text || '']);
+            }
         } catch (error) {
             console.error(error);
             alert("AI generation failed.");
         } finally {
             setIsGenerating(false);
+        }
+    };
+
+    const handlePublishArticle = async () => {
+        if (generatedCaptions.length === 0 || activeTab !== 'weekly') return;
+        setIsPublishing(true);
+        try {
+            const article = JSON.parse(generatedCaptions[0]);
+            const slug = article.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            
+            await addDoc(collection(db, 'news'), {
+                title: article.title,
+                summary: article.summary,
+                content: article.content,
+                image: "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&w=1600&q=80",
+                category: ['Football News', 'National'],
+                date: new Date().toISOString(),
+                createdAt: serverTimestamp(),
+                url: `/news/${slug}-${Date.now()}`
+            });
+            
+            setPublishSuccess(true);
+            setGeneratedCaptions([]);
+        } catch (error) {
+            console.error("Publish failed", error);
+            alert("Failed to save article to News Management.");
+        } finally {
+            setIsPublishing(false);
         }
     };
 
@@ -302,9 +355,9 @@ const SocialMediaGenerator: React.FC = () => {
     return (
         <div className="space-y-8 animate-fade-in">
             <div className="flex bg-white/50 p-1.5 rounded-2xl w-fit border border-gray-200 shadow-sm flex-wrap gap-2">
-                <button onClick={() => setActiveTab('captions')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'captions' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>AI Captions</button>
-                <button onClick={() => setActiveTab('weekly')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'weekly' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>Weekly Update</button>
-                <button onClick={() => setActiveTab('image')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'image' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>Graphic Studio</button>
+                <button onClick={() => { setActiveTab('captions'); setGeneratedCaptions([]); }} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'captions' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>AI Captions</button>
+                <button onClick={() => { setActiveTab('weekly'); setGeneratedCaptions([]); }} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'weekly' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>Weekly Article</button>
+                <button onClick={() => { setActiveTab('image'); setGeneratedCaptions([]); }} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'image' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>Graphic Studio</button>
                 <button onClick={() => setIsRecapModalOpen(true)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-purple-600 hover:bg-purple-50 flex items-center gap-2">
                     <FilmIcon className="w-4 h-4" /> AI Recap Video
                 </button>
@@ -318,7 +371,7 @@ const SocialMediaGenerator: React.FC = () => {
                                 {activeTab === 'weekly' ? <CalendarIcon className="w-6 h-6 text-indigo-600" /> : <SparklesIcon className="w-6 h-6 text-indigo-600" />}
                             </div>
                             <h3 className="text-2xl font-bold font-display text-gray-800">
-                                {activeTab === 'weekly' ? 'Weekly Summary' : 'Media Studio'}
+                                {activeTab === 'weekly' ? 'Weekly Article Generator' : 'Media Studio'}
                             </h3>
                         </div>
 
@@ -384,21 +437,23 @@ const SocialMediaGenerator: React.FC = () => {
                             </Button>
                         ) : (
                              <div className="space-y-4 pt-4 border-t">
-                                <div>
-                                    <label className="block text-xs font-black uppercase text-gray-400 mb-2">Target Platform</label>
-                                    <select value={platform} onChange={(e) => setPlatform(e.target.value as PlatformType)} className="block w-full px-3 py-2 border rounded-xl text-sm">
-                                        <option>Instagram</option><option>Facebook</option><option>Twitter/X</option>
-                                    </select>
-                                </div>
-                                <Button onClick={() => handleGenerateCaptions(activeTab === 'weekly')} disabled={isGenerating || selectedMatchIds.length === 0} className="w-full bg-indigo-600 text-white h-12 rounded-2xl shadow-xl font-bold flex justify-center items-center gap-2">
-                                    {isGenerating ? <Spinner className="w-4 h-4 border-2" /> : <><SparklesIcon className="w-5 h-5" /> {activeTab === 'weekly' ? 'Draft Weekly Update' : 'Generate Captions'}</>}
+                                {activeTab === 'captions' && (
+                                    <div>
+                                        <label className="block text-xs font-black uppercase text-gray-400 mb-2">Target Platform</label>
+                                        <select value={platform} onChange={(e) => setPlatform(e.target.value as PlatformType)} className="block w-full px-3 py-2 border rounded-xl text-sm">
+                                            <option>Instagram</option><option>Facebook</option><option>Twitter/X</option>
+                                        </select>
+                                    </div>
+                                )}
+                                <Button onClick={() => handleGenerateContent(activeTab === 'weekly')} disabled={isGenerating || selectedMatchIds.length === 0} className="w-full bg-indigo-600 text-white h-12 rounded-2xl shadow-xl font-bold flex justify-center items-center gap-2">
+                                    {isGenerating ? <Spinner className="w-4 h-4 border-2" /> : <><SparklesIcon className="w-5 h-5" /> {activeTab === 'weekly' ? 'Draft Weekly Article' : 'Generate Captions'}</>}
                                 </Button>
                              </div>
                         )}
                     </CardContent>
                 </Card>
 
-                <div>
+                <div className="sticky top-24">
                     <h3 className="text-lg font-bold font-display text-gray-800 mb-4 flex justify-between items-center">
                         Live Preview
                         {selectedMatchIds.length > 0 && activeTab === 'image' && (
@@ -408,6 +463,46 @@ const SocialMediaGenerator: React.FC = () => {
                     {activeTab === 'image' ? (
                         <div className="relative border-4 border-white shadow-2xl rounded-[2rem] overflow-hidden aspect-[9/16] bg-gray-900 max-h-[800px] mx-auto">
                             <canvas ref={canvasRef} className="w-full h-full object-contain" />
+                        </div>
+                    ) : activeTab === 'weekly' ? (
+                        <div className="space-y-4">
+                            {generatedCaptions.map((jsonStr, i) => {
+                                const article = JSON.parse(jsonStr);
+                                return (
+                                    <Card key={i} className="bg-white border-0 shadow-lg animate-fade-in overflow-hidden">
+                                        <div className="bg-indigo-600 p-4 text-white">
+                                            <h4 className="text-lg font-bold font-display">{article.title}</h4>
+                                            <p className="text-xs text-indigo-100 italic mt-1">{article.summary}</p>
+                                        </div>
+                                        <CardContent className="p-6">
+                                            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-y-auto custom-scrollbar">
+                                                {article.content}
+                                            </div>
+                                            
+                                            {publishSuccess ? (
+                                                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center justify-center gap-2 text-green-700 font-bold">
+                                                    <CheckCircleIcon className="w-5 h-5" />
+                                                    Sent to News Management!
+                                                </div>
+                                            ) : (
+                                                <div className="mt-6 flex gap-3">
+                                                    <Button 
+                                                        onClick={handlePublishArticle} 
+                                                        disabled={isPublishing} 
+                                                        className="flex-grow bg-indigo-600 text-white hover:bg-indigo-700 shadow-md font-bold h-12"
+                                                    >
+                                                        {isPublishing ? <Spinner className="w-4 h-4 border-white" /> : "Send to News Section"}
+                                                    </Button>
+                                                    <button onClick={() => { navigator.clipboard.writeText(`${article.title}\n\n${article.content}`); alert("Copied!"); }} className="p-3 bg-gray-100 rounded-xl text-gray-500 hover:text-indigo-600 transition-colors">
+                                                        <CopyIcon className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                            {generatedCaptions.length === 0 && <p className="text-center py-20 text-gray-400 italic">Generate a weekly summary to preview it here.</p>}
                         </div>
                     ) : (
                         <div className="space-y-4">
