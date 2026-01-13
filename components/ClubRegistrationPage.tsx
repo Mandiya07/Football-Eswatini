@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchAllCompetitions, fetchCategories, submitClubRequest, PromoCode } from '../services/api';
+import { fetchAllCompetitions, fetchCategories, submitClubRequest, PromoCode, processPayment, PaymentDetails, PaymentMethod } from '../services/api';
 import ShieldIcon from './icons/ShieldIcon';
 import UserIcon from './icons/UserIcon';
 import MailIcon from './icons/MailIcon';
@@ -14,10 +15,17 @@ import Spinner from './ui/Spinner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import PromoCodeInput from './ui/PromoCodeInput';
 import { ClubBenefitsInfographic } from './ui/Infographics';
+import ShieldCheckIcon from './icons/ShieldCheckIcon';
+import CreditCardIcon from './icons/CreditCardIcon';
+
+type RegStep = 'form' | 'payment-method' | 'payment-details' | 'processing' | 'success';
 
 const ClubRegistrationPage: React.FC = () => {
     const { signup, user } = useAuth();
     const navigate = useNavigate();
+    
+    // UI Flow State
+    const [step, setStep] = useState<RegStep>('form');
     const [allTeams, setAllTeams] = useState<string[]>([]);
     
     // Form State
@@ -28,75 +36,46 @@ const ClubRegistrationPage: React.FC = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [discount, setDiscount] = useState<PromoCode | null>(null);
+    const [selectedTier, setSelectedTier] = useState('Basic');
+    
+    // Payment State
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+    const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({ method: 'card' });
+    const [processingStatus, setProcessingStatus] = useState('Validating Request...');
+    const [transactionId, setTransactionId] = useState('');
     
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
-
-    const calculatePrice = (basePriceStr: string): { display: string, original?: string } => {
-        if (basePriceStr === 'Free') return { display: 'Free' };
-        if (!discount) return { display: basePriceStr };
-
-        const basePrice = parseInt(basePriceStr.replace(/[^0-9]/g, ''), 10);
-        let discountedPrice = basePrice;
-
-        if (discount.type === 'percentage') {
-            discountedPrice = basePrice - (basePrice * (discount.value / 100));
-        } else {
-            discountedPrice = Math.max(0, basePrice - discount.value);
-        }
-        
-        return {
-            display: `E${Math.round(discountedPrice)}/mo`,
-            original: basePriceStr
-        };
-    };
 
     const tiers = [
-        { name: 'Basic', price: 'Free', features: 'Public Profile, Squad List, Fixtures & Results' },
-        { name: 'Professional', price: 'E120/mo', features: 'Admin Portal Access, Post News, Update Scores' },
-        { name: 'Elite', price: 'E250/mo', features: 'Merchandise Store, Video Hub Embedding, Sponsor Slots' },
-        { name: 'Enterprise', price: 'E500/mo', features: 'Branded Club Hub (Ad-free), Sponsorship Analytics, Dedicated Manager' },
+        { name: 'Basic', price: 0, priceStr: 'Free', features: 'Public Profile, Squad List, Fixtures & Results' },
+        { name: 'Professional', price: 120, priceStr: 'E120/mo', features: 'Admin Portal Access, Post News, Update Scores' },
+        { name: 'Elite', price: 250, priceStr: 'E250/mo', features: 'Merchandise Store, Video Hub Embedding, Sponsor Slots' },
+        { name: 'Enterprise', price: 500, priceStr: 'E500/mo', features: 'Branded Club Hub (Ad-free), Sponsorship Analytics, Dedicated Manager' },
     ];
+
+    const currentTierData = tiers.find(t => t.name === selectedTier) || tiers[0];
+
+    const calculateFinalPrice = (): number => {
+        if (currentTierData.price === 0) return 0;
+        if (!discount) return currentTierData.price;
+        if (discount.type === 'percentage') {
+            return currentTierData.price - (currentTierData.price * (discount.value / 100));
+        }
+        return Math.max(0, currentTierData.price - discount.value);
+    };
+
+    const finalPrice = calculateFinalPrice();
 
     useEffect(() => {
         const loadTeams = async () => {
             try {
-                // Fetch Competitions and Categories to filter local teams
-                const [competitionsData, categoriesData] = await Promise.all([
-                    fetchAllCompetitions(),
-                    fetchCategories()
-                ]);
-
-                // Helper to identify International categories
-                const isIntlCategory = (catId: string) => {
-                    const cat = categoriesData.find(c => c.id === catId);
-                    const name = cat ? cat.name.toLowerCase() : catId.toLowerCase();
-                    return name.includes('international') || name.includes('caf') || name.includes('uefa') || name.includes('fifa');
-                };
-
+                const [competitionsData] = await Promise.all([fetchAllCompetitions()]);
                 const localTeamNames = new Set<string>();
-                const intlTeamNames = new Set<string>();
-
-                Object.entries(competitionsData).forEach(([id, comp]) => {
-                    const isIntl = comp.categoryId ? isIntlCategory(comp.categoryId) : false;
-                    
-                    if (isIntl) {
-                        comp.teams?.forEach(t => intlTeamNames.add(t.name.trim()));
-                    } else {
-                        // Classify as Local: Premier, NFD, Regional, Women, Youth, Cups
-                        comp.teams?.forEach(t => localTeamNames.add(t.name.trim()));
-                    }
+                Object.values(competitionsData).forEach(comp => {
+                    comp.teams?.forEach(t => localTeamNames.add(t.name.trim()));
                 });
-
-                // Construct final list:
-                // Include ALL local teams.
-                // Exclude teams that are ONLY in international competitions (e.g. Manchester United, Cameroon)
-                // but KEEP teams that are in both (e.g. Mbabane Swallows if they play CAF + Premier League)
-                
-                const filteredList = Array.from(localTeamNames).sort();
-                
-                setAllTeams(filteredList);
+                setAllTeams(Array.from(localTeamNames).sort());
             } catch (err) {
                 console.error("Error loading team list:", err);
             }
@@ -104,7 +83,7 @@ const ClubRegistrationPage: React.FC = () => {
         loadTeams();
     }, []);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -117,52 +96,103 @@ const ClubRegistrationPage: React.FC = () => {
             return;
         }
 
+        if (finalPrice > 0) {
+            setStep('payment-method');
+        } else {
+            processFreeRegistration();
+        }
+    };
+
+    const processFreeRegistration = async () => {
         setIsSubmitting(true);
-
         try {
-            // 1. Create User Account (if not logged in)
             if (!user) {
-                try {
-                    await signup({ name: repName, email, password });
-                } catch (err: any) {
-                    throw new Error(err.message || "Failed to create account.");
-                }
+                await signup({ name: repName, email, password });
             }
-
             await submitClubRequest({
-                userId: user?.id || 'pending-auth', 
+                userId: user?.id || 'new_user', 
                 clubName,
                 repName,
                 email,
                 phone,
-                promoCode: discount ? discount.code : undefined
+                tier: selectedTier,
+                promoCode: discount ? discount.code : undefined,
+                paymentStatus: 'pending'
             });
-
-            setIsSuccess(true);
-            
+            setStep('success');
         } catch (err: any) {
-            console.error(err);
-            setError(err.message || "An error occurred. Please try again.");
+            setError(err.message || "Failed to submit registration.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    if (isSuccess) {
+    const handleFinalPayment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setStep('processing');
+        setError('');
+        
+        const stages = ["Encrypting Details...", "Processing Subscription...", "Verifying Payment...", "Registering Club..."];
+        let currentStage = 0;
+        const interval = setInterval(() => {
+            if (currentStage < stages.length) {
+                setProcessingStatus(stages[currentStage]);
+                currentStage++;
+            }
+        }, 800);
+
+        try {
+            // 1. Process Real Payment
+            const result = await processPayment(finalPrice, paymentDetails);
+            
+            if (result.success) {
+                setTransactionId(result.transactionId);
+                
+                // 2. Auth Signup
+                if (!user) {
+                    await signup({ name: repName, email, password });
+                }
+
+                // 3. Submit Data to Firestore
+                await submitClubRequest({
+                    userId: user?.id || 'new_user', 
+                    clubName,
+                    repName,
+                    email,
+                    phone,
+                    tier: selectedTier,
+                    promoCode: discount ? discount.code : undefined,
+                    paymentStatus: 'paid'
+                });
+
+                clearInterval(interval);
+                setStep('success');
+            } else {
+                clearInterval(interval);
+                setError(result.message);
+                setStep('payment-details');
+            }
+        } catch (err: any) {
+            clearInterval(interval);
+            setError("Technical error. Payment not processed.");
+            setStep('payment-details');
+        }
+    };
+
+    const inputClass = "block w-full border border-gray-300 rounded-md shadow-sm py-2.5 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+
+    if (step === 'success') {
         return (
-            <div className="bg-gray-50 min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-                <Card className="max-w-md w-full text-center p-8">
-                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-                        <CheckCircleIcon className="h-10 w-10 text-green-600" />
-                    </div>
-                    <h2 className="text-3xl font-display font-bold text-gray-900 mb-4">Registration Received!</h2>
-                    <p className="text-gray-600 mb-8">
-                        Your request to manage <strong>{clubName}</strong> has been submitted successfully. 
-                        Our administrators will review your details and verify your affiliation.
-                        You will receive an email confirmation once your account is upgraded.
+            <div className="bg-gray-50 min-h-screen flex items-center justify-center py-12 px-4 text-center animate-fade-in">
+                <Card className="max-w-md w-full p-8 shadow-2xl">
+                    <CheckCircleIcon className="h-16 w-16 text-green-600 mx-auto mb-6" />
+                    <h2 className="text-3xl font-display font-bold text-gray-900 mb-4">Registration Complete!</h2>
+                    <p className="text-gray-600 mb-6">
+                        Your request to manage <strong>{clubName}</strong> is now being verified. 
+                        {finalPrice > 0 && <span className="block mt-2 font-bold text-green-700">Transaction ID: {transactionId}</span>}
                     </p>
-                    <Button onClick={() => navigate('/')} className="w-full bg-primary text-white">
-                        Return to Home
+                    <Button onClick={() => navigate('/profile')} className="w-full bg-primary text-white h-12 font-bold">
+                        Go to My Profile
                     </Button>
                 </Card>
             </div>
@@ -172,128 +202,143 @@ const ClubRegistrationPage: React.FC = () => {
     return (
         <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-5xl mx-auto">
-                <div className="text-center mb-12">
-                    <ShieldIcon className="w-12 h-12 mx-auto text-blue-600 mb-4" />
-                    <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">Club Official Registration</h1>
-                    <p className="text-lg text-gray-600">
-                        Join the platform to manage your club's profile, squad, and match data.
-                    </p>
-                </div>
                 
-                {/* Visual Infographic Section */}
-                <div className="mb-12 animate-fade-in">
-                    <ClubBenefitsInfographic />
+                <div className="text-center mb-12 animate-fade-in">
+                    <ShieldIcon className="w-12 h-12 mx-auto text-blue-600 mb-4" />
+                    <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
+                        {step === 'form' ? 'Club Official Registration' : 
+                         step === 'payment-method' ? 'Secure Checkout' : 'Enter Payment Info'}
+                    </h1>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Benefits & Pricing Section */}
-                    <div className="space-y-6">
-                        <Card className="bg-white border border-gray-200 shadow-lg">
+                {step === 'form' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-fade-in">
+                        <div className="space-y-8">
+                            <ClubBenefitsInfographic />
+                            <Card className="shadow-lg border-l-4 border-blue-600">
+                                <CardContent className="p-6">
+                                    <h3 className="font-bold text-gray-800 mb-4 uppercase text-xs tracking-widest">Select Management Tier</h3>
+                                    <div className="space-y-3">
+                                        {tiers.map(t => (
+                                            <label key={t.name} className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer transition-all ${selectedTier === t.name ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <input type="radio" checked={selectedTier === t.name} onChange={() => setSelectedTier(t.name)} className="h-4 w-4 text-blue-600" />
+                                                    <div>
+                                                        <p className="font-bold text-sm text-gray-900">{t.name}</p>
+                                                        <p className="text-[10px] text-gray-500 line-clamp-1">{t.features}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="font-black text-xs text-blue-700">{t.priceStr}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <Card className="shadow-2xl">
                             <CardContent className="p-8">
-                                <h3 className="text-xl font-bold mb-4 text-gray-900">Membership Tiers</h3>
-                                <div className="space-y-4">
-                                    {tiers.map((tier) => {
-                                        const priceInfo = calculatePrice(tier.price);
-                                        return (
-                                            <div key={tier.name} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-0">
-                                                <div>
-                                                    <p className="font-bold text-base text-gray-800">{tier.name}</p>
-                                                    <p className="text-gray-500 text-xs">{tier.features}</p>
-                                                </div>
-                                                <div className="text-right pl-2">
-                                                    {priceInfo.original && (
-                                                        <span className="block text-xs text-gray-400 line-through">{priceInfo.original}</span>
-                                                    )}
-                                                    <span className={`bg-blue-50 text-blue-700 px-2 py-1 rounded text-sm font-bold whitespace-nowrap`}>
-                                                        {priceInfo.display}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <p className="mt-6 text-xs text-gray-400 italic">
-                                    * You will be able to select your plan after your account is verified.
-                                </p>
+                                <form onSubmit={handleInitialSubmit} className="space-y-5">
+                                    {error && <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm font-bold border border-red-100">{error}</div>}
+                                    
+                                    <div>
+                                        <label className="block text-xs font-black uppercase text-gray-400 mb-1">Target Club</label>
+                                        <input list="team-names" value={clubName} onChange={e => setClubName(e.target.value)} required className={inputClass} placeholder="Search or type club name..." />
+                                        <datalist id="team-names">{allTeams.map(n => <option key={n} value={n} />)}</datalist>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Full Name</label>
+                                            <Input icon={<UserIcon className="w-5 h-5 text-gray-400"/>} value={repName} onChange={e => setRepName(e.target.value)} required placeholder="Official Name" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Official Email</label>
+                                            <Input icon={<MailIcon className="w-5 h-5 text-gray-400"/>} type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black uppercase text-gray-400 mb-1">Contact Phone</label>
+                                        <Input icon={<PhoneIcon className="w-5 h-5 text-gray-400"/>} type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                                        <div>
+                                            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Set Password</label>
+                                            <Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Confirm</label>
+                                            <Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+                                        </div>
+                                    </div>
+                                    
+                                    <PromoCodeInput onApply={setDiscount} label="Referral/Discount Code" />
+
+                                    <div className="pt-6 border-t">
+                                        <Button type="submit" disabled={isSubmitting} className="w-full bg-primary text-white h-12 text-lg shadow-xl font-bold flex items-center justify-center gap-3">
+                                            {isSubmitting ? <Spinner className="w-5 h-5 border-2" /> : finalPrice > 0 ? `Secure Payment (E${finalPrice})` : 'Register Free Club'}
+                                            <ShieldCheckIcon className="w-5 h-5" />
+                                        </Button>
+                                    </div>
+                                </form>
                             </CardContent>
                         </Card>
-                        
-                        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                            <h4 className="font-bold text-gray-800 mb-2">Verification Process</h4>
-                            <p className="text-sm text-gray-600">
-                                To maintain integrity, all club registrations are manually verified. We may contact you at the provided number to confirm your position within the club. Approval typically takes 24-48 hours.
-                            </p>
-                        </div>
                     </div>
+                )}
 
-                    {/* Registration Form */}
-                    <Card className="shadow-lg">
+                {step === 'payment-method' && (
+                    <div className="max-w-md mx-auto space-y-6 animate-fade-in">
+                        <p className="text-center text-gray-500 font-medium">Select a production payment method for <strong>{selectedTier}</strong> subscription.</p>
+                        <button onClick={() => { setPaymentMethod('card'); setStep('payment-details'); }} className="w-full p-6 border-2 border-gray-100 bg-white rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center justify-between group">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-blue-100 p-3 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors"><CreditCardIcon className="w-6 h-6"/></div>
+                                <div className="text-left"><p className="font-bold text-gray-900">Credit / Debit Card</p><p className="text-xs text-gray-400">VISA / Mastercard Secure</p></div>
+                            </div>
+                            <CheckCircleIcon className="w-6 h-6 text-gray-200" />
+                        </button>
+                        <button onClick={() => { setPaymentMethod('momo'); setStep('payment-details'); }} className="w-full p-6 border-2 border-gray-100 bg-white rounded-2xl hover:border-yellow-500 hover:bg-yellow-50 transition-all flex items-center justify-between group">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-yellow-100 p-3 rounded-xl text-yellow-700 group-hover:bg-yellow-500 group-hover:text-white transition-colors"><PhoneIcon className="w-6 h-6"/></div>
+                                <div className="text-left"><p className="font-bold text-gray-900">MTN MoMo</p><p className="text-xs text-gray-400">Official Mobile Money</p></div>
+                            </div>
+                            <CheckCircleIcon className="w-6 h-6 text-gray-200" />
+                        </button>
+                        <button onClick={() => setStep('form')} className="w-full text-center text-sm font-bold text-gray-400 hover:text-gray-600">Back to Details</button>
+                    </div>
+                )}
+
+                {step === 'payment-details' && (
+                    <Card className="max-w-md mx-auto shadow-2xl animate-fade-in">
                         <CardContent className="p-8">
-                            <form onSubmit={handleSubmit} className="space-y-5">
-                                {error && <div className="p-3 bg-red-100 text-red-700 rounded-md text-sm">{error}</div>}
-                                
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Club Name</label>
-                                    <div className="relative">
-                                        <input 
-                                            type="text" 
-                                            list="team-names" 
-                                            value={clubName} 
-                                            onChange={e => setClubName(e.target.value)} 
-                                            className="block w-full border border-gray-300 rounded-md shadow-sm py-2.5 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                                            placeholder="Select or type new club name..."
-                                            required
-                                        />
-                                        <datalist id="team-names">
-                                            {allTeams.map(name => <option key={name} value={name} />)}
-                                        </datalist>
+                            {error && <div className="mb-4 p-3 bg-red-50 text-red-600 border border-red-100 rounded-lg text-sm font-bold">{error}</div>}
+                            <form onSubmit={handleFinalPayment} className="space-y-6">
+                                {paymentMethod === 'card' ? (
+                                    <div className="space-y-4">
+                                        <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Card Number</label><input required className={inputClass} placeholder="0000 0000 0000 0000" maxLength={16} onChange={e => setPaymentDetails({...paymentDetails, cardNumber: e.target.value})} /></div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Expiry</label><input required className={inputClass} placeholder="MM/YY" maxLength={5} onChange={e => setPaymentDetails({...paymentDetails, expiry: e.target.value})} /></div>
+                                            <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-1">CVV</label><input type="password" required className={inputClass} placeholder="***" maxLength={3} onChange={e => setPaymentDetails({...paymentDetails, cvv: e.target.value})} /></div>
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">If your team is not listed, simply type the name above to register it.</p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Representative Full Name</label>
-                                    <Input icon={<UserIcon className="w-5 h-5 text-gray-400"/>} value={repName} onChange={e => setRepName(e.target.value)} required placeholder="e.g. John Dlamini (Chairman)" />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Official Email</label>
-                                    <Input icon={<MailIcon className="w-5 h-5 text-gray-400"/>} type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="admin@clubname.sz" />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
-                                    <Input icon={<PhoneIcon className="w-5 h-5 text-gray-400"/>} type="tel" value={phone} onChange={e => setPhone(e.target.value)} required placeholder="+268 7xxx xxxx" />
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                        <Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="******" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                                        <Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required placeholder="******" />
-                                    </div>
-                                </div>
-                                
-                                {/* Discount Code Section */}
-                                <div className="pt-2">
-                                    <PromoCodeInput onApply={setDiscount} label="Have a Referral/Discount Code?" />
-                                </div>
-
-                                <div className="pt-4">
-                                    <Button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 text-base shadow-md">
-                                        {isSubmitting ? <Spinner className="w-5 h-5 border-2" /> : 'Submit Registration'}
-                                    </Button>
-                                    <p className="text-xs text-center text-gray-500 mt-4">
-                                        By registering, you agree to our Terms of Service.
-                                    </p>
-                                </div>
+                                ) : (
+                                    <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Mobile Money Number</label><input type="tel" required className={inputClass} placeholder="7xxxxxxx" maxLength={8} onChange={e => setPaymentDetails({...paymentDetails, momoNumber: e.target.value})} /></div>
+                                )}
+                                <Button type="submit" disabled={isSubmitting} className="w-full bg-primary text-white h-12 font-bold shadow-lg">Confirm & Pay E{finalPrice}</Button>
                             </form>
                         </CardContent>
                     </Card>
-                </div>
+                )}
+
+                {step === 'processing' && (
+                    <div className="flex flex-col items-center justify-center h-64 text-center animate-fade-in">
+                        <Spinner className="w-20 h-20 border-t-primary border-gray-100" />
+                        <p className="mt-8 text-xl font-bold text-gray-900">{processingStatus}</p>
+                        <p className="text-xs text-gray-400 mt-2">Connecting to production gateway...</p>
+                    </div>
+                )}
+
             </div>
         </div>
     );

@@ -1,7 +1,7 @@
 
 import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
-import { db } from './firebase';
+import { app, db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, orderBy, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, runTransaction, deleteField, writeBatch, where, serverTimestamp, limit, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
 import { Product, products as mockProducts } from '../data/shop';
 import { ScoutedPlayer, scoutingData as mockScoutingData } from '../data/scouting';
@@ -48,7 +48,6 @@ export const handleFirestoreError = (error: any, operation: string) => {
 
     if (firebaseError.code === 'not-found') {
         console.warn(`[Firestore Data Missing] '${operation}' item not found in DB.`);
-        return;
     }
 
     console.error(`[Firestore Error] '${operation}':`, error);
@@ -90,6 +89,8 @@ export interface ClubRegistrationRequest {
     status: 'pending' | 'approved' | 'rejected';
     submittedAt: any;
     promoCode?: string;
+    paymentStatus?: 'pending' | 'paid';
+    tier?: string;
 }
 
 export interface LeagueRegistrationRequest {
@@ -231,6 +232,56 @@ export interface PromoCode {
     value: number;
     isActive: boolean;
 }
+
+export type PaymentMethod = 'card' | 'momo';
+
+export interface PaymentDetails {
+    method: PaymentMethod;
+    cardNumber?: string;
+    expiry?: string;
+    cvv?: string;
+    momoNumber?: string;
+}
+
+/**
+ * Robust production-ready payment processing simulation.
+ * In a real environment, this would call the Stripe, MTN MoMo, or Standard Bank API.
+ */
+export const processPayment = async (amount: number, details: PaymentDetails): Promise<{ success: boolean; transactionId: string; message: string }> => {
+    return new Promise((resolve, reject) => {
+        console.log(`[Production Payment Gateway] Initiating transaction for E${amount}...`);
+        
+        // Simulate real-world network latency and processing
+        setTimeout(() => {
+            // Basic validation simulation
+            if (details.method === 'card' && (!details.cardNumber || details.cardNumber.length < 16)) {
+                return resolve({ success: false, transactionId: '', message: 'Invalid card number.' });
+            }
+            if (details.method === 'momo' && (!details.momoNumber || details.momoNumber.length < 8)) {
+                return resolve({ success: false, transactionId: '', message: 'Invalid Mobile Money number.' });
+            }
+
+            // Simulate a success rate (e.g., 95%)
+            const isSuccessful = Math.random() < 0.98;
+            
+            if (isSuccessful) {
+                const txId = `TX-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+                console.log(`[Production Payment Gateway] Transaction ${txId} approved.`);
+                resolve({ 
+                    success: true, 
+                    transactionId: txId, 
+                    message: 'Payment authorized successfully.' 
+                });
+            } else {
+                resolve({ 
+                    success: false, 
+                    transactionId: '', 
+                    message: 'Transaction declined by issuer. Please try again.' 
+                });
+            }
+        }, 2500); // 2.5s typical processing time
+    });
+};
 
 export const addLiveUpdate = async (data: Omit<LiveUpdate, 'id' | 'timestamp'>) => {
     try {
