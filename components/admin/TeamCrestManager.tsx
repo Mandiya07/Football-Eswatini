@@ -42,7 +42,6 @@ const TeamCrestManager: React.FC = () => {
 
             const entityMap = new Map<string, EntityItem>();
 
-            // 1. Load ALL entities from the directory
             for (const entry of dirEntries) {
                 entityMap.set(entry.name, {
                     id: entry.id,
@@ -53,7 +52,6 @@ const TeamCrestManager: React.FC = () => {
                 });
             }
 
-            // 2. Add teams from competitions that aren't in the directory yet
             for (const comp of Object.values(allComps)) {
                 for (const team of comp.teams || []) {
                     if (!entityMap.has(team.name)) {
@@ -122,24 +120,29 @@ const TeamCrestManager: React.FC = () => {
     };
 
     const handleDeleteItem = async (item: EntityItem) => {
-        if (!window.confirm(`Permanently remove "${item.name}" from the directory? If this is a competition team, they will remain in the league tables but won't have a linked profile.`)) return;
+        if (!window.confirm(`Permanently remove "${item.name}" from the directory? This only removes the Directory metadata; standard Competition data is preserved.`)) return;
         
-        if (item.source === 'competition') {
-            alert("This entity only exists in a Competition document. To delete it permanently, go to 'Manage Teams'.");
+        const itemName = item.name;
+        if (!item.id) {
+            alert("This entry is not in the Directory database yet.");
             return;
         }
 
-        if (!item.id) return;
-
-        const itemName = item.name;
         setSavingStatus(prev => ({ ...prev, [itemName]: 'deleting' }));
-        
         try {
             await deleteDirectoryEntry(item.id);
+            // Refresh local list immediately
+            setAllItems(prev => prev.filter(i => i.id !== item.id));
             await loadAllData();
         } catch (error) {
             handleFirestoreError(error, `delete directory entry ${itemName}`);
             setSavingStatus(prev => ({ ...prev, [itemName]: 'error' }));
+        } finally {
+            setSavingStatus(prev => {
+                const newState = { ...prev };
+                delete newState[itemName];
+                return newState;
+            });
         }
     };
 
@@ -201,20 +204,22 @@ const TeamCrestManager: React.FC = () => {
                                         onUpload={(base64) => handleSaveCrest(item, base64)} 
                                         status={savingStatus[item.name] === 'deleting' ? undefined : (savingStatus[item.name] as any)}
                                     />
-                                    <Button 
-                                        onClick={() => handleDeleteItem(item)} 
-                                        disabled={savingStatus[item.name] === 'deleting'}
-                                        className="bg-red-50 text-red-600 hover:bg-red-100 h-9 w-9 p-0 flex items-center justify-center rounded-lg"
-                                        title="Delete Entity"
-                                    >
-                                        {savingStatus[item.name] === 'deleting' ? <Spinner className="w-4 h-4 border-2 border-red-600"/> : <TrashIcon className="w-4 h-4" />}
-                                    </Button>
+                                    {item.source === 'directory' && (
+                                        <Button 
+                                            onClick={() => handleDeleteItem(item)} 
+                                            disabled={savingStatus[item.name] === 'deleting'}
+                                            className="bg-red-50 text-red-600 hover:bg-red-100 h-9 w-9 p-0 flex items-center justify-center rounded-lg border border-red-100"
+                                            title="Delete Directory Entry"
+                                        >
+                                            {savingStatus[item.name] === 'deleting' ? <Spinner className="w-4 h-4 border-2 border-red-600"/> : <TrashIcon className="w-4 h-4" />}
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         ))}
                         {filteredItems.length === 0 && (
-                            <div className="text-center py-12 text-gray-500">
-                                No entities found.
+                            <div className="text-center py-12 text-gray-500 border-2 border-dashed rounded-xl">
+                                No entities found matching your criteria.
                             </div>
                         )}
                     </div>

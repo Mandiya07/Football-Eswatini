@@ -13,8 +13,9 @@ import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api'
 import { superNormalize, findInMap } from '../../services/utils';
 import RecapGeneratorModal from './RecapGeneratorModal';
 import { DirectoryEntity } from '../../data/directory';
+import CalendarIcon from '../icons/CalendarIcon';
 
-type ContentType = 'captions' | 'image';
+type ContentType = 'captions' | 'image' | 'weekly';
 type PlatformType = 'Twitter/X' | 'Facebook' | 'Instagram';
 
 interface SocialMatch {
@@ -115,13 +116,12 @@ const SocialMediaGenerator: React.FC = () => {
                 });
             });
 
-            // Re-sorting logic: Fixtures first (ascending date), then Results (descending date)
             const sorted = extractedMatches.sort((a, b) => {
                 if (a.type !== b.type) return a.type === 'fixture' ? -1 : 1;
                 const timeA = new Date(a.date).getTime();
                 const timeB = new Date(b.date).getTime();
-                if (a.type === 'fixture') return timeA - timeB; // Upcoming first
-                return timeB - timeA; // Recent first
+                if (a.type === 'fixture') return timeA - timeB;
+                return timeB - timeA;
             });
 
             setRawMatches(sorted);
@@ -133,7 +133,7 @@ const SocialMediaGenerator: React.FC = () => {
         }
     };
 
-    const handleGenerateCaptions = async () => {
+    const handleGenerateCaptions = async (isWeeklySummary = false) => {
         if (selectedMatchIds.length === 0) return alert("Select matches first.");
         if (!process.env.API_KEY) return alert('API Key missing.');
 
@@ -145,7 +145,10 @@ const SocialMediaGenerator: React.FC = () => {
             ).join(', ');
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const prompt = `You are the social media manager for Football Eswatini. Create 3 exciting captions for ${platform} based on these matches: "${dataToProcess}". Use emojis and #FootballEswatini. Separate each with '---'.`;
+            const prompt = isWeeklySummary 
+                ? `You are the chief editor for Football Eswatini. Create a long-form "Weekly Update" newsletter-style summary for ${platform} based on these matches: "${dataToProcess}". Structure it with an exciting intro, key highlights, and look ahead. Use emojis and #FootballEswatini.`
+                : `You are the social media manager for Football Eswatini. Create 3 exciting captions for ${platform} based on these matches: "${dataToProcess}". Use emojis and #FootballEswatini. Separate each with '---'.`;
+            
             const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
             setGeneratedCaptions(response.text?.split('---').map(s => s.trim()).filter(Boolean) || [response.text || '']);
         } catch (error) {
@@ -250,7 +253,6 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.roundRect(50, y, W - 100, rowH, 20);
             ctx.fill();
 
-            // Aligned Crests
             if (m.teamACrest && newCache.has(m.teamACrest)) {
                 ctx.drawImage(newCache.get(m.teamACrest)!, 80, y + 25, 100, 100);
             }
@@ -260,26 +262,20 @@ const SocialMediaGenerator: React.FC = () => {
 
             ctx.fillStyle = '#FFFFFF';
             ctx.font = '800 22px "Inter", sans-serif';
-            
             ctx.textAlign = 'left';
             ctx.fillText(m.teamA, 200, y + 80, textMaxW);
-            
             ctx.textAlign = 'right';
             ctx.fillText(m.teamB, W - 200, y + 80, textMaxW);
-
-            // CENTER METADATA
             ctx.textAlign = 'center';
             ctx.font = '900 62px "Poppins", sans-serif';
             const centerInfo = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : m.time || '15:00';
             ctx.fillText(centerInfo, W/2, y + 85);
-
             ctx.font = '600 16px "Inter", sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.4)';
             const subLine = m.venue ? `${m.date} • ${m.venue}` : m.date;
             ctx.fillText(subLine, W/2, y + 125, W - 450);
         });
 
-        // Reduced Footer Height
         const footerH = 100;
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, H - footerH, W, footerH);
@@ -307,6 +303,7 @@ const SocialMediaGenerator: React.FC = () => {
         <div className="space-y-8 animate-fade-in">
             <div className="flex bg-white/50 p-1.5 rounded-2xl w-fit border border-gray-200 shadow-sm flex-wrap gap-2">
                 <button onClick={() => setActiveTab('captions')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'captions' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>AI Captions</button>
+                <button onClick={() => setActiveTab('weekly')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'weekly' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>Weekly Update</button>
                 <button onClick={() => setActiveTab('image')} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'image' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 hover:bg-white'}`}>Graphic Studio</button>
                 <button onClick={() => setIsRecapModalOpen(true)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-purple-600 hover:bg-purple-50 flex items-center gap-2">
                     <FilmIcon className="w-4 h-4" /> AI Recap Video
@@ -317,8 +314,12 @@ const SocialMediaGenerator: React.FC = () => {
                 <Card className="shadow-xl border-0 bg-white">
                     <CardContent className="p-6 space-y-6">
                         <div className="flex items-center gap-3">
-                            <div className="bg-indigo-100 p-3 rounded-2xl"><SparklesIcon className="w-6 h-6 text-indigo-600" /></div>
-                            <h3 className="text-2xl font-bold font-display text-gray-800">Media Studio</h3>
+                            <div className="bg-indigo-100 p-3 rounded-2xl">
+                                {activeTab === 'weekly' ? <CalendarIcon className="w-6 h-6 text-indigo-600" /> : <SparklesIcon className="w-6 h-6 text-indigo-600" />}
+                            </div>
+                            <h3 className="text-2xl font-bold font-display text-gray-800">
+                                {activeTab === 'weekly' ? 'Weekly Summary' : 'Media Studio'}
+                            </h3>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
@@ -335,7 +336,7 @@ const SocialMediaGenerator: React.FC = () => {
                             <div className="flex items-end">
                                 <button onClick={fetchRecentData} disabled={isFetchingData} className="w-full bg-indigo-600 text-white hover:bg-indigo-700 border rounded-xl px-3 py-2.5 text-xs font-bold flex items-center justify-center gap-2 h-10 shadow-md">
                                     {isFetchingData ? <Spinner className="w-3 h-3 border-2" /> : <RefreshIcon className="w-3 h-3" />}
-                                    Sync Results & Fixtures
+                                    Sync Data
                                 </button>
                             </div>
                         </div>
@@ -345,13 +346,13 @@ const SocialMediaGenerator: React.FC = () => {
                             <div className="space-y-6 max-h-[450px] overflow-y-auto pr-2 border rounded-2xl p-4 bg-gray-50 custom-scrollbar">
                                 {fixtureList.length > 0 && (
                                     <div className="space-y-2">
-                                        <h4 className="text-[10px] font-black uppercase text-blue-500 tracking-widest border-b pb-1">Upcoming Fixtures</h4>
+                                        <h4 className="text-[10px] font-black uppercase text-blue-500 tracking-widest border-b pb-1">Fixtures</h4>
                                         {fixtureList.map(m => (
                                             <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
                                                 <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-blue-600" />
                                                 <div className="flex-grow min-w-0">
                                                     <p className="font-bold text-xs truncate">{m.teamA} vs {m.teamB}</p>
-                                                    <p className="text-[10px] text-gray-500">{m.date} &bull; {m.time || 'TBA'} &bull; {m.venue || 'TBA'}</p>
+                                                    <p className="text-[10px] text-gray-500">{m.date} &bull; {m.competition}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -360,7 +361,7 @@ const SocialMediaGenerator: React.FC = () => {
                                 
                                 {resultList.length > 0 && (
                                     <div className="space-y-2">
-                                        <h4 className="text-[10px] font-black uppercase text-green-600 tracking-widest border-b pb-1">Recent Results</h4>
+                                        <h4 className="text-[10px] font-black uppercase text-green-600 tracking-widest border-b pb-1">Results</h4>
                                         {resultList.map(m => (
                                             <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-green-50 border-green-400 ring-1 ring-green-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
                                                 <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-green-600" />
@@ -389,8 +390,8 @@ const SocialMediaGenerator: React.FC = () => {
                                         <option>Instagram</option><option>Facebook</option><option>Twitter/X</option>
                                     </select>
                                 </div>
-                                <Button onClick={handleGenerateCaptions} disabled={isGenerating || selectedMatchIds.length === 0} className="w-full bg-indigo-600 text-white h-12 rounded-2xl shadow-xl font-bold flex justify-center items-center gap-2">
-                                    {isGenerating ? <Spinner className="w-4 h-4 border-2" /> : <><SparklesIcon className="w-5 h-5" /> Generate Captions</>}
+                                <Button onClick={() => handleGenerateCaptions(activeTab === 'weekly')} disabled={isGenerating || selectedMatchIds.length === 0} className="w-full bg-indigo-600 text-white h-12 rounded-2xl shadow-xl font-bold flex justify-center items-center gap-2">
+                                    {isGenerating ? <Spinner className="w-4 h-4 border-2" /> : <><SparklesIcon className="w-5 h-5" /> {activeTab === 'weekly' ? 'Draft Weekly Update' : 'Generate Captions'}</>}
                                 </Button>
                              </div>
                         )}
@@ -413,12 +414,12 @@ const SocialMediaGenerator: React.FC = () => {
                             {generatedCaptions.map((cap, i) => (
                                 <Card key={i} className="bg-white border-0 shadow-md animate-fade-in">
                                     <CardContent className="p-4 flex justify-between gap-4">
-                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{cap}</p>
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{cap}</p>
                                         <button onClick={() => { navigator.clipboard.writeText(cap); alert("Copied!"); }} className="p-2 h-fit text-gray-400 hover:text-primary"><CopyIcon className="w-4 h-4"/></button>
                                     </CardContent>
                                 </Card>
                             ))}
-                            {generatedCaptions.length === 0 && <p className="text-center py-20 text-gray-400 italic">Generated captions will appear here.</p>}
+                            {generatedCaptions.length === 0 && <p className="text-center py-20 text-gray-400 italic">Generated content will appear here.</p>}
                         </div>
                     )}
                 </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { listenToLiveUpdates, LiveUpdate, listenToAllCompetitions } from '../services/api';
 import { CompetitionFixture } from '../data/teams';
@@ -16,7 +17,6 @@ import WhistleIcon from './icons/WhistleIcon';
 import { DirectoryEntity } from '../data/directory';
 import AdBanner from './AdBanner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
-// Added missing Button import
 import Button from './ui/Button';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
@@ -74,22 +74,17 @@ const LiveUpdatesPage: React.FC = () => {
             const results: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
             
             const now = new Date();
-            // Relevance window for results: last 7 days
             const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-            // Relevance window for upcoming: next 14 days
             const twoWeeksAhead = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
             
             Object.entries(allCompetitions).forEach(([compId, comp]) => {
                 const compName = comp.displayName || comp.name;
                 
-                // Process Fixtures
                 if (comp.fixtures) {
                     comp.fixtures.forEach(f => {
                         const ts = getMatchTimestamp(f);
-                        const matchDate = new Date(ts);
-                        
                         const isCurrentlyActive = f.status === 'live' || f.status === 'suspended' || f.status === 'abandoned' || 
-                                                 (ts > 0 && Math.abs(now.getTime() - ts) < 4 * 60 * 60 * 1000); // within 4h window
+                                                 (ts > 0 && Math.abs(now.getTime() - ts) < 4 * 60 * 60 * 1000);
 
                         if (isCurrentlyActive) {
                             active.push({ fixture: f, competitionName: compName, competitionId: compId });
@@ -99,7 +94,6 @@ const LiveUpdatesPage: React.FC = () => {
                     });
                 }
 
-                // Process Results
                 if (comp.results) {
                     comp.results.forEach(r => {
                         const ts = getMatchTimestamp(r);
@@ -177,60 +171,58 @@ const LiveUpdatesPage: React.FC = () => {
                     <div className="max-w-5xl mx-auto min-h-[500px]">
                         {filter === 'live' && (
                             liveMatches.length > 0 ? (
-                                <div className="space-y-10 animate-fade-in">
+                                <div className="space-y-6 animate-fade-in">
                                     {liveMatches.map((match) => (
-                                        <Card key={match.id} className="shadow-2xl overflow-hidden border-0 ring-1 ring-black/5 bg-white">
+                                        <Card key={match.id} className="shadow-lg overflow-hidden border-0 ring-1 ring-black/5 bg-white">
                                             <CardContent className="p-0">
-                                                <header className="p-8 bg-slate-900 text-white">
-                                                    <div className="flex justify-between items-center mb-6">
-                                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-accent">{match.competitionName}</span>
-                                                        <div className="flex items-center gap-2 px-3 py-1 bg-red-600 rounded-lg">
-                                                            <span className="w-2 h-2 bg-white rounded-full animate-ping"></span>
-                                                            <span className="text-[10px] font-black">MATCH LIVE</span>
+                                                <header className="p-4 bg-slate-900 text-white">
+                                                    <div className="flex justify-between items-center mb-4">
+                                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-accent">{match.competitionName}</span>
+                                                        <div className="flex items-center gap-2 px-2 py-0.5 bg-red-600 rounded">
+                                                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
+                                                            <span className="text-[9px] font-black">LIVE</span>
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-6 md:gap-12">
-                                                        <div className="text-center md:text-right">
-                                                            <p className="text-2xl md:text-4xl font-display font-black truncate">{match.teamA}</p>
+                                                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+                                                        <div className="text-right">
+                                                            <p className="text-lg md:text-xl font-display font-black truncate">{match.teamA}</p>
                                                         </div>
-                                                        <div className="bg-white/10 backdrop-blur-xl px-8 py-4 rounded-2xl border border-white/20">
-                                                            <p className="text-5xl md:text-7xl font-black tracking-tighter text-accent">
+                                                        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20">
+                                                            <p className="text-3xl md:text-4xl font-black tracking-tighter text-accent">
                                                                 {match.scoreA ?? 0} : {match.scoreB ?? 0}
                                                             </p>
                                                         </div>
-                                                        <div className="text-center md:text-left">
-                                                            <p className="text-2xl md:text-4xl font-display font-black truncate">{match.teamB}</p>
+                                                        <div className="text-left">
+                                                            <p className="text-lg md:text-xl font-display font-black truncate">{match.teamB}</p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-center mt-6">
-                                                        <span className="font-mono text-xl font-bold opacity-60">{match.liveMinute}'</span>
+                                                    <div className="text-center mt-3">
+                                                        <span className="font-mono text-sm font-bold opacity-60">{match.liveMinute}'</span>
                                                     </div>
                                                 </header>
-                                                <div className="p-8 bg-white">
+                                                <div className="p-4 bg-white">
                                                     {match.events.length > 0 ? (
-                                                        <div className="space-y-6">
-                                                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2 mb-6">Match Timeline</h4>
-                                                            <ul className="space-y-6 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
+                                                        <div className="space-y-4">
+                                                            <ul className="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
                                                                 {match.events.sort((a,b) => (b.minute || 0) - (a.minute || 0)).map((event) => (
-                                                                    <li key={event.id} className="flex items-start gap-6 relative pl-10 animate-fade-in">
-                                                                        <div className="absolute left-0 top-1 bg-white border-2 border-slate-200 rounded-full w-2.5 h-2.5 z-10"></div>
-                                                                        <span className="font-mono font-black text-slate-400 text-lg w-12">{event.minute}'</span>
-                                                                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-grow shadow-sm">
-                                                                            <div className="flex items-center gap-3 mb-1">
+                                                                    <li key={event.id} className="flex items-start gap-4 relative pl-8 animate-fade-in">
+                                                                        <div className="absolute left-[-2px] top-1 bg-white border-2 border-slate-200 rounded-full w-2 h-2 z-10"></div>
+                                                                        <span className="font-mono font-black text-slate-400 text-sm w-8">{event.minute}'</span>
+                                                                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex-grow shadow-sm">
+                                                                            <div className="flex items-center gap-2 mb-0.5">
                                                                                 <EventIcon type={event.type} />
-                                                                                <p className="font-black text-slate-900 uppercase text-xs tracking-tight">{event.type.replace('_', ' ')}</p>
+                                                                                <p className="font-black text-slate-900 uppercase text-[10px] tracking-tight">{event.type.replace('_', ' ')}</p>
                                                                             </div>
-                                                                            <p className="text-sm text-slate-700 font-medium">{event.description}</p>
-                                                                            {event.player && <p className="text-xs text-primary font-bold mt-2">{event.player}</p>}
+                                                                            <p className="text-xs text-slate-700 font-medium">{event.description}</p>
+                                                                            {event.player && <p className="text-[10px] text-primary font-bold mt-1">{event.player}</p>}
                                                                         </div>
                                                                     </li>
                                                                 ))}
                                                             </ul>
                                                         </div>
                                                     ) : (
-                                                        <div className="py-12 text-center text-slate-400">
-                                                            <WhistleIcon className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                                            <p className="italic">Awaiting kickoff and key events...</p>
+                                                        <div className="py-6 text-center text-slate-400">
+                                                            <p className="italic text-xs">Awaiting match events...</p>
                                                         </div>
                                                     )}
                                                 </div>
@@ -242,7 +234,7 @@ const LiveUpdatesPage: React.FC = () => {
                                 <Card className="text-center p-16 bg-white border-0 shadow-xl rounded-[2.5rem]">
                                     <ClockIcon className="w-16 h-16 mx-auto text-slate-200 mb-6" />
                                     <h3 className="text-3xl font-display font-black text-slate-900 mb-4">No Matches Currently Live</h3>
-                                    <p className="text-slate-500 max-w-md mx-auto text-lg">There are no matches currently in progress. Check the upcoming tab for this weekend's MTN Premier League and International action.</p>
+                                    <p className="text-slate-500 max-w-md mx-auto text-lg">There are no matches currently in progress. Check the upcoming tab for this weekend's MTN Premier League action.</p>
                                     <Button onClick={() => setFilter('upcoming')} className="mt-8 bg-blue-600 text-white h-12 px-8 rounded-xl font-bold hover:scale-105 transition-transform">View Full Schedule</Button>
                                 </Card>
                             )
@@ -255,18 +247,18 @@ const LiveUpdatesPage: React.FC = () => {
                                         <div className="absolute top-0 right-8 z-10 bg-blue-600 text-white text-[10px] font-black px-3 py-1 rounded-b-xl shadow-lg uppercase tracking-widest">{competitionName}</div>
                                         <FixtureItem fixture={fixture} isExpanded={false} onToggleDetails={() => {}} teams={[]} onDeleteFixture={() => {}} isDeleting={false} directoryMap={emptyMap} competitionId={competitionId} />
                                     </div>
-                                )) : <p className="text-center text-gray-500 py-12">No upcoming matches scheduled for the coming week.</p>}
+                                )) : <p className="text-center text-gray-500 py-12">No upcoming matches scheduled.</p>}
                             </div>
                         )}
                         {filter === 'results' && (
                              <div className="space-y-6 animate-fade-in">
-                                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 mb-8 border-b pb-4">Recent Match Results (Past 7 Days)</h3>
+                                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 mb-8 border-b pb-4">Recent Match Results</h3>
                                 {recentResults.length > 0 ? recentResults.map(({ fixture, competitionId, competitionName }) => (
                                     <div key={`${competitionId}-${fixture.id}`} className="group bg-white rounded-3xl p-2 border border-slate-100 hover:shadow-2xl transition-all duration-500 relative">
                                         <div className="absolute top-0 right-8 z-10 bg-green-600 text-white text-[10px] font-black px-3 py-1 rounded-b-xl shadow-lg uppercase tracking-widest">{competitionName}</div>
                                         <FixtureItem fixture={fixture} isExpanded={false} onToggleDetails={() => {}} teams={[]} onDeleteFixture={() => {}} isDeleting={false} directoryMap={emptyMap} competitionId={competitionId} />
                                     </div>
-                                )) : <p className="text-center text-gray-500 py-12">No results found for the past 7 days.</p>}
+                                )) : <p className="text-center text-gray-500 py-12">No recent results found.</p>}
                             </div>
                         )}
                     </div>

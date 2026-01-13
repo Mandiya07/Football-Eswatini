@@ -8,7 +8,7 @@ import SendIcon from './icons/SendIcon';
 import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
 import GlobeIcon from './icons/GlobeIcon';
-import { fetchCompetition, fetchNews } from '../services/api';
+import { fetchAllCompetitions, fetchNews } from '../services/api';
 import Spinner from './ui/Spinner';
 import TrendingUpIcon from './icons/TrendingUpIcon';
 import NewspaperIcon from './icons/NewspaperIcon';
@@ -52,31 +52,38 @@ const AIAssistantPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const [news, leagueData] = await Promise.all([
+      const [news, comps] = await Promise.all([
           fetchNews(),
-          fetchCompetition('mtn-premier-league')
+          fetchAllCompetitions()
       ]);
 
+      const premierLeague = comps['mtn-premier-league'];
+
       const siteContext = {
-          recentNews: news.slice(0, 10).map(n => ({ title: n.title, date: n.date, summary: n.summary })),
-          standings: leagueData?.teams?.slice(0, 10).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form }))
+          currentTime: new Date().toISOString(),
+          recentNews: news.slice(0, 8).map(n => ({ title: n.title, date: n.date, summary: n.summary })),
+          activeLeagues: Object.entries(comps).map(([id, c]) => ({ id, name: c.name, teamCount: c.teams?.length || 0 })),
+          premierLeagueStandings: premierLeague?.teams?.slice(0, 10).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form }))
       };
 
-      const systemInstruction = `You are a high-level Editor for Football Eswatini. 
-      Use Markdown formatting. If sourcing from the internet, list source URLs at the bottom as "References".
+      const systemInstruction = `You are a world-class Sports Editor for Football Eswatini. 
+      Your task is to draft high-quality, engaging, and factual articles. 
+      ALWAYS use Markdown for formatting (bold headers, bullet points).
+      Use the provided SITE CONTEXT to ensure alignment with local data.
+      If you need more info, use Google Search grounding.
+      Include a "Keywords" section at the end for SEO.
       
-      SITE CONTEXT (Our internal data):
-      ${JSON.stringify(siteContext, null, 2)}`;
+      SITE CONTEXT:
+      ${JSON.stringify(siteContext, null, 1)}`;
 
       if (!process.env.API_KEY) {
-          throw new Error("API Key is missing from environment. Please verify secrets in your hosting provider.");
+          throw new Error("API Key is missing from environment.");
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       let response;
       try {
-          // Attempt with Google Search grounding first
           response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
               contents: [{ parts: [{ text: text }] }],
@@ -87,8 +94,7 @@ const AIAssistantPage: React.FC = () => {
               }
           });
       } catch (searchError) {
-          console.warn("Retrying without Google Search due to error:", searchError);
-          // Fallback: Retry WITHOUT tools if grounding service is blocked or failing
+          console.warn("Search failed, falling back to core knowledge:", searchError);
           response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
               contents: [{ parts: [{ text: text }] }],
@@ -99,7 +105,7 @@ const AIAssistantPage: React.FC = () => {
           });
       }
 
-      const textOutput = response.text || 'I encountered an empty response. Please try rephrasing your prompt.';
+      const textOutput = response.text || 'I encountered an issue generating the draft.';
       const sources: { uri: string; title: string }[] = [];
       
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
@@ -117,9 +123,8 @@ const AIAssistantPage: React.FC = () => {
           sources: sources.length > 0 ? Array.from(new Map(sources.map(s => [s.uri, s])).values()) : undefined
       }]);
     } catch (error: any) {
-      console.error("AI Assistant Error:", error);
-      const rawError = error?.message || "Unknown communication failure";
-      const errorMsg = `Communication Error: ${rawError}. Please ensure your API key is correctly configured and has sufficient quota.`;
+      console.error("AI Error:", error);
+      const errorMsg = `Article Generation Error: ${error?.message || "Communication failure"}. Please check your connection and API limits.`;
       setChatHistory([...newHistory, { role: 'model', text: errorMsg }]);
     } finally {
       setIsLoading(false);
@@ -172,7 +177,7 @@ const AIAssistantPage: React.FC = () => {
                                 <div className="prose prose-sm max-w-none text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</div>
                                 {msg.sources && msg.sources.length > 0 && (
                                     <div className="mt-4 pt-3 border-t border-gray-200">
-                                        <p className="text-[10px] font-black uppercase text-gray-400 mb-2">Grounding Sources:</p>
+                                        <p className="text-[10px] font-black uppercase text-gray-400 mb-2">Sources:</p>
                                         <div className="flex flex-wrap gap-2">
                                             {msg.sources.map((s, idx) => (
                                                 <a key={idx} href={s.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] bg-white border border-gray-200 px-2 py-1 rounded hover:bg-indigo-50 text-indigo-600 font-bold truncate max-w-[200px]">
@@ -200,7 +205,7 @@ const AIAssistantPage: React.FC = () => {
                         <div className="flex justify-start">
                             <div className="bg-gray-50 p-4 rounded-2xl rounded-tl-none border border-gray-200 flex items-center gap-3">
                                 <Spinner className="h-4 w-4 border-2 border-indigo-600" />
-                                <span className="text-xs font-bold text-indigo-600 animate-pulse uppercase tracking-widest">AI Drafting Article...</span>
+                                <span className="text-xs font-bold text-indigo-600 animate-pulse uppercase tracking-widest">AI Generating...</span>
                             </div>
                         </div>
                     )}
@@ -212,7 +217,7 @@ const AIAssistantPage: React.FC = () => {
                             type="text" 
                             value={inputValue} 
                             onChange={(e) => setInputValue(e.target.value)} 
-                            placeholder="Describe the article you want me to write..." 
+                            placeholder="Draft an article about..." 
                             className="flex-grow px-5 bg-transparent outline-none text-sm font-medium h-14" 
                         />
                         <Button type="submit" disabled={!inputValue.trim() || isLoading} className="bg-indigo-600 text-white h-12 w-12 flex items-center justify-center rounded-full p-0 shadow-md hover:scale-105 transition-all">

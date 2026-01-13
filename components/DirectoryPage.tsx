@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import { DirectoryEntity, EntityCategory, Region } from '../data/directory';
-import { fetchDirectoryEntries, fetchAllCompetitions, fetchCategories } from '../services/api';
+import { fetchDirectoryEntries, fetchCategories, Category } from '../services/api';
 import SearchIcon from './icons/SearchIcon';
 import ShieldIcon from './icons/ShieldIcon';
 import SchoolIcon from './icons/SchoolIcon';
@@ -16,7 +17,7 @@ import ChevronDownIcon from './icons/ChevronDownIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import AdBanner from './AdBanner';
 
-const categoryIcons: Record<EntityCategory, React.FC<React.SVGProps<SVGSVGElement>>> = {
+const staticCategoryIcons: Record<EntityCategory, React.FC<React.SVGProps<SVGSVGElement>>> = {
     'Club': ShieldIcon,
     'Academy': SchoolIcon,
     'Referee': WhistleIcon,
@@ -47,7 +48,6 @@ const TIER_OPTIONS: { value: string, label: string }[] = [
     { value: 'Womens League', label: 'Women\'s League' },
 ];
 
-// Define explicitly which club tiers are allowed to be shown in the directory
 const ALLOWED_CLUB_TIERS = [
     'Premier League', 
     'NFD', 
@@ -55,9 +55,9 @@ const ALLOWED_CLUB_TIERS = [
     'Womens League'
 ];
 
-const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
+const DirectoryCard: React.FC<{ entity: DirectoryEntity; categoryLogo?: string }> = ({ entity, categoryLogo }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const Icon = categoryIcons[entity.category] || ShieldIcon;
+    const StaticIcon = staticCategoryIcons[entity.category] || ShieldIcon;
     const isClickable = entity.category === 'Club' && entity.teamId && entity.competitionId;
 
     const renderName = () => {
@@ -74,13 +74,14 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
     return (
         <Card className={`border transition-all duration-200 ${isExpanded ? 'shadow-md border-primary/30' : 'hover:shadow-sm'}`}>
             <div className="p-3">
-                {/* Header Section - Always Visible */}
                 <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-100 overflow-hidden">
                         {entity.crestUrl ? (
-                            <img src={entity.crestUrl} alt={`${entity.name} crest`} className="w-9 h-9 object-contain" />
+                            <img src={entity.crestUrl} alt="" className="w-9 h-9 object-contain" />
+                        ) : categoryLogo ? (
+                            <img src={categoryLogo} alt="" className="w-8 h-8 object-contain opacity-70" />
                         ) : (
-                            <Icon className="w-6 h-6 text-gray-400" />
+                            <StaticIcon className="w-6 h-6 text-gray-400" />
                         )}
                     </div>
                     
@@ -88,13 +89,13 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
                         <div className="flex justify-between items-start">
                             <div>
                                 {renderName()}
-                                <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-500 mt-0.5">
-                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-700 font-medium">{entity.category}</span>
+                                <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-gray-500 mt-0.5 uppercase font-bold tracking-wider">
+                                    <span className="text-gray-700">{entity.category}</span>
                                     <span>&bull;</span>
                                     <span>{entity.region || 'National'}</span>
                                     {entity.tier && <>
                                         <span>&bull;</span>
-                                        <span className="text-blue-600 font-semibold">{entity.tier}</span>
+                                        <span className="text-blue-600">{entity.tier}</span>
                                     </>}
                                 </div>
                             </div>
@@ -121,7 +122,6 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
                     </div>
                 </div>
 
-                {/* Expanded Details Section */}
                 {isExpanded && (
                     <div className="mt-3 pt-3 border-t border-gray-100 animate-fade-in space-y-3 text-sm text-gray-600">
                         {entity.nickname && (
@@ -160,15 +160,6 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
                                 ))}
                             </div>
                         )}
-
-                        {entity.honours && entity.honours.length > 0 && (
-                            <div className="bg-yellow-50 p-2 rounded border border-yellow-100">
-                                <p className="text-xs font-bold text-yellow-700 uppercase mb-1">Honours</p>
-                                <ul className="list-disc list-inside text-xs text-yellow-900">
-                                    {entity.honours.map((h, idx) => <li key={idx}>{h}</li>)}
-                                </ul>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
@@ -179,6 +170,7 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; }> = ({ entity }) => {
 
 const DirectoryPage: React.FC = () => {
     const [allEntries, setAllEntries] = useState<DirectoryEntity[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<EntityCategory | 'all'>('all');
@@ -189,26 +181,24 @@ const DirectoryPage: React.FC = () => {
         const loadData = async () => {
             setLoading(true);
             try {
-                // Fetch Directory Entries. 
-                const directoryData = await fetchDirectoryEntries();
+                const [directoryData, catData] = await Promise.all([
+                    fetchDirectoryEntries(),
+                    fetchCategories()
+                ]);
                 
-                // Filter entries to ensure only specific club tiers are shown
-                const validEntries = directoryData.filter(entity => {
-                    // Always show non-club entities (Associations, Referees, Academies)
-                    if (entity.category !== 'Club') return true;
+                setCategories(catData);
 
-                    // For Clubs, strictly check against the allowed tiers
-                    // This excludes any unassigned tiers or disallowed tiers (like Schools)
+                const validEntries = directoryData.filter(entity => {
+                    if (entity.category !== 'Club') return true;
                     if (entity.tier && ALLOWED_CLUB_TIERS.includes(entity.tier)) {
                         return true;
                     }
-
                     return false;
                 });
 
                 setAllEntries(validEntries);
             } catch (error) {
-                console.error("Error fetching directory data:", error);
+                console.error(error);
                 setAllEntries([]);
             } finally {
                 setLoading(false);
@@ -228,7 +218,6 @@ const DirectoryPage: React.FC = () => {
                 const entityTierLower = (entity.tier || '').trim().toLowerCase();
                 const entityCategoryLower = (entity.category || '').trim().toLowerCase();
 
-                // 1. User Selected Filters
                 const matchesRegion = selectedRegion === 'all'
                     ? true
                     : entityRegionLower === selectedRegion.toLowerCase();
@@ -243,12 +232,7 @@ const DirectoryPage: React.FC = () => {
 
                 const matchesCategory = selectedCategory === 'all'
                     ? true
-                    : (() => {
-                        if (selectedCategory.toLowerCase() === 'club') {
-                            return entityCategoryLower.startsWith('club');
-                        }
-                        return entityCategoryLower.startsWith(selectedCategory.toLowerCase());
-                    })();
+                    : entityCategoryLower === selectedCategory.toLowerCase();
                 
                 return matchesSearch && matchesCategory && matchesRegion && matchesTier;
             })
@@ -314,13 +298,18 @@ const DirectoryPage: React.FC = () => {
                 <div className="max-w-5xl mx-auto">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                         {loading ? <div className="flex justify-center p-8 md:col-span-2"><Spinner /></div> :
-                         filteredAndSortedEntries.length > 0 ? filteredAndSortedEntries.map(entity => (
-                            <DirectoryCard 
-                                key={entity.id}
-                                entity={entity}
-                            />
-                        )) : (
-                            <div className="text-center py-12 text-gray-500 md:col-span-2">
+                         filteredAndSortedEntries.length > 0 ? filteredAndSortedEntries.map(entity => {
+                            // Find the corresponding category from DB to get the logo
+                            const catFromDb = categories.find(c => c.name.toLowerCase().includes(entity.category.toLowerCase()));
+                            return (
+                                <DirectoryCard 
+                                    key={entity.id}
+                                    entity={entity}
+                                    categoryLogo={catFromDb?.logoUrl}
+                                />
+                            );
+                         }) : (
+                            <div className="text-center py-12 text-gray-500 md:col-span-2 border-2 border-dashed rounded-3xl">
                                 <p className="font-semibold">No results found</p>
                                 <p className="text-sm">Try adjusting your search or filters.</p>
                             </div>

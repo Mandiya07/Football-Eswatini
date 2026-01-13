@@ -37,6 +37,12 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const [competitions, setCompetitions] = useState<{ id: string, name: string }[]>([]);
     const [selectedCompIds, setSelectedCompIds] = useState<string[]>([]);
     const [mode, setMode] = useState<'results' | 'fixtures'>('results');
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        return d.toISOString().split('T')[0];
+    });
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [matches, setMatches] = useState<MatchSummary[]>([]);
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
@@ -96,6 +102,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 if (e.name) dirMap.set(superNormalize(e.name), e);
             });
 
+            const startTs = new Date(startDate).getTime();
+            const endTs = new Date(endDate).getTime();
+
             const rawMatches: MatchSummary[] = [];
             selectedCompIds.forEach(compId => {
                 const comp = allCompsData[compId];
@@ -104,28 +113,38 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 const source = mode === 'results' ? comp.results : comp.fixtures;
                 if (source) {
                     source.forEach(m => {
-                        const getCrest = (name: string) => {
-                            if (!name) return undefined;
-                            const dirEntry = findInMap(name, dirMap);
-                            if (dirEntry?.crestUrl) return dirEntry.crestUrl;
-                            return comp.teams?.find(t => superNormalize(t.name) === superNormalize(name))?.crestUrl;
-                        };
+                        const mDate = new Date(m.fullDate || m.date).getTime();
+                        if (mDate >= startTs && mDate <= (endTs + 86400000)) {
+                            const getCrest = (name: string) => {
+                                if (!name) return undefined;
+                                const dirEntry = findInMap(name, dirMap);
+                                if (dirEntry?.crestUrl) return dirEntry.crestUrl;
+                                return comp.teams?.find(t => superNormalize(t.name) === superNormalize(name))?.crestUrl;
+                            };
 
-                        rawMatches.push({
-                            id: String(m.id),
-                            home: m.teamA, away: m.teamB,
-                            scoreA: m.scoreA, scoreB: m.scoreB,
-                            date: m.fullDate || m.date || '', 
-                            time: m.time,
-                            competition: comp.displayName || comp.name,
-                            competitionLogoUrl: comp.logoUrl,
-                            teamACrest: getCrest(m.teamA),
-                            teamBCrest: getCrest(m.teamB),
-                            venue: m.venue
-                        });
+                            rawMatches.push({
+                                id: String(m.id),
+                                home: m.teamA, away: m.teamB,
+                                scoreA: m.scoreA, scoreB: m.scoreB,
+                                date: m.fullDate || m.date || '', 
+                                time: m.time,
+                                competition: comp.displayName || comp.name,
+                                competitionLogoUrl: comp.logoUrl,
+                                teamACrest: getCrest(m.teamA),
+                                teamBCrest: getCrest(m.teamB),
+                                venue: m.venue
+                            });
+                        }
                     });
                 }
             });
+
+            if (rawMatches.length === 0) {
+                alert("No matches found in the selected date range.");
+                setLoading(false);
+                setStep(1);
+                return;
+            }
 
             setMatches(rawMatches.slice(0, 15));
             
@@ -159,7 +178,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         if (!ctx) return;
 
         const W = canvas.width, H = canvas.height;
-        
         const grad = ctx.createLinearGradient(0, 0, W, H);
         grad.addColorStop(0, '#001E5A');
         grad.addColorStop(1, '#002B7F');
@@ -180,8 +198,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.textAlign = 'center';
         ctx.fillText((match.competition || '').toUpperCase(), W/2, 210);
 
-        // Position logos with significant buffer from center text
-        // Increased from 340 to 440 and 100 to 200
         if (match.teamACrest && imageCache.has(match.teamACrest)) {
             ctx.drawImage(imageCache.get(match.teamACrest)!, W/2 - 440, H/2 - 130, 240, 240);
         }
@@ -191,8 +207,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '900 100px "Poppins", sans-serif';
-        
-        // Show Score for results, Time for fixtures
         const mainLine = mode === 'results' ? `${match.scoreA ?? 0} - ${match.scoreB ?? 0}` : match.time || '15:00';
         ctx.fillText(mainLine, W/2, H/2 + 20);
 
@@ -236,11 +250,22 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                         <div className="space-y-8 animate-fade-in">
                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <button onClick={() => setMode('results')} className={`p-6 rounded-2xl border-2 transition-all text-left ${mode === 'results' ? 'bg-purple-600 border-purple-400 shadow-xl' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
-                                    <h4 className="text-xl font-bold">Match Results</h4>
+                                    <h4 className="text-xl font-bold">Recap Results</h4>
                                 </button>
                                 <button onClick={() => setMode('fixtures')} className={`p-6 rounded-2xl border-2 transition-all text-left ${mode === 'fixtures' ? 'bg-purple-600 border-purple-400 shadow-xl' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
-                                    <h4 className="text-xl font-bold">Upcoming Fixtures</h4>
+                                    <h4 className="text-xl font-bold">Preview Fixtures</h4>
                                 </button>
+                             </div>
+
+                             <div className="grid grid-cols-2 gap-4 bg-slate-800 p-4 rounded-xl">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Start Date</label>
+                                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">End Date</label>
+                                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none" />
+                                </div>
                              </div>
 
                              <div>
@@ -255,18 +280,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                 </div>
                              </div>
 
-                             <div>
-                                <label className="block text-xs font-black uppercase text-slate-500 tracking-widest mb-3">Background Music (Optional)</label>
-                                <div className="flex items-center gap-4 bg-slate-800 p-4 rounded-xl border border-slate-700">
-                                    <MusicIcon className="w-6 h-6 text-purple-400" />
-                                    <input type="file" accept="audio/*" onChange={handleAudioChange} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" />
-                                    {audioFile && <span className="text-xs text-green-400 font-bold truncate max-w-[150px]">{audioFile.name}</span>}
-                                </div>
-                             </div>
-
                              <div className="flex justify-end pt-4">
                                 <Button onClick={handlePrepare} className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto px-12 h-14 text-lg font-black shadow-2xl rounded-2xl gap-2">
-                                    Continue <RefreshIcon className="w-5 h-5"/>
+                                    Generate Draft <RefreshIcon className="w-5 h-5"/>
                                 </Button>
                              </div>
                         </div>

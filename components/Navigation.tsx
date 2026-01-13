@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -48,7 +49,8 @@ const Navigation: React.FC = () => {
     { name: 'Women', to: '/womens' },
     { name: 'Regional', to: '/regional' },
     { name: 'Youth', to: '/youth' },
-    { name: 'Int\'l Hub', to: '/international' },
+    { name: 'International', to: '/international' },
+    { name: 'Videos', to: '/media' },
     { name: 'Shop', to: '/shop'},
   ];
 
@@ -84,7 +86,7 @@ const Navigation: React.FC = () => {
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
-    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[10px] xl:text-[12px] font-black uppercase tracking-tight h-full flex items-center px-1.5 xl:px-2 border-b-2 border-transparent whitespace-nowrap";
+    const baseClass = "text-white hover:text-accent transition-all duration-300 text-[11px] xl:text-[13px] font-bold tracking-tight h-full flex items-center px-1.5 xl:px-2 border-b-2 border-transparent whitespace-nowrap";
     const activeClass = "text-accent !border-accent active-mobile-nav bg-white/5";
     return `${baseClass} ${isActive ? activeClass : 'opacity-80 hover:opacity-100 hover:bg-white/5'}`;
   };
