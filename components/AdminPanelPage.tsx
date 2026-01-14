@@ -22,7 +22,7 @@ import CommunityEventManagement from './admin/CommunityEventManagement';
 import NDAGenerator from './admin/NDAGenerator';
 import HybridTournamentManagement from './admin/HybridTournamentManagement';
 import MaintenanceTools from './admin/MaintenanceTools';
-import AIAssistantPage from './AIAssistantPage';
+import UserManagement from './admin/UserManagement';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -48,6 +48,7 @@ import ImageIcon from './icons/ImageIcon';
 import ScaleIcon from './icons/ScaleIcon';
 import GlobeIcon from './icons/GlobeIcon';
 import SettingsIcon from './icons/SettingsIcon';
+import ShieldIcon from './icons/ShieldIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
@@ -56,7 +57,7 @@ const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'ai-assistant' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance';
+type AdminTab = 'approvals' | 'users' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -75,8 +76,8 @@ const AdminPanelPage: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'approvals': return <ApprovalQueue />;
+      case 'users': return <UserManagement />;
       case 'news': return <NewsManagement />;
-      case 'ai-assistant': return <AIAssistantPage />;
       case 'shop': return <ShopManagement />;
       case 'scouting': return <ScoutingManagement />;
       case 'youth': return <YouthManagement />;
@@ -138,7 +139,6 @@ const AdminPanelPage: React.FC = () => {
                     <div className="space-y-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Content</h4>
                         <TabButton tabName="news" label="News" Icon={NewspaperIcon} />
-                        <TabButton tabName="ai-assistant" label="Article AI" Icon={SparklesIcon} className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100" />
                         <TabButton tabName="social" label="Social Gen" Icon={ShareIcon} className="bg-purple-50 text-purple-700 hover:bg-purple-100" />
                         <TabButton tabName="shop" label="Shop Items" Icon={TagIcon} />
                         <TabButton tabName="features" label="Features Content" Icon={SparklesIcon} />
@@ -152,6 +152,7 @@ const AdminPanelPage: React.FC = () => {
 
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
                         <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
+                        <TabButton tabName="users" label="User Permissions" Icon={ShieldIcon} className="bg-blue-50 text-blue-800 hover:bg-blue-100" />
                         <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
                         <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />

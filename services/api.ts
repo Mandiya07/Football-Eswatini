@@ -1142,3 +1142,31 @@ export const deleteCommunityEvent = async (id: string) => {
 export const submitCommunityResult = async (eventId: string, result: string) => {
     await updateDoc(doc(db, 'community_events', eventId), { resultsSummary: result });
 };
+
+/**
+ * Fetch all registered users from Firestore.
+ */
+export const fetchAllUsers = async (): Promise<User[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'users'));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+    } catch (error) {
+        handleFirestoreError(error, 'fetch all users');
+        return [];
+    }
+};
+
+/**
+ * Update a user's role and metadata.
+ */
+export const updateUserRole = async (userId: string, role: User['role'], extra: Partial<User> = {}) => {
+    try {
+        await updateDoc(doc(db, 'users', userId), {
+            role,
+            ...extra
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'update user role');
+        throw error;
+    }
+};

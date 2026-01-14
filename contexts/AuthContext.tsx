@@ -9,11 +9,17 @@ import {
     signOut,
     User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import Spinner from '../components/ui/Spinner';
 import { handleFirestoreError } from '../services/api';
 
 const auth = getAuth(app);
+
+// Support multiple bootstrap emails separated by commas
+const getAuthorizedEmails = () => {
+    const envVal = process.env.ADMIN_EMAIL || 'admin@footballeswatini.com';
+    return envVal.toLowerCase().split(',').map(e => e.trim());
+};
 
 export interface NotificationPreferences {
     matchAlerts: boolean;
@@ -40,7 +46,7 @@ export interface User {
   managedLeagues?: string[]; 
   favoriteTeamIds: number[];
   notificationPreferences: NotificationPreferences;
-  subscription?: SubscriptionInfo; // Added subscription tracking
+  subscription?: SubscriptionInfo;
   xp: number; 
   level: number; 
 }
@@ -59,6 +65,7 @@ interface AuthContextType {
   logout: () => void;
   updateUser: (updatedFields: Partial<User>) => void;
   addXP: (amount: number) => Promise<void>;
+  bootstrapAdmin: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,11 +88,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const userCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password!);
     const firebaseUser = userCredential.user;
     
+    const authorizedEmails = getAuthorizedEmails();
+    const isInitialAdmin = authorizedEmails.includes(credentials.email.toLowerCase());
+
     const newUserProfile: Omit<User, 'id'> = {
         name: credentials.name,
         email: firebaseUser.email!,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
-        role: 'user',
+        role: isInitialAdmin ? 'super_admin' : 'user',
         favoriteTeamIds: [],
         notificationPreferences: DEFAULT_PREFERENCES,
         xp: 0,
@@ -101,20 +111,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     closeAuthModal();
   };
 
+  const bootstrapAdmin = async () => {
+      const authorizedEmails = getAuthorizedEmails();
+      const isAuthorized = authorizedEmails.includes(user?.email.toLowerCase() || '');
+      if (user && isAuthorized && user.role !== 'super_admin') {
+          console.log("[Auth] Manually Elevating authorized user to Super Admin:", user.email);
+          await updateUser({ role: 'super_admin' });
+      }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
         if (firebaseUser) {
             const userDocRef = doc(db, 'users', firebaseUser.uid);
             try {
                 const docSnap = await getDoc(userDocRef);
+                const authorizedEmails = getAuthorizedEmails();
+                const isAuthorized = authorizedEmails.includes(firebaseUser.email?.toLowerCase() || '');
+                
                 if (docSnap.exists()) {
-                    setUser({ id: firebaseUser.uid, ...docSnap.data() } as User);
+                    const data = docSnap.data() as User;
+                    
+                    // RECOVERY LOGIC: 
+                    // If the email is authorized but the database says they are NOT a super_admin
+                    // (e.g. they accidentally registered as a club admin), force an update.
+                    if (isAuthorized && data.role !== 'super_admin') {
+                         console.log(`[Auth Recovery] Correcting role for authorized admin: ${firebaseUser.email}`);
+                         await updateDoc(userDocRef, { role: 'super_admin' });
+                         setUser({ id: firebaseUser.uid, ...data, role: 'super_admin' });
+                    } else {
+                         setUser({ id: firebaseUser.uid, ...data } as User);
+                    }
                 } else {
-                    const initial = {
-                        name: firebaseUser.displayName || 'Fan',
+                    const initial: Omit<User, 'id'> = {
+                        name: firebaseUser.displayName || 'Administrator',
                         email: firebaseUser.email!,
                         avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
-                        role: 'user',
+                        role: isAuthorized ? 'super_admin' : 'user',
                         favoriteTeamIds: [],
                         notificationPreferences: DEFAULT_PREFERENCES,
                         xp: 0,
@@ -175,7 +208,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signup, 
         logout, 
         updateUser,
-        addXP 
+        addXP,
+        bootstrapAdmin
     }}>
       {children}
     </AuthContext.Provider>
