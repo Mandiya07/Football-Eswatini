@@ -1,6 +1,6 @@
 
 import React, { useState, lazy } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import AdminLoginPrompt from './AdminLoginPrompt';
 import ApprovalQueue from './admin/ApprovalQueue';
 import MergeTeams from './admin/MergeTeams';
@@ -19,9 +19,10 @@ import FeatureManagement from './admin/FeatureManagement';
 import RefereeManagement from './admin/RefereeManagement';
 import CategoryManagement from './admin/CategoryManagement';
 import CommunityEventManagement from './admin/CommunityEventManagement';
-import NDAGenerator from './admin/NDAGenerator';
+import LegalAndContracts from './admin/LegalAndContracts';
 import HybridTournamentManagement from './admin/HybridTournamentManagement';
 import MaintenanceTools from './admin/MaintenanceTools';
+import UserManagement from './admin/UserManagement';
 
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import GitMergeIcon from './icons/GitMergeIcon';
@@ -47,6 +48,7 @@ import ImageIcon from './icons/ImageIcon';
 import ScaleIcon from './icons/ScaleIcon';
 import GlobeIcon from './icons/GlobeIcon';
 import SettingsIcon from './icons/SettingsIcon';
+import ShieldIcon from './icons/ShieldIcon';
 
 const ManageTeams = lazy(() => import('./admin/ManageTeams'));
 const AdManagement = lazy(() => import('./admin/AdManagement'));
@@ -55,7 +57,7 @@ const YouthManagement = lazy(() => import('./admin/YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./admin/SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./admin/TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance';
+type AdminTab = 'approvals' | 'users' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -74,6 +76,7 @@ const AdminPanelPage: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'approvals': return <ApprovalQueue />;
+      case 'users': return <UserManagement />;
       case 'news': return <NewsManagement />;
       case 'shop': return <ShopManagement />;
       case 'scouting': return <ScoutingManagement />;
@@ -94,7 +97,7 @@ const AdminPanelPage: React.FC = () => {
       case 'tournament': return <TournamentBracket />;
       case 'international': return <HybridTournamentManagement />;
       case 'community': return <CommunityEventManagement />;
-      case 'contracts': return <NDAGenerator />;
+      case 'contracts': return <LegalAndContracts />;
       case 'seed': return <SeedDatabase />;
       case 'reset': return <ResetAllData />;
       case 'social': return <SocialMediaGenerator />;
@@ -149,6 +152,7 @@ const AdminPanelPage: React.FC = () => {
 
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
                         <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
+                        <TabButton tabName="users" label="User Permissions" Icon={ShieldIcon} className="bg-blue-50 text-blue-800 hover:bg-blue-100" />
                         <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
                         <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />

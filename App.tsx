@@ -13,6 +13,7 @@ import TeamProfilePage from './components/TeamProfilePage';
 import PlayerProfilePage from './components/PlayerProfilePage';
 import AuthModal from './components/AuthModal';
 import { useAuth } from './contexts/AuthContext';
+import DataManagementPage from './components/DataManagementPage';
 
 
 const InteractivePage = lazy(() => import('./components/InteractivePage'));
@@ -58,8 +59,7 @@ const SponsorOnboardingPage = lazy(() => import('./components/SponsorOnboardingP
 const BrandedClubExample = lazy(() => import('./components/BrandedClubExample'));
 const InternationalPage = lazy(() => import('./components/InternationalPage'));
 const LeagueRegistrationPage = lazy(() => import('./components/LeagueRegistrationPage'));
-const DataManagementPage = lazy(() => import('./components/DataManagementPage'));
-const RefreshPage = lazy(() => import('./components/RefreshPage'));
+const PitchDeckPage = lazy(() => import('./components/PitchDeckPage'));
 
 
 const App: React.FC = () => {
@@ -73,7 +73,6 @@ const App: React.FC = () => {
           <Suspense fallback={<div className="p-8 text-center">Loading Page...</div>}>
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/refresh" element={<RefreshPage />} />
               <Route path="/news" element={<NewsPage />} />
               <Route path="/news/:slug" element={<NewsArticlePage />} />
               <Route path="/about" element={<About />} />
@@ -125,6 +124,7 @@ const App: React.FC = () => {
               <Route path="/submit-results" element={<SubmitResultsPage />} />
               <Route path="/submit-fixtures" element={<SubmitFixturesPage />} />
               <Route path="/ai-assistant" element={<AIAssistantPage />} />
+              <Route path="/pitch-deck" element={<PitchDeckPage />} />
             </Routes>
           </Suspense>
         </main>
