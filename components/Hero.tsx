@@ -35,10 +35,10 @@ const Hero: React.FC = () => {
                 const findUpcoming = (fixtures: CompetitionFixture[]) => {
                     const now = Date.now();
                     return (fixtures || [])
-                        .filter(f => f.status !== 'finished' && f.fullDate)
+                        .filter(f => (f.status === 'live' || f.status === 'scheduled') && f.fullDate)
                         .sort((a, b) => {
                             const statusOrder: Record<string, number> = {
-                                'live': 0, 'suspended': 1, 'abandoned': 2, 'postponed': 3, 'scheduled': 4
+                                'live': 0, 'scheduled': 1
                             };
                             const priorityA = statusOrder[a.status || 'scheduled'] ?? 99;
                             const priorityB = statusOrder[b.status || 'scheduled'] ?? 99;
@@ -86,9 +86,10 @@ const Hero: React.FC = () => {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const prompt = "Cinematic, wide-angle high-end sports photography background of a modern football stadium in Eswatini. Dramatic evening sky with sunset colors (deep blue, red, gold), lush green grass with professional white markings, a soccer ball on the pitch, vibrant but slightly blurred crowd waving Eswatini flags. 8k resolution, photorealistic, shallow depth of field, intense atmosphere.";
             
+            // Fixed contents to use a direct string for the prompt
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image',
-                contents: [{ parts: [{ text: prompt }] }],
+                contents: prompt,
                 config: {
                     imageConfig: {
                         aspectRatio: "16:9"
@@ -119,7 +120,7 @@ const Hero: React.FC = () => {
     const crestB = teamBDirectory?.crestUrl || teams.find(t => t.name === nextMatch?.teamB)?.crestUrl;
     const targetDateStr = nextMatch?.fullDate ? `${nextMatch.fullDate}T${nextMatch.time || '15:00'}:00` : new Date().toISOString();
 
-    const isLiveMode = nextMatch?.status === 'live' || nextMatch?.status === 'suspended' || nextMatch?.status === 'abandoned';
+    const isLiveMode = nextMatch?.status === 'live';
 
   return (
     <section className="relative h-[90vh] min-h-[750px] flex items-center justify-center text-white overflow-hidden bg-slate-950">
@@ -171,7 +172,7 @@ const Hero: React.FC = () => {
                                 {crestA ? (
                                     <img src={crestA} alt="" className="max-w-full max-h-full object-contain drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]"/>
                                 ) : (
-                                    <div className="text-6xl font-black text-white/10">{nextMatch.teamA.charAt(0)}</div>
+                                    <div className="text-6xl font-black text-white/10">{nextMatch.teamA?.charAt(0)}</div>
                                 )}
                             </div>
                             <h2 className="text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60">
@@ -185,7 +186,7 @@ const Hero: React.FC = () => {
                                 <div className="relative group">
                                     <div className="absolute -inset-10 bg-red-600/20 rounded-full blur-[80px] animate-pulse"></div>
                                     <div className="relative bg-white/10 backdrop-blur-3xl px-12 py-6 rounded-[2rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/30">
-                                        <div className="text-7xl md:text-[8rem] font-black tracking-tighter leading-none flex items-center">
+                                        <div className="text-7xl md:text-[8rem] font-black tracking-tighter leadership-none flex items-center">
                                             <span>{nextMatch.scoreA ?? 0}</span>
                                             <span className="text-red-600 mx-4 animate-pulse">:</span>
                                             <span>{nextMatch.scoreB ?? 0}</span>
@@ -206,7 +207,7 @@ const Hero: React.FC = () => {
                                 {crestB ? (
                                     <img src={crestB} alt="" className="max-w-full max-h-full object-contain drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]"/>
                                 ) : (
-                                    <div className="text-6xl font-black text-white/10">{nextMatch.teamB.charAt(0)}</div>
+                                    <div className="text-6xl font-black text-white/10">{nextMatch.teamB?.charAt(0)}</div>
                                 )}
                             </div>
                             <h2 className="text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60">
@@ -247,7 +248,7 @@ const Hero: React.FC = () => {
                 </div>
             ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-12 duration-1000">
-                    <h1 className="text-7xl md:text-[11rem] font-black font-display tracking-tighter leading-[0.8] mb-10 select-none">
+                    <h1 className="text-7xl md:text-[11rem] font-black font-display tracking-tighter leadership-none mb-10 select-none">
                         THE GAME <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent via-yellow-400 to-accent bg-[length:200%_auto] animate-marquee drop-shadow-[0_0_30px_rgba(253,185,19,0.3)]">LIVES HERE</span>
                     </h1>
                     <p className="text-xl md:text-2xl text-white/60 max-w-3xl mx-auto font-medium leading-relaxed tracking-wide italic">

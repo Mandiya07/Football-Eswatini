@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
@@ -22,7 +23,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose }) => {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/70 z-[300] flex items-center justify-center p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-title"

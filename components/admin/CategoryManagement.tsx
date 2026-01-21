@@ -1,14 +1,25 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { Category, fetchCategories, deleteCategory, updateCategory, fetchAllCompetitions, handleFirestoreError } from '../../services/api';
+import { 
+    Category, 
+    fetchCategories, 
+    deleteCategory, 
+    updateCategory, 
+    fetchAllCompetitions, 
+    handleFirestoreError,
+    fetchRegionConfigs,
+    updateRegionConfig,
+    RegionConfig
+} from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import ImageIcon from '../icons/ImageIcon';
-import XIcon from '../icons/XIcon';
-// Import missing PlusCircleIcon
+import GlobeIcon from '../icons/GlobeIcon';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
+import ImageUploader from '../ui/ImageUploader';
 import { db } from '../../services/firebase';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { compressImage, removeUndefinedProps } from '../../services/utils';
@@ -24,8 +35,10 @@ interface CompetitionSummary {
 const CategoryManagement: React.FC = () => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [competitions, setCompetitions] = useState<CompetitionSummary[]>([]);
+    const [regions, setRegions] = useState<RegionConfig[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [savingRegionId, setSavingRegionId] = useState<string | null>(null);
     
     // UI State
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -40,12 +53,29 @@ const CategoryManagement: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [catData, compData] = await Promise.all([
+            const [catData, compData, regionData] = await Promise.all([
                 fetchCategories(),
                 fetchAllCompetitions(),
+                fetchRegionConfigs()
             ]);
             
             setCategories(catData);
+            
+            // Standardize Regions: Ensure we have the 4 main ones even if DB is empty
+            const standardIds = ['hhohho', 'manzini', 'lubombo', 'shiselweni'];
+            const regionMap = new Map(regionData.map(r => [r.id.toLowerCase(), r]));
+            
+            const finalRegions = standardIds.map(id => {
+                return regionMap.get(id) || { 
+                    id, 
+                    name: id.charAt(0).toUpperCase() + id.slice(1), 
+                    description: '', 
+                    logoUrl: '', 
+                    color: '' 
+                };
+            });
+            setRegions(finalRegions as RegionConfig[]);
+            
             const compArray = Object.entries(compData)
                 .filter(([_, comp]) => comp && comp.name)
                 .map(([id, comp]) => ({
@@ -73,6 +103,30 @@ const CategoryManagement: React.FC = () => {
         });
         return groups;
     }, [categories, competitions]);
+
+    const handleSaveRegionLogo = async (regionId: string, base64: string) => {
+        setSavingRegionId(regionId);
+        try {
+            const region = regions.find(r => r.id === regionId);
+            if (region) {
+                // FORCE ID to lowercase to match RegionalPage requirements
+                await updateRegionConfig(regionId.toLowerCase(), { ...region, logoUrl: base64 });
+                setRegions(prev => prev.map(r => r.id === regionId ? { ...r, logoUrl: base64 } : r));
+            }
+        } catch (error) {
+            alert("Failed to update region logo.");
+        } finally {
+            setSavingRegionId(null);
+        }
+    };
+
+    const handleUpdateRegionDesc = async (regionId: string, desc: string) => {
+        const region = regions.find(r => r.id === regionId);
+        if (region) {
+            await updateRegionConfig(regionId.toLowerCase(), { ...region, description: desc });
+            setRegions(prev => prev.map(r => r.id === regionId ? { ...r, description: desc } : r));
+        }
+    };
 
     const openCatModal = (cat?: Category) => {
         if (cat) {
@@ -156,8 +210,8 @@ const CategoryManagement: React.FC = () => {
             <Card className="shadow-lg border-0 overflow-hidden">
                 <div className="bg-primary p-6 text-white flex justify-between items-center">
                     <div>
-                        <h3 className="text-2xl font-bold font-display">Categorization & Taxonomy</h3>
-                        <p className="text-blue-100 text-sm">Organize leagues, edit logos, and define display order.</p>
+                        <h3 className="text-2xl font-bold font-display">Structure Management</h3>
+                        <p className="text-blue-100 text-sm">Manage Regional Hubs, Categories, and League mappings.</p>
                     </div>
                     <Button onClick={() => openCatModal()} className="bg-accent text-primary-dark font-black px-4 flex items-center gap-2 shadow-lg">
                         <PlusCircleIcon className="w-5 h-5" /> New Category
@@ -166,56 +220,114 @@ const CategoryManagement: React.FC = () => {
                 
                 <CardContent className="p-6">
                     {loading ? <div className="flex justify-center py-12"><Spinner /></div> : (
-                        <div className="space-y-8">
-                            {categories.map(cat => (
-                                <div key={cat.id} className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                    <div className="bg-gray-50 p-4 flex items-center justify-between border-b border-gray-100">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-white rounded-lg border flex items-center justify-center p-1">
-                                                {cat.logoUrl ? <img src={cat.logoUrl} className="max-h-full max-w-full object-contain" alt="" /> : <ImageIcon className="w-6 h-6 text-gray-300"/>}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-gray-900 text-lg leading-tight">{cat.name}</h4>
-                                                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Order: {cat.order}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => openCatModal(cat)} className="p-2 text-blue-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-blue-100"><PencilIcon className="w-4 h-4"/></button>
-                                            <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 text-red-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-red-100"><TrashIcon className="w-4 h-4"/></button>
-                                        </div>
-                                    </div>
-                                    <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {groupedCompetitions[cat.id]?.map(comp => (
-                                            <div key={comp.id} onClick={() => openCompModal(comp)} className="p-3 border border-gray-100 rounded-xl hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer flex items-center gap-3">
-                                                <img src={comp.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-bold text-gray-800 truncate">{comp.name}</p>
-                                                    {comp.externalApiId && <span className="text-[9px] font-bold text-purple-600 uppercase">API: {comp.externalApiId}</span>}
+                        <div className="space-y-10">
+                            
+                            {/* REGIONAL HUB SECTION - Source of Truth for Regional Page Cards */}
+                            <section>
+                                <div className="flex items-center gap-3 mb-6 border-b pb-2">
+                                    <GlobeIcon className="w-6 h-6 text-primary" />
+                                    <h4 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400">Regional Hub Visuals (Crest & Intro)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {regions.map(region => (
+                                        <div key={region.id} className="p-5 border border-blue-100 bg-blue-50/20 rounded-3xl flex flex-col gap-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-16 h-16 bg-white rounded-2xl border flex items-center justify-center p-2 shadow-sm ring-1 ring-black/5">
+                                                        {region.logoUrl ? (
+                                                            <img src={region.logoUrl} className="max-h-full max-w-full object-contain" alt="" />
+                                                        ) : (
+                                                            <GlobeIcon className="w-8 h-8 text-gray-200"/>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-black text-lg text-gray-900 block">{region.name}</span>
+                                                        <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Global ID: {region.id}</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        ))}
-                                        {(groupedCompetitions[cat.id]?.length || 0) === 0 && <p className="text-xs text-gray-400 italic py-2 col-span-full">No competitions in this category.</p>}
-                                    </div>
-                                </div>
-                            ))}
-
-                            {/* Uncategorized Section */}
-                            {groupedCompetitions['uncategorized'].length > 0 && (
-                                <div className="border border-red-100 rounded-2xl overflow-hidden bg-red-50/30">
-                                    <div className="p-4 border-b border-red-100">
-                                        <h4 className="font-bold text-red-800">Uncategorized Entities</h4>
-                                        <p className="text-xs text-red-600">These will not appear in the Navigation menus.</p>
-                                    </div>
-                                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {groupedCompetitions['uncategorized'].map(comp => (
-                                            <div key={comp.id} onClick={() => openCompModal(comp)} className="p-3 border border-red-200 bg-white rounded-xl hover:border-red-400 transition-all cursor-pointer flex items-center gap-3">
-                                                <img src={comp.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
-                                                <span className="text-sm font-bold text-gray-800 truncate">{comp.name}</span>
+                                            <div>
+                                                <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block tracking-wider">Upload Hub Crest</label>
+                                                <ImageUploader 
+                                                    onUpload={(base64) => handleSaveRegionLogo(region.id, base64)} 
+                                                    status={savingRegionId === region.id ? 'saving' : undefined}
+                                                />
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block tracking-wider">Hub Description</label>
+                                                <textarea 
+                                                    className="w-full text-xs p-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+                                                    value={region.description}
+                                                    rows={3}
+                                                    onChange={(e) => handleUpdateRegionDesc(region.id, e.target.value)}
+                                                    onBlur={(e) => handleUpdateRegionDesc(region.id, e.target.value)}
+                                                    placeholder="Enter regional hub description..."
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
+                                <p className="mt-4 text-[10px] text-gray-400 italic">Note: These logos specifically appear on the cards of the main "Regional" landing page.</p>
+                            </section>
+
+                            <div className="h-px bg-gray-100"></div>
+
+                            {/* STANDARD CATEGORIES SECTION */}
+                            <section className="space-y-8">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <ImageIcon className="w-6 h-6 text-primary" />
+                                    <h4 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400">Content Categories & Grouping</h4>
+                                </div>
+                                {categories.map(cat => (
+                                    <div key={cat.id} className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="bg-gray-50 p-4 flex items-center justify-between border-b border-gray-100">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-white rounded-lg border flex items-center justify-center p-1">
+                                                    {cat.logoUrl ? <img src={cat.logoUrl} className="max-h-full max-w-full object-contain" alt="" /> : <ImageIcon className="w-6 h-6 text-gray-300"/>}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-gray-900 text-lg leading-tight">{cat.name}</h4>
+                                                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Order: {cat.order}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => openCatModal(cat)} className="p-2 text-blue-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-blue-100"><PencilIcon className="w-4 h-4"/></button>
+                                                <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 text-red-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-red-100"><TrashIcon className="w-4 h-4"/></button>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {groupedCompetitions[cat.id]?.map(comp => (
+                                                <div key={comp.id} onClick={() => openCompModal(comp)} className="p-3 border border-gray-100 rounded-xl hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer flex items-center gap-3 group">
+                                                    <img src={comp.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-gray-800 truncate group-hover:text-primary">{comp.name}</p>
+                                                        {comp.externalApiId && <span className="text-[9px] font-bold text-purple-600 uppercase">API: {comp.externalApiId}</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {(groupedCompetitions[cat.id]?.length || 0) === 0 && <p className="text-xs text-gray-400 italic py-2 col-span-full text-center">No competitions in this category.</p>}
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Uncategorized Section */}
+                                {groupedCompetitions['uncategorized'].length > 0 && (
+                                    <div className="border border-red-100 rounded-2xl overflow-hidden bg-red-50/30">
+                                        <div className="p-4 border-b border-red-100">
+                                            <h4 className="font-bold text-red-800">Uncategorized Entities</h4>
+                                            <p className="text-xs text-red-600">These will not appear in the Navigation menus.</p>
+                                        </div>
+                                        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {groupedCompetitions['uncategorized'].map(comp => (
+                                                <div key={comp.id} onClick={() => openCompModal(comp)} className="p-3 border border-red-200 bg-white rounded-xl hover:border-red-400 transition-all cursor-pointer flex items-center gap-3">
+                                                    <img src={comp.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
+                                                    <span className="text-sm font-bold text-gray-800 truncate">{comp.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </section>
                         </div>
                     )}
                 </CardContent>

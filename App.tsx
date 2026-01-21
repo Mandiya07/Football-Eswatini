@@ -22,7 +22,7 @@ const UserProfilePage = lazy(() => import('./components/UserProfilePage'));
 const ProfileSetupPage = lazy(() => import('./components/ProfileSetupPage'));
 const NewsPage = lazy(() => import('./components/NewsPage'));
 const NewsArticlePage = lazy(() => import('./components/NewsArticlePage'));
-const AdminPanelPage = lazy(() => import('./components/AdminPanelPage'));
+const AdminPanelPage = lazy(() => import('./components/admin/AdminPanelPage'));
 const ShopPage = lazy(() => import('./components/ShopPage'));
 const YouthPage = lazy(() => import('./components/YouthPage'));
 const U20Page = lazy(() => import('./components/U20Page'));
@@ -44,6 +44,7 @@ const ApiImportPage = lazy(() => import('./components/data-management/ApiImport'
 const SubmitFixturesPage = lazy(() => import('./components/SubmitFixturesPage'));
 const RefereesPage = lazy(() => import('./components/RefereesPage'));
 const AIAssistantPage = lazy(() => import('./components/AIAssistantPage'));
+const AIAgentPage = lazy(() => import('./components/AIAgentPage'));
 const NationalTeamLandingPage = lazy(() => import('./components/NationalTeamLandingPage'));
 const NationalTeamDetailPage = lazy(() => import('./components/NationalTeamDetailPage'));
 const RegionalPage = lazy(() => import('./components/RegionalPage'));
@@ -59,7 +60,7 @@ const SponsorOnboardingPage = lazy(() => import('./components/SponsorOnboardingP
 const BrandedClubExample = lazy(() => import('./components/BrandedClubExample'));
 const InternationalPage = lazy(() => import('./components/InternationalPage'));
 const LeagueRegistrationPage = lazy(() => import('./components/LeagueRegistrationPage'));
-const PitchDeckPage = lazy(() => import('./components/PitchDeckPage'));
+const PitchDeckPage = lazy(() => import('./components/pitch-deck-page'));
 
 
 const App: React.FC = () => {
@@ -124,6 +125,7 @@ const App: React.FC = () => {
               <Route path="/submit-results" element={<SubmitResultsPage />} />
               <Route path="/submit-fixtures" element={<SubmitFixturesPage />} />
               <Route path="/ai-assistant" element={<AIAssistantPage />} />
+              <Route path="/voice-scout" element={<AIAgentPage />} />
               <Route path="/pitch-deck" element={<PitchDeckPage />} />
             </Routes>
           </Suspense>

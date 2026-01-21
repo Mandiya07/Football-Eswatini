@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -24,6 +25,7 @@ interface MatchSummary {
     teamACrest?: string;
     teamBCrest?: string;
     venue?: string;
+    matchday?: number;
 }
 
 interface RecapGeneratorModalProps {
@@ -125,7 +127,8 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                 competitionLogoUrl: comp.logoUrl,
                                 teamACrest: getCrest(m.teamA),
                                 teamBCrest: getCrest(m.teamB),
-                                venue: m.venue
+                                venue: m.venue,
+                                matchday: m.matchday
                             });
                         }
                     });
@@ -190,6 +193,13 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.font = 'bold 28px "Poppins", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText((match.competition || '').toUpperCase(), W/2, 210);
+
+        // Render Matchday
+        if (match.matchday) {
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.font = '800 20px "Poppins", sans-serif';
+            ctx.fillText(`MATCHDAY ${match.matchday}`, W/2, 250);
+        }
 
         if (match.teamACrest && imageCache.has(match.teamACrest)) {
             ctx.drawImage(imageCache.get(match.teamACrest)!, W/2 - 440, H/2 - 130, 240, 240);
@@ -264,7 +274,7 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     }, [step, currentFrameIndex, drawMatchFrame, matches]);
 
     return (
-        <div className="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/95 z-[300] flex items-center justify-center p-4">
             <Card className="w-full max-w-4xl bg-slate-900 border-slate-800 text-white shadow-2xl overflow-hidden rounded-[2rem]">
                 <div className="p-6 border-b border-slate-800 flex justify-between items-center">
                     <div className="flex items-center gap-3">

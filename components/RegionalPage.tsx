@@ -1,56 +1,56 @@
-import React from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import GlobeIcon from './icons/GlobeIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import Button from './ui/Button';
-
-interface Region {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-  iconBg: string;
-  logoUrl?: string;
-}
-
-const regions: Region[] = [
-  { 
-    id: 'hhohho', 
-    name: 'Hhohho', 
-    description: 'Home to the capital city clubs and elite regional development programs.',
-    color: 'from-blue-600 to-blue-800',
-    iconBg: 'bg-blue-100 text-blue-600',
-    logoUrl: 'https://via.placeholder.com/150/002B7F/FFFFFF?text=Hhohho'
-  },
-  { 
-    id: 'manzini', 
-    name: 'Manzini', 
-    description: 'The hub of football activity in Eswatini with intense regional rivalries.',
-    color: 'from-yellow-500 to-yellow-700',
-    iconBg: 'bg-yellow-100 text-yellow-700',
-    logoUrl: 'https://via.placeholder.com/150/FDB913/001e5a?text=Manzini'
-  },
-  { 
-    id: 'lubombo', 
-    name: 'Lubombo', 
-    description: 'Nurturing talent in the eastern lowveld with a focus on community tournaments.',
-    color: 'from-green-600 to-green-800',
-    iconBg: 'bg-green-100 text-green-600',
-    logoUrl: 'https://via.placeholder.com/150/228B22/FFFFFF?text=Lubombo'
-  },
-  { 
-    id: 'shiselweni', 
-    name: 'Shiselweni', 
-    description: 'Developing the future of football in the southern regions of the Kingdom.',
-    color: 'from-red-600 to-red-800',
-    iconBg: 'bg-red-100 text-red-600',
-    logoUrl: 'https://via.placeholder.com/150/D22730/FFFFFF?text=Shiselweni'
-  },
-];
+import { fetchRegionConfigs, RegionConfig } from '../services/api';
+import Spinner from './ui/Spinner';
 
 const RegionalPage: React.FC = () => {
+  const [dbRegions, setDbRegions] = useState<RegionConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fallbackRegions: RegionConfig[] = [
+    { id: 'hhohho', name: 'Hhohho', description: 'Home to the capital city clubs and elite regional development programs.', color: 'from-blue-600 to-blue-800' },
+    { id: 'manzini', name: 'Manzini', description: 'The hub of football activity in Eswatini with intense regional rivalries.', color: 'from-yellow-500 to-yellow-700' },
+    { id: 'lubombo', name: 'Lubombo', description: 'Nurturing talent in the eastern lowveld with a focus on community tournaments.', color: 'from-green-600 to-green-800' },
+    { id: 'shiselweni', name: 'Shiselweni', description: 'Developing the future of football in the southern regions of the Kingdom.', color: 'from-red-600 to-red-800' },
+  ];
+
+  useEffect(() => {
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const data = await fetchRegionConfigs();
+            setDbRegions(data);
+        } catch (error) {
+            console.error("Error loading region configs:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    loadData();
+  }, []);
+
+  // Merge DB data into the fallback structure based on ID
+  const mergedRegions = useMemo(() => {
+    return fallbackRegions.map(fallback => {
+        const dbMatch = dbRegions.find(db => db.id.toLowerCase() === fallback.id.toLowerCase());
+        if (dbMatch) {
+            return {
+                ...fallback,
+                ...dbMatch,
+                // Ensure we keep the fallback color if DB doesn't have one
+                color: dbMatch.color || fallback.color 
+            };
+        }
+        return fallback;
+    });
+  }, [dbRegions]);
+
   return (
     <div className="bg-gray-50 py-12 min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
@@ -66,35 +66,37 @@ const RegionalPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-          {regions.map((region) => (
-            <Link key={region.id} to={`/region/${region.id}`} className="group block h-full">
-              <Card className="h-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-0 overflow-hidden">
-                <div className={`h-2 bg-gradient-to-r ${region.color}`}></div>
-                <CardContent className="p-8 flex flex-col h-full items-center text-center">
-                  <div className="h-24 w-24 mb-6 flex items-center justify-center">
-                    {region.logoUrl ? (
-                        <img src={region.logoUrl} alt={region.name} className="max-h-full max-w-full object-contain drop-shadow-md rounded-xl" />
-                    ) : (
-                        <div className={`p-6 rounded-2xl ${region.iconBg}`}>
-                          <MapPinIcon className="w-10 h-10" />
+        {loading ? <div className="flex justify-center py-20"><Spinner /></div> : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                {mergedRegions.map((region) => (
+                    <Link key={region.id} to={`/region/${region.id}`} className="group block h-full">
+                    <Card className="h-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-0 overflow-hidden bg-white">
+                        <div className={`h-2 bg-gradient-to-r ${region.color}`}></div>
+                        <CardContent className="p-8 flex flex-col h-full items-center text-center">
+                        <div className="h-32 w-32 mb-6 flex items-center justify-center">
+                            {region.logoUrl ? (
+                                <img src={region.logoUrl} alt={region.name} className="max-h-full max-w-full object-contain drop-shadow-xl rounded-xl transition-transform group-hover:scale-110" />
+                            ) : (
+                                <div className="p-6 rounded-2xl bg-gray-100 text-gray-400">
+                                <MapPinIcon className="w-12 h-12" />
+                                </div>
+                            )}
                         </div>
-                    )}
-                  </div>
-                  
-                  <h2 className="text-3xl font-display font-bold text-gray-900 mb-3">{region.name}</h2>
-                  <p className="text-gray-600 mb-8 flex-grow leading-relaxed">
-                    {region.description}
-                  </p>
-                  
-                  <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-wider group-hover:gap-4 transition-all pt-4 border-t w-full justify-center">
-                    Explore Region <ArrowRightIcon className="w-5 h-5" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                        
+                        <h2 className="text-3xl font-display font-bold text-gray-900 mb-3">{region.name}</h2>
+                        <p className="text-gray-600 mb-8 flex-grow leading-relaxed">
+                            {region.description}
+                        </p>
+                        
+                        <div className="flex items-center gap-2 text-primary font-bold uppercase tracking-wider group-hover:gap-4 transition-all pt-4 border-t w-full justify-center">
+                            Explore Region <ArrowRightIcon className="w-5 h-5" />
+                        </div>
+                        </CardContent>
+                    </Card>
+                    </Link>
+                ))}
+            </div>
+        )}
 
         <div className="mt-20 max-w-4xl mx-auto">
             <Card className="bg-gradient-to-br from-gray-900 to-blue-900 text-white shadow-2xl border-0">

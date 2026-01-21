@@ -194,12 +194,12 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                         <td className="px-2 sm:px-3 py-3">
                                             {profileUrl ? (
                                                 <Link to={profileUrl} className="flex items-center gap-2 sm:gap-3 group/link">
-                                                    <img src={dirEntry?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
+                                                    <img src={dirEntry?.crestUrl || team?.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
                                                     <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none group-hover/link:text-primary group-hover/link:underline transition-colors">{team.name}</span>
                                                 </Link>
                                             ) : (
                                                 <div className="flex items-center gap-2 sm:gap-3">
-                                                    <img src={dirEntry?.crestUrl || team.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
+                                                    <img src={dirEntry?.crestUrl || team?.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
                                                     <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
                                                 </div>
                                             )}

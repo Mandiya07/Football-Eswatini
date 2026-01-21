@@ -7,67 +7,77 @@ import ShareIcon from './icons/ShareIcon';
 
 // Constants for layout
 const CARD_WIDTH = 220;
-const CARD_HEIGHT = 80; // Fixed height for calculation consistency
-const GAP_X = 60; // Horizontal space between rounds
-const GAP_Y = 20; // Vertical space between matches in the densest round
+const CARD_HEIGHT = 90; // Increased slightly for better spacing
+const GAP_X = 60;
+const GAP_Y = 25;
 
 interface PositionedMatch extends BracketMatch {
     x: number;
     y: number;
     roundIndex: number;
     matchIndex: number;
-    // Coordinates for connector lines
     connectorPoint: { x: number; y: number }; 
-    parentPoints: { x: number; y: number }[]; // Points to connect FROM (previous round)
+    parentPoints: { x: number; y: number }[];
 }
 
 const MatchCard: React.FC<{ match: BracketMatch; style: React.CSSProperties }> = ({ match, style }) => {
-    // Neutral styling: White bg, gray border, black text
+    // Robust data extraction: handles nested (team1.name) and flat (team1Name) structures
+    const mAny = match as any;
+    
+    const team1Name = match.team1?.name || mAny.team1Name || 'TBD';
+    const team2Name = match.team2?.name || mAny.team2Name || 'TBD';
+    
+    const score1 = match.team1?.score ?? mAny.score1 ?? '-';
+    const score2 = match.team2?.score ?? mAny.score2 ?? '-';
+    
+    const crest1 = match.team1?.crestUrl || mAny.team1Crest;
+    const crest2 = match.team2?.crestUrl || mAny.team2Crest;
+
     const isWinner1 = match.winner === 'team1';
     const isWinner2 = match.winner === 'team2';
 
     return (
         <div 
-            className="absolute rounded-lg border border-gray-300 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden flex flex-col justify-center"
+            className={`absolute rounded-xl border-2 bg-white shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-center ${match.winner ? 'border-gray-200' : 'border-gray-100'}`}
             style={{
                 ...style,
                 width: CARD_WIDTH,
                 height: CARD_HEIGHT,
             }}
         >
-            <div className="bg-gray-50 border-b border-gray-100 px-2 py-1 flex justify-between items-center text-[10px] text-gray-500">
-                <span className="truncate max-w-[100px]">{match.venue || 'Match ' + match.id}</span>
-                <div className="flex gap-1">
-                    <span>{match.date}</span>
-                    <span>{match.time}</span>
+            <div className="bg-gray-50 border-b border-gray-100 px-3 py-1 flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-gray-400">
+                <span className="truncate max-w-[110px]">{match.venue || 'TBD'}</span>
+                <div className="flex gap-1.5">
+                    <span>{match.date || ''}</span>
+                    <span>{match.time || ''}</span>
                 </div>
             </div>
             
-            <div className="flex flex-col justify-center flex-grow px-2 py-1 gap-1">
+            <div className="flex flex-col justify-center flex-grow px-3 py-1.5 gap-1.5">
                 {/* Team 1 */}
-                <div className={`flex justify-between items-center ${isWinner1 ? 'font-bold text-black' : 'text-gray-600'}`}>
+                <div className={`flex justify-between items-center ${isWinner1 ? 'font-black text-blue-900' : 'text-gray-600 font-medium'}`}>
                     <div className="flex items-center gap-2 overflow-hidden">
-                        {match.team1.crestUrl ? (
-                            <img src={match.team1.crestUrl} alt="crest" className="w-4 h-4 object-contain" />
+                        {crest1 ? (
+                            <img src={crest1} alt="" className="w-5 h-5 object-contain flex-shrink-0" />
                         ) : (
-                            <div className="w-4 h-4 rounded-full bg-gray-200"></div>
+                            <div className="w-5 h-5 rounded-full bg-gray-100 border border-gray-200 flex-shrink-0"></div>
                         )}
-                        <span className="truncate text-xs">{match.team1.name}</span>
+                        <span className="truncate text-xs">{team1Name}</span>
                     </div>
-                    <span className="text-xs font-mono">{match.team1.score ?? '-'}</span>
+                    <span className="text-xs font-mono bg-gray-50 px-1.5 rounded">{score1}</span>
                 </div>
 
                 {/* Team 2 */}
-                <div className={`flex justify-between items-center ${isWinner2 ? 'font-bold text-black' : 'text-gray-600'}`}>
+                <div className={`flex justify-between items-center ${isWinner2 ? 'font-black text-blue-900' : 'text-gray-600 font-medium'}`}>
                     <div className="flex items-center gap-2 overflow-hidden">
-                        {match.team2.crestUrl ? (
-                            <img src={match.team2.crestUrl} alt="crest" className="w-4 h-4 object-contain" />
+                        {crest2 ? (
+                            <img src={crest2} alt="" className="w-5 h-5 object-contain flex-shrink-0" />
                         ) : (
-                            <div className="w-4 h-4 rounded-full bg-gray-200"></div>
+                            <div className="w-5 h-5 rounded-full bg-gray-100 border border-gray-200 flex-shrink-0"></div>
                         )}
-                        <span className="truncate text-xs">{match.team2.name}</span>
+                        <span className="truncate text-xs">{team2Name}</span>
                     </div>
-                    <span className="text-xs font-mono">{match.team2.score ?? '-'}</span>
+                    <span className="text-xs font-mono bg-gray-50 px-1.5 rounded">{score2}</span>
                 </div>
             </div>
         </div>
@@ -77,7 +87,6 @@ const MatchCard: React.FC<{ match: BracketMatch; style: React.CSSProperties }> =
 const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tournament }) => {
     const [copied, setCopied] = React.useState(false);
 
-    // This hook calculates the absolute X/Y positions of every match card and connection line
     const layoutData = useMemo(() => {
         const rounds = tournament.rounds;
         const positionedMatches: PositionedMatch[] = [];
@@ -85,40 +94,21 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
 
         if (!rounds || rounds.length === 0) return { matches: [], connections: [], width: 0, height: 0 };
 
-        // 1. Determine tree depth (max rounds) to estimate spacing
-        // We assume the bracket is a single elimination tree converging to the right.
-        
-        // We need to map matches to logical "slots".
-        // If data doesn't have matchInRound, we assume array index is the slot.
-        // We process rounds from first (left) to last (right).
-        
-        // Map to store Y-center of matches from previous rounds to calculate current round positions
-        // Key: `${roundIndex}-${matchIndex}` -> yCenter
         const yCenterMap = new Map<string, number>();
 
-        // Calculate positions
         rounds.forEach((round, rIndex) => {
             const isFirstRound = rIndex === 0;
             
-            // Expected matches in this round if it were a full tree.
-            // However, we rely on the actual matches provided.
-            // If the structure is strictly power-of-2, Round 0 has N matches, Round 1 has N/2...
-            
             round.matches.forEach((match, mIndex) => {
-                // X Position is simple: Round index * (Card Width + Gap)
-                const x = rIndex * (CARD_WIDTH + GAP_X) + 20; // +20 padding
+                const x = rIndex * (CARD_WIDTH + GAP_X) + 20;
 
-                // Y Position is trickier.
                 let y = 0;
                 let yCenter = 0;
 
                 if (isFirstRound) {
-                    // Simple stack
-                    y = mIndex * (CARD_HEIGHT + GAP_Y) + 20; // +20 padding
+                    y = mIndex * (CARD_HEIGHT + GAP_Y) + 40; // +40 top padding for titles
                     yCenter = y + CARD_HEIGHT / 2;
                 } else {
-                    // Center based on "children" (previous round matches feeding into this one)
-                    // Logic: Match M in Round R connects to Matches (2*M) and (2*M + 1) in Round R-1
                     const child1Key = `${rIndex - 1}-${mIndex * 2}`;
                     const child2Key = `${rIndex - 1}-${mIndex * 2 + 1}`;
                     
@@ -129,26 +119,20 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                         yCenter = (child1Y + child2Y) / 2;
                         y = yCenter - CARD_HEIGHT / 2;
                         
-                        // Create Connection Lines
-                        // Line from Child 1 to Parent
                         const path1 = `M${x - GAP_X + CARD_WIDTH},${child1Y} L${x - GAP_X/2},${child1Y} L${x - GAP_X/2},${yCenter} L${x},${yCenter}`;
-                        // Line from Child 2 to Parent
                         const path2 = `M${x - GAP_X + CARD_WIDTH},${child2Y} L${x - GAP_X/2},${child2Y} L${x - GAP_X/2},${yCenter} L${x},${yCenter}`;
 
                         connections.push(<path key={`conn-${rIndex}-${mIndex}-1`} d={path1} stroke="#CBD5E1" strokeWidth="2" fill="none" />);
                         connections.push(<path key={`conn-${rIndex}-${mIndex}-2`} d={path2} stroke="#CBD5E1" strokeWidth="2" fill="none" />);
 
                     } else if (child1Y !== undefined) {
-                        // Only 1 child (maybe bye round?), align with it
                         yCenter = child1Y;
                         y = yCenter - CARD_HEIGHT / 2;
                         connections.push(<path key={`conn-${rIndex}-${mIndex}-1`} d={`M${x - GAP_X + CARD_WIDTH},${child1Y} L${x},${yCenter}`} stroke="#CBD5E1" strokeWidth="2" fill="none" />);
                     } else {
-                        // Orphan match (shouldn't happen in valid tree, but fallback to stacked)
-                        // Calculate implied position based on previous gaps
                         const estimatedSlots = Math.pow(2, rIndex);
                         const slotHeight = (CARD_HEIGHT + GAP_Y) * estimatedSlots;
-                        y = (mIndex * slotHeight) + (slotHeight / 2) - (CARD_HEIGHT / 2) + 20;
+                        y = (mIndex * slotHeight) + (slotHeight / 2) - (CARD_HEIGHT / 2) + 40;
                         yCenter = y + CARD_HEIGHT / 2;
                     }
                 }
@@ -162,15 +146,14 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                     roundIndex: rIndex,
                     matchIndex: mIndex,
                     connectorPoint: { x, y: y + CARD_HEIGHT / 2 },
-                    parentPoints: [] // Not used in this pass
+                    parentPoints: []
                 });
             });
         });
 
-        // Calculate container dimensions
         const maxMatchY = Array.from(yCenterMap.values()).reduce((max, y) => Math.max(max, y), 0);
         const containerWidth = (rounds.length * (CARD_WIDTH + GAP_X)) + 40;
-        const containerHeight = Math.max(500, maxMatchY + CARD_HEIGHT + 40);
+        const containerHeight = Math.max(500, maxMatchY + CARD_HEIGHT + 60);
 
         return { matches: positionedMatches, connections, width: containerWidth, height: containerHeight };
 
@@ -201,26 +184,26 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
     };
 
     return (
-        <Card className="shadow-lg animate-fade-in border-t-4 border-gray-800">
-            <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-4">
+        <Card className="shadow-2xl animate-fade-in border-t-8 border-gray-900 rounded-3xl overflow-hidden">
+            <CardContent className="p-0">
+                <div className="p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 bg-white border-b border-gray-100">
+                    <div className="flex items-center gap-6">
                         {tournament.logoUrl ? (
-                            <img src={tournament.logoUrl} alt={`${tournament.name} logo`} className="h-16 w-16 object-contain p-1 bg-gray-50 rounded-lg border border-gray-200" />
+                            <img src={tournament.logoUrl} alt="" className="h-20 w-20 object-contain p-2 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm" />
                         ) : (
-                            <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
-                                <TrophyIcon className="w-8 h-8 text-gray-400" />
+                            <div className="h-20 w-20 bg-gray-100 rounded-2xl flex items-center justify-center border border-gray-200">
+                                <TrophyIcon className="w-10 h-10 text-gray-300" />
                             </div>
                         )}
                         <div>
-                            <h3 className="text-2xl font-bold font-display text-gray-900 text-center sm:text-left">{tournament.name}</h3>
-                            <p className="text-sm text-gray-500">Knockout Stage</p>
+                            <h3 className="text-2xl md:text-3xl font-black font-display text-gray-900 leading-tight">{tournament.name}</h3>
+                            <p className="text-xs font-black uppercase tracking-widest text-blue-600 mt-1">Official Tournament Bracket</p>
                         </div>
                     </div>
                     
                     <button
                         onClick={handleShare}
-                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors border border-blue-200"
+                        className="flex items-center gap-2 px-6 py-3 text-xs font-black uppercase tracking-widest rounded-xl bg-primary text-white hover:bg-primary-dark transition-all shadow-xl active:scale-95"
                     >
                         <ShareIcon className="w-4 h-4" />
                         {copied ? 'Link Copied!' : 'Share Bracket'}
@@ -228,14 +211,14 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                 </div>
 
                 {/* Bracket Container */}
-                <div className="w-full overflow-auto border border-gray-200 rounded-xl bg-gray-50 relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <div className="w-full overflow-auto bg-[#fdfdfd] relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                     <div style={{ width: layoutData.width, height: layoutData.height, position: 'relative' }}>
                         
                         {/* Round Titles Background */}
                         {tournament.rounds.map((round, i) => (
                             <div 
                                 key={i} 
-                                className="absolute top-0 text-center border-b border-gray-200 bg-white/80 backdrop-blur-sm z-20 py-2 font-bold text-xs uppercase tracking-widest text-gray-500 shadow-sm"
+                                className="absolute top-0 text-center border-b border-gray-200 bg-white/80 backdrop-blur-md z-20 py-3 font-black text-[10px] uppercase tracking-[0.2em] text-gray-400 shadow-sm"
                                 style={{
                                     left: i * (CARD_WIDTH + GAP_X) + 20,
                                     width: CARD_WIDTH,
@@ -264,6 +247,14 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                                 }} 
                             />
                         ))}
+                    </div>
+                </div>
+                
+                <div className="bg-gray-50 px-8 py-4 border-t border-gray-100 flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">© Football Eswatini Bracket Engine</p>
+                    <div className="flex gap-4">
+                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-600"></div><span className="text-[9px] font-bold text-gray-500 uppercase">Live Path</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-gray-300"></div><span className="text-[9px] font-bold text-gray-500 uppercase">Standard</span></div>
                     </div>
                 </div>
             </CardContent>

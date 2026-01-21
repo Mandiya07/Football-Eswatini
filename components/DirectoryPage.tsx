@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -16,6 +15,8 @@ import ArrowRightIcon from './icons/ArrowRightIcon';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import AdBanner from './AdBanner';
+import DirectoryMap from './DirectoryMap';
+import TrophyIcon from './icons/TrophyIcon';
 
 const staticCategoryIcons: Record<EntityCategory, React.FC<React.SVGProps<SVGSVGElement>>> = {
     'Club': ShieldIcon,
@@ -152,12 +153,29 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; categoryLogo?: string }
                             </div>
                         )}
 
+                        {entity.honours && entity.honours.length > 0 && (
+                            <div className="bg-yellow-50/50 p-3 rounded-xl border border-yellow-100">
+                                <p className="text-[10px] font-black text-yellow-700 uppercase mb-2 flex items-center gap-1.5">
+                                    <TrophyIcon className="w-3 h-3"/> Honours & Achievement
+                                </p>
+                                <ul className="space-y-1">
+                                    {entity.honours.map((honour, idx) => (
+                                        <li key={idx} className="text-xs font-bold text-gray-800 flex items-start gap-2">
+                                            <span className="text-yellow-600">•</span> {honour}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
                         {entity.leaders && entity.leaders.length > 0 && (
-                            <div className="bg-gray-50 p-2 rounded">
-                                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Leadership</p>
-                                {entity.leaders.map((l, idx) => (
-                                    <p key={idx} className="text-xs"><span className="font-medium">{l.role}:</span> {l.name}</p>
-                                ))}
+                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                <p className="text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">Leadership</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {entity.leaders.map((l, idx) => (
+                                        <p key={idx} className="text-xs text-gray-700"><span className="font-bold text-gray-500">{l.role}:</span> {l.name}</p>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -239,6 +257,10 @@ const DirectoryPage: React.FC = () => {
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [searchTerm, selectedCategory, selectedRegion, selectedTier, allEntries]);
 
+    const handleRegionMapClick = (reg: Region) => {
+        setSelectedRegion(reg === selectedRegion ? 'all' : reg);
+    };
+
     const inputClass = "block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm";
 
     return (
@@ -253,7 +275,14 @@ const DirectoryPage: React.FC = () => {
                     </p>
                 </div>
 
-                <AdBanner placement="directory-banner" className="mb-8 max-w-5xl mx-auto" />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12 max-w-6xl mx-auto">
+                    <div className="lg:col-span-2">
+                        <AdBanner placement="directory-banner" className="h-full rounded-2xl" />
+                    </div>
+                    <div className="lg:col-span-1">
+                        <DirectoryMap activeRegion={selectedRegion} onRegionClick={handleRegionMapClick} />
+                    </div>
+                </div>
 
                 <Card className="shadow-lg mb-8 max-w-5xl mx-auto">
                     <CardContent className="p-4">

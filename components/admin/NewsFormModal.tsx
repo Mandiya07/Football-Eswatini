@@ -126,14 +126,14 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
 
     return (
         <div
-            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in"
+            className="fixed inset-0 bg-black/70 z-[300] flex items-start justify-center p-4 pt-24 md:pt-32 overflow-y-auto animate-fade-in"
             onClick={onClose}
             role="dialog"
             aria-modal="true"
             aria-labelledby="news-form-title"
         >
             <Card
-                className="w-full max-w-3xl max-h-[90vh] overflow-y-auto relative animate-slide-up"
+                className="w-full max-w-3xl mb-8 relative animate-slide-up"
                 onClick={(e) => e.stopPropagation()}
             >
                 <button

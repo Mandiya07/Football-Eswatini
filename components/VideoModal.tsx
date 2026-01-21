@@ -25,7 +25,7 @@ const VideoModal: React.FC<VideoModalProps> = ({ video, onClose }) => {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/80 z-[300] flex items-center justify-center p-4 animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Team } from '../data/teams';
 import { Card } from './ui/Card';
@@ -59,10 +60,10 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
     const getStatusLabel = (index: number) => {
         if (!isUCL) return null;
         const pos = index + 1;
-        if (pos <= 8) return <span className="text-[8px] font-black text-green-700 bg-green-200/50 px-1 rounded ml-2 uppercase">R16 Qual</span>;
-        if (pos <= 16) return <span className="text-[8px] font-black text-blue-700 bg-blue-200/50 px-1 rounded ml-2 uppercase">Seeded</span>;
-        if (pos <= 24) return <span className="text-[8px] font-black text-blue-500 bg-blue-100/50 px-1 rounded ml-2 uppercase">Unseeded</span>;
-        return <span className="text-[8px] font-black text-gray-400 bg-gray-200/50 px-1 rounded ml-2 uppercase">Out</span>;
+        if (pos <= 8) return <span className="text-[8px] font-black text-green-700 bg-green-200/50 px-1 rounded ml-2 uppercase">Direct R16</span>;
+        if (pos <= 16) return <span className="text-[8px] font-black text-blue-700 bg-blue-200/50 px-1 rounded ml-2 uppercase">Play-offs (S)</span>;
+        if (pos <= 24) return <span className="text-[8px] font-black text-blue-500 bg-blue-100/50 px-1 rounded ml-2 uppercase">Play-offs (U)</span>;
+        return <span className="text-[8px] font-black text-gray-400 bg-gray-200/50 px-1 rounded ml-2 uppercase">Eliminated</span>;
     };
     
   return (
@@ -102,12 +103,12 @@ const StandingsTable: React.FC<StandingsTableProps> = ({ standings, competitionI
                                     <div className="flex items-center gap-2">
                                         {profileUrl ? (
                                             <Link to={profileUrl} className="flex items-center space-x-3 group/link">
-                                                <img src={dirEntry?.crestUrl || team.crestUrl} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
+                                                <img src={dirEntry?.crestUrl || team?.crestUrl} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
                                                 <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none group-hover/link:text-primary group-hover/link:underline transition-colors">{team.name}</span>
                                             </Link>
                                         ) : (
                                             <div className="flex items-center space-x-3">
-                                                <img src={dirEntry?.crestUrl || team.crestUrl} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
+                                                <img src={dirEntry?.crestUrl || team?.crestUrl} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0" />
                                                 <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
                                             </div>
                                         )}

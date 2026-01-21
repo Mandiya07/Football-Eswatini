@@ -5,7 +5,7 @@ import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchAllCompetitions, fetchCategories, submitClubRequest, PromoCode, processPayment, PaymentDetails, PaymentMethod } from '../services/api';
+import { fetchAllCompetitions, submitClubRequest, PromoCode, processPayment, PaymentDetails, PaymentMethod } from '../services/api';
 import ShieldIcon from './icons/ShieldIcon';
 import UserIcon from './icons/UserIcon';
 import MailIcon from './icons/MailIcon';
@@ -70,15 +70,13 @@ const ClubRegistrationPage: React.FC = () => {
     useEffect(() => {
         const loadTeams = async () => {
             try {
-                const [competitionsData] = await Promise.all([fetchAllCompetitions()]);
+                const competitionsData = await fetchAllCompetitions();
                 const localTeamNames = new Set<string>();
                 Object.values(competitionsData).forEach(comp => {
                     comp.teams?.forEach(t => localTeamNames.add(t.name.trim()));
                 });
                 setAllTeams(Array.from(localTeamNames).sort());
-            } catch (err) {
-                console.error("Error loading team list:", err);
-            }
+            } catch (err) { console.error(err); }
         };
         loadTeams();
     }, []);
@@ -142,18 +140,12 @@ const ClubRegistrationPage: React.FC = () => {
         }, 800);
 
         try {
-            // 1. Process Real Payment
             const result = await processPayment(finalPrice, paymentDetails);
             
             if (result.success) {
                 setTransactionId(result.transactionId);
-                
-                // 2. Auth Signup
-                if (!user) {
-                    await signup({ name: repName, email, password });
-                }
+                if (!user) await signup({ name: repName, email, password });
 
-                // 3. Submit Data to Firestore
                 await submitClubRequest({
                     userId: user?.id || 'new_user', 
                     clubName,
@@ -202,7 +194,6 @@ const ClubRegistrationPage: React.FC = () => {
     return (
         <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-5xl mx-auto">
-                
                 <div className="text-center mb-12 animate-fade-in">
                     <ShieldIcon className="w-12 h-12 mx-auto text-blue-600 mb-4" />
                     <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
@@ -240,48 +231,22 @@ const ClubRegistrationPage: React.FC = () => {
                             <CardContent className="p-8">
                                 <form onSubmit={handleInitialSubmit} className="space-y-5">
                                     {error && <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm font-bold border border-red-100">{error}</div>}
-                                    
                                     <div>
                                         <label className="block text-xs font-black uppercase text-gray-400 mb-1">Target Club</label>
                                         <input list="team-names" value={clubName} onChange={e => setClubName(e.target.value)} required className={inputClass} placeholder="Search or type club name..." />
                                         <datalist id="team-names">{allTeams.map(n => <option key={n} value={n} />)}</datalist>
                                     </div>
-
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Full Name</label>
-                                            <Input icon={<UserIcon className="w-5 h-5 text-gray-400"/>} value={repName} onChange={e => setRepName(e.target.value)} required placeholder="Official Name" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Official Email</label>
-                                            <Input icon={<MailIcon className="w-5 h-5 text-gray-400"/>} type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-                                        </div>
+                                        <div><label className="block text-xs font-black uppercase text-gray-400 mb-1">Full Name</label><Input icon={<UserIcon className="w-5 h-5 text-gray-400"/>} value={repName} onChange={e => setRepName(e.target.value)} required placeholder="Official Name" /></div>
+                                        <div><label className="block text-xs font-black uppercase text-gray-400 mb-1">Official Email</label><Input icon={<MailIcon className="w-5 h-5 text-gray-400"/>} type="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
                                     </div>
-
-                                    <div>
-                                        <label className="block text-xs font-black uppercase text-gray-400 mb-1">Contact Phone</label>
-                                        <Input icon={<PhoneIcon className="w-5 h-5 text-gray-400"/>} type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
-                                    </div>
-
+                                    <div><label className="block text-xs font-black uppercase text-gray-400 mb-1">Contact Phone</label><Input icon={<PhoneIcon className="w-5 h-5 text-gray-400"/>} type="tel" value={phone} onChange={e => setPhone(e.target.value)} required /></div>
                                     <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                                        <div>
-                                            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Set Password</label>
-                                            <Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-black uppercase text-gray-400 mb-1">Confirm</label>
-                                            <Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
-                                        </div>
+                                        <div><label className="block text-xs font-black uppercase text-gray-400 mb-1">Set Password</label><Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={password} onChange={e => setPassword(e.target.value)} required /></div>
+                                        <div><label className="block text-xs font-black uppercase text-gray-400 mb-1">Confirm</label><Input icon={<LockIcon className="w-5 h-5 text-gray-400"/>} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required /></div>
                                     </div>
-                                    
                                     <PromoCodeInput onApply={setDiscount} label="Referral/Discount Code" />
-
-                                    <div className="pt-6 border-t">
-                                        <Button type="submit" disabled={isSubmitting} className="w-full bg-primary text-white h-12 text-lg shadow-xl font-bold flex items-center justify-center gap-3">
-                                            {isSubmitting ? <Spinner className="w-5 h-5 border-2" /> : finalPrice > 0 ? `Secure Payment (E${finalPrice})` : 'Register Free Club'}
-                                            <ShieldCheckIcon className="w-5 h-5" />
-                                        </Button>
-                                    </div>
+                                    <div className="pt-6 border-t"><Button type="submit" disabled={isSubmitting} className="w-full bg-primary text-white h-12 text-lg shadow-xl font-bold flex items-center justify-center gap-3">{isSubmitting ? <Spinner className="w-5 h-5 border-2" /> : finalPrice > 0 ? `Secure Payment (E${finalPrice})` : 'Register Free Club'}<ShieldCheckIcon className="w-5 h-5" /></Button></div>
                                 </form>
                             </CardContent>
                         </Card>
@@ -290,22 +255,19 @@ const ClubRegistrationPage: React.FC = () => {
 
                 {step === 'payment-method' && (
                     <div className="max-w-md mx-auto space-y-6 animate-fade-in">
-                        <p className="text-center text-gray-500 font-medium">Select a production payment method for <strong>{selectedTier}</strong> subscription.</p>
+                        <p className="text-center text-gray-500 font-medium">Select a payment method for your <strong>{selectedTier}</strong> plan.</p>
                         <button onClick={() => { setPaymentMethod('card'); setStep('payment-details'); }} className="w-full p-6 border-2 border-gray-100 bg-white rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center justify-between group">
                             <div className="flex items-center gap-4">
                                 <div className="bg-blue-100 p-3 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors"><CreditCardIcon className="w-6 h-6"/></div>
                                 <div className="text-left"><p className="font-bold text-gray-900">Credit / Debit Card</p><p className="text-xs text-gray-400">VISA / Mastercard Secure</p></div>
                             </div>
-                            <CheckCircleIcon className="w-6 h-6 text-gray-200" />
                         </button>
                         <button onClick={() => { setPaymentMethod('momo'); setStep('payment-details'); }} className="w-full p-6 border-2 border-gray-100 bg-white rounded-2xl hover:border-yellow-500 hover:bg-yellow-50 transition-all flex items-center justify-between group">
                             <div className="flex items-center gap-4">
                                 <div className="bg-yellow-100 p-3 rounded-xl text-yellow-700 group-hover:bg-yellow-500 group-hover:text-white transition-colors"><PhoneIcon className="w-6 h-6"/></div>
                                 <div className="text-left"><p className="font-bold text-gray-900">MTN MoMo</p><p className="text-xs text-gray-400">Official Mobile Money</p></div>
                             </div>
-                            <CheckCircleIcon className="w-6 h-6 text-gray-200" />
                         </button>
-                        <button onClick={() => setStep('form')} className="w-full text-center text-sm font-bold text-gray-400 hover:text-gray-600">Back to Details</button>
                     </div>
                 )}
 
@@ -335,10 +297,8 @@ const ClubRegistrationPage: React.FC = () => {
                     <div className="flex flex-col items-center justify-center h-64 text-center animate-fade-in">
                         <Spinner className="w-20 h-20 border-t-primary border-gray-100" />
                         <p className="mt-8 text-xl font-bold text-gray-900">{processingStatus}</p>
-                        <p className="text-xs text-gray-400 mt-2">Connecting to production gateway...</p>
                     </div>
                 )}
-
             </div>
         </div>
     );

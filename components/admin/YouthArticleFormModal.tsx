@@ -74,8 +74,8 @@ const YouthArticleFormModal: React.FC<YouthArticleFormModalProps> = ({ isOpen, o
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
-            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative animate-slide-up" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 z-[300] flex items-start justify-center p-4 pt-24 md:pt-32 overflow-y-auto animate-fade-in" onClick={onClose}>
+            <Card className="w-full max-w-2xl mb-8 relative animate-slide-up" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800" aria-label="Close form"><XIcon className="w-6 h-6" /></button>
                 <CardContent className="p-8">
                     <h2 className="text-2xl font-bold font-display mb-6">{article ? 'Edit Article' : 'Create New Article'}</h2>

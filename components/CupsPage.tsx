@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import TournamentBracketDisplay from './TournamentBracketDisplay';
 import { Tournament, cupData as localCupData } from '../data/cups';
 import { fetchCups, fetchAllTeams, fetchDirectoryEntries } from '../services/api';
@@ -41,63 +42,58 @@ const CupsPage: React.FC = () => {
               fetchedCups.forEach((cup: any) => {
                   if (!cup || !cup.rounds) return;
 
-                  const sampleMatch = cup.rounds?.[0]?.matches?.[0];
-                  const isIdBased = sampleMatch && (sampleMatch.team1Id !== undefined || sampleMatch.team1 === undefined);
-                  
-                  let processedCup = cup as Tournament;
+                  const newRounds = cup.rounds.map((round: any) => ({
+                      title: round.title,
+                      matches: (round.matches || []).map((m: any) => {
+                          // Support both admin's flat structure and legacy nested structure
+                          const team1Id = m.team1Id || m.team1?.id;
+                          const team2Id = m.team2Id || m.team2?.id;
+                          const team1Name = m.team1Name || m.team1?.name;
+                          const team2Name = m.team2Name || m.team2?.name;
+                          const score1 = m.score1 !== undefined ? m.score1 : m.team1?.score;
+                          const score2 = m.score2 !== undefined ? m.score2 : m.team2?.score;
 
-                  if (isIdBased) {
-                      const newRounds = cup.rounds.map((round: any) => ({
-                          title: round.title,
-                          matches: (round.matches || []).map((m: any) => {
-                              const t1 = fetchedTeams.find(t => t.id === m.team1Id);
-                              const t1Name = t1 ? t1.name : (m.round > 1 ? 'Winner Previous' : 'TBD');
-                              const t1Crest = crestMap.get(t1Name.trim().toLowerCase()) || (t1 ? t1.crestUrl : undefined);
-                              
-                              const t2 = fetchedTeams.find(t => t.id === m.team2Id);
-                              const t2Name = t2 ? t2.name : (m.round > 1 ? 'Winner Previous' : 'TBD');
-                              const t2Crest = crestMap.get(t2Name.trim().toLowerCase()) || (t2 ? t2.crestUrl : undefined);
-
-                              let winner: 'team1' | 'team2' | undefined;
-                              if (m.winnerId) {
-                                  if (m.winnerId === m.team1Id) winner = 'team1';
-                                  else if (m.winnerId === m.team2Id) winner = 'team2';
-                              } else if (m.winner) {
-                                  winner = m.winner; 
+                          // Resolve Team 1
+                          let t1FinalName = team1Name || 'TBD';
+                          let t1Crest = undefined;
+                          
+                          if (team1Id) {
+                              const t1 = fetchedTeams.find(t => t.id === team1Id);
+                              if (t1) {
+                                  t1FinalName = t1.name;
+                                  t1Crest = t1.crestUrl;
                               }
+                          }
 
-                              return {
-                                  id: m.id,
-                                  date: m.date,
-                                  time: m.time,
-                                  venue: m.venue,
-                                  team1: { name: t1Name, crestUrl: t1Crest, score: m.score1 },
-                                  team2: { name: t2Name, crestUrl: t2Crest, score: m.score2 },
-                                  winner: winner
-                              };
-                          })
-                      }));
-                      processedCup = { ...cup, rounds: newRounds };
-                  } else {
-                       const newRounds = cup.rounds.map((round: any) => ({
-                          title: round.title,
-                          matches: (round.matches || []).map((m: any) => {
-                              const t1Name = m.team1?.name || 'TBD';
-                              const t2Name = m.team2?.name || 'TBD';
-                              const t1Crest = crestMap.get(t1Name.trim().toLowerCase()) || m.team1?.crestUrl;
-                              const t2Crest = crestMap.get(t2Name.trim().toLowerCase()) || m.team2?.crestUrl;
-                              
-                              return {
-                                  ...m,
-                                  team1: { ...m.team1, crestUrl: t1Crest },
-                                  team2: { ...m.team2, crestUrl: t2Crest }
-                              };
-                          })
-                       }));
-                       processedCup = { ...cup, rounds: newRounds };
-                  }
+                          // Resolve Team 2
+                          let t2FinalName = team2Name || 'TBD';
+                          let t2Crest = undefined;
+
+                          if (team2Id) {
+                              const t2 = fetchedTeams.find(t => t.id === team2Id);
+                              if (t2) {
+                                  t2FinalName = t2.name;
+                                  t2Crest = t2.crestUrl;
+                              }
+                          }
+
+                          // Final check against directory map for crests if missing
+                          t1Crest = t1Crest || crestMap.get(t1FinalName.trim().toLowerCase());
+                          t2Crest = t2Crest || crestMap.get(t2FinalName.trim().toLowerCase());
+
+                          return {
+                              id: m.id,
+                              date: m.date,
+                              time: m.time,
+                              venue: m.venue,
+                              team1: { name: t1FinalName, crestUrl: t1Crest, score: score1 },
+                              team2: { name: t2FinalName, crestUrl: t2Crest, score: score2 },
+                              winner: m.winner
+                          };
+                      })
+                  }));
                   
-                  cupsMap.set(cup.id, processedCup);
+                  cupsMap.set(cup.id, { ...cup, rounds: newRounds });
               });
           }
           
@@ -118,11 +114,6 @@ const CupsPage: React.FC = () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  /**
-   * ULTIMATE ROBUST LOOKUP: 
-   * Uses superNormalize to find a cup by name, ensuring minor naming variances
-   * in Firestore (like spaces, punctuation, or 'Super League' vs 'SuperLeague') don't break matching.
-   */
   const findCupIdByExactName = (name: string): string | null => {
       const target = superNormalize(name);
       const found = cups.find(c => superNormalize(c.name) === target);
@@ -138,12 +129,8 @@ const CupsPage: React.FC = () => {
       if (currentView === 'bracket') {
           const currentCup = cups.find(c => c.id === selectedCupId);
           const isIngwenyama = currentCup?.name.toLowerCase().includes('ingwenyama cup') || currentCup?.id.startsWith('ingwenyama-');
-          
-          if (isIngwenyama) {
-              setCurrentView('ingwenyama-hub');
-          } else {
-              setCurrentView('hub');
-          }
+          if (isIngwenyama) setCurrentView('ingwenyama-hub');
+          else setCurrentView('hub');
       } else if (currentView === 'ingwenyama-hub') {
           setCurrentView('hub');
       }
@@ -236,9 +223,7 @@ const CupsPage: React.FC = () => {
 
                   {regionConfig.map(region => {
                       const actualId = findCupIdByExactName(region.targetName);
-                      
                       if (!actualId) return null;
-
                       return (
                           <Card 
                             key={region.targetName} 

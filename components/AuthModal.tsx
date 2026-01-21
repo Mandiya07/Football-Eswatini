@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent } from './ui/Card';
@@ -83,14 +84,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/70 z-[300] flex items-start justify-center p-4 pt-24 md:pt-32 overflow-y-auto animate-fade-in"
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
     >
       <Card
-        className="w-full max-w-md max-h-[90vh] overflow-y-auto relative animate-slide-up"
+        className="w-full max-w-md mb-8 relative animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         <button

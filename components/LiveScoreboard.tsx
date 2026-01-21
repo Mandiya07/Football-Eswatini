@@ -39,31 +39,31 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
             if (teamEntity?.teamId) linkProps = { isLinkable: true, competitionId: teamEntity.competitionId || competitionId, teamId: teamEntity.teamId };
         }
         const content = (
-            <div className={`flex items-center gap-2 ${justification === 'end' ? 'justify-end' : ''}`}>
-                {justification === 'start' && crestUrl && <img src={crestUrl} alt="" className="w-6 h-6 object-contain" />}
-                <p className="font-semibold text-sm truncate">{teamName}</p>
-                {justification === 'end' && crestUrl && <img src={crestUrl} alt="" className="w-6 h-6 object-contain" />}
+            <div className={`flex items-center gap-2 overflow-hidden ${justification === 'end' ? 'justify-end text-right' : 'justify-start text-left'}`}>
+                {justification === 'start' && crestUrl && <img src={crestUrl} alt="" className="w-5 h-5 object-contain flex-shrink-0" />}
+                <p className="font-bold text-[11px] sm:text-xs truncate leading-tight flex-grow">{teamName}</p>
+                {justification === 'end' && crestUrl && <img src={crestUrl} alt="" className="w-5 h-5 object-contain flex-shrink-0" />}
             </div>
         );
-        return linkProps.isLinkable ? <Link to={`/competitions/${linkProps.competitionId}/teams/${linkProps.teamId}`} className="hover:underline">{content}</Link> : content;
+        return linkProps.isLinkable ? <Link to={`/competitions/${linkProps.competitionId}/teams/${linkProps.teamId}`} className="hover:underline flex-grow min-w-0">{content}</Link> : <div className="flex-grow min-w-0">{content}</div>;
     };
     
     const statusColor = match.status === 'live' ? 'text-secondary' : match.status === 'suspended' ? 'text-orange-600' : 'text-blue-600';
 
     return (
-        <div className="bg-white rounded-lg shadow-md p-3 h-full flex flex-col justify-center w-full hover:shadow-lg transition-shadow duration-200">
-            <div className="flex justify-between items-center mb-2">
-                <p className="text-[10px] text-gray-500 truncate max-w-[120px] uppercase font-bold">{match.venue || 'Match Center'}</p>
-                <div className={`flex items-center space-x-1.5 ${statusColor} font-bold text-[10px] ${match.status === 'live' ? 'animate-pulse' : ''}`}>
+        <div className="bg-white rounded-xl shadow-md p-3.5 h-full flex flex-col justify-center w-full hover:shadow-lg transition-all duration-300 border border-slate-100 hover:border-primary/20">
+            <div className="flex justify-between items-center mb-2.5">
+                <p className="text-[9px] text-gray-400 truncate max-w-[140px] uppercase font-black tracking-widest">{match.venue || 'Match Center'}</p>
+                <div className={`flex items-center space-x-1.5 ${statusColor} font-black text-[9px] tracking-tight ${match.status === 'live' ? 'animate-pulse' : ''}`}>
                     {match.status === 'live' && <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>}
                     <span>{match.status?.toUpperCase() || 'UPCOMING'}</span>
                     {match.liveMinute && match.status === 'live' && <span className="font-mono">{match.liveMinute}'</span>}
                 </div>
             </div>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-3">
                 <TeamLink teamName={match.teamA} teamId={match.teamAId} crestUrl={match.teamACrest} justification="start" />
-                <div className="bg-gray-50 px-2 py-1 rounded min-w-[60px]">
-                    {match.status === 'scheduled' ? <p className="font-bold text-xs text-gray-700">{timeLeft || match.time}</p> : <p className="font-black text-xl text-primary">{match.scoreA ?? 0} - {match.scoreB ?? 0}</p>}
+                <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg min-w-[65px] border border-slate-100 shadow-inner">
+                    {match.status === 'scheduled' ? <p className="font-black text-[10px] text-slate-700">{timeLeft || match.time}</p> : <p className="font-black text-xl text-primary tabular-nums tracking-tighter">{match.scoreA ?? 0} - {match.scoreB ?? 0}</p>}
                 </div>
                 <TeamLink teamName={match.teamB} teamId={match.teamBId} crestUrl={match.teamBCrest} justification="end" />
             </div>
@@ -91,8 +91,7 @@ const LiveScoreboard: React.FC = () => {
                 Object.entries(allComps).forEach(([compId, comp]) => {
                     if (comp.fixtures) {
                         comp.fixtures.forEach(f => {
-                            const matchTime = new Date(`${f.fullDate}T${f.time || '00:00'}`);
-                            // Logic: Show if explicitly live OR starting within 2 hours OR started within 3 hours
+                            const matchTime = new Date(`${f.fullDate}T${f.time || '15:00'}`);
                             const isLive = f.status === 'live' || f.status === 'suspended';
                             const isStartingSoon = matchTime > now && (matchTime.getTime() - now.getTime() < 7200000);
                             const justStarted = f.status === 'scheduled' && now >= matchTime && (now.getTime() - matchTime.getTime() < 10800000);
@@ -131,13 +130,13 @@ const LiveScoreboard: React.FC = () => {
                         <h2 className="text-xs font-black uppercase tracking-widest text-gray-600">Match Ticker</h2>
                     </div>
                     <div className="flex gap-1">
-                        <button onClick={() => scrollContainerRef.current?.scrollBy({ left: -200, behavior: 'smooth' })} className="p-1 rounded-full bg-white shadow-sm border"><ChevronLeftIcon className="w-4 h-4" /></button>
-                        <button onClick={() => scrollContainerRef.current?.scrollBy({ left: 200, behavior: 'smooth' })} className="p-1 rounded-full bg-white shadow-sm border"><ChevronRightIcon className="w-4 h-4" /></button>
+                        <button onClick={() => scrollContainerRef.current?.scrollBy({ left: -240, behavior: 'smooth' })} className="p-1 rounded-full bg-white shadow-sm border hover:bg-slate-50 transition-colors"><ChevronLeftIcon className="w-4 h-4" /></button>
+                        <button onClick={() => scrollContainerRef.current?.scrollBy({ left: 240, behavior: 'smooth' })} className="p-1 rounded-full bg-white shadow-sm border hover:bg-slate-50 transition-colors"><ChevronRightIcon className="w-4 h-4" /></button>
                     </div>
                 </div>
-                <div ref={scrollContainerRef} className="flex overflow-x-auto gap-4 pb-2 scrollbar-hide snap-x snap-mandatory">
+                <div ref={scrollContainerRef} className="flex overflow-x-auto gap-5 pb-3 scrollbar-hide snap-x snap-mandatory">
                     {matches.map(match => (
-                        <div key={match.id} className="flex-shrink-0 w-[260px] snap-center">
+                        <div key={match.id} className="flex-shrink-0 w-[280px] sm:w-[320px] snap-center">
                             <LiveMatchCard match={match} directoryMap={directoryMap} competitionId="multi" />
                         </div>
                     ))}

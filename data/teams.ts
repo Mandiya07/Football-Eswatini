@@ -1,3 +1,4 @@
+
 export interface LogEntry {
   p: number;
   w: number;
@@ -104,8 +105,12 @@ export interface MatchEvent {
     teamName?: string;
 }
 
+export interface MatchLineup {
+    starters: number[]; // Player IDs
+    subs: number[]; // Player IDs
+}
+
 export interface CompetitionFixture {
-    // FIX: Change id type to number | string to accommodate descriptive IDs used in international data
     id: number | string;
     matchday?: number;
     date: string;
@@ -124,10 +129,13 @@ export interface CompetitionFixture {
     referee?: string;
     teamAForm?: string; // e.g., "W D L W W"
     teamBForm?: string;
-    // Added competition property to allow storing competition names in match records, as required by international data objects.
     competition?: string;
     events?: MatchEvent[];
     galleryImages?: string[];
+    lineups?: {
+        teamA?: MatchLineup;
+        teamB?: MatchLineup;
+    };
 }
   
 export interface Competition {
@@ -135,8 +143,8 @@ export interface Competition {
     logoUrl?: string;
     fixtures: CompetitionFixture[];
     results: CompetitionFixture[];
-    teamIds?: number[]; // Changed from `teams?: Team[]`
-    teams?: Team[]; // Kept for in-memory representation after joining
+    teamIds?: number[]; 
+    teams?: Team[]; 
     categoryId?: string;
     externalApiId?: string;
     displayName?: string;

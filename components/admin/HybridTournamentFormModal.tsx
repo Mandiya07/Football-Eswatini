@@ -12,6 +12,7 @@ import { fetchCups, fetchCategories, Category, handleFirestoreError } from '../.
 import Spinner from '../ui/Spinner';
 import { compressImage } from '../../services/utils';
 import ImageIcon from '../icons/ImageIcon';
+import PencilIcon from '../icons/PencilIcon';
 
 interface HybridTournamentFormModalProps {
     isOpen: boolean;
@@ -26,17 +27,21 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
     const [description, setDescription] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
     const [externalApiId, setExternalApiId] = useState('');
-    const [categoryId, setCategoryId] = useState(''); // New Category ID field
+    const [categoryId, setCategoryId] = useState('');
     const [teams, setTeams] = useState<ConfigTeam[]>([]);
     const [groups, setGroups] = useState<NonNullable<HybridTournament['groups']>>([]);
     const [matches, setMatches] = useState<CompetitionFixture[]>([]);
     const [bracketId, setBracketId] = useState<string>('');
     const [existingCups, setExistingCups] = useState<Tournament[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]); // Categories list
+    const [categories, setCategories] = useState<Category[]>([]);
     const [imageProcessing, setImageProcessing] = useState(false);
 
-    // Form inputs state
-    const [newTeam, setNewTeam] = useState({ name: '', crestUrl: '' });
+    // Team form state
+    const [editingTeamIndex, setEditingTeamIndex] = useState<number | null>(null);
+    const [teamForm, setTeamForm] = useState({ name: '', crestUrl: '' });
+    const [teamProcessing, setTeamProcessing] = useState(false);
+
+    // Other form inputs
     const [newGroupName, setNewGroupName] = useState('');
     const [newMatch, setNewMatch] = useState({ teamA: '', teamB: '', scoreA: '', scoreB: '', date: '', status: 'scheduled' as any });
 
@@ -78,10 +83,36 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
         }
     }, [tournament, isOpen]);
 
-    const handleAddTeam = () => {
-        if (!newTeam.name) return;
-        setTeams([...teams, { name: newTeam.name, crestUrl: newTeam.crestUrl || 'https://via.placeholder.com/64?text=Team' }]);
-        setNewTeam({ name: '', crestUrl: '' });
+    const handleTeamImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setTeamProcessing(true);
+            try {
+                const base64 = await compressImage(e.target.files[0], 200, 0.7);
+                setTeamForm(prev => ({ ...prev, crestUrl: base64 }));
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setTeamProcessing(false);
+            }
+        }
+    };
+
+    const handleSaveTeam = () => {
+        if (!teamForm.name) return;
+        if (editingTeamIndex !== null) {
+            const updated = [...teams];
+            updated[editingTeamIndex] = { ...teamForm };
+            setTeams(updated);
+        } else {
+            setTeams([...teams, { ...teamForm }]);
+        }
+        setTeamForm({ name: '', crestUrl: '' });
+        setEditingTeamIndex(null);
+    };
+
+    const startEditTeam = (idx: number) => {
+        setEditingTeamIndex(idx);
+        setTeamForm({ ...teams[idx] });
     };
 
     const handleAddGroup = () => {
@@ -156,8 +187,8 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
-            <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto relative animate-slide-up" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 z-[300] flex items-start justify-center p-4 pt-24 md:pt-32 overflow-y-auto animate-fade-in" onClick={onClose}>
+            <Card className="w-full max-w-4xl mb-8 relative animate-slide-up" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800" aria-label="Close form"><XIcon className="w-6 h-6" /></button>
                 <CardContent className="p-8">
                     <h2 className="text-2xl font-bold font-display mb-6">{tournament ? 'Edit Hybrid Tournament' : 'Create Hybrid Tournament'}</h2>
@@ -178,7 +209,6 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                                             placeholder="e.g. afcon-2025" 
                                             disabled={!!tournament} 
                                         />
-                                        <p className="text-[10px] text-gray-500 mt-1">Unique identifier (slug) used for database linking.</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Tournament Name</label>
@@ -190,10 +220,6 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                                             <option value="" disabled>-- Select Category --</option>
                                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">External API ID (Optional)</label>
-                                        <input value={externalApiId} onChange={e => setExternalApiId(e.target.value)} className={inputClass} placeholder="e.g. 2001 or 4328" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -221,21 +247,45 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                         {/* 2. Team Definition */}
                         <section className="space-y-4">
                             <h3 className="font-bold text-lg border-b pb-2">2. Participating Teams</h3>
-                            <div className="flex flex-wrap gap-2 mb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                 {teams.map((t, idx) => (
-                                    <div key={idx} className="bg-blue-50 border border-blue-200 rounded px-2 py-1 flex items-center gap-2">
-                                        <img src={t.crestUrl} className="w-4 h-4 object-contain" alt="" />
-                                        <span className="text-xs font-semibold">{t.name}</span>
-                                        <button type="button" onClick={() => setTeams(teams.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700"><XIcon className="w-3 h-3"/></button>
+                                    <div key={idx} className="bg-white border border-gray-100 rounded-xl p-3 flex items-center justify-between shadow-sm">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <img src={t.crestUrl} className="w-8 h-8 object-contain bg-gray-50 rounded p-0.5" alt="" />
+                                            <span className="text-sm font-bold text-gray-800 truncate">{t.name}</span>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button type="button" onClick={() => startEditTeam(idx)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><PencilIcon className="w-3.5 h-3.5"/></button>
+                                            <button type="button" onClick={() => setTeams(teams.filter((_, i) => i !== idx))} className="p-1.5 text-red-500 hover:bg-red-50 rounded"><TrashIcon className="w-3.5 h-3.5"/></button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end bg-gray-50 p-3 rounded">
-                                <div className="sm:col-span-3">
-                                    <label className="block text-[10px] font-bold text-gray-500 uppercase">New Team Name</label>
-                                    <input value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} className={inputClass} placeholder="Cameroon" />
+                            
+                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 mt-4">
+                                <h4 className="font-bold text-sm text-gray-700 mb-4">{editingTeamIndex !== null ? 'Edit Team' : 'Add New Team'}</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                    <div className="md:col-span-5">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1">Team Name</label>
+                                        <input value={teamForm.name} onChange={e => setTeamForm({...teamForm, name: e.target.value})} className={inputClass} placeholder="e.g. Morocco" />
+                                    </div>
+                                    <div className="md:col-span-5">
+                                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1">Logo URL or Upload</label>
+                                        <div className="flex gap-2">
+                                            <input value={teamForm.crestUrl} onChange={e => setTeamForm({...teamForm, crestUrl: e.target.value})} className={inputClass} placeholder="https://..." />
+                                            <label className="bg-white border px-3 rounded cursor-pointer hover:bg-gray-100 flex items-center">
+                                                {teamProcessing ? <Spinner className="w-4 h-4"/> : <ImageIcon className="w-4 h-4 text-gray-400"/>}
+                                                <input type="file" className="hidden" onChange={handleTeamImageUpload} accept="image/*" />
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <Button type="button" onClick={handleSaveTeam} className="bg-primary text-white w-full h-10 shadow-lg">
+                                            {editingTeamIndex !== null ? 'Update' : 'Add'}
+                                        </Button>
+                                    </div>
                                 </div>
-                                <Button type="button" onClick={handleAddTeam} className="bg-blue-600 text-white h-9">Add Team</Button>
+                                {teamForm.crestUrl && <img src={teamForm.crestUrl} className="mt-4 h-12 w-12 object-contain border rounded p-1 bg-white" />}
                             </div>
                         </section>
 
@@ -320,15 +370,6 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                                     ))}
                                 </div>
                             </div>
-                        </section>
-
-                        {/* 5. Bracket Link */}
-                        <section className="space-y-4">
-                            <h3 className="font-bold text-lg border-b pb-2">5. Knockout Stage Link</h3>
-                            <select value={bracketId} onChange={e => setBracketId(e.target.value)} className={inputClass}>
-                                <option value="">-- No Bracket (Group Stage Only) --</option>
-                                {existingCups.map(cup => <option key={cup.id} value={cup.id}>{cup.name}</option>)}
-                            </select>
                         </section>
 
                         <div className="flex justify-end gap-3 border-t pt-6">

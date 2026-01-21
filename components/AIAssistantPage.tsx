@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { Card, CardContent } from './ui/Card';
@@ -15,6 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import CopyIcon from './icons/CopyIcon';
 import FileTextIcon from './icons/FileTextIcon';
+import { calculateStandings } from '../services/utils';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -57,12 +59,15 @@ const AIAssistantPage: React.FC = () => {
       ]);
 
       const premierLeague = comps['mtn-premier-league'];
+      const standings = premierLeague ? calculateStandings(premierLeague.teams || [], premierLeague.results || [], premierLeague.fixtures || []) : [];
 
       const siteContext = {
           currentTime: new Date().toISOString(),
           recentNews: news.slice(0, 10).map(n => ({ title: n.title, date: n.date, summary: n.summary })),
           activeLeagues: Object.entries(comps).map(([id, c]) => ({ id, name: c.name, teamCount: c.teams?.length || 0 })),
-          premierLeagueStandings: premierLeague?.teams?.slice(0, 10).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form }))
+          premierLeagueStandings: standings.slice(0, 12).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form, played: t.stats.p })),
+          recentResults: premierLeague?.results?.slice(0, 5).map(r => `${r.teamA} ${r.scoreA}-${r.scoreB} ${r.teamB}`),
+          upcomingFixtures: premierLeague?.fixtures?.slice(0, 5).map(f => `${f.teamA} vs ${f.teamB} (${f.fullDate})`)
       };
 
       const systemInstruction = `You are a world-class investigative sports editor and tactical analyst for 'Football Eswatini'. 
@@ -78,7 +83,7 @@ const AIAssistantPage: React.FC = () => {
       2. An engaging lead paragraph.
       3. **Tactical Spotlight**: Deep dive into the "why" and "how" of the subject.
       4. **Expert Perspective**: Simulate quotes from "internal technical analysts" or "club sources" to add color.
-      5. **Data Breakdown**: Reference specific standings or form from the SITE CONTEXT.
+      5. **Data Breakdown**: Reference specific standings, recent results, or upcoming fixtures from the SITE CONTEXT to ground your analysis in reality.
       6. **SEO Keywords**: A list of tags for the article.
       
       FORMATTING:
@@ -95,21 +100,23 @@ const AIAssistantPage: React.FC = () => {
       
       let response;
       try {
+          // Fixed contents to use a direct string for the prompt
           response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
-              contents: [{ parts: [{ text: text }] }],
+              contents: text,
               config: {
                   systemInstruction,
                   tools: [{ googleSearch: {} }],
                   thinkingConfig: { thinkingBudget: 0 },
-                  temperature: 0.8 // Higher temperature for more creative journalism
+                  temperature: 0.8 
               }
           });
       } catch (searchError) {
           console.warn("Search failed, falling back to core knowledge:", searchError);
+          // Fixed contents to use a direct string for the prompt
           response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
-              contents: [{ parts: [{ text: text }] }],
+              contents: text,
               config: {
                   systemInstruction,
                   thinkingConfig: { thinkingBudget: 0 }
@@ -129,11 +136,7 @@ const AIAssistantPage: React.FC = () => {
           });
       }
 
-      setChatHistory([...newHistory, { 
-          role: 'model', 
-          text: textOutput,
-          sources: sources.length > 0 ? Array.from(new Map(sources.map(s => [s.uri, s])).values()) : undefined
-      }]);
+      setChatHistory([...newHistory, { role: 'model', text: textOutput, sources }]);
     } catch (error: any) {
       console.error("AI Error:", error);
       const errorMsg = `Article Generation Error: ${error?.message || "Communication failure"}. Please check your connection and API limits.`;

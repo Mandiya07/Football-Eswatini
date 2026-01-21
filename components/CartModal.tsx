@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import XIcon from './icons/XIcon';
@@ -117,12 +118,12 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   return (
     <>
       <div 
-        className={`fixed inset-0 bg-black/60 z-50 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-black/60 z-[300] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={handleClose}
         aria-hidden={!isOpen}
       ></div>
       <div 
-        className={`fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[300] transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="cart-heading"

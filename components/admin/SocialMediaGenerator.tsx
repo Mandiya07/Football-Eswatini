@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
@@ -9,7 +10,7 @@ import RefreshIcon from '../icons/RefreshIcon';
 import PhotoIcon from '../icons/PhotoIcon';
 import FilmIcon from '../icons/FilmIcon';
 import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api';
-import { superNormalize, findInMap } from '../../services/utils';
+import { superNormalize, findInMap, calculateStandings } from '../../services/utils';
 import RecapGeneratorModal from './RecapGeneratorModal';
 import { DirectoryEntity } from '../../data/directory';
 import CalendarIcon from '../icons/CalendarIcon';
@@ -144,24 +145,47 @@ const SocialMediaGenerator: React.FC = () => {
         setIsGenerating(true);
         setPublishSuccess(false);
         try {
+            const allComps = await fetchAllCompetitions();
+            const currentComp = allComps[selectedLeagueId];
+            
+            // Calculate Standings Context for the AI
+            const standings = currentComp ? calculateStandings(currentComp.teams || [], currentComp.results || [], currentComp.fixtures || []) : [];
+            const standingsContext = standings.slice(0, 10).map((t, i) => 
+                `${i+1}. ${t.name} (P:${t.stats.p}, GD:${t.stats.gd}, PTS:${t.stats.pts}, Form: ${t.stats.form})`
+            ).join('; ');
+
             const matchesToSummarize = rawMatches.filter(m => selectedMatchIds.includes(m.id));
             const dataToProcess = matchesToSummarize.map(m => 
-                `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (${m.date} ${m.time || ''} at ${m.venue || 'TBA'})`
+                `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (Matchday: ${m.matchday || 'N/A'}, Date: ${m.date})`
             ).join(', ');
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             let prompt = "";
+            const commonContext = `League Name: ${currentComp?.name}. 
+            CURRENT STANDINGS (Top 10): ${standingsContext}. 
+            SELECTED MATCH DATA: "${dataToProcess}".`;
+
             if (isWeeklySummary) {
-                prompt = `You are a professional Sports Journalist for Football Eswatini. Create a detailed weekly review article based on these matches: "${dataToProcess}". 
-                The article should have:
-                1. A compelling title.
-                2. A short summary (2 sentences).
-                3. A full body (at least 500 words) with headers for 'Weekend Overview', 'The Highlights', 'Tactical Analysis', and 'Table Implications'.
+                prompt = `You are a Lead Sports Journalist for Football Eswatini. Create a professional weekly review article based on the following data.
+                CONTEXT: ${commonContext}.
                 
-                Format the response as a valid JSON object with keys: "title", "summary", "content".`;
+                REQUIREMENTS:
+                1. Analyze the 'Impact on Standings': Specifically mention which teams moved up or down the table based on the match results provided.
+                2. Tactical Review: Based on the scores, suggest if it was a defensive masterclass or an attacking showcase.
+                3. Look Forward: Mention why the 'Upcoming Fixtures' in the context matter for the table's current state.
+                
+                Format as a JSON object with keys: "title", "summary", "content". The content should be at least 600 words with H2 headers.`;
             } else {
-                prompt = `You are the social media manager for Football Eswatini. Create 3 exciting captions for ${platform} based on these matches: "${dataToProcess}". Use emojis and #FootballEswatini. Separate each with '---'.`;
+                prompt = `You are the Social Media Lead for Football Eswatini. Create 3 viral captions for ${platform}.
+                CONTEXT: ${commonContext}.
+                
+                REQUIREMENTS:
+                - Caption 1: Focus on a specific 'Big Result' and how it changed the points gap at the top.
+                - Caption 2: Focus on 'League Movement'. Mention who jumped who in the standings.
+                - Caption 3: Hype for the 'Upcoming Fixtures' mentioned in data.
+                
+                Use emojis, #FootballEswatini, and the league name. Separate each caption with '---'.`;
             }
             
             const response = await ai.models.generateContent({ 
@@ -172,7 +196,7 @@ const SocialMediaGenerator: React.FC = () => {
 
             if (isWeeklySummary) {
                 const articleData = JSON.parse(response.text || "{}");
-                setGeneratedCaptions([JSON.stringify(articleData)]); // Store stringified JSON temporarily
+                setGeneratedCaptions([JSON.stringify(articleData)]); 
             } else {
                 setGeneratedCaptions(response.text?.split('---').map(s => s.trim()).filter(Boolean) || [response.text || '']);
             }

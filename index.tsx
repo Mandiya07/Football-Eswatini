@@ -19,7 +19,7 @@ import { db } from './services/firebase';
         console.warn("Firestore cleanup skipped or already closed", e);
     }
 
-    // 2. Clear Browser Storage
+    // 2. Clear All Storage
     localStorage.clear();
     sessionStorage.clear();
 
@@ -35,8 +35,17 @@ import { db } from './services/firebase';
         await Promise.all(registrations.map(reg => reg.unregister()));
     }
 
-    console.log("Purge complete. Reloading...");
-    window.location.reload();
+    // 5. Clear Cookies for this domain
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i];
+        const eqPos = cookie.indexOf("=");
+        const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+    }
+
+    console.log("Purge complete. Reloading in 1 second...");
+    setTimeout(() => window.location.reload(), 1000);
 };
 
 // Auto-reload when new service worker takes over

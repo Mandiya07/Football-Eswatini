@@ -63,8 +63,8 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
 
     return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
-            <Card className="w-full max-w-md relative animate-slide-up" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 z-[300] flex items-start justify-center p-4 pt-24 md:pt-32 overflow-y-auto animate-fade-in" onClick={onClose}>
+            <Card className="w-full max-w-md mb-8 relative animate-slide-up" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><XIcon className="w-6 h-6"/></button>
                 <CardContent className="p-8">
                     <h2 className="text-2xl font-bold font-display mb-6">Add Match Ticket</h2>

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import Input from './ui/Input';
-import { submitAdvertiserRequest, PromoCode } from '../services/api';
+import { submitAdvertiserRequest, PromoCode, processPayment, PaymentMethod, PaymentDetails } from '../services/api';
 import MegaphoneIcon from './icons/MegaphoneIcon';
 import UserIcon from './icons/UserIcon';
 import MailIcon from './icons/MailIcon';
@@ -14,9 +14,15 @@ import CheckCircleIcon from './icons/CheckCircleIcon';
 import BuildingIcon from './icons/BuildingIcon';
 import PromoCodeInput from './ui/PromoCodeInput';
 import { AdvertiserValueInfographic } from './ui/Infographics';
+import CreditCardIcon from './icons/CreditCardIcon';
+
+type AdStep = 'form' | 'payment-method' | 'payment-details' | 'processing' | 'success';
 
 const AdvertiserOnboardingPage: React.FC = () => {
     const navigate = useNavigate();
+    
+    // UI State
+    const [step, setStep] = useState<AdStep>('form');
     const [companyName, setCompanyName] = useState('');
     const [contactName, setContactName] = useState('');
     const [email, setEmail] = useState('');
@@ -26,17 +32,25 @@ const AdvertiserOnboardingPage: React.FC = () => {
     const [interestedPlacements, setInterestedPlacements] = useState<string[]>([]);
     const [discount, setDiscount] = useState<PromoCode | null>(null);
     
+    // Payment State
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+    const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({ method: 'card' });
+    const [processingStatus, setProcessingStatus] = useState('Validating Hub Access...');
+    const [transactionId, setTransactionId] = useState('');
+
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
+    const [error, setError] = useState('');
 
     const placementOptions = [
-        'Homepage Banner',
-        'Fixtures & Results',
-        'Live Scoreboard',
-        'News Articles',
-        'Community Hub',
-        'Full Site Takeover'
+        { label: 'Homepage Banner', price: 1200 },
+        { label: 'Fixtures & Results', price: 1500 },
+        { label: 'Live Scoreboard', price: 800 },
+        { label: 'News Articles', price: 600 },
+        { label: 'Community Hub', price: 400 }
     ];
+
+    const totalPrice = interestedPlacements.reduce((sum, p) => sum + (placementOptions.find(opt => opt.label === p)?.price || 0), 0);
+    const finalPrice = discount ? (discount.type === 'percentage' ? totalPrice * (1 - discount.value / 100) : Math.max(0, totalPrice - discount.value)) : totalPrice;
 
     const handleCheckboxChange = (option: string) => {
         setInterestedPlacements(prev => 
@@ -44,43 +58,48 @@ const AdvertiserOnboardingPage: React.FC = () => {
         );
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSubmitting(true);
+        if (interestedPlacements.length === 0) return alert("Select at least one placement.");
+        setStep('payment-method');
+    };
+
+    const handleFinalPayment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setStep('processing');
+        
         try {
-            await submitAdvertiserRequest({
-                companyName,
-                contactName,
-                email,
-                phone,
-                industry,
-                budgetRange,
-                interestedPlacements,
-                promoCode: discount ? discount.code : undefined
-            });
-            setIsSuccess(true);
-        } catch (error) {
-            console.error(error);
-            alert("Failed to submit request. Please try again.");
-        } finally {
-            setIsSubmitting(false);
+            const result = await processPayment(finalPrice, paymentDetails);
+            if (result.success) {
+                setTransactionId(result.transactionId);
+                await submitAdvertiserRequest({
+                    companyName, contactName, email, phone, industry, budgetRange, interestedPlacements,
+                    promoCode: discount?.code, status: 'paid', paymentTransactionId: result.transactionId
+                });
+                setStep('success');
+            } else {
+                setError(result.message);
+                setStep('payment-details');
+            }
+        } catch (err) {
+            setError("Payment failure. Try again.");
+            setStep('payment-details');
         }
     };
 
-    if (isSuccess) {
+    const inputClass = "block w-full border border-gray-300 rounded-md shadow-sm py-2.5 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+
+    if (step === 'success') {
         return (
-            <div className="bg-gray-50 min-h-screen flex items-center justify-center py-12 px-4">
-                <Card className="max-w-md w-full text-center p-8">
-                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-                        <CheckCircleIcon className="h-10 w-10 text-green-600" />
-                    </div>
-                    <h2 className="text-3xl font-display font-bold text-gray-900 mb-4">Request Sent!</h2>
+            <div className="bg-gray-50 min-h-screen flex items-center justify-center py-12 px-4 text-center">
+                <Card className="max-w-md w-full p-8 shadow-2xl">
+                    <CheckCircleIcon className="h-16 w-16 text-green-600 mx-auto mb-6" />
+                    <h2 className="text-3xl font-display font-bold text-gray-900 mb-4">Space Secured!</h2>
                     <p className="text-gray-600 mb-8">
-                        Thank you for your interest in advertising with Football Eswatini. Our sales team will review your request and contact you at <strong>{email}</strong> shortly with our media kit and availability.
+                        Your advertising space for <strong>{companyName}</strong> has been paid and reserved. Our creative team will contact you at <strong>{email}</strong> to collect your assets.
                     </p>
-                    <Button onClick={() => navigate('/')} className="w-full bg-primary text-white">
-                        Back to Home
-                    </Button>
+                    <p className="text-xs font-mono text-gray-400 mb-8">TX: {transactionId}</p>
+                    <Button onClick={() => navigate('/')} className="w-full bg-primary text-white">Back to Home</Button>
                 </Card>
             </div>
         );
@@ -88,99 +107,88 @@ const AdvertiserOnboardingPage: React.FC = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-5xl mx-auto">
                 <div className="text-center mb-12">
                     <MegaphoneIcon className="w-12 h-12 mx-auto text-yellow-600 mb-4" />
-                    <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">Advertiser Registration</h1>
-                    <p className="text-lg text-gray-600">
-                        Connect with thousands of passionate football fans. Tell us about your business goals.
-                    </p>
+                    <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">Advertiser Hub</h1>
                 </div>
 
-                {/* Infographic Placement */}
-                <div className="mb-12 animate-fade-in">
-                    <AdvertiserValueInfographic />
-                </div>
+                {step === 'form' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                        <AdvertiserValueInfographic />
+                        <Card className="shadow-2xl">
+                            <CardContent className="p-8">
+                                <form onSubmit={handleInitialSubmit} className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="block text-xs font-black uppercase text-gray-400">Company</label><Input value={companyName} onChange={e => setCompanyName(e.target.value)} required /></div>
+                                        <div><label className="block text-xs font-black uppercase text-gray-400">Industry</label><Input value={industry} onChange={e => setIndustry(e.target.value)} required /></div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="block text-xs font-black uppercase text-gray-400">Contact</label><Input value={contactName} onChange={e => setContactName(e.target.value)} required /></div>
+                                        <div><label className="block text-xs font-black uppercase text-gray-400">Email</label><Input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-black uppercase text-gray-400 mb-3">Select Placements (Monthly)</label>
+                                        <div className="space-y-2">
+                                            {placementOptions.map(opt => (
+                                                <label key={opt.label} className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer ${interestedPlacements.includes(opt.label) ? 'bg-yellow-50 border-yellow-400' : 'hover:bg-gray-50'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <input type="checkbox" checked={interestedPlacements.includes(opt.label)} onChange={() => handleCheckboxChange(opt.label)} className="h-4 w-4 text-yellow-600" />
+                                                        <span className="text-sm font-bold">{opt.label}</span>
+                                                    </div>
+                                                    <span className="text-xs font-black text-gray-400">E{opt.price}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <PromoCodeInput onApply={setDiscount} />
+                                    <div className="pt-4 border-t"><Button type="submit" className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold h-12">Secure Placements (E{finalPrice})</Button></div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
 
-                <Card className="shadow-xl">
-                    <CardContent className="p-8">
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                                    <Input icon={<BuildingIcon className="w-5 h-5 text-gray-400"/>} value={companyName} onChange={e => setCompanyName(e.target.value)} required placeholder="Business Name" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
-                                    <Input value={industry} onChange={e => setIndustry(e.target.value)} required placeholder="e.g. Retail, Finance, Tech" />
-                                </div>
-                            </div>
+                {step === 'payment-method' && (
+                    <div className="max-w-md mx-auto space-y-4">
+                        <button onClick={() => { setPaymentMethod('card'); setStep('payment-details'); }} className="w-full p-6 border rounded-2xl bg-white hover:border-blue-500 flex justify-between items-center group">
+                            <span className="font-bold">Pay with Card</span>
+                            <CreditCardIcon className="w-6 h-6 text-gray-400 group-hover:text-blue-500" />
+                        </button>
+                        <button onClick={() => { setPaymentMethod('momo'); setStep('payment-details'); }} className="w-full p-6 border rounded-2xl bg-white hover:border-yellow-500 flex justify-between items-center group">
+                            <span className="font-bold">Pay with MoMo</span>
+                            <PhoneIcon className="w-6 h-6 text-gray-400 group-hover:text-yellow-500" />
+                        </button>
+                    </div>
+                )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
-                                    <Input icon={<UserIcon className="w-5 h-5 text-gray-400"/>} value={contactName} onChange={e => setContactName(e.target.value)} required />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Budget Range</label>
-                                    <select 
-                                        value={budgetRange} 
-                                        onChange={e => setBudgetRange(e.target.value)} 
-                                        className="block w-full pl-3 pr-10 py-2.5 text-base border-gray-300 focus:outline-none focus:ring-primary-light focus:border-primary-light sm:text-sm rounded-md shadow-sm border"
-                                    >
-                                        <option>E500 - E1,000</option>
-                                        <option>E1,000 - E5,000</option>
-                                        <option>E5,000 - E10,000</option>
-                                        <option>E10,000+</option>
-                                    </select>
-                                </div>
-                            </div>
+                {step === 'payment-details' && (
+                    <Card className="max-w-md mx-auto shadow-2xl">
+                        <CardContent className="p-8">
+                            <form onSubmit={handleFinalPayment} className="space-y-6">
+                                {paymentMethod === 'card' ? (
+                                    <div className="space-y-4">
+                                        <input required className={inputClass} placeholder="Card Number" maxLength={16} onChange={e => setPaymentDetails({...paymentDetails, cardNumber: e.target.value})} />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <input required className={inputClass} placeholder="MM/YY" maxLength={5} onChange={e => setPaymentDetails({...paymentDetails, expiry: e.target.value})} />
+                                            <input type="password" required className={inputClass} placeholder="CVV" maxLength={3} onChange={e => setPaymentDetails({...paymentDetails, cvv: e.target.value})} />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <input type="tel" required className={inputClass} placeholder="7xxxxxxx" maxLength={8} onChange={e => setPaymentDetails({...paymentDetails, momoNumber: e.target.value})} />
+                                )}
+                                <Button type="submit" className="w-full bg-primary text-white h-12 font-bold">Authorize E{finalPrice}</Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+                )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                                    <Input icon={<MailIcon className="w-5 h-5 text-gray-400"/>} type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                                    <Input icon={<PhoneIcon className="w-5 h-5 text-gray-400"/>} type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-3">Interested Placements (Select all that apply)</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {placementOptions.map(option => (
-                                        <label key={option} className={`flex items-center p-3 border rounded-md cursor-pointer transition-colors ${interestedPlacements.includes(option) ? 'bg-yellow-50 border-yellow-400' : 'hover:bg-gray-50'}`}>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={interestedPlacements.includes(option)} 
-                                                onChange={() => handleCheckboxChange(option)}
-                                                className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
-                                            />
-                                            <span className="ml-3 text-sm font-medium text-gray-900">{option}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                            
-                            {/* Promo Code */}
-                            <div>
-                                <PromoCodeInput onApply={setDiscount} />
-                                {discount && <p className="text-xs text-gray-500 mt-1">This discount will be applied to your quote.</p>}
-                            </div>
-
-                            <div className="pt-4 border-t border-gray-200">
-                                <Button type="submit" disabled={isSubmitting} className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold h-11 text-base shadow-md">
-                                    {isSubmitting ? <Spinner className="w-5 h-5 border-2 border-black" /> : 'Submit Inquiry'}
-                                </Button>
-                                <p className="text-xs text-center text-gray-500 mt-4">
-                                    No payment required now. Submitting this form starts the consultation process.
-                                </p>
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                {step === 'processing' && (
+                    <div className="flex flex-col items-center justify-center py-20">
+                        <Spinner className="w-16 h-16" />
+                        <p className="mt-6 font-bold text-gray-600">Processing Secure Transaction...</p>
+                    </div>
+                )}
             </div>
         </div>
     );

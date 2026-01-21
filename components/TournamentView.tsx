@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { HybridTournament, ConfigTeam } from '../data/international';
 import { Team } from '../data/teams';
-import { calculateGroupStandings } from '../services/utils';
+import { calculateGroupStandings, findInMap } from '../services/utils';
 import { Card, CardContent } from './ui/Card';
 import StandingsTable from './StandingsTable';
 import TournamentBracketDisplay from './TournamentBracketDisplay';
@@ -10,7 +11,7 @@ import TrophyIcon from './icons/TrophyIcon';
 import UsersIcon from './icons/UsersIcon';
 import CalendarIcon from './icons/CalendarIcon';
 import BracketIcon from './icons/BracketIcon';
-import { fetchCups } from '../services/api';
+import { fetchCups, fetchDirectoryEntries } from '../services/api';
 import { Tournament } from '../data/cups';
 import Spinner from './ui/Spinner';
 import InfoIcon from './icons/InfoIcon';
@@ -75,20 +76,60 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
             if (tournament.bracketId) {
                 setLoadingBracket(true);
                 try {
-                    const allCups = await fetchCups();
-                    const match = allCups.find(c => c.id === tournament.bracketId);
-                    setLinkedBracket(match || null);
+                    const [allCups, dirEntries] = await Promise.all([
+                        fetchCups(),
+                        fetchDirectoryEntries()
+                    ]);
+
+                    const dirMap = new Map();
+                    dirEntries.forEach(e => dirMap.set(e.name.trim().toLowerCase(), e));
+
+                    const foundCup = allCups.find(c => c.id === tournament.bracketId);
+                    if (foundCup) {
+                        // HYDRATION: Map IDs and Names to Crests for the bracket
+                        const hydratedRounds = foundCup.rounds.map(round => ({
+                            ...round,
+                            matches: round.matches.map((m: any) => {
+                                const team1Id = m.team1Id || m.team1?.id;
+                                const team2Id = m.team2Id || m.team2?.id;
+                                const team1Name = m.team1Name || m.team1?.name || 'TBD';
+                                const team2Name = m.team2Name || m.team2?.name || 'TBD';
+
+                                // Find crests in tournament config first, then global directory
+                                const findCrest = (name: string) => {
+                                    const configMatch = tournament.teams?.find(ct => ct.name === name);
+                                    if (configMatch) return configMatch.crestUrl;
+                                    return findInMap(name, dirMap)?.crestUrl;
+                                };
+
+                                return {
+                                    ...m,
+                                    team1: {
+                                        name: team1Name,
+                                        score: m.score1 !== undefined ? m.score1 : m.team1?.score,
+                                        crestUrl: findCrest(team1Name)
+                                    },
+                                    team2: {
+                                        name: team2Name,
+                                        score: m.score2 !== undefined ? m.score2 : m.team2?.score,
+                                        crestUrl: findCrest(team2Name)
+                                    }
+                                };
+                            })
+                        }));
+                        setLinkedBracket({ ...foundCup, rounds: hydratedRounds });
+                    }
                 } catch (e) {
                     console.error("Failed to load linked bracket", e);
                 } finally {
                     setLoadingBracket(false);
                 }
-            } else {
-                setLinkedBracket(tournament.bracket || null);
+            } else if (tournament.bracket) {
+                setLinkedBracket(tournament.bracket);
             }
         };
         loadBracket();
-    }, [tournament.bracketId, tournament.bracket]);
+    }, [tournament.bracketId, tournament.bracket, tournament.teams]);
 
     const allTeamsObj: Team[] = useMemo(() => {
         return (tournament.teams || []).map((ct: ConfigTeam) => ({
@@ -128,7 +169,7 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
     const results = useMemo(() => {
         return (tournament.matches || [])
             .filter(m => m.status === 'finished')
-            .sort((a, b) => new Date(b.fullDate || '').getTime() - new Date(a.fullDate || '').getTime());
+            .sort((a, b) => new Date(a.fullDate || '').getTime() - new Date(b.fullDate || '').getTime());
     }, [tournament.matches]);
 
     const TabButton: React.FC<{tab: typeof activeTab, label: string, Icon: any}> = ({tab, label, Icon}) => (

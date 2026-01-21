@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { PhotoAlbum } from '../data/media';
 import XIcon from './icons/XIcon';
@@ -38,7 +39,7 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({ album, onClose })
 
   return (
     <div 
-      className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/90 z-[300] flex items-center justify-center p-4 animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -51,27 +52,27 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({ album, onClose })
         
         <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-50"
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-[310]"
             aria-label="Close gallery"
         >
             <XIcon className="w-8 h-8" />
         </button>
 
-        <div className="absolute top-4 left-4 text-white z-50">
+        <div className="absolute top-4 left-4 text-white z-[310]">
             <h2 id="gallery-title" className="text-xl font-bold">{album.title}</h2>
             <p className="text-sm">{currentIndex + 1} / {album.imageUrls.length}</p>
         </div>
 
         <button 
             onClick={(e) => { e.stopPropagation(); goToPrevious(); }}
-            className="absolute top-1/2 left-4 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors z-50"
+            className="absolute top-1/2 left-4 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors z-[310]"
             aria-label="Previous image"
         >
             <ChevronLeftIcon className="w-6 h-6" />
         </button>
         <button 
             onClick={(e) => { e.stopPropagation(); goToNext(); }}
-            className="absolute top-1/2 right-4 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors z-50"
+            className="absolute top-1/2 right-4 -translate-y-1/2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors z-[310]"
             aria-label="Next image"
         >
             <ChevronRightIcon className="w-6 h-6" />
