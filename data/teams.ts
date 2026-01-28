@@ -27,6 +27,9 @@ export interface Player {
         appearances: number;
         goals: number;
         assists: number;
+        yellowCards?: number;
+        redCards?: number;
+        cleanSheets?: number;
     };
     transferHistory: {
         from: string;

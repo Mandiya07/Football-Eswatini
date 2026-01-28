@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { addDirectoryEntry, deleteDirectoryEntry, fetchDirectoryEntries, updateDirectoryEntry, fetchAllCompetitions, handleFirestoreError } from '../../services/api';
 import { DirectoryEntity } from '../../data/directory';
@@ -89,8 +90,8 @@ const DirectoryManagement: React.FC = () => {
                                         <p className="text-xs text-gray-500">{entry.category} • {entry.region}</p>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleEdit(entry)} className="p-1 bg-blue-50 text-blue-600 rounded"><PencilIcon className="w-4 h-4"/></button>
-                                        <button onClick={() => handleDelete(entry.id)} className="p-1 bg-red-50 text-red-600 rounded"><TrashIcon className="w-4 h-4"/></button>
+                                        <button onClick={() => handleEdit(entry)} className="p-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors"><PencilIcon className="w-4 h-4"/></button>
+                                        <button onClick={() => handleDelete(entry.id)} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors"><TrashIcon className="w-4 h-4"/></button>
                                     </div>
                                 </div>
                             ))}

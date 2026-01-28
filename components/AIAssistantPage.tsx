@@ -29,7 +29,7 @@ const AIAssistantPage: React.FC = () => {
   const { user, isLoggedIn } = useAuth();
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([{
       role: 'model',
-      text: "Hello, Editor. I am your specialized Elite Article Development Assistant. I provide deep investigative analysis, tactical breakdowns, and long-form features tailored for the Eswatini football landscape. Input your topic below for a comprehensive draft."
+      text: "Elite Article Editor initialized. I am ready to draft investigative analysis, tactical breakdowns, and match previews for Football Eswatini. Provide a topic or use a template below."
   }]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -65,82 +65,51 @@ const AIAssistantPage: React.FC = () => {
           currentTime: new Date().toISOString(),
           recentNews: news.slice(0, 10).map(n => ({ title: n.title, date: n.date, summary: n.summary })),
           activeLeagues: Object.entries(comps).map(([id, c]) => ({ id, name: c.name, teamCount: c.teams?.length || 0 })),
-          premierLeagueStandings: standings.slice(0, 12).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form, played: t.stats.p })),
-          recentResults: premierLeague?.results?.slice(0, 5).map(r => `${r.teamA} ${r.scoreA}-${r.scoreB} ${r.teamB}`),
+          premierLeagueStandings: standings.slice(0, 12).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form, played: t.stats.p, gd: t.stats.gd })),
+          recentResults: premierLeague?.results?.slice(0, 5).map(r => `${r.teamA} ${r.scoreA}-${r.scoreB} ${r.teamB} (Matchday ${r.matchday})`),
           upcomingFixtures: premierLeague?.fixtures?.slice(0, 5).map(f => `${f.teamA} vs ${f.teamB} (${f.fullDate})`)
       };
 
-      const systemInstruction = `You are a world-class investigative sports editor and tactical analyst for 'Football Eswatini'. 
-      Your goal is to write HIGH-DEPTH, insightful, and authoritative long-form articles.
+      const systemInstruction = `You are a world-class investigative sports journalist for 'Football Eswatini'. 
+      Your objective is to write authoritative, engaging, and highly accurate articles about football in the Kingdom.
       
-      TONE & STYLE:
-      - Professional, engaging, and authoritative. Use sophisticated sports journalism vocabulary (e.g., 'tactical flexibility', 'rejuvenated squad', 'pivotal momentum').
-      - Use the 'Inverted Pyramid' structure for news.
-      - For features, use a narrative-driven approach with a compelling hook.
+      TONE: Professional, sophisticated, yet accessible. Avoid clichés.
       
-      MANDATORY SECTIONS:
-      1. A bold, journalistic headline.
-      2. An engaging lead paragraph.
-      3. **Tactical Spotlight**: Deep dive into the "why" and "how" of the subject.
-      4. **Expert Perspective**: Simulate quotes from "internal technical analysts" or "club sources" to add color.
-      5. **Data Breakdown**: Reference specific standings, recent results, or upcoming fixtures from the SITE CONTEXT to ground your analysis in reality.
-      6. **SEO Keywords**: A list of tags for the article.
+      CONSTRAINTS:
+      1. USE SITE CONTEXT: Ground your writing in the provided rankings, results, and upcoming matches.
+      2. ZERO FABRICATION: If specific match events (scorers, cards) are not in the context, do not make them up. Focus on the mathematical impact on the standings instead.
+      3. DEPTH: Articles must be long-form (at least 500 words) with descriptive headers.
       
-      FORMATTING:
-      - Use Markdown (H1, H2, Bold, Bullet points) to make it highly readable and ready for publication.
-      
-      SITE CONTEXT (Use this as your source of truth for local data):
+      SITE CONTEXT DATA SOURCE:
       ${JSON.stringify(siteContext, null, 1)}`;
 
-      if (!process.env.API_KEY) {
-          throw new Error("API Key is missing from environment.");
-      }
+      if (!process.env.API_KEY) throw new Error("API Key Missing");
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      let response;
-      try {
-          // Fixed contents to use a direct string for the prompt
-          response = await ai.models.generateContent({
-              model: 'gemini-3-flash-preview',
-              contents: text,
-              config: {
-                  systemInstruction,
-                  tools: [{ googleSearch: {} }],
-                  thinkingConfig: { thinkingBudget: 0 },
-                  temperature: 0.8 
-              }
-          });
-      } catch (searchError) {
-          console.warn("Search failed, falling back to core knowledge:", searchError);
-          // Fixed contents to use a direct string for the prompt
-          response = await ai.models.generateContent({
-              model: 'gemini-3-flash-preview',
-              contents: text,
-              config: {
-                  systemInstruction,
-                  thinkingConfig: { thinkingBudget: 0 }
-              }
-          });
-      }
+      // Use Search Grounding for current external events (e.g. Sihlangu FIFA rankings)
+      const response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: text,
+          config: {
+              systemInstruction,
+              tools: [{ googleSearch: {} }],
+              thinkingConfig: { thinkingBudget: 0 },
+              temperature: 0.7
+          }
+      });
 
-      const textOutput = response.text || 'I encountered an issue generating the deep-dive draft.';
+      const textOutput = response.text || 'Synthesis failed.';
       const sources: { uri: string; title: string }[] = [];
-      
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks) {
-          chunks.forEach((chunk: any) => {
-              if (chunk.web) {
-                  sources.push({ uri: chunk.web.uri, title: chunk.web.title });
-              }
-          });
+          chunks.forEach((chunk: any) => { if (chunk.web) sources.push({ uri: chunk.web.uri, title: chunk.web.title }); });
       }
 
       setChatHistory([...newHistory, { role: 'model', text: textOutput, sources }]);
     } catch (error: any) {
       console.error("AI Error:", error);
-      const errorMsg = `Article Generation Error: ${error?.message || "Communication failure"}. Please check your connection and API limits.`;
-      setChatHistory([...newHistory, { role: 'model', text: errorMsg }]);
+      setChatHistory([...newHistory, { role: 'model', text: `Drafting Error: ${error.message}` }]);
     } finally {
       setIsLoading(false);
     }
@@ -156,31 +125,31 @@ const AIAssistantPage: React.FC = () => {
                     </div>
                     <div>
                         <h1 className="text-2xl font-display font-extrabold text-gray-900">Elite Article Development AI</h1>
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Journalism & Tactical Analysis Suite</p>
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Journalism & Analysis Suite</p>
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <button onClick={() => handleSendMessage("Perform an investigative analysis of Eswatini's current World Cup qualification strategy. Focus on tactical gaps and squad depth. Write a 800-word feature article.")} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group">
+                <button onClick={() => handleSendMessage("Draft an investigative feature on Sihlangu Semnikati's tactical evolution over the last 12 months. Reference current FIFA standings and recent match data.")} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group">
                     <GlobeIcon className="w-6 h-6 mb-2 text-blue-600 group-hover:scale-110 transition-transform" />
                     <p className="text-[10px] font-black uppercase text-gray-400">Investigative</p>
-                    <p className="text-xs font-bold mt-1">Deep Global Analysis</p>
+                    <p className="text-xs font-bold mt-1">Sihlangu Evolution</p>
                 </button>
-                <button onClick={() => handleSendMessage("Create a data-driven match preview for the upcoming gameweek. Analyze the current form of top teams and predict tactical matchups. Include simulated quotes from a 'technical director'.")} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group">
+                <button onClick={() => handleSendMessage("Create a data-driven preview for the upcoming MTN Premier League matchday. Use current standings to explain why the top-of-the-table clashes are critical.")} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group">
                     <NewspaperIcon className="w-6 h-6 mb-2 text-purple-600 group-hover:scale-110 transition-transform" />
                     <p className="text-[10px] font-black uppercase text-gray-400">Data & Strategy</p>
-                    <p className="text-xs font-bold mt-1">Elite Match Preview</p>
+                    <p className="text-xs font-bold mt-1">League Matchday Preview</p>
                 </button>
-                <button onClick={() => handleSendMessage("Draft a long-form editorial (1000 words) on the long-term impact of youth development in Eswatini, citing current academy trends and historical context.")} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group">
+                <button onClick={() => handleSendMessage("Write a feature article highlighting the rising stars in the Eswatini Youth Leagues, focusing on the impact of academies on the senior national pipeline.")} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group">
                     <FileTextIcon className="w-6 h-6 mb-2 text-pink-600 group-hover:scale-110 transition-transform" />
-                    <p className="text-[10px] font-black uppercase text-gray-400">Long-form Feature</p>
-                    <p className="text-xs font-bold mt-1">Legacy & Growth</p>
+                    <p className="text-[10px] font-black uppercase text-gray-400">Youth Spotlight</p>
+                    <p className="text-xs font-bold mt-1">The Academy Pipeline</p>
                 </button>
-                <button onClick={() => handleSendMessage("Write a critical assessment of the current MTN Premier League standings. Highlight 'under-the-radar' teams and provide tactical reasons for their current position.")} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group">
+                <button onClick={() => handleSendMessage("Analyze the current standings and explain which teams are in the 'Danger Zone' for relegation. Focus on goal difference and recent form patterns.")} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-400 transition-all text-left group">
                     <TrendingUpIcon className="w-6 h-6 mb-2 text-green-600 group-hover:scale-110 transition-transform" />
-                    <p className="text-[10px] font-black uppercase text-gray-400">Critical Analysis</p>
-                    <p className="text-xs font-bold mt-1">Standings Breakdown</p>
+                    <p className="text-[10px] font-black uppercase text-gray-400">Standings Analysis</p>
+                    <p className="text-xs font-bold mt-1">Relegation Battle</p>
                 </button>
             </div>
 
@@ -204,8 +173,8 @@ const AIAssistantPage: React.FC = () => {
                                 )}
                                 {msg.role === 'model' && i > 0 && (
                                     <div className="flex gap-4 mt-6 pt-4 border-t border-gray-100">
-                                        <button onClick={() => { navigator.clipboard.writeText(msg.text); alert("Article draft copied!"); }} className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-indigo-600 transition-colors">
-                                            <CopyIcon className="w-4 h-4" /> Copy Full Draft
+                                        <button onClick={() => { navigator.clipboard.writeText(msg.text); alert("Draft copied!"); }} className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-indigo-600 transition-colors">
+                                            <CopyIcon className="w-4 h-4" /> Copy Draft
                                         </button>
                                         <div className="flex gap-3">
                                             <button className="text-gray-400 hover:text-green-600 transition-colors"><ThumbsUpIcon className="w-5 h-5"/></button>
@@ -220,7 +189,7 @@ const AIAssistantPage: React.FC = () => {
                         <div className="flex justify-start">
                             <div className="bg-gray-50 p-6 rounded-2xl rounded-tl-none border border-gray-200 flex items-center gap-3">
                                 <Spinner className="h-5 w-5 border-2 border-indigo-600" />
-                                <span className="text-sm font-bold text-indigo-600 animate-pulse uppercase tracking-widest">Synthesizing Depth...</span>
+                                <span className="text-sm font-bold text-indigo-600 animate-pulse uppercase tracking-widest">Synthesizing Official Report...</span>
                             </div>
                         </div>
                     )}
@@ -232,7 +201,7 @@ const AIAssistantPage: React.FC = () => {
                             type="text" 
                             value={inputValue} 
                             onChange={(e) => setInputValue(e.target.value)} 
-                            placeholder="Draft an elite feature about..." 
+                            placeholder="Describe the article you need..." 
                             className="flex-grow px-6 bg-transparent outline-none text-base font-medium h-14" 
                         />
                         <Button type="submit" disabled={!inputValue.trim() || isLoading} className="bg-indigo-600 text-white h-14 w-14 flex items-center justify-center rounded-full p-0 shadow-md hover:scale-105 transition-all">

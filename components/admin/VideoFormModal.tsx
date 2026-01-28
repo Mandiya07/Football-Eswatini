@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Video } from '../../data/videos';
 import { Card, CardContent } from '../ui/Card';
@@ -14,17 +13,30 @@ interface VideoFormModalProps {
 
 const VideoFormModal: React.FC<VideoFormModalProps> = ({ isOpen, onClose, onSave, video }) => {
     const [formData, setFormData] = useState({
-        title: '', description: '', thumbnailUrl: '', videoUrl: '',
-        duration: '', category: 'highlight' as Video['category']
+        title: '', 
+        description: '', 
+        thumbnailUrl: '', 
+        videoUrl: '',
+        duration: '', 
+        date: new Date().toISOString().split('T')[0],
+        category: 'highlight' as Video['category']
     });
 
     useEffect(() => {
         if (video) {
-            setFormData(video);
+            setFormData({
+                ...video,
+                date: video.date || new Date().toISOString().split('T')[0]
+            });
         } else {
              setFormData({
-                title: '', description: '', thumbnailUrl: '', videoUrl: '',
-                duration: '', category: 'highlight'
+                title: '', 
+                description: '', 
+                thumbnailUrl: '', 
+                videoUrl: '',
+                duration: '', 
+                date: new Date().toISOString().split('T')[0],
+                category: 'highlight'
             });
         }
     }, [video, isOpen]);
@@ -37,14 +49,12 @@ const VideoFormModal: React.FC<VideoFormModalProps> = ({ isOpen, onClose, onSave
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, files } = e.target;
         if (files && files[0]) {
-            const file = files[0];
+            const file = e.target.files[0];
 
             if (name === 'videoUpload') {
-                // FIX: Use Blob URL for videos to avoid 1MB Firestore limit / Base64 crash
                 const objectUrl = URL.createObjectURL(file);
                 setFormData(prev => ({ ...prev, videoUrl: objectUrl }));
             } else {
-                // Keep Base64 for images (thumbnails) as they are usually small
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     if (typeof reader.result === 'string') {
@@ -75,36 +85,58 @@ const VideoFormModal: React.FC<VideoFormModalProps> = ({ isOpen, onClose, onSave
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <input name="title" value={formData.title} onChange={handleChange} placeholder="Video Title" required className={inputClass} />
                         <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Description" required rows={3} className={inputClass}></textarea>
+                        
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail URL or Upload</label>
-                                <input name="thumbnailUrl" value={formData.thumbnailUrl} onChange={handleChange} placeholder="Thumbnail URL" className={inputClass} />
-                                <input name="thumbnailUpload" type="file" onChange={handleFileChange} accept="image/*" className={`${inputClass} mt-2 p-1.5`} />
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Thumbnail URL or Upload</label>
+                                <div className="flex items-center gap-2">
+                                    <input name="thumbnailUrl" value={formData.thumbnailUrl} onChange={handleChange} placeholder="Thumbnail URL" className={inputClass} />
+                                    <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                        Upload
+                                        <input type="file" onChange={handleFileChange} accept="image/*" className="sr-only" />
+                                    </label>
+                                </div>
                                 {formData.thumbnailUrl && <img src={formData.thumbnailUrl} alt="Thumbnail preview" className="mt-2 h-24 object-contain border rounded" />}
                             </div>
                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Video URL or Upload</label>
-                                <input name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder="Video URL" className={inputClass} />
-                                <input name="videoUpload" type="file" onChange={handleFileChange} accept="video/*" className={`${inputClass} mt-2 p-1.5`} />
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Video Source</label>
+                                <div className="flex items-center gap-2">
+                                    <input name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder="Video URL" className={inputClass} />
+                                    <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                        File
+                                        <input type="file" name="videoUpload" onChange={handleFileChange} accept="video/*" className="sr-only" />
+                                    </label>
+                                </div>
                                 {formData.videoUrl && (
-                                    <>
-                                        <video src={formData.videoUrl} controls className="mt-2 h-24 rounded w-full object-contain border bg-gray-100"></video>
-                                        {formData.videoUrl.startsWith('blob:') && <p className="text-[10px] text-orange-600 mt-1">* Local file selected. Works in this session only.</p>}
-                                    </>
+                                    <div className="mt-2">
+                                        <video src={formData.videoUrl} controls className="h-24 rounded w-full object-contain border bg-gray-100"></video>
+                                    </div>
                                 )}
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input name="duration" value={formData.duration} onChange={handleChange} placeholder="Duration (e.g., 03:45)" required className={inputClass} />
-                            <select name="category" value={formData.category} onChange={handleChange} className={inputClass}>
-                                <option value="highlight">Highlight</option>
-                                <option value="recap">Recap</option>
-                                <option value="fan">Fan Zone</option>
-                            </select>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Duration</label>
+                                <input name="duration" value={formData.duration} onChange={handleChange} placeholder="e.g., 03:45" required className={inputClass} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Hub Date</label>
+                                <input type="date" name="date" value={formData.date} onChange={handleChange} required className={inputClass} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Category</label>
+                                <select name="category" value={formData.category} onChange={handleChange} className={inputClass}>
+                                    <option value="highlight">Highlight</option>
+                                    <option value="recap">Recap</option>
+                                    <option value="fan">Fan Zone</option>
+                                </select>
+                            </div>
                         </div>
-                        <div className="flex justify-end gap-2 pt-4">
+
+                        <div className="flex justify-end gap-2 pt-4 border-t">
                             <Button type="button" onClick={onClose} className="bg-gray-200 text-gray-800">Cancel</Button>
-                            <Button type="submit" className="bg-primary text-white hover:bg-primary-dark">Save Video</Button>
+                            <Button type="submit" className="bg-primary text-white hover:bg-primary-dark shadow-lg px-8">Save Video</Button>
                         </div>
                     </form>
                 </CardContent>

@@ -11,7 +11,6 @@ import TrashIcon from '../icons/TrashIcon';
 import Button from '../ui/Button';
 import InfoIcon from '../icons/InfoIcon';
 import { db } from '../../services/firebase';
-// Added collection to the imports from firebase/firestore
 import { doc, writeBatch, collection } from 'firebase/firestore';
 
 interface EntityItem {
@@ -109,7 +108,6 @@ const TeamCrestManager: React.FC = () => {
                 const dirRef = doc(db, 'directory', dirEntry.id);
                 batch.update(dirRef, { crestUrl: newCrestUrl });
             } else if (autoSyncToDirectory) {
-                // Simplified creation of directory entry
                 const newDirRef = doc(collection(db, 'directory'));
                 batch.set(newDirRef, {
                     name: itemName,
@@ -261,10 +259,11 @@ const TeamCrestManager: React.FC = () => {
                                         <Button 
                                             onClick={() => handleDeleteItem(item)} 
                                             disabled={savingStatus[item.name] === 'deleting'}
-                                            className="bg-red-50 text-red-600 hover:bg-red-100 h-9 w-9 p-0 flex items-center justify-center rounded-xl border border-red-100 transition-all"
+                                            variant="destructive"
+                                            className="h-9 w-9 p-0 flex items-center justify-center rounded-xl shadow-sm transition-all"
                                             title="Delete Directory Entry"
                                         >
-                                            {savingStatus[item.name] === 'deleting' ? <Spinner className="w-4 h-4 border-2 border-red-600"/> : <TrashIcon className="w-4 h-4" />}
+                                            {savingStatus[item.name] === 'deleting' ? <Spinner className="w-4 h-4 border-2 border-white"/> : <TrashIcon className="w-4 h-4 text-white" />}
                                         </Button>
                                     )}
                                 </div>
@@ -272,7 +271,6 @@ const TeamCrestManager: React.FC = () => {
                         ))}
                         {filteredItems.length === 0 && (
                             <div className="text-center py-20 text-gray-500 border-2 border-dashed rounded-[2rem] bg-gray-50">
-                                <SearchIcon className="w-10 h-10 mx-auto mb-4 opacity-10" />
                                 <p className="font-bold">No entities found.</p>
                             </div>
                         )}

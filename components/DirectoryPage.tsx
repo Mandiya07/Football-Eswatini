@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -23,12 +24,14 @@ const staticCategoryIcons: Record<EntityCategory, React.FC<React.SVGProps<SVGSVG
     'Academy': SchoolIcon,
     'Referee': WhistleIcon,
     'Association': BuildingIcon,
+    'Schools': SchoolIcon,
 };
 
 const CATEGORY_OPTIONS: { value: EntityCategory | 'all', label: string }[] = [
     { value: 'all', label: 'All Categories' },
     { value: 'Club', label: 'Clubs' },
     { value: 'Academy', label: 'Academies' },
+    { value: 'Schools', label: 'Schools' },
     { value: 'Referee', label: 'Referees' },
     { value: 'Association', label: 'Associations' },
 ];
@@ -47,13 +50,15 @@ const TIER_OPTIONS: { value: string, label: string }[] = [
     { value: 'NFD', label: 'National First Division' },
     { value: 'Regional', label: 'Super League / Regional' },
     { value: 'Womens League', label: 'Women\'s League' },
+    { value: 'Schools', label: 'Schools' },
 ];
 
 const ALLOWED_CLUB_TIERS = [
     'Premier League', 
     'NFD', 
     'Regional', 
-    'Womens League'
+    'Womens League',
+    'Schools'
 ];
 
 const DirectoryCard: React.FC<{ entity: DirectoryEntity; categoryLogo?: string }> = ({ entity, categoryLogo }) => {
@@ -207,7 +212,7 @@ const DirectoryPage: React.FC = () => {
                 setCategories(catData);
 
                 const validEntries = directoryData.filter(entity => {
-                    if (entity.category !== 'Club') return true;
+                    if (entity.category !== 'Club' && entity.category !== 'Schools') return true;
                     if (entity.tier && ALLOWED_CLUB_TIERS.includes(entity.tier)) {
                         return true;
                     }
@@ -328,7 +333,6 @@ const DirectoryPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                         {loading ? <div className="flex justify-center p-8 md:col-span-2"><Spinner /></div> :
                          filteredAndSortedEntries.length > 0 ? filteredAndSortedEntries.map(entity => {
-                            // Find the corresponding category from DB to get the logo
                             const catFromDb = categories.find(c => c.name.toLowerCase().includes(entity.category.toLowerCase()));
                             return (
                                 <DirectoryCard 

@@ -8,8 +8,10 @@ import MapPinIcon from './icons/MapPinIcon';
 import Button from './ui/Button';
 import { fetchRegionConfigs, RegionConfig } from '../services/api';
 import Spinner from './ui/Spinner';
+import { useAuth } from '../contexts/AuthContext';
 
 const RegionalPage: React.FC = () => {
+  const { isLoggedIn, openAuthModal } = useAuth();
   const [dbRegions, setDbRegions] = useState<RegionConfig[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,7 +37,6 @@ const RegionalPage: React.FC = () => {
     loadData();
   }, []);
 
-  // Merge DB data into the fallback structure based on ID
   const mergedRegions = useMemo(() => {
     return fallbackRegions.map(fallback => {
         const dbMatch = dbRegions.find(db => db.id.toLowerCase() === fallback.id.toLowerCase());
@@ -43,13 +44,19 @@ const RegionalPage: React.FC = () => {
             return {
                 ...fallback,
                 ...dbMatch,
-                // Ensure we keep the fallback color if DB doesn't have one
                 color: dbMatch.color || fallback.color 
             };
         }
         return fallback;
     });
   }, [dbRegions]);
+
+  const handleCreateLeague = (e: React.MouseEvent) => {
+      if (!isLoggedIn) {
+          e.preventDefault();
+          openAuthModal();
+      }
+  };
 
   return (
     <div className="bg-gray-50 py-12 min-h-screen">
@@ -108,7 +115,7 @@ const RegionalPage: React.FC = () => {
                         </p>
                     </div>
                     <div className="flex-shrink-0">
-                        <Link to="/league-registration">
+                        <Link to={isLoggedIn ? "/league-registration" : "#"} onClick={handleCreateLeague}>
                             <Button className="bg-yellow-400 text-blue-950 font-black px-8 py-4 rounded-xl hover:bg-yellow-300 transition-all hover:scale-105 shadow-xl">
                                 Create New League
                             </Button>

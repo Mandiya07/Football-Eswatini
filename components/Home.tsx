@@ -6,9 +6,6 @@ import OnboardingModal from './OnboardingModal';
 import { useAuth } from '../contexts/AuthContext';
 import SectionLoader from './SectionLoader';
 import LiveScoreboard from './LiveScoreboard';
-import { Link } from 'react-router-dom';
-import ArrowRightIcon from './icons/ArrowRightIcon';
-import SparklesIcon from './icons/SparklesIcon';
 
 // Lazy load components that are below the fold
 const SponsorSpotlight = lazy(() => import('./SponsorSpotlight'));
@@ -42,7 +39,7 @@ const Home: React.FC = () => {
       <div className="sticky top-16 lg:top-20 z-50">
         <LiveScoreboard />
       </div>
-      
+
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 mt-12 relative z-10">
         <QuickAccess />
       </div>
@@ -63,7 +60,7 @@ const Home: React.FC = () => {
             <div className="lg:col-span-8 space-y-8">
                 <div className="flex items-center justify-between">
                     <h2 className="text-3xl font-display font-black text-slate-900 uppercase tracking-tighter">Matches</h2>
-                    <a href="#/fixtures" className="text-[#002B7F] font-black text-[11px] uppercase tracking-widest hover:underline bg-blue-50 px-4 py-2 rounded-full border border-blue-100">Full Schedule &rarr;</a>
+                    <a href="#/fixtures" className="text-white font-black text-[11px] uppercase tracking-widest bg-primary px-4 py-2 rounded-full shadow-md hover:bg-primary-dark transition-colors">Full Schedule &rarr;</a>
                 </div>
                 <Suspense fallback={<SectionLoader />}>
                     <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="max-h-[600px]" />
@@ -73,7 +70,7 @@ const Home: React.FC = () => {
             <div className="lg:col-span-4 space-y-8">
                 <div className="flex items-center justify-between">
                     <h2 className="text-3xl font-display font-black text-slate-900 uppercase tracking-tighter">Logs</h2>
-                    <a href="#/logs" className="text-[#002B7F] font-black text-[11px] uppercase tracking-widest hover:underline bg-blue-50 px-4 py-2 rounded-full border border-blue-100">All Tables &rarr;</a>
+                    <a href="#/logs" className="text-white font-black text-[11px] uppercase tracking-widest bg-primary px-4 py-2 rounded-full shadow-md hover:bg-primary-dark transition-colors">All Tables &rarr;</a>
                 </div>
                 <Suspense fallback={<SectionLoader />}>
                     <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="max-h-[600px]" />

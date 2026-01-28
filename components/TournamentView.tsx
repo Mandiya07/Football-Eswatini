@@ -68,78 +68,69 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
     const [activeTab, setActiveTab] = useState<'groups' | 'knockout' | 'fixtures'>('groups');
     const [linkedBracket, setLinkedBracket] = useState<Tournament | null>(null);
     const [loadingBracket, setLoadingBracket] = useState(false);
+    const [directoryMap, setDirectoryMap] = useState<Map<string, any>>(new Map());
 
     const isUCL = tournament.id === 'uefa-champions-league';
 
     useEffect(() => {
-        const loadBracket = async () => {
-            if (tournament.bracketId) {
-                setLoadingBracket(true);
-                try {
-                    const [allCups, dirEntries] = await Promise.all([
-                        fetchCups(),
-                        fetchDirectoryEntries()
-                    ]);
+        const loadBracketAndDir = async () => {
+            setLoadingBracket(true);
+            try {
+                const [allCups, dirEntries] = await Promise.all([
+                    fetchCups(),
+                    fetchDirectoryEntries()
+                ]);
 
-                    const dirMap = new Map();
-                    dirEntries.forEach(e => dirMap.set(e.name.trim().toLowerCase(), e));
+                const dMap = new Map();
+                dirEntries.forEach(e => dMap.set(e.name.trim().toLowerCase(), e));
+                setDirectoryMap(dMap);
 
+                if (tournament.bracketId) {
                     const foundCup = allCups.find(c => c.id === tournament.bracketId);
                     if (foundCup) {
-                        // HYDRATION: Map IDs and Names to Crests for the bracket
                         const hydratedRounds = foundCup.rounds.map(round => ({
                             ...round,
                             matches: round.matches.map((m: any) => {
-                                const team1Id = m.team1Id || m.team1?.id;
-                                const team2Id = m.team2Id || m.team2?.id;
                                 const team1Name = m.team1Name || m.team1?.name || 'TBD';
                                 const team2Name = m.team2Name || m.team2?.name || 'TBD';
-
-                                // Find crests in tournament config first, then global directory
                                 const findCrest = (name: string) => {
                                     const configMatch = tournament.teams?.find(ct => ct.name === name);
-                                    if (configMatch) return configMatch.crestUrl;
-                                    return findInMap(name, dirMap)?.crestUrl;
+                                    if (configMatch?.crestUrl) return configMatch.crestUrl;
+                                    return findInMap(name, dMap)?.crestUrl;
                                 };
-
                                 return {
                                     ...m,
-                                    team1: {
-                                        name: team1Name,
-                                        score: m.score1 !== undefined ? m.score1 : m.team1?.score,
-                                        crestUrl: findCrest(team1Name)
-                                    },
-                                    team2: {
-                                        name: team2Name,
-                                        score: m.score2 !== undefined ? m.score2 : m.team2?.score,
-                                        crestUrl: findCrest(team2Name)
-                                    }
+                                    team1: { name: team1Name, score: m.score1 ?? m.team1?.score, crestUrl: findCrest(team1Name) },
+                                    team2: { name: team2Name, score: m.score2 ?? m.team2?.score, crestUrl: findCrest(team2Name) }
                                 };
                             })
                         }));
                         setLinkedBracket({ ...foundCup, rounds: hydratedRounds });
                     }
-                } catch (e) {
-                    console.error("Failed to load linked bracket", e);
-                } finally {
-                    setLoadingBracket(false);
+                } else if (tournament.bracket) {
+                    setLinkedBracket(tournament.bracket);
                 }
-            } else if (tournament.bracket) {
-                setLinkedBracket(tournament.bracket);
+            } catch (e) {
+                console.error("Failed to load tournament metadata", e);
+            } finally {
+                setLoadingBracket(false);
             }
         };
-        loadBracket();
+        loadBracketAndDir();
     }, [tournament.bracketId, tournament.bracket, tournament.teams]);
 
     const allTeamsObj: Team[] = useMemo(() => {
-        return (tournament.teams || []).map((ct: ConfigTeam) => ({
-            id: ct.dbId || Math.random(),
-            name: ct.name,
-            crestUrl: ct.crestUrl,
-            stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
-            players: [], fixtures: [], results: [], staff: []
-        }));
-    }, [tournament.teams]);
+        return (tournament.teams || []).map((ct: ConfigTeam) => {
+            const dirCrest = findInMap(ct.name, directoryMap)?.crestUrl;
+            return {
+                id: ct.dbId || Math.random(),
+                name: ct.name,
+                crestUrl: dirCrest || ct.crestUrl,
+                stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+                players: [], fixtures: [], results: [], staff: []
+            };
+        });
+    }, [tournament.teams, directoryMap]);
 
     const teamMap = useMemo(() => {
         const map = new Map<string, Team>();
@@ -151,11 +142,8 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
         if (!tournament.groups) return {};
         const standings: Record<string, Team[]> = {};
         tournament.groups.forEach(group => {
-            const groupTeams = group.teamNames
-                .map(name => teamMap.get(name))
-                .filter((t): t is Team => !!t);
-            const calculated = calculateGroupStandings(groupTeams, tournament.matches || []);
-            standings[group.name] = calculated;
+            const groupTeams = group.teamNames.map(name => teamMap.get(name)).filter((t): t is Team => !!t);
+            standings[group.name] = calculateGroupStandings(groupTeams, tournament.matches || []);
         });
         return standings;
     }, [tournament.groups, tournament.matches, teamMap]);
@@ -169,14 +157,11 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
     const results = useMemo(() => {
         return (tournament.matches || [])
             .filter(m => m.status === 'finished')
-            .sort((a, b) => new Date(a.fullDate || '').getTime() - new Date(b.fullDate || '').getTime());
+            .sort((a, b) => new Date(b.fullDate || '').getTime() - new Date(a.fullDate || '').getTime());
     }, [tournament.matches]);
 
     const TabButton: React.FC<{tab: typeof activeTab, label: string, Icon: any}> = ({tab, label, Icon}) => (
-        <button 
-            onClick={() => setActiveTab(tab)}
-            className={`flex items-center gap-2 px-6 py-3 font-bold text-sm border-b-4 transition-colors ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-        >
+        <button onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-6 py-3 font-bold text-sm border-b-4 transition-colors ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             <Icon className="w-5 h-5" /> {label}
         </button>
     );
@@ -184,19 +169,13 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
     return (
         <div className="space-y-8 animate-fade-in">
             <div className="flex flex-col md:flex-row items-center gap-6 mb-8 text-center md:text-left bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <img 
-                    src={tournament.logoUrl || 'https://via.placeholder.com/150'} 
-                    alt={tournament.name} 
-                    className="w-24 h-24 object-contain"
-                />
+                <img src={tournament.logoUrl || 'https://via.placeholder.com/150'} alt={tournament.name} className="w-24 h-24 object-contain" />
                 <div>
                     <h1 className="text-3xl font-display font-extrabold text-gray-900">{tournament.name}</h1>
                     <p className="text-gray-600 mt-2 max-w-2xl">{tournament.description}</p>
                 </div>
             </div>
-
             {isUCL && activeTab === 'groups' && <UCLLegend />}
-
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto">
                 <div className="flex">
                     {tournament.groups && tournament.groups.length > 0 && <TabButton tab="groups" label={isUCL ? "League Table" : "Group Stage"} Icon={UsersIcon} />}
@@ -204,7 +183,6 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
                     <TabButton tab="fixtures" label="Matches" Icon={CalendarIcon} />
                 </div>
             </div>
-
             <div className="min-h-[400px]">
                 {activeTab === 'groups' && tournament.groups && (
                     <div className="grid grid-cols-1 gap-8">
@@ -219,29 +197,19 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
                         ))}
                     </div>
                 )}
-
                 {activeTab === 'knockout' && (
                     <div className="animate-slide-up">
                          <h3 className="text-xl font-bold font-display mb-4 text-gray-800">Tournament Tree</h3>
-                         {loadingBracket ? <Spinner /> : linkedBracket ? (
-                            <TournamentBracketDisplay tournament={linkedBracket} />
-                         ) : <p className="text-gray-500 italic">Knockout stage bracket not available.</p>}
+                         {loadingBracket ? <Spinner /> : linkedBracket ? <TournamentBracketDisplay tournament={linkedBracket} /> : <p className="text-gray-500 italic">Knockout stage bracket not available.</p>}
                     </div>
                 )}
-
                 {activeTab === 'fixtures' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
                         <div>
                             <h3 className="text-xl font-bold font-display mb-4 text-gray-800 border-b pb-2">Upcoming Fixtures</h3>
                             <div className="space-y-4">
                                 {upcomingFixtures.length > 0 ? upcomingFixtures.map(f => (
-                                    <Card key={f.id}>
-                                        <FixtureItem 
-                                            fixture={f} isExpanded={false} onToggleDetails={() => {}} 
-                                            teams={allTeamsObj} onDeleteFixture={() => {}} isDeleting={false} 
-                                            directoryMap={new Map()} competitionId={tournament.id}
-                                        />
-                                    </Card>
+                                    <Card key={f.id}><FixtureItem fixture={f} isExpanded={false} onToggleDetails={() => {}} teams={allTeamsObj} onDeleteFixture={() => {}} isDeleting={false} directoryMap={directoryMap} competitionId={tournament.id} /></Card>
                                 )) : <p className="text-gray-500 italic">No upcoming matches scheduled.</p>}
                             </div>
                         </div>
@@ -249,13 +217,7 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
                             <h3 className="text-xl font-bold font-display mb-4 text-gray-800 border-b pb-2">Recent Results</h3>
                              <div className="space-y-4">
                                 {results.length > 0 ? results.map(f => (
-                                    <Card key={f.id} className="border-l-4 border-gray-400">
-                                        <FixtureItem 
-                                            fixture={f} isExpanded={false} onToggleDetails={() => {}} 
-                                            teams={allTeamsObj} onDeleteFixture={() => {}} isDeleting={false} 
-                                            directoryMap={new Map()} competitionId={tournament.id}
-                                        />
-                                    </Card>
+                                    <Card key={f.id} className="border-l-4 border-gray-400"><FixtureItem fixture={f} isExpanded={false} onToggleDetails={() => {}} teams={allTeamsObj} onDeleteFixture={() => {}} isDeleting={false} directoryMap={directoryMap} competitionId={tournament.id} /></Card>
                                 )) : <p className="text-gray-500 italic">No results yet.</p>}
                             </div>
                         </div>

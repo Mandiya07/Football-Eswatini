@@ -23,6 +23,9 @@ import LegalAndContracts from './LegalAndContracts';
 import HybridTournamentManagement from './HybridTournamentManagement';
 import MaintenanceTools from './MaintenanceTools';
 import UserManagement from './UserManagement';
+import InquiryManagement from './InquiryManagement';
+import AdminInsights from './AdminInsights';
+import MerchantSettings from './MerchantSettings';
 
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import GitMergeIcon from '../icons/GitMergeIcon';
@@ -49,6 +52,10 @@ import ScaleIcon from '../icons/ScaleIcon';
 import GlobeIcon from '../icons/GlobeIcon';
 import SettingsIcon from '../icons/SettingsIcon';
 import ShieldIcon from '../icons/ShieldIcon';
+import BriefcaseIcon from '../icons/BriefcaseIcon';
+import MicIcon from '../icons/MicIcon';
+import CreditCardIcon from '../icons/CreditCardIcon';
+import { Link } from 'react-router-dom';
 
 const ManageTeams = lazy(() => import('./ManageTeams'));
 const AdManagement = lazy(() => import('./AdManagement'));
@@ -57,7 +64,7 @@ const YouthManagement = lazy(() => import('./YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'users' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance';
+type AdminTab = 'approvals' | 'users' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance' | 'inquiries' | 'insights' | 'finance';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -77,6 +84,7 @@ const AdminPanelPage: React.FC = () => {
     switch (activeTab) {
       case 'approvals': return <ApprovalQueue />;
       case 'users': return <UserManagement />;
+      case 'inquiries': return <InquiryManagement />;
       case 'news': return <NewsManagement />;
       case 'shop': return <ShopManagement />;
       case 'scouting': return <ScoutingManagement />;
@@ -102,25 +110,31 @@ const AdminPanelPage: React.FC = () => {
       case 'reset': return <ResetAllData />;
       case 'social': return <SocialMediaGenerator />;
       case 'maintenance': return <MaintenanceTools />;
+      case 'insights': return <AdminInsights />;
+      case 'finance': return <MerchantSettings />;
       default: return null;
     }
   };
 
-  const TabButton: React.FC<{tabName: AdminTab; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>>; className?: string}> = ({ tabName, label, Icon, className = '' }) => (
-    <button
-        onClick={() => setActiveTab(tabName)}
-        className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light w-full text-left ${
-            activeTab === tabName 
-            ? `shadow ${className}`
-            : `hover:bg-gray-100 ${className}`
-        } ${activeTab === tabName && !className.includes('bg-') ? 'bg-primary text-white' : ''} ${!className.includes('text-') ? 'text-gray-600' : ''}`}
-        role="tab"
-        aria-selected={activeTab === tabName}
-    >
-        <Icon className="w-5 h-5" />
-        <span>{label}</span>
-    </button>
-  );
+  const TabButton: React.FC<{tabName: AdminTab; label: string; Icon: React.FC<React.SVGProps<SVGSVGElement>>; className?: string}> = ({ tabName, label, Icon, className = '' }) => {
+    const isActive = activeTab === tabName;
+    
+    return (
+        <button
+            onClick={() => setActiveTab(tabName)}
+            className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-light w-full text-left ${
+                isActive 
+                ? `shadow-lg scale-[1.02] ${className || 'bg-primary text-white'}`
+                : `hover:bg-gray-100 ${className ? '' : 'text-gray-600'}`
+            }`}
+            role="tab"
+            aria-selected={isActive}
+        >
+            <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+            <span className={isActive ? 'text-white' : ''}>{label}</span>
+        </button>
+    );
+  };
 
   return (
     <div className="bg-gray-50 py-12">
@@ -137,9 +151,16 @@ const AdminPanelPage: React.FC = () => {
             <div className="flex flex-col md:flex-row gap-8 items-start">
                 <aside className="w-full md:w-64 flex-shrink-0">
                     <div className="space-y-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Content</h4>
+                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Strategy & AI</h4>
+                        <TabButton tabName="insights" label="AI Daily Insights" Icon={SparklesIcon} className="bg-indigo-600 text-white hover:bg-indigo-700" />
+                        
+                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Finance</h4>
+                        <TabButton tabName="finance" label="Merchant & Payouts" Icon={CreditCardIcon} className="bg-green-600 text-white hover:bg-green-700" />
+                        <TabButton tabName="inquiries" label="Partner Inquiries" Icon={BriefcaseIcon} className="bg-blue-600 text-white hover:bg-blue-700" />
+
+                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Content</h4>
                         <TabButton tabName="news" label="News" Icon={NewspaperIcon} />
-                        <TabButton tabName="social" label="Social Gen" Icon={ShareIcon} className="bg-purple-50 text-purple-700 hover:bg-purple-100" />
+                        <TabButton tabName="social" label="Social Gen" Icon={ShareIcon} className="bg-purple-600 text-white hover:bg-purple-700" />
                         <TabButton tabName="shop" label="Shop Items" Icon={TagIcon} />
                         <TabButton tabName="features" label="Features Content" Icon={SparklesIcon} />
                         <TabButton tabName="scouting" label="Scouting" Icon={BinocularsIcon} />
@@ -152,7 +173,7 @@ const AdminPanelPage: React.FC = () => {
 
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
                         <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
-                        <TabButton tabName="users" label="User Permissions" Icon={ShieldIcon} className="bg-blue-50 text-blue-800 hover:bg-blue-100" />
+                        <TabButton tabName="users" label="User Permissions" Icon={ShieldIcon} />
                         <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
                         <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
@@ -165,14 +186,14 @@ const AdminPanelPage: React.FC = () => {
                         <TabButton tabName="tournament" label="Tournament Bracket" Icon={BracketIcon} />
 
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">System</h4>
-                        <TabButton tabName="maintenance" label="Maintenance" Icon={SettingsIcon} className="bg-blue-50 text-blue-700 hover:bg-blue-100" />
+                        <TabButton tabName="maintenance" label="Maintenance" Icon={SettingsIcon} className="bg-blue-600 text-white hover:bg-blue-700" />
                         <TabButton tabName="contracts" label="Legal & Contracts" Icon={ScaleIcon} />
 
                         <div className="!mt-6 pt-4 border-t border-red-200">
                             <h4 className="font-bold text-xs uppercase text-red-600 px-4">Danger Zone</h4>
                              <div className="p-2 space-y-2">
-                                <TabButton tabName="seed" label="Seed Database" Icon={DatabaseIcon} className="bg-green-50 hover:bg-green-100 text-green-700" />
-                                <TabButton tabName="reset" label="Reset All Competition Data" Icon={AlertTriangleIcon} className="bg-red-50 hover:bg-red-100 text-red-700" />
+                                <TabButton tabName="seed" label="Seed Database" Icon={DatabaseIcon} className="bg-green-600 hover:bg-green-700 text-white" />
+                                <TabButton tabName="reset" label="Reset All Competition Data" Icon={AlertTriangleIcon} className="bg-red-600 hover:bg-red-700 text-white" />
                             </div>
                         </div>
                     </div>

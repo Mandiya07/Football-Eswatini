@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-// FIX: Import 'fetchCompetition' which is now correctly exported from the API service.
 import { fetchCompetition, fetchAllCompetitions, handleFirestoreError } from '../../services/api';
 import { Player, Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
@@ -300,16 +299,16 @@ const ManageSquad: React.FC<{ clubName: string }> = ({ clubName }) => {
                 {!loading && !isSubmitting && (
                     <div className="space-y-2">
                         {squad.map(player => (
-                            <div key={player.id} className="flex items-center justify-between p-2 bg-white border rounded-md hover:bg-gray-50">
+                            <div key={player.id} className="flex items-center justify-between p-2 bg-white border rounded-md hover:bg-gray-50 shadow-sm">
                                 <div className="flex items-center gap-3">
-                                    <img src={player.photoUrl} alt={player.name} className="w-10 h-10 rounded-full object-cover" />
+                                    <img src={player.photoUrl} alt={player.name} className="w-10 h-10 rounded-full object-cover border" />
                                     <div>
-                                        <p className="font-semibold">{player.name}</p>
-                                        <p className="text-xs text-gray-500">#{player.number} &bull; {player.position}</p>
+                                        <p className="font-bold text-gray-900">{player.name}</p>
+                                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-tight">#{player.number} &bull; {player.position}</p>
                                     </div>
                                 </div>
-                                <button onClick={() => handleRemovePlayer(player.id)} className="p-2 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50" aria-label={`Remove ${player.name}`}>
-                                    <TrashIcon className="w-5 h-5" />
+                                <button onClick={() => handleRemovePlayer(player.id)} className="p-2.5 bg-red-600 text-white hover:bg-red-700 rounded-lg shadow-sm transition-all" aria-label={`Remove ${player.name}`}>
+                                    <TrashIcon className="w-4 h-4" />
                                 </button>
                             </div>
                         ))}

@@ -12,19 +12,24 @@ import { db } from './services/firebase';
     console.log("Starting nuclear cache and database purge...");
     
     try {
-        // 1. Terminate and clear Firestore persistence
-        await terminate(db);
-        await clearIndexedDbPersistence(db);
+        // 1. Terminate and clear Firestore persistence safely
+        console.log("Shutting down database link...");
+        await terminate(db).catch(() => {});
+        // Note: clearIndexedDbPersistence only works if using disk persistence, 
+        // but safe to call even with memoryLocalCache.
+        await clearIndexedDbPersistence(db).catch(() => {});
     } catch (e) {
         console.warn("Firestore cleanup skipped or already closed", e);
     }
 
     // 2. Clear All Storage
+    console.log("Wiping local session data...");
     localStorage.clear();
     sessionStorage.clear();
 
     // 3. Clear Caches API
     if ('caches' in window) {
+        console.log("Invalidating service worker cache...");
         const names = await caches.keys();
         await Promise.all(names.map(name => caches.delete(name)));
     }

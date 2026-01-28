@@ -68,8 +68,6 @@ const NewsManagement: React.FC = () => {
                 // Create new article
                 await addDoc(collection(db, "news"), {
                     ...articleData,
-                    // Firestore automatically generates an ID, but our local data has one, so let's ensure it's not needed here
-                    // The date is part of articleData now.
                 });
             }
             setIsModalOpen(false);
@@ -103,11 +101,11 @@ const NewsManagement: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="flex-shrink-0 flex items-center gap-2 self-end sm:self-center">
-                                        <Button onClick={() => handleEdit(article)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center" aria-label={`Edit ${article.title}`}>
-                                            <PencilIcon className="w-4 h-4" />
+                                        <Button onClick={() => handleEdit(article)} className="bg-blue-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Edit ${article.title}`}>
+                                            <PencilIcon className="w-4 h-4 text-white" />
                                         </Button>
-                                        <Button onClick={() => handleDelete(article.id)} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center" aria-label={`Remove ${article.title}`}>
-                                            <TrashIcon className="w-4 h-4" />
+                                        <Button onClick={() => handleDelete(article.id)} className="bg-red-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Remove ${article.title}`}>
+                                            <TrashIcon className="w-4 h-4 text-white" />
                                         </Button>
                                     </div>
                                 </div>

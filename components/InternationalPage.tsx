@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { fetchHybridTournaments } from '../services/api';
@@ -8,13 +9,12 @@ import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Card, CardContent } from './ui/Card';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import Spinner from './ui/Spinner';
+import NewsSection from './News';
 
 const InternationalPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [tournaments, setTournaments] = useState<HybridTournament[]>([]);
     const [loading, setLoading] = useState(true);
-    
-    // Use URL params for state to support direct linking
     const selectedTournamentId = searchParams.get('id');
 
     useEffect(() => {
@@ -73,36 +73,41 @@ const InternationalPage: React.FC = () => {
                     </p>
                 </div>
 
-                {loading ? (
-                    <div className="flex justify-center py-20">
-                        <Spinner />
+                <div className="space-y-16">
+                    <NewsSection category="International" />
+
+                    <div>
+                        <h2 className="text-2xl font-display font-bold text-center mb-8 text-gray-800">Elite International Tournaments</h2>
+                        {loading ? (
+                            <div className="flex justify-center py-20"><Spinner /></div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                                {tournaments.map(tourn => (
+                                    <Card 
+                                        key={tourn.id} 
+                                        className="group cursor-pointer hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
+                                        onClick={() => handleSelectTournament(tourn.id)}
+                                    >
+                                        <CardContent className="p-8 flex flex-col h-full items-center text-center">
+                                            <div className="h-24 w-24 mb-6 flex items-center justify-center">
+                                                {tourn.logoUrl ? (
+                                                    <img src={tourn.logoUrl} alt={tourn.name} className="max-h-full max-w-full object-contain drop-shadow-md" />
+                                                ) : (
+                                                    <GlobeIcon className="w-16 h-16 text-gray-300" />
+                                                )}
+                                            </div>
+                                            <h2 className="text-2xl font-bold font-display text-gray-900 mb-3">{tourn.name}</h2>
+                                            <p className="text-gray-600 mb-6 flex-grow line-clamp-2">{tourn.description}</p>
+                                            <div className="text-blue-600 font-bold flex items-center gap-2 group-hover:gap-3 transition-all border-t w-full pt-4 justify-center">
+                                                Explore Tournament <ArrowRightIcon className="w-5 h-5"/>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                        {tournaments.map(tourn => (
-                            <Card 
-                                key={tourn.id} 
-                                className="group cursor-pointer hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border border-gray-100"
-                                onClick={() => handleSelectTournament(tourn.id)}
-                            >
-                                <CardContent className="p-8 flex flex-col h-full items-center text-center">
-                                    <div className="h-24 w-24 mb-6 flex items-center justify-center">
-                                        {tourn.logoUrl ? (
-                                            <img src={tourn.logoUrl} alt={tourn.name} className="max-h-full max-w-full object-contain drop-shadow-md" />
-                                        ) : (
-                                            <GlobeIcon className="w-16 h-16 text-gray-300" />
-                                        )}
-                                    </div>
-                                    <h2 className="text-2xl font-bold font-display text-gray-900 mb-3">{tourn.name}</h2>
-                                    <p className="text-gray-600 mb-6 flex-grow line-clamp-2">{tourn.description}</p>
-                                    <div className="text-blue-600 font-bold flex items-center gap-2 group-hover:gap-3 transition-all border-t w-full pt-4 justify-center">
-                                        Explore Tournament <ArrowRightIcon className="w-5 h-5"/>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                )}
+                </div>
             </div>
         </div>
     );

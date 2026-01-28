@@ -1,3 +1,4 @@
+
 import { Team, CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 
@@ -57,26 +58,29 @@ export const normalizeTeamName = (name: string, officialNames: string[]): string
 };
 
 /**
- * Calculates league standings with strict tie-breaker support.
+ * Calculates league standings with professional tie-breaker support.
  * Order: Points -> GD -> GS -> Total Wins -> Away Wins.
  */
 export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFixture[], allFixtures: CompetitionFixture[] = []): Team[] => {
     const teamsMap: Map<string, Team> = new Map();
     
+    // Initialize map with current teams
     baseTeams.forEach(team => {
         const teamCopy = { ...team };
-        // Add 'aw' for Away Wins tracking
+        // Reset stats for recalculation
         teamCopy.stats = { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '', aw: 0 } as any;
         teamsMap.set(superNormalize(team.name), teamCopy);
     });
     
     const allMatches = [...(allResults || []), ...(allFixtures || [])];
+    // Only process finished or valid abandoned matches with scores
     const finishedMatches = allMatches.filter(r => 
         (r.status === 'finished' || r.status === 'abandoned') && 
         r.scoreA != null && 
         r.scoreB != null
     );
     
+    // Sort matches chronologically to build form string correctly
     const sortedMatches = finishedMatches
         .sort((a, b) => new Date(a.fullDate || 0).getTime() - new Date(b.fullDate || 0).getTime());
 
@@ -111,7 +115,7 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
             teamB.stats.w += 1;
             teamB.stats.pts += 3;
             teamA.stats.l += 1;
-            // Track away win for teamB
+            // Away Win tracking (Used as 5th tie-breaker in some elite leagues)
             (teamB.stats as any).aw = ((teamB.stats as any).aw || 0) + 1;
             teamB.stats.form = ['W', ...teamB.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
             teamA.stats.form = ['L', ...teamA.stats.form.split(' ').filter(Boolean)].slice(0, 5).join(' ');
@@ -126,15 +130,10 @@ export const calculateStandings = (baseTeams: Team[], allResults: CompetitionFix
     }
 
     return Array.from(teamsMap.values()).sort((a, b) => {
-        // 1. Total Points
         if (b.stats.pts !== a.stats.pts) return b.stats.pts - a.stats.pts;
-        // 2. Goal Difference
         if (b.stats.gd !== a.stats.gd) return b.stats.gd - a.stats.gd;
-        // 3. Goals Scored
         if (b.stats.gs !== a.stats.gs) return b.stats.gs - a.stats.gs;
-        // 4. Wins
         if (b.stats.w !== a.stats.w) return b.stats.w - a.stats.w;
-        // 5. Away Wins
         const awB = (b.stats as any).aw || 0;
         const awA = (a.stats as any).aw || 0;
         return awB - awA;

@@ -1,18 +1,43 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import AIDailyBriefing from '../AIDailyBriefing';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { Link } from 'react-router-dom';
 import SparklesIcon from '../icons/SparklesIcon';
 import ArrowRightIcon from '../icons/ArrowRightIcon';
+import BarChartIcon from '../icons/BarChartIcon';
+import { fetchMerchantBalance, MerchantBalance } from '../../services/api';
+import Spinner from '../ui/Spinner';
 
 const AdminInsights: React.FC = () => {
+    const [balance, setBalance] = useState<MerchantBalance | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const load = async () => {
+            const data = await fetchMerchantBalance();
+            setBalance(data);
+            setLoading(false);
+        };
+        load();
+    }, []);
+
     return (
         <div className="space-y-10 animate-fade-in">
-            <div>
-                <h3 className="text-2xl font-bold font-display text-gray-900 mb-2">Strategy & Insights</h3>
-                <p className="text-sm text-gray-500">Internal AI-driven summaries and corporate strategy materials.</p>
+            <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+                <div>
+                    <h3 className="text-2xl font-bold font-display text-gray-900 mb-2">Strategy & Insights</h3>
+                    <p className="text-sm text-gray-500">Internal AI-driven summaries and corporate strategy materials.</p>
+                </div>
+                {loading ? <Spinner className="w-6 h-6"/> : (
+                    <div className="bg-green-50 border border-green-200 px-4 py-2 rounded-xl flex items-center gap-4 shadow-sm">
+                        <div className="bg-green-600 p-1.5 rounded-lg"><BarChartIcon className="w-4 h-4 text-white"/></div>
+                        <div>
+                            <p className="text-[9px] font-black uppercase text-green-600 tracking-widest">Platform Revenue</p>
+                            <p className="text-lg font-black text-gray-900">E{balance?.totalRevenue.toLocaleString()}</p>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="max-w-4xl">

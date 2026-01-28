@@ -28,12 +28,17 @@ const RegionDetailPage: React.FC = () => {
               const idNorm = superNormalize(id);
               const nameNorm = superNormalize(comp.name);
               const targetNorm = superNormalize(target);
-              
-              // Match if the ID or Name contains the region name (e.g. "hhohho")
               return idNorm.includes(targetNorm) || nameNorm.includes(targetNorm);
           })
           .map(([id, comp]) => ({ ...comp, id }))
-          .sort((a, b) => a.name.localeCompare(b.name));
+          .sort((a, b) => {
+              // PRIORITY: Super Leagues first
+              const aIsSuper = a.name.toLowerCase().includes('super league');
+              const bIsSuper = b.name.toLowerCase().includes('super league');
+              if (aIsSuper && !bIsSuper) return -1;
+              if (!aIsSuper && bIsSuper) return 1;
+              return a.name.localeCompare(b.name);
+          });
         
         setRegionLeagues(matched);
       } catch (error) {
@@ -80,7 +85,12 @@ const RegionDetailPage: React.FC = () => {
                                 <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
                                     <TrophyIcon className="w-6 h-6" />
                                 </div>
-                                <h3 className="font-bold text-xl text-gray-900 group-hover:text-primary transition-colors">{league.name}</h3>
+                                <div>
+                                    <h3 className="font-bold text-xl text-gray-900 group-hover:text-primary transition-colors">{league.name}</h3>
+                                    {league.name.toLowerCase().includes('super league') && (
+                                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-widest mt-1 inline-block">Elite Regional</span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex justify-between items-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-50">
                                 <span>Official League</span>
@@ -94,7 +104,6 @@ const RegionDetailPage: React.FC = () => {
             )) : (
                 <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-gray-300">
                     <p className="text-gray-500 italic">No leagues found in the database for this region.</p>
-                    <p className="text-sm text-gray-400 mt-2">Go to Admin Panel &gt; Seed Database and click "Initialize Leagues" to create them.</p>
                 </div>
             )}
         </div>

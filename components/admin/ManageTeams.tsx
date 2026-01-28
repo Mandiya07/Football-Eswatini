@@ -106,20 +106,6 @@ const ManageTeams: React.FC = () => {
         setIsFixturesModalOpen(true);
     };
 
-    const handleAddToDirectory = async (team: Team) => {
-        if (!window.confirm(`Add "${team.name}" to the public Football Directory?`)) return;
-
-        setProcessingId(team.id);
-        try {
-            await syncToDirectory(team.id, team.name, team.crestUrl, selectedCompId);
-            alert(`"${team.name}" successfully synced to Directory.`);
-        } catch (error) {
-            console.error("Directory sync failed", error);
-        } finally {
-            setProcessingId(null);
-        }
-    };
-
     const handleDelete = async (teamId: number) => {
         if (!window.confirm("Are you sure you want to delete this team? Standings will be recalculated.")) {
             return;
@@ -162,49 +148,6 @@ const ManageTeams: React.FC = () => {
         }
     };
 
-    const syncToDirectory = async (teamId: number, teamName: string, crestUrl: string, compId: string) => {
-        const directoryEntries = await fetchDirectoryEntries();
-        const existingEntry = directoryEntries.find(e => 
-            (e.teamId === teamId && e.competitionId === compId) ||
-            e.name.trim().toLowerCase() === teamName.toLowerCase()
-        );
-
-        if (existingEntry) {
-            await updateDirectoryEntry(existingEntry.id, {
-                teamId: teamId,
-                competitionId: compId,
-                crestUrl: crestUrl || existingEntry.crestUrl,
-                name: teamName
-            });
-        } else {
-            const compName = allCompsData[compId]?.name.toLowerCase() || '';
-            let region: Region = 'Hhohho';
-            if (compName.includes('manzini')) region = 'Manzini';
-            else if (compName.includes('lubombo')) region = 'Lubombo';
-            else if (compName.includes('shiselweni')) region = 'Shiselweni';
-
-            let tier: DirectoryEntity['tier'] = 'Regional';
-            if (compName.includes('premier')) tier = 'Premier League';
-            else if (compName.includes('first division') || compName.includes('nfd')) tier = 'NFD';
-            else if (compName.includes('women')) tier = 'Womens League';
-
-            const newEntry: Omit<DirectoryEntity, 'id'> = {
-                name: teamName,
-                category: 'Club',
-                region: region,
-                crestUrl: crestUrl,
-                teamId: teamId,
-                competitionId: compId,
-                tier: tier,
-                location: { lat: -26.5, lng: 31.5 },
-                contact: { email: '', phone: '' },
-                founded: 0,
-                stadium: ''
-            };
-            await addDirectoryEntry(newEntry);
-        }
-    };
-
     const handleSaveTeam = async (data: any, id?: number, addToDir: boolean = false) => {
         setLoading(true);
         setIsFormModalOpen(false);
@@ -236,7 +179,6 @@ const ManageTeams: React.FC = () => {
                     transaction.update(compDocRef, { teams: updatedCompTeams });
                 });
             }
-            if (addToDir) await syncToDirectory(id || Date.now(), data.name, data.crestUrl, selectedCompId);
             await loadData(true);
         } catch (error) {
             console.error("Save team failed", error);
@@ -252,7 +194,7 @@ const ManageTeams: React.FC = () => {
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-bold font-display">Manage Teams</h3>
                         <Button onClick={handleAddNew} className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2">
-                            <PlusCircleIcon className="w-5 h-5" /> Add Team
+                            <PlusCircleIcon className="w-5 h-5 text-white" /> Add Team
                         </Button>
                     </div>
                     
@@ -282,11 +224,11 @@ const ManageTeams: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => handleManageSchedule(team)} className="p-2 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors" title="Schedule"><CalendarIcon className="w-5 h-5"/></button>
-                                        <button onClick={() => handleManageRoster(team)} className="p-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors" title="Roster"><UsersIcon className="w-5 h-5"/></button>
-                                        <button onClick={() => handleEdit(team)} className="p-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors" title="Edit"><PencilIcon className="w-5 h-5"/></button>
-                                        <button onClick={() => handleDelete(team.id)} disabled={processingId === team.id} className="p-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors" title="Delete">
-                                            {processingId === team.id ? <Spinner className="w-5 h-5 border-2 border-red-700" /> : <TrashIcon className="w-5 h-5" />}
+                                        <button onClick={() => handleManageSchedule(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Schedule"><CalendarIcon className="w-5 h-5 text-white"/></button>
+                                        <button onClick={() => handleManageRoster(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Roster"><UsersIcon className="w-5 h-5 text-white"/></button>
+                                        <button onClick={() => handleEdit(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Edit"><PencilIcon className="w-5 h-5 text-white"/></button>
+                                        <button onClick={() => handleDelete(team.id)} disabled={processingId === team.id} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm" title="Delete">
+                                            {processingId === team.id ? <Spinner className="w-5 h-5 border-white border-2" /> : <TrashIcon className="w-5 h-5 text-white" />}
                                         </button>
                                     </div>
                                 </div>

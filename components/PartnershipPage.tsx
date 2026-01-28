@@ -38,11 +38,13 @@ const PricingCard: React.FC<{
             ))}
         </ul>
         {extraAction && <div className="mb-3">{extraAction}</div>}
-        <Link to="/club-registration" className="block">
-            <Button className={`w-full ${isPopular ? 'bg-primary text-white hover:bg-primary-dark' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`}>
-                Get Started
-            </Button>
-        </Link>
+        <div className="mt-auto">
+            <Link to="/club-registration" className="block">
+                <Button className={`w-full ${isPopular ? 'bg-primary text-white hover:bg-primary-dark' : 'bg-[#002B7F] text-white hover:bg-primary-dark'} h-11`}>
+                    Get Started
+                </Button>
+            </Link>
+        </div>
     </div>
 );
 
@@ -59,7 +61,6 @@ const SectionHeader: React.FC<{ title: string; subtitle: string; Icon: any; colo
 const PartnershipPage: React.FC = () => {
     return (
         <div className="bg-gray-50 py-12">
-            {/* Hero Section */}
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in mb-20">
                 <div className="text-center max-w-4xl mx-auto">
                     <h1 className="text-4xl md:text-6xl font-display font-extrabold text-blue-900 mb-6">
@@ -69,20 +70,19 @@ const PartnershipPage: React.FC = () => {
                         Welcome to the official partnership portal. Our digital ecosystem connects the entire Eswatini football community — from elite league clubs to grassroots communities.
                     </p>
                     <div className="flex flex-wrap justify-center gap-4">
-                        <Button className="bg-primary text-white px-8 py-3 text-lg" onClick={() => document.getElementById('clubs')?.scrollIntoView({ behavior: 'smooth' })}>
+                        <Button className="bg-primary text-white px-8 py-3 text-lg font-black uppercase tracking-tight shadow-xl" onClick={() => document.getElementById('clubs')?.scrollIntoView({ behavior: 'smooth' })}>
                             For Clubs
                         </Button>
-                        <Button className="bg-white text-primary border border-gray-300 px-8 py-3 text-lg hover:bg-gray-50" onClick={() => document.getElementById('advertisers')?.scrollIntoView({ behavior: 'smooth' })}>
+                        <Button className="bg-[#002B7F] text-white px-8 py-3 text-lg font-black uppercase tracking-tight shadow-xl hover:bg-primary-dark" onClick={() => document.getElementById('advertisers')?.scrollIntoView({ behavior: 'smooth' })}>
                             For Advertisers
                         </Button>
-                        <Button className="bg-white text-primary border border-gray-300 px-8 py-3 text-lg hover:bg-gray-50" onClick={() => document.getElementById('sponsors')?.scrollIntoView({ behavior: 'smooth' })}>
+                        <Button className="bg-[#002B7F] text-white px-8 py-3 text-lg font-black uppercase tracking-tight shadow-xl hover:bg-primary-dark" onClick={() => document.getElementById('sponsors')?.scrollIntoView({ behavior: 'smooth' })}>
                             For Sponsors
                         </Button>
                     </div>
                 </div>
             </div>
 
-            {/* Teams & Clubs Section */}
             <div id="clubs" className="container mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-gray-200">
                 <SectionHeader 
                     title="For Teams & Clubs" 
@@ -125,7 +125,6 @@ const PartnershipPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Advertisers Section (Reverted Colors) */}
             <div id="advertisers" className="bg-white py-20 border-y border-gray-200">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <SectionHeader 
@@ -169,7 +168,7 @@ const PartnershipPage: React.FC = () => {
                                 </div>
                                 <div className="mt-6 pt-4 text-center">
                                     <Link to="/advertiser-onboarding">
-                                        <Button className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold">Request Rate Card</Button>
+                                        <Button className="w-full bg-[#002B7F] text-white hover:bg-primary-dark font-black uppercase h-12 shadow-lg">Request Rate Card</Button>
                                     </Link>
                                 </div>
                             </CardContent>
@@ -178,7 +177,6 @@ const PartnershipPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Sponsors Section */}
             <div id="sponsors" className="container mx-auto px-4 sm:px-6 lg:px-8 py-20">
                 <SectionHeader 
                     title="For Sponsors" 
@@ -199,8 +197,8 @@ const PartnershipPage: React.FC = () => {
                                 <h3 className="text-2xl font-bold font-display mb-2">{pkg.title}</h3>
                                 <div className="text-3xl font-extrabold mb-4">{pkg.price}<span className="text-base font-normal opacity-75">{pkg.period}</span></div>
                                 <p className="text-sm opacity-90 flex-grow">{pkg.desc}</p>
-                                <Link to="/sponsor-onboarding" className="block w-full">
-                                    <Button className="mt-6 w-full bg-white hover:bg-gray-50 text-black border border-gray-200">Inquire</Button>
+                                <Link to="/sponsor-onboarding" className="block w-full mt-auto">
+                                    <Button className="w-full bg-[#002B7F] text-white hover:bg-primary-dark font-black uppercase h-10 mt-4 shadow-md">Inquire</Button>
                                 </Link>
                             </CardContent>
                         </Card>

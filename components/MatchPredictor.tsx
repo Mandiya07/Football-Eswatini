@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
@@ -45,20 +46,20 @@ const PredictionButtons: React.FC<{ match: PredictableMatch; onPredict: (matchId
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <Button 
                 onClick={() => onPredict(match.id, 'teamA')} 
-                className="bg-blue-100 text-blue-800 hover:bg-blue-200 focus:ring-blue-500 font-bold w-full text-xs sm:text-sm truncate"
+                className="bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 font-bold w-full text-xs sm:text-sm truncate"
                 aria-label={`Predict ${match.teamA} to win`}
             >
                 {match.teamA}
             </Button>
             <Button 
                 onClick={() => onPredict(match.id, 'draw')} 
-                className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 focus:ring-yellow-500 font-bold w-full text-xs sm:text-sm"
+                className="bg-yellow-500 text-white hover:bg-yellow-400 focus:ring-yellow-500 font-bold w-full text-xs sm:text-sm"
             >
                 Draw
             </Button>
             <Button 
                 onClick={() => onPredict(match.id, 'teamB')} 
-                className="bg-red-100 text-red-800 hover:bg-red-200 focus:ring-red-500 font-bold w-full text-xs sm:text-sm truncate"
+                className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 font-bold w-full text-xs sm:text-sm truncate"
                 aria-label={`Predict ${match.teamB} to win`}
             >
                 {match.teamB}

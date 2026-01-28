@@ -16,7 +16,6 @@ const Hero: React.FC = () => {
     const [teams, setTeams] = useState<Team[]>([]);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     
-    // AI Image State
     const [backgroundImage, setBackgroundImage] = useState<string>(
         localStorage.getItem('fe_hero_bg') || "https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=2069&auto=format&fit=crop"
     );
@@ -86,7 +85,6 @@ const Hero: React.FC = () => {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const prompt = "Cinematic, wide-angle high-end sports photography background of a modern football stadium in Eswatini. Dramatic evening sky with sunset colors (deep blue, red, gold), lush green grass with professional white markings, a soccer ball on the pitch, vibrant but slightly blurred crowd waving Eswatini flags. 8k resolution, photorealistic, shallow depth of field, intense atmosphere.";
             
-            // Fixed contents to use a direct string for the prompt
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image',
                 contents: prompt,
@@ -124,31 +122,28 @@ const Hero: React.FC = () => {
 
   return (
     <section className="relative h-[90vh] min-h-[750px] flex items-center justify-center text-white overflow-hidden bg-slate-950">
-      {/* Background with ultra-slow cinematic zoom effect */}
       <div 
         className={`absolute inset-0 bg-cover bg-center transition-all duration-[2000ms] ${isGenerating ? 'scale-125 blur-xl grayscale' : 'scale-110 hover:scale-100'}`}
         style={{ backgroundImage: `url(${backgroundImage})`, zIndex: 0 }}
       ></div>
       
-      {/* Refine Visual Button (Floating Action) */}
       <div className="absolute top-8 right-8 z-[20]">
           <button 
             onClick={handleRefineBackground}
             disabled={isGenerating}
-            className="group flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full hover:bg-white/20 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
+            className="group flex items-center gap-2 px-4 py-2 bg-primary backdrop-blur-xl border border-white/20 rounded-full hover:bg-primary-dark transition-all shadow-2xl active:scale-95 disabled:opacity-50"
           >
               {isGenerating ? (
                   <Spinner className="w-4 h-4 border-white/40 border-t-white" />
               ) : (
-                  <SparklesIcon className="w-4 h-4 text-accent group-hover:rotate-12 transition-transform" />
+                  <SparklesIcon className="w-4 h-4 text-white group-hover:rotate-12 transition-transform" />
               )}
-              <span className="text-[10px] font-black uppercase tracking-widest">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white">
                   {isGenerating ? 'Synthesizing...' : 'Refine Visual'}
               </span>
           </button>
       </div>
 
-      {/* Deep Multi-layer Overlays for Typography Contrast */}
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]" style={{ zIndex: 1 }}></div>
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" style={{ zIndex: 1 }}></div>
       <div className="absolute inset-0 bg-gradient-to-b from-slate-950/40 via-transparent to-transparent" style={{ zIndex: 1 }}></div>
@@ -166,7 +161,6 @@ const Hero: React.FC = () => {
                     </div>
 
                     <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20 mb-16 px-4">
-                        {/* Team A */}
                         <div className="flex flex-col items-center group flex-1">
                             <div className="w-40 h-40 md:w-56 md:h-56 mb-8 bg-white/5 backdrop-blur-md rounded-[2.5rem] p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:rotate-2 group-hover:border-white/30">
                                 {crestA ? (
@@ -180,7 +174,6 @@ const Hero: React.FC = () => {
                             </h2>
                         </div>
 
-                        {/* Versus / Score Center */}
                         <div className="flex flex-col items-center justify-center py-8">
                             {isLiveMode ? (
                                 <div className="relative group">
@@ -201,7 +194,6 @@ const Hero: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Team B */}
                         <div className="flex flex-col items-center group flex-1">
                             <div className="w-40 h-40 md:w-56 md:h-56 mb-8 bg-white/5 backdrop-blur-md rounded-[2.5rem] p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:-rotate-2 group-hover:border-white/30">
                                 {crestB ? (
@@ -258,26 +250,18 @@ const Hero: React.FC = () => {
             )}
             
             <div className="mt-20 flex flex-wrap justify-center gap-6">
-                <Link to="/fixtures" className="group bg-accent text-primary-dark font-black py-5 px-12 rounded-2xl hover:bg-yellow-300 transition-all hover:scale-105 shadow-[0_20px_60px_rgba(253,185,19,0.3)] uppercase text-[10px] tracking-[0.2em] flex items-center gap-3">
-                    MATCH SCHEDULE <ArrowRightIcon className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                <Link to="/fixtures" className="group bg-primary text-white font-black py-5 px-12 rounded-2xl hover:bg-primary-dark transition-all hover:scale-105 shadow-[0_20px_60px_rgba(0,43,127,0.3)] uppercase text-[10px] tracking-[0.2em] flex items-center gap-3">
+                    MATCH SCHEDULE <ArrowRightIcon className="w-4 h-4 text-white transition-transform group-hover:translate-x-1" />
                 </Link>
-                <Link to="/live-updates" className="group bg-white/5 backdrop-blur-3xl text-white border border-white/10 font-black py-5 px-12 rounded-2xl hover:bg-white/10 transition-all hover:scale-105 uppercase text-[10px] tracking-[0.2em] shadow-2xl flex items-center gap-3">
+                <Link to="/live-updates" className="group bg-primary-dark border border-white/20 text-white font-black py-5 px-12 rounded-2xl hover:bg-black transition-all hover:scale-105 uppercase text-[10px] tracking-[0.2em] shadow-2xl flex items-center gap-3">
                     MATCH CENTER <RadioIcon className="w-4 h-4 text-accent" />
                 </Link>
             </div>
         </div>
       </div>
       
-      {/* Texture Overlays & Bottom Vignette */}
       <div className="absolute inset-0 pointer-events-none opacity-5 mix-blend-overlay bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]" style={{ zIndex: 2 }}></div>
       <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-slate-950 to-transparent" style={{ zIndex: 2 }}></div>
-
-      <style>{`
-        @keyframes sweep {
-            0% { transform: translateX(-100%) skewX(-12deg); }
-            100% { transform: translateX(300%) skewX(-12deg); }
-        }
-      `}</style>
     </section>
   );
 };

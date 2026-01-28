@@ -15,7 +15,6 @@ import { handleFirestoreError } from '../services/api';
 
 const auth = getAuth(app);
 
-// Support multiple bootstrap emails separated by commas
 const getAuthorizedEmails = () => {
     const envVal = process.env.ADMIN_EMAIL || 'admin@footballeswatini.com';
     return envVal.toLowerCase().split(',').map(e => e.trim());
@@ -41,7 +40,7 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
-  role: 'user' | 'club_admin' | 'league_admin' | 'super_admin';
+  role: 'user' | 'club_admin' | 'league_admin' | 'super_admin' | 'journalist';
   club?: string;
   managedLeagues?: string[]; 
   favoriteTeamIds: number[];
@@ -49,6 +48,13 @@ export interface User {
   subscription?: SubscriptionInfo;
   xp: number; 
   level: number; 
+  journalismCredentials?: {
+      outlet: string;
+      verified: boolean;
+      bio: string;
+      accreditations: string[];
+      portfolioCount: number;
+  };
 }
 
 export type LoginCredentials = { email: string; password?: string; };
@@ -115,7 +121,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const authorizedEmails = getAuthorizedEmails();
       const isAuthorized = authorizedEmails.includes(user?.email.toLowerCase() || '');
       if (user && isAuthorized && user.role !== 'super_admin') {
-          console.log("[Auth] Manually Elevating authorized user to Super Admin:", user.email);
           await updateUser({ role: 'super_admin' });
       }
   };
@@ -131,12 +136,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 
                 if (docSnap.exists()) {
                     const data = docSnap.data() as User;
-                    
-                    // RECOVERY LOGIC: 
-                    // If the email is authorized but the database says they are NOT a super_admin
-                    // (e.g. they accidentally registered as a club admin), force an update.
                     if (isAuthorized && data.role !== 'super_admin') {
-                         console.log(`[Auth Recovery] Correcting role for authorized admin: ${firebaseUser.email}`);
                          await updateDoc(userDocRef, { role: 'super_admin' });
                          setUser({ id: firebaseUser.uid, ...data, role: 'super_admin' });
                     } else {
@@ -171,9 +171,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!user) return;
       const newXP = (user.xp || 0) + amount;
       const newLevel = Math.floor(newXP / 100) + 1; 
-      
-      const updates: Partial<User> = { xp: newXP, level: newLevel };
-      updateUser(updates);
+      updateUser({ xp: newXP, level: newLevel });
   };
 
   const updateUser = async (updatedFields: Partial<User>) => {

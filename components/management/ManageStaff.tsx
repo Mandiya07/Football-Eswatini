@@ -170,7 +170,7 @@ const ManageStaff: React.FC<{ clubName: string }> = ({ clubName }) => {
                     <h3 className="text-2xl font-bold font-display">Manage Team Staff</h3>
                     {!editingMember && (
                         <Button onClick={() => setEditingMember('new')} className="bg-primary text-white hover:bg-primary-dark focus:ring-primary-light inline-flex items-center gap-2">
-                            <PlusCircleIcon className="w-5 h-5" /> Add Staff
+                            <PlusCircleIcon className="w-5 h-5 text-white" /> Add Staff
                         </Button>
                     )}
                 </div>
@@ -190,7 +190,7 @@ const ManageStaff: React.FC<{ clubName: string }> = ({ clubName }) => {
                                                 <img src={member.photoUrl} alt={member.name} className="h-full w-full object-cover" />
                                             ) : (
                                                 <div className="h-full w-full flex items-center justify-center text-gray-400">
-                                                    <UserIcon className="w-6 h-6" />
+                                                    <UserIcon className="w-8 h-8" />
                                                 </div>
                                             )}
                                         </div>
@@ -204,11 +204,11 @@ const ManageStaff: React.FC<{ clubName: string }> = ({ clubName }) => {
                                         </div>
                                     </div>
                                     <div className="flex-shrink-0 flex items-center gap-2 self-end sm:self-center">
-                                        <Button onClick={() => setEditingMember(member)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center" aria-label={`Edit ${member.name}`}>
-                                            <PencilIcon className="w-4 h-4" />
+                                        <Button onClick={() => setEditingMember(member)} className="bg-blue-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Edit ${member.name}`}>
+                                            <PencilIcon className="w-4 h-4 text-white" />
                                         </Button>
-                                        <Button onClick={() => handleRemove(member.id)} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center" aria-label={`Remove ${member.name}`}>
-                                            <TrashIcon className="w-4 h-4" />
+                                        <Button onClick={() => handleRemove(member.id)} className="bg-red-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Remove ${member.name}`}>
+                                            <TrashIcon className="w-4 h-4 text-white" />
                                         </Button>
                                     </div>
                                 </div>

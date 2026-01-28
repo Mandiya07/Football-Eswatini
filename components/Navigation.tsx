@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -19,6 +20,7 @@ import LogOutIcon from './icons/LogOutIcon';
 import DatabaseIcon from './icons/DatabaseIcon';
 import RadioIcon from './icons/RadioIcon';
 import ShieldIcon from './icons/ShieldIcon';
+import NewspaperIcon from './icons/NewspaperIcon';
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -37,6 +39,7 @@ const Navigation: React.FC = () => {
   const isSuperAdmin = user?.role === 'super_admin';
   const isClubAdmin = user?.role === 'club_admin';
   const isLeagueAdmin = user?.role === 'league_admin';
+  const isJournalist = user?.role === 'journalist';
   const isAdmin = isSuperAdmin || isClubAdmin || isLeagueAdmin;
 
   const navItems = [
@@ -138,7 +141,7 @@ const Navigation: React.FC = () => {
                   </div>
 
                   <button onClick={() => setIsCartOpen(true)} className="relative text-white p-2 hover:text-accent transition-all transform hover:scale-110" aria-label="Cart">
-                    <ShoppingCartIcon className="w-5 h-5" />
+                    <ShoppingCartIcon className="w-5 h-5 text-white" />
                     {cartCount > 0 && (
                         <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-secondary text-white text-[8px] font-black flex items-center justify-center border border-[#002B7F] shadow-xl">
                             {cartCount}
@@ -171,10 +174,27 @@ const Navigation: React.FC = () => {
                               <Link to="/profile" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-xs font-bold hover:bg-blue-50 transition-colors">
                                 <UserCircleIcon className="w-4 h-4 text-blue-600" /> My Profile
                               </Link>
-                              {isSuperAdmin && (
-                                <Link to="/admin-panel" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-xs font-bold hover:bg-red-50 text-red-600">
-                                    <ShieldIcon className="w-4 h-4" /> Admin Center
+                              
+                              {(isJournalist || isSuperAdmin) && (
+                                <Link to="/press" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-xs font-bold hover:bg-indigo-50 text-indigo-600">
+                                  <NewspaperIcon className="w-4 h-4" /> Press Portal
                                 </Link>
+                              )}
+
+                              {isAdmin && (
+                                <Link to="/club-management" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-xs font-bold hover:bg-green-50 text-green-600">
+                                  <DatabaseIcon className="w-4 h-4" /> Management
+                                </Link>
+                              )}
+                              {isSuperAdmin && (
+                                <>
+                                  <Link to="/data-management" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-xs font-bold hover:bg-green-50 text-green-600">
+                                      <DatabaseIcon className="w-4 h-4" /> Data Center
+                                  </Link>
+                                  <Link to="/admin-panel" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-3 px-4 py-2 text-xs font-bold hover:bg-red-50 text-red-600">
+                                      <ShieldIcon className="w-4 h-4" /> Admin Center
+                                  </Link>
+                                </>
                               )}
                             </div>
                             
@@ -190,13 +210,13 @@ const Navigation: React.FC = () => {
                         )}
                       </div>
                     ) : (
-                      <Button variant="accent" size="sm" onClick={openAuthModal} className="text-[10px] h-8 font-black uppercase tracking-widest rounded-lg px-4 shadow-xl hover:scale-105 active:scale-95 transition-all">
+                      <Button variant="accent" size="sm" onClick={openAuthModal} className="text-[10px] h-8 font-black uppercase tracking-widest rounded-lg px-4 shadow-xl hover:scale-105 active:scale-95 transition-all text-white">
                         Sign In
                       </Button>
                     )}
                     
                     <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden text-white p-2 rounded-lg hover:bg-white/5 transition-colors" aria-label="Menu">
-                      {isOpen ? <XIcon className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
+                      {isOpen ? <XIcon className="w-6 h-6 text-white" /> : <MenuIcon className="w-6 h-6 text-white" />}
                     </button>
                   </div>
               </div>
@@ -208,7 +228,7 @@ const Navigation: React.FC = () => {
           <div className="lg:hidden fixed inset-0 z-[130] bg-slate-950 animate-in fade-in duration-300">
              <div className="flex justify-between items-center p-6 border-b border-white/5 bg-[#002B7F]">
                 <Logo className="h-8 w-auto" />
-                <button onClick={() => setIsOpen(false)} className="text-white p-2 bg-white/5 rounded-full"><XIcon className="w-6 h-6" /></button>
+                <button onClick={() => setIsOpen(false)} className="text-white p-2 bg-white/5 rounded-full"><XIcon className="w-6 h-6 text-white" /></button>
              </div>
              <nav className="flex flex-col items-center gap-2 pt-8 px-6 h-full overflow-y-auto pb-32">
                 {navItems.map((item) => (

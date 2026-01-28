@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -19,7 +18,8 @@ type DocType =
     | 'NDA' 
     | 'PROPOSAL_TEAM' | 'PROPOSAL_ADVERTISER' | 'PROPOSAL_SPONSOR' 
     | 'CONTRACT_TEAM' | 'CONTRACT_ADVERTISER' | 'CONTRACT_SPONSOR'
-    | 'LETTER_SPONSORSHIP' | 'LETTER_INTRO' | 'LETTER_EWFA' | 'LETTER_FINANCE_SPON';
+    | 'LETTER_SPONSORSHIP' | 'LETTER_INTRO' | 'LETTER_EWFA' | 'LETTER_FINANCE_SPON' | 'LETTER_RFA_COLLAB'
+    | 'LETTER_DELTAPAY';
 
 interface FormFields {
     recipientName: string;
@@ -35,18 +35,18 @@ interface FormFields {
 
 const LegalAndContracts: React.FC = () => {
     const [activeCategory, setActiveCategory] = useState<DocCategory>('letters');
-    const [selectedDoc, setSelectedDoc] = useState<DocType>('LETTER_FINANCE_SPON');
+    const [selectedDoc, setSelectedDoc] = useState<DocType>('LETTER_DELTAPAY');
     
     const [fields, setFields] = useState<FormFields>({
-        recipientName: 'The Marketing Manager',
-        recipientTitle: 'Strategic Partnerships Division',
-        organization: 'First Finance Company',
-        address: 'Mbabane / Manzini / Nhlangano Branches',
+        recipientName: 'The Strategic Partnerships Director',
+        recipientTitle: 'DeltaPay Eswatini',
+        organization: 'DeltaPay Solutions',
+        address: 'Mbabane, Eswatini',
         date: new Date().toISOString().split('T')[0],
-        amount: '50,000.00',
-        duration: '12 Months',
+        amount: '75,000.00',
+        duration: '24 Months',
         effectiveDate: new Date().toISOString().split('T')[0],
-        scopeOfWork: 'Seed Sponsorship for the Digital Transformation of Eswatini Football and Regional Talent Development.'
+        scopeOfWork: 'Exclusive Digital Payment Integration and Seed Infrastructure Support.'
     });
 
     const handlePrint = () => {
@@ -58,6 +58,8 @@ const LegalAndContracts: React.FC = () => {
     };
 
     const docItems: { type: DocType; label: string; category: DocCategory; icon: any }[] = [
+        { type: 'LETTER_DELTAPAY', label: 'DeltaPay Seed Pitch', category: 'letters', icon: ShieldCheckIcon },
+        { type: 'LETTER_RFA_COLLAB', label: 'RFA Collab Request', category: 'letters', icon: GlobeIcon },
         { type: 'LETTER_FINANCE_SPON', label: 'Finance Sponsorship', category: 'letters', icon: BuildingIcon },
         { type: 'LETTER_EWFA', label: 'EWFA Intro Letter', category: 'letters', icon: GlobeIcon },
         { type: 'LETTER_SPONSORSHIP', label: 'Sponsorship Request', category: 'letters', icon: BuildingIcon },
@@ -134,7 +136,7 @@ const LegalAndContracts: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Recipient/Official Name</label>
+                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Recipient Name</label>
                                         <input value={fields.recipientName} onChange={e => updateField('recipientName', e.target.value)} className={inputClass} />
                                     </div>
                                     <div>
@@ -142,7 +144,7 @@ const LegalAndContracts: React.FC = () => {
                                         <input value={fields.recipientTitle} onChange={e => updateField('recipientTitle', e.target.value)} className={inputClass} />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Target Association</label>
+                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Organization</label>
                                         <input value={fields.organization} onChange={e => updateField('organization', e.target.value)} className={inputClass} />
                                     </div>
                                     <div>
@@ -156,12 +158,15 @@ const LegalAndContracts: React.FC = () => {
                                         <input type="date" value={fields.effectiveDate} onChange={e => updateField('effectiveDate', e.target.value)} className={inputClass} />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Sponsorship Amount (E)</label>
-                                        <input type="text" value={fields.amount} onChange={e => updateField('amount', e.target.value)} className={inputClass} />
+                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Amount (E) / Duration</label>
+                                        <div className="flex gap-2">
+                                            <input value={fields.amount} onChange={e => updateField('amount', e.target.value)} className={inputClass} placeholder="Amount" />
+                                            <input value={fields.duration} onChange={e => updateField('duration', e.target.value)} className={inputClass} placeholder="Duration" />
+                                        </div>
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Subject / Objective</label>
-                                        <textarea value={fields.scopeOfWork} onChange={e => updateField('scopeOfWork', e.target.value)} className={inputClass} rows={4}></textarea>
+                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Subject / Scope</label>
+                                        <textarea value={fields.scopeOfWork} onChange={e => updateField('scopeOfWork', e.target.value)} className={inputClass} rows={2}></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -207,7 +212,7 @@ const DocumentRenderer: React.FC<{ type: DocType; fields: FormFields }> = ({ typ
                 <p>Football Eswatini Operations Hub</p>
                 <p>Sigwaca House, Mbabane</p>
                 <p>Kingdom of Eswatini</p>
-                <p>legal@footballeswatini.sz</p>
+                <p>ops@footballeswatini.sz</p>
             </div>
         </div>
     );
@@ -225,8 +230,198 @@ const DocumentRenderer: React.FC<{ type: DocType; fields: FormFields }> = ({ typ
     );
 
     const bodyStyle = "space-y-6 text-[11pt] leading-relaxed text-gray-800 text-justify font-serif";
+    const subTitle = "text-xl font-black uppercase underline decoration-primary decoration-2 underline-offset-4 mb-8 text-gray-900 leading-tight";
 
     switch (type) {
+        case 'LETTER_DELTAPAY':
+            return (
+                <>
+                    <Header />
+                    <div className="p-12 flex-grow font-serif">
+                        <div className="mb-10">
+                            <p className="font-bold mb-4">{formattedDate}</p>
+                            <p>To,</p>
+                            <p className="font-black uppercase text-gray-900">{fields.recipientName}</p>
+                            <p className="font-bold text-gray-900">{fields.organization}</p>
+                            <p className="text-gray-600">{fields.address}</p>
+                        </div>
+                        
+                        <h2 className={subTitle}>
+                            SUBJECT: PROPOSAL FOR EXCLUSIVE SEED SPONSORSHIP & FINANCIAL TECHNOLOGY INTEGRATION
+                        </h2>
+
+                        <div className={bodyStyle}>
+                            <p>Dear {fields.recipientName.split(' ').pop()},</p>
+                            <p>At <strong>Football Eswatini</strong>, we believe that the beauty of the game lies in its precision and pace—values we know are shared by <strong>DeltaPay</strong>. I am writing to propose a landmark collaboration that would establish DeltaPay as the exclusive <strong>Strategic Seed Sponsor</strong> and the <strong>Official Digital Payment Partner</strong> of our national digital football ecosystem.</p>
+                            <p>We are building a platform where transactions for tickets, merchandise, and premium scouting access are as seamless as a perfectly executed counter-attack. As a pioneer in secure and swift payment solutions, DeltaPay is the ideal partner to power the commercial heartbeat of Eswatini football.</p>
+                            <p><strong>Strategic Benefits for DeltaPay:</strong></p>
+                            <ul className="list-disc pl-8 space-y-3">
+                                <li><strong>Contextual Market Dominance:</strong> DeltaPay will be integrated as the sole processing rail for our "Direct-to-Fan" marketplace, reaching 50,000+ monthly active users at the exact moment of purchase.</li>
+                                <li><strong>Brand Alignment with Modernization:</strong> By serving as our Seed Sponsor, DeltaPay will be credited with the digitalization of the MTN Premier League and Regional Super Leagues, positioning the brand at the forefront of the Kingdom’s technological evolution.</li>
+                                <li><strong>High-Frequency Visibility:</strong> DeltaPay branding will be hard-coded into our "Match Ticker" and "Live Commentary" zones—our highest traffic areas—ensuring millions of impressions during match weeks.</li>
+                            </ul>
+                            <p>We are seeking a seed commitment of <strong>E{fields.amount}</strong> to finalize the digitalization of our regional hubs. In return, we offer DeltaPay full branding rights within the "Merchant & Payouts" admin section and exclusive logo placement across all national fixtures.</p>
+                            <p>We would value a meeting to demonstrate how our "Seamless Transaction" vision perfectly mirrors your own.</p>
+                            <p className="mt-12">Yours Faithfully,</p>
+                            <div className="mt-2">
+                                <p className="font-black text-primary">Technical & Operations Lead</p>
+                            </div>
+                        </div>
+                    </div>
+                    <Footer refCode={`FE-DELTAPAY-SEED-REQ`} />
+                </>
+            );
+
+        case 'LETTER_RFA_COLLAB':
+            return (
+                <>
+                    <Header />
+                    <div className="p-12 flex-grow font-serif">
+                        <div className="mb-10">
+                            <p className="font-bold mb-4">{formattedDate}</p>
+                            <p>To,</p>
+                            <p className="font-black uppercase text-gray-900">{fields.recipientName}</p>
+                            <p className="font-bold text-gray-900">{fields.recipientTitle}</p>
+                            <p className="text-gray-600">{fields.address}</p>
+                        </div>
+                        
+                        <h2 className={subTitle}>
+                            SUBJECT: PROPOSAL FOR COLLABORATION ON DIGITAL MATCH CENTER INTEGRATION
+                        </h2>
+
+                        <div className={bodyStyle}>
+                            <p>Dear {fields.recipientName.split(' ').pop()},</p>
+                            <p>I am writing on behalf of the <strong>Football Eswatini</strong> digital platform to formally introduce our comprehensive sports infrastructure and to propose a strategic collaboration with the <strong>{fields.recipientTitle}</strong> and its affiliated leagues.</p>
+                            <p>Our platform has been developed as a world-class digital gateway for football in the Kingdom, centralizing data from the elite level down to grassroots development. We recognize the {fields.recipientTitle} as a vital pillar of our football landscape, overseeing high-stakes regional super leagues and promotional divisions.</p>
+                            <p><strong>Proposed Collaboration Points:</strong></p>
+                            <ul className="list-disc pl-8 space-y-3">
+                                <li><strong>Real-Time Results & Standing Sync:</strong> We seek to establish a verified workflow where your association provides official results (via match sheets or digital feed), ensuring your regional leagues have live-updated logs accessible to fans and media 24/7.</li>
+                                <li><strong>Affiliate Onboarding:</strong> We invite you to introduce the platform to your member clubs. Each club will be granted access to a <em>Professional Management Portal</em> where they can manage their own squad lists, publish club-specific news, and sell merchandise.</li>
+                                <li><strong>Talent Visibility:</strong> By digitizing regional leagues, we provide local players with verified performance data, creating a transparent pipeline for national team selection and international scouting.</li>
+                            </ul>
+                            <p>We would value the opportunity to present a formal demonstration of these tools to your executive committee at your earliest convenience.</p>
+                            <p className="mt-12">Yours Faithfully,</p>
+                            <div className="mt-2">
+                                <p className="font-black text-primary">Technical & Operations Lead</p>
+                            </div>
+                        </div>
+                    </div>
+                    <Footer refCode={`FE-RFA-COLLAB-REQ`} />
+                </>
+            );
+
+        case 'LETTER_INTRO':
+            return (
+                <>
+                    <Header />
+                    <div className="p-12 flex-grow font-serif">
+                        <div className="mb-10">
+                            <p className="font-bold mb-4">{formattedDate}</p>
+                            <p>To,</p>
+                            <p className="font-black uppercase text-gray-900">{fields.recipientName}</p>
+                            <p className="font-bold text-gray-900">{fields.organization}</p>
+                            <p className="text-gray-600">{fields.address}</p>
+                        </div>
+                        <h2 className={subTitle}>SUBJECT: INTRODUCTION TO THE FOOTBALL ESWATINI DIGITAL ECOSYSTEM</h2>
+                        <div className={bodyStyle}>
+                            <p>Dear {fields.recipientName},</p>
+                            <p>We are delighted to formally introduce <strong>Football Eswatini</strong>, the Kingdom's premiere digital sports infrastructure. Our platform is engineered to serve as the definitive "digital gateway" for the beautiful game, uniting fans, players, and officials through real-time data and immersive media coverage.</p>
+                            <p>Our ecosystem encompasses the MTN Premier League, the National First Division, and regional super leagues, providing an unprecedented level of visibility for local talent. Key features include live match centers, verified player performance archives, and professional club management portals.</p>
+                            <p>As a key stakeholder in Eswatini's sporting landscape, we recognize your pivotal role in the sport's development. We believe our platform offers significant value in tracking progress, identifying talent, and fostering community engagement.</p>
+                            <p>We would welcome the opportunity to discuss how our digital infrastructure can support your objectives.</p>
+                            <p className="mt-12">Yours Sincerely,</p>
+                            <div className="mt-2">
+                                <p className="font-black text-primary">Communications Department</p>
+                                <p className="text-gray-500 font-medium italic">Football Eswatini News Platform</p>
+                            </div>
+                        </div>
+                    </div>
+                    <Footer refCode={`FE-INTRO-GEN`} />
+                </>
+            );
+
+        case 'LETTER_SPONSORSHIP':
+            return (
+                <>
+                    <Header />
+                    <div className="p-12 flex-grow font-serif">
+                        <div className="mb-10">
+                            <p className="font-bold mb-4">{formattedDate}</p>
+                            <p>To,</p>
+                            <p className="font-black uppercase text-gray-900">{fields.recipientName}</p>
+                            <p className="font-bold text-gray-900">{fields.organization}</p>
+                        </div>
+                        <h2 className={subTitle}>SUBJECT: SUBJECT: STRATEGIC SPONSORSHIP INQUIRY – {fields.scopeOfWork.toUpperCase()}</h2>
+                        <div className={bodyStyle}>
+                            <p>Dear {fields.recipientName},</p>
+                            <p>I am writing to invite <strong>{fields.organization}</strong> to partner with Football Eswatini as a strategic sponsor for our upcoming initiative: <em>{fields.scopeOfWork}</em>.</p>
+                            <p>Football Eswatini is the Kingdom's fastest-growing digital sports platform, with an active monthly reach of over 50,000 passionate fans. By sponsoring this project, your brand will gain direct, high-frequency visibility in our high-traffic zones, including live match centers and regional hub landing pages.</p>
+                            <p>We are specifically seeking a sponsorship commitment of <strong>E{fields.amount}</strong> for a duration of <strong>{fields.duration}</strong>. These funds will be strictly utilized to enhance the digital visibility of grassroots talent and improve real-time match reporting in the selected regions.</p>
+                            <p>We are prepared to offer a customized branding package including title naming rights for the initiative and integrated advertising across all our digital touchpoints.</p>
+                            <p>We look forward to discussing this opportunity in further detail.</p>
+                            <p className="mt-12">Yours Faithfully,</p>
+                            <div className="mt-2">
+                                <p className="font-black text-primary">Technical & Operations Lead</p>
+                            </div>
+                        </div>
+                    </div>
+                    <Footer refCode={`FE-LTR-SPON`} />
+                </>
+            );
+
+        case 'PROPOSAL_TEAM':
+            return (
+                <>
+                    <Header />
+                    <div className="p-12 flex-grow font-serif">
+                        <div className="mb-10">
+                            <p className="font-bold mb-4">{formattedDate}</p>
+                            <p>To the Management of,</p>
+                            <p className="font-black uppercase text-gray-900">{fields.organization}</p>
+                        </div>
+                        <h2 className={subTitle}>SUBJECT: ONBOARDING PROPOSAL FOR "ELITE TIER" DIGITAL MANAGEMENT</h2>
+                        <div className={bodyStyle}>
+                            <p>We are pleased to invite <strong>{fields.organization}</strong> to join our "Elite Tier" digital ecosystem. This premium partnership is designed to grant your club full control over its digital identity and commercial potential.</p>
+                            <p><strong>Proposed Package Highlights:</strong></p>
+                            <ul className="list-disc pl-8 space-y-3">
+                                <li><strong>Branded Club Hub:</strong> A dedicated, ad-free microsite customized with your official colors and crest.</li>
+                                <li><strong>Official Management Portal:</strong> Direct access for your media team to publish news, manage rosters, and post technical videos.</li>
+                                <li><strong>Commercial Integration:</strong> Ability to list replicas, scarfs, and tickets for sale directly to fans within the app.</li>
+                                <li><strong>Advanced Analytics:</strong> Monthly insights into fan engagement, player profile views, and demographic trends.</li>
+                            </ul>
+                            <p>The subscription for this tier is set at <strong>E{fields.amount}</strong> per month. We believe this represents an essential investment in the professionalization of your club's digital footprint.</p>
+                            <p className="mt-12">Sincerely,</p>
+                            <div className="mt-2">
+                                <p className="font-black text-primary">Strategic Partnerships Manager</p>
+                            </div>
+                        </div>
+                    </div>
+                    <Footer refCode={`FE-PROP-TEAM`} />
+                </>
+            );
+
+        case 'CONTRACT_TEAM':
+            return (
+                <>
+                    <Header />
+                    <div className="p-12 flex-grow font-serif">
+                        <h1 className="text-2xl font-black text-center uppercase mb-12 tracking-tight">CLUB SERVICE LEVEL AGREEMENT (SLA)</h1>
+                        <div className={bodyStyle}>
+                            <p>This Agreement is made on <strong>{formattedDate}</strong> by and between <strong>Football Eswatini</strong> ("Provider") and <strong>{fields.organization}</strong> ("Club").</p>
+                            <p><strong>1. SERVICES PROVIDED:</strong> Provider shall grant the Club access to the Management Portal for a duration of <strong>{fields.duration}</strong>. Services include match log management, squad profiles, news publication, and commercial store listing.</p>
+                            <p><strong>2. FEES & PAYMENT:</strong> The Club agrees to a monthly subscription fee of <strong>E{fields.amount}</strong>, payable on the first day of each month. Late payments may result in temporary suspension of portal access.</p>
+                            <p><strong>3. DATA OWNERSHIP:</strong> League-wide data (scores/standings) remains the property of the relevant association. Club-specific news, images, and merchandise data remain the property of the Club.</p>
+                            <p><strong>4. TERMINATION:</strong> Either party may terminate this agreement with thirty (30) days written notice.</p>
+                        </div>
+                        <div className="mt-20 flex justify-between gap-10">
+                            <div className="flex-1 border-t border-black pt-2 text-xs font-bold uppercase tracking-widest">Provider Authorized</div>
+                            <div className="flex-1 border-t border-black pt-2 text-xs font-bold uppercase tracking-widest">Club Official Authorized</div>
+                        </div>
+                    </div>
+                    <Footer refCode={`FE-SLA-CLUB`} />
+                </>
+            );
+
         case 'LETTER_FINANCE_SPON':
             return (
                 <>
@@ -240,28 +435,18 @@ const DocumentRenderer: React.FC<{ type: DocType; fields: FormFields }> = ({ typ
                             <p className="text-gray-600">{fields.address}</p>
                         </div>
                         
-                        <h2 className="text-xl font-black uppercase underline decoration-primary decoration-2 underline-offset-4 mb-8 text-gray-900 leading-tight">
+                        <h2 className={subTitle}>
                             SUBJECT: PROPOSAL FOR STRATEGIC SEED SPONSORSHIP OF THE FOOTBALL ESWATINI DIGITAL PLATFORM
                         </h2>
 
                         <div className={bodyStyle}>
                             <p>Dear Sir/Madam,</p>
-                            <p>On behalf of the <strong>Football Eswatini</strong> development team, I am writing to propose a landmark partnership with <strong>First Finance Company</strong> to become the official "Seed Sponsor" of our national digital football ecosystem.</p>
-                            <p>Our platform serves as the Kingdom's centralized digital infrastructure for the beautiful game, reaching thousands of fans, players, and officials daily across your key operational hubs in <strong>Mbabane, Manzini, and Nhlangano</strong>. As a leader in financial services, we believe First Finance is uniquely positioned to align with our mission of empowering local communities through sports and technology.</p>
-                            <p><strong>Why Partner with Football Eswatini?</strong></p>
-                            <ul className="list-disc pl-8 space-y-3">
-                                <li><strong>Dominant Local Reach:</strong> Our app is the primary source for MTN Premier League, NFD, and Regional League data, offering First Finance unparalleled visibility in high-traffic digital zones.</li>
-                                <li><strong>Community Synergy:</strong> By supporting our regional hubs in Manzini and Nhlangano, your brand will be directly associated with the growth of grassroots football and youth development.</li>
-                                <li><strong>Digital Innovation:</strong> Align your brand with the first Eswatini sports platform to utilize Artificial Intelligence for match summaries and scout-ready player analytics.</li>
-                                <li><strong>Direct Commercial Integration:</strong> We offer "Contextual Financial Advertising," allowing you to place lending and savings product banners directly within match centers and news feeds.</li>
-                            </ul>
+                            <p>On behalf of the <strong>Football Eswatini</strong> development team, I am writing to propose a landmark partnership with <strong>{fields.organization}</strong> to become the official "Seed Sponsor" of our national digital football ecosystem.</p>
+                            <p>Our platform serves as the Kingdom's centralized digital infrastructure for the beautiful game, reaching thousands of fans, players, and officials daily. As a leader in your sector, we believe you are uniquely positioned to align with our mission of empowering local communities through sports and technology.</p>
                             <p>We are seeking a seed sponsorship of <strong>E{fields.amount}</strong> for a duration of <strong>{fields.duration}</strong>. These funds will be strictly utilized for: <em>{fields.scopeOfWork}</em></p>
-                            <p>We would welcome the opportunity to meet with your marketing team at your convenience to demonstrate the platform's capabilities and discuss how we can tailor this partnership to meet First Finance’s strategic objectives.</p>
                             <p className="mt-12">Yours Faithfully,</p>
                             <div className="mt-2">
-                                <div className="h-12 w-48 border-b border-gray-400 mb-2"></div>
                                 <p className="font-black text-primary">Technical & Operations Lead</p>
-                                <p className="text-gray-500 font-medium italic">Football Eswatini News Platform</p>
                             </div>
                         </div>
                     </div>
@@ -282,53 +467,22 @@ const DocumentRenderer: React.FC<{ type: DocType; fields: FormFields }> = ({ typ
                             <p className="text-gray-600">{fields.address}</p>
                         </div>
                         
-                        <h2 className="text-xl font-black uppercase underline decoration-primary decoration-2 underline-offset-4 mb-8 text-gray-900 leading-tight">
+                        <h2 className={subTitle}>
                             SUBJECT: STRATEGIC PARTNERSHIP FOR THE DIGITAL TRANSFORMATION OF WOMEN'S FOOTBALL
                         </h2>
 
                         <div className={bodyStyle}>
                             <p>Dear {fields.recipientName},</p>
                             <p>On behalf of the <strong>Football Eswatini Digital Platform</strong>, I am writing to propose a strategic collaboration between our organizations aimed at elevating the professional status and digital visibility of women’s football in the Kingdom.</p>
-                            <p>We recognize the immense talent within the MTN Women’s Football League and our national squad, <em>Sitsebe SaMhlekazi</em>. However, digital accessibility for fans, scouts, and sponsors remains a critical infrastructure gap. To address this, we propose the integration of a dedicated <strong>"Women’s Football Digital Hub"</strong> within our ecosystem.</p>
-                            <p>The proposed benefits to the EWFA and its member clubs include:</p>
-                            <ul className="list-disc pl-8 space-y-3">
-                                <li><strong>Professional Data Management:</strong> Real-time match centers for the league, including live scorers, updated logs, and player disciplinary records.</li>
-                                <li><strong>Global Talent Visibility:</strong> Verified digital profiles for national team players, including statistics and video highlights accessible to international scouts.</li>
-                                <li><strong>Commercial Empowerment:</strong> Integrated storefronts for clubs to sell replicas and tickets, and dedicated ad-inventory for EWFA partners.</li>
-                                <li><strong>Fan Engagement:</strong> Interactive "Woman of the Match" voting and community forums to build a sustainable local fan base.</li>
-                            </ul>
-                            <p>Our objective is <strong>{fields.scopeOfWork}</strong>. We are prepared to commit our technical resources to ensure the EWFA has a world-class digital home that reflects the prestige of the beautiful game.</p>
-                            <p>We would value the opportunity to present a formal technical demonstration to your executive committee at your earliest convenience.</p>
+                            <p>We recognize the immense talent within the MTN Women’s Football League and our national squad, <em>Sitsebe SaMhlekazi</em>. We propose the integration of a dedicated <strong>"Women’s Football Digital Hub"</strong> within our ecosystem.</p>
+                            <p>Our objective is <strong>{fields.scopeOfWork}</strong>. We are prepared to commit our technical resources to ensure the EWFA has a world-class digital home.</p>
                             <p className="mt-12">Sincerely,</p>
                             <div className="mt-2">
                                 <p className="font-black text-primary">Technical Director</p>
-                                <p className="text-gray-500 font-medium italic">Football Eswatini Digital Hub</p>
                             </div>
                         </div>
                     </div>
                     <Footer refCode={`FE-LTR-EWFA-STRAT`} />
-                </>
-            );
-
-        case 'LETTER_SPONSORSHIP':
-            return (
-                <>
-                    <Header />
-                    <div className="p-12 flex-grow">
-                        <div className="mb-10 font-serif">
-                            <p className="font-bold mb-4">{formattedDate}</p>
-                            <p>To,</p>
-                            <p className="font-black uppercase text-gray-900">{fields.recipientTitle}</p>
-                            <p className="font-bold text-gray-900">{fields.organization}</p>
-                        </div>
-                        <div className={bodyStyle}>
-                            <p>Dear {fields.recipientName},</p>
-                            <p>I am writing to invite <strong>{fields.organization}</strong> to become an official strategic sponsor of the Kingdom’s most advanced digital sports infrastructure project.</p>
-                            <p>Our mission is to digitize grassroots and regional football, providing a platform for local talent to be seen globally. We are specifically seeking a partnership to support: <strong>{fields.scopeOfWork}</strong>.</p>
-                            <p>We are requesting a seed sponsorship of <strong>E{fields.amount}</strong> to facilitate our regional expansion.</p>
-                        </div>
-                    </div>
-                    <Footer refCode={`FE-LTR-SPON`} />
                 </>
             );
 
@@ -342,6 +496,11 @@ const DocumentRenderer: React.FC<{ type: DocType; fields: FormFields }> = ({ typ
                             <p>This Mutual Non-Disclosure Agreement is entered into on <strong>{formattedDate}</strong> between <strong>Football Eswatini</strong> and <strong>{fields.organization || fields.recipientName}</strong>.</p>
                             <p><strong>1. PURPOSE:</strong> The parties wish to explore a potential business relationship involving sensitive technical data related to the Football Eswatini application.</p>
                             <p><strong>2. CONFIDENTIALITY:</strong> The Partner agrees to hold all "Confidential Information" in strict confidence and shall not disclose it to any third party.</p>
+                            <p><strong>3. SCOPE:</strong> Confidential information includes user analytics, sponsorship structures, and source code proprietary to the Provider.</p>
+                        </div>
+                        <div className="mt-20 flex justify-between gap-10">
+                            <div className="flex-1 border-t border-black pt-2 text-xs font-bold uppercase tracking-widest">Football Eswatini</div>
+                            <div className="flex-1 border-t border-black pt-2 text-xs font-bold uppercase tracking-widest">Partner Representative</div>
                         </div>
                     </div>
                     <Footer refCode={`FE-NDA-CONF`} />

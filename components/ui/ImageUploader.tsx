@@ -20,14 +20,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onUpload, status }) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       try {
-          // Compress immediately and trigger upload
           const compressed = await compressImage(file, 400, 0.8);
           onUpload(compressed);
       } catch (err) {
           console.error("Compression failed", err);
           alert("Failed to process image.");
       }
-      // Reset input so the same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -45,9 +43,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onUpload, status }) => {
         {!status || status === 'saved' || status === 'error' ? (
             <Button 
                 onClick={() => fileInputRef.current?.click()} 
-                className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-[10px] h-9 px-4 font-black uppercase tracking-wider flex items-center gap-2 rounded-xl shadow-sm transition-all active:scale-95"
+                className="bg-primary text-white hover:bg-primary-dark text-[10px] h-9 px-4 font-black uppercase tracking-wider flex items-center gap-2 rounded-xl shadow-md transition-all active:scale-95"
             >
-                <UploadIcon className="w-3.5 h-3.5" /> Upload Crest
+                <UploadIcon className="w-3.5 h-3.5 text-white" /> Upload Crest
             </Button>
         ) : null}
 

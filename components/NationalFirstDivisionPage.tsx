@@ -24,7 +24,7 @@ const NationalFirstDivisionPage: React.FC = () => {
         </div>
 
         <div className="space-y-16">
-          <NewsSection category="National" />
+          <NewsSection /> {/* Defaults to latest headlines */}
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="w-full">

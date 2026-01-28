@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { fetchAllCompetitions, handleFirestoreError, addLiveUpdate } from '../../services/api';
+import { fetchAllCompetitions, handleFirestoreError, addLiveUpdate, updatePlayerStats } from '../../services/api';
 import { CompetitionFixture, Competition, Player, MatchEvent } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { calculateStandings, removeUndefinedProps } from '../../services/utils';
+import { calculateStandings, removeUndefinedProps, superNormalize } from '../../services/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import ClockIcon from '../icons/ClockIcon';
 import GoalIcon from '../icons/GoalIcon';
@@ -73,6 +72,25 @@ const UpdateScores: React.FC<{ clubName?: string; leagueIds?: string[] }> = ({ c
                     if (newStatus === 'finished') {
                         updatedFixtures.splice(fIndex, 1);
                         updatedResults.push(fixture);
+                        
+                        // SYNC APPEARANCES & CLEAN SHEETS
+                        const syncFinalStats = (teamName: string, opponentScore: number, lineupPlayers?: number[]) => {
+                            if (!lineupPlayers) return;
+                            lineupPlayers.forEach(pId => {
+                                const p = competition.teams?.find(t => superNormalize(t.name) === superNormalize(teamName))?.players?.find(pl => pl.id === pId);
+                                if (p) {
+                                    updatePlayerStats(m.compId, teamName, p.name, 'appearance');
+                                    // Clean sheet for keeper
+                                    if (p.position === 'Goalkeeper' && opponentScore === 0) {
+                                        updatePlayerStats(m.compId, teamName, p.name, 'clean_sheet');
+                                    }
+                                }
+                            });
+                        };
+
+                        syncFinalStats(fixture.teamA, fixture.scoreB || 0, [...(fixture.lineups?.teamA?.starters || []), ...(fixture.lineups?.teamA?.subs || [])]);
+                        syncFinalStats(fixture.teamB, fixture.scoreA || 0, [...(fixture.lineups?.teamB?.starters || []), ...(fixture.lineups?.teamB?.subs || [])]);
+
                     } else {
                         updatedFixtures[fIndex] = fixture;
                     }
@@ -112,7 +130,21 @@ const UpdateScores: React.FC<{ clubName?: string; leagueIds?: string[] }> = ({ c
                         const events = [...(f.events || []), newEvent];
                         let sA = f.scoreA || 0;
                         let sB = f.scoreB || 0;
-                        // Score logic based on team name would go here
+                        
+                        // Detect which team the player belongs to
+                        const isHomePlayer = competition.teams?.find(t => superNormalize(t.name) === superNormalize(f.teamA))?.players?.some(p => superNormalize(p.name) === superNormalize(playerName));
+                        const targetTeam = isHomePlayer ? f.teamA : f.teamB;
+
+                        // Sync specific stats
+                        if (eventType === 'goal') {
+                            if (isHomePlayer) sA++; else sB++;
+                            updatePlayerStats(active.compId, targetTeam, playerName, 'goal');
+                        } else if (eventType === 'yellow-card') {
+                            updatePlayerStats(active.compId, targetTeam, playerName, 'yellow_card');
+                        } else if (eventType === 'red-card') {
+                            updatePlayerStats(active.compId, targetTeam, playerName, 'red_card');
+                        }
+
                         return { ...f, events, scoreA: sA, scoreB: sB, liveMinute: newEvent.minute, status: 'live' };
                     }
                     return f;

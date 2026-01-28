@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
 import { Competition, CompetitionFixture, Team, Player } from '../../data/teams';
@@ -133,8 +134,8 @@ const ManageMatches: React.FC = () => {
                                         <div key={match.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
                                             <span className="text-sm font-semibold">{match.teamA} vs {match.teamB}</span>
                                             <div className="flex gap-2">
-                                                <button onClick={() => { setEditingMatch(match); setIsEditModalOpen(true); }} className="p-1.5 bg-blue-100 text-blue-600 rounded"><PencilIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => handleDelete(match)} className="p-1.5 bg-red-100 text-red-600 rounded"><TrashIcon className="w-4 h-4"/></button>
+                                                <button onClick={() => { setEditingMatch(match); setIsEditModalOpen(true); }} className="p-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors"><PencilIcon className="w-4 h-4 text-white"/></button>
+                                                <button onClick={() => handleDelete(match)} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors"><TrashIcon className="w-4 h-4 text-white"/></button>
                                             </div>
                                         </div>
                                     ))}
@@ -147,8 +148,8 @@ const ManageMatches: React.FC = () => {
                                         <div key={match.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
                                             <span className="text-sm font-semibold">{match.teamA} {match.scoreA}-{match.scoreB} {match.teamB}</span>
                                             <div className="flex gap-2">
-                                                <button onClick={() => { setEditingMatch(match); setIsEditModalOpen(true); }} className="p-1.5 bg-blue-100 text-blue-600 rounded"><PencilIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => handleDelete(match)} className="p-1.5 bg-red-100 text-red-600 rounded"><TrashIcon className="w-4 h-4"/></button>
+                                                <button onClick={() => { setEditingMatch(match); setIsEditModalOpen(true); }} className="p-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors"><PencilIcon className="w-4 h-4 text-white"/></button>
+                                                <button onClick={() => handleDelete(match)} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors"><TrashIcon className="w-4 h-4 text-white"/></button>
                                             </div>
                                         </div>
                                     ))}

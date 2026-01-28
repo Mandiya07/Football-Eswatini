@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
@@ -13,6 +12,7 @@ import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api'
 import { superNormalize, findInMap, calculateStandings } from '../../services/utils';
 import RecapGeneratorModal from './RecapGeneratorModal';
 import { DirectoryEntity } from '../../data/directory';
+import { MatchEvent } from '../../data/teams';
 import CalendarIcon from '../icons/CalendarIcon';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -37,6 +37,7 @@ interface SocialMatch {
     matchday?: number;
     competition: string;
     competitionLogoUrl?: string;
+    events?: MatchEvent[];
 }
 
 const SocialMediaGenerator: React.FC = () => {
@@ -117,7 +118,8 @@ const SocialMediaGenerator: React.FC = () => {
                     venue: m.venue,
                     matchday: m.matchday,
                     competition: comp.displayName || comp.name,
-                    competitionLogoUrl: comp.logoUrl
+                    competitionLogoUrl: comp.logoUrl,
+                    events: m.events
                 });
             });
 
@@ -155,25 +157,31 @@ const SocialMediaGenerator: React.FC = () => {
             ).join('; ');
 
             const matchesToSummarize = rawMatches.filter(m => selectedMatchIds.includes(m.id));
-            const dataToProcess = matchesToSummarize.map(m => 
-                `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (Matchday: ${m.matchday || 'N/A'}, Date: ${m.date})`
-            ).join(', ');
+            const dataToProcess = matchesToSummarize.map(m => {
+                let matchStr = `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (Matchday: ${m.matchday || 'N/A'}, Date: ${m.date})`;
+                if (m.events && m.events.length > 0) {
+                    const eventsDetail = m.events.map(e => `${e.minute}' ${e.type}${e.playerName ? ' by ' + e.playerName : ''}: ${e.description}`).join('; ');
+                    matchStr += ` [STATISTICS: ${eventsDetail}]`;
+                }
+                return matchStr;
+            }).join(' | ');
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             let prompt = "";
             const commonContext = `League Name: ${currentComp?.name}. 
             CURRENT STANDINGS (Top 10): ${standingsContext}. 
-            SELECTED MATCH DATA: "${dataToProcess}".`;
+            MATCH DATA: "${dataToProcess}".`;
 
             if (isWeeklySummary) {
                 prompt = `You are a Lead Sports Journalist for Football Eswatini. Create a professional weekly review article based on the following data.
                 CONTEXT: ${commonContext}.
                 
-                REQUIREMENTS:
-                1. Analyze the 'Impact on Standings': Specifically mention which teams moved up or down the table based on the match results provided.
-                2. Tactical Review: Based on the scores, suggest if it was a defensive masterclass or an attacking showcase.
-                3. Look Forward: Mention why the 'Upcoming Fixtures' in the context matter for the table's current state.
+                REQUIREMENTS & CONSTRAINTS:
+                1. DATA-DRIVEN ANALYSIS: You MUST include specific match statistics. Explicitly mention goal scorers, red cards, and yellow cards for each match where this information is provided in the [STATISTICS] section of the context.
+                2. NO HALLUCINATIONS: Do NOT invent tactical patterns (e.g., "clinical on the counter-attack", "possession-based dominance", "vulnerable in transitions") unless those specific tactical descriptions or events are explicitly mentioned in the match logs provided. If a goal came from a corner, highlight that; do not assume it was a "fast-paced team move" unless stated.
+                3. STANDINGS IMPACT: Specifically mention which teams moved up or down the table based on the match results and standings context provided.
+                4. FUTURE OUTLOOK: Mention why the upcoming fixtures in the data matter for the points gap.
                 
                 Format as a JSON object with keys: "title", "summary", "content". The content should be at least 600 words with H2 headers.`;
             } else {
@@ -181,7 +189,7 @@ const SocialMediaGenerator: React.FC = () => {
                 CONTEXT: ${commonContext}.
                 
                 REQUIREMENTS:
-                - Caption 1: Focus on a specific 'Big Result' and how it changed the points gap at the top.
+                - Caption 1: Focus on a specific 'Big Result', naming the specific scorers or card incidents from the [STATISTICS] if available.
                 - Caption 2: Focus on 'League Movement'. Mention who jumped who in the standings.
                 - Caption 3: Hype for the 'Upcoming Fixtures' mentioned in data.
                 
@@ -191,7 +199,10 @@ const SocialMediaGenerator: React.FC = () => {
             const response = await ai.models.generateContent({ 
                 model: 'gemini-3-flash-preview', 
                 contents: prompt,
-                config: isWeeklySummary ? { responseMimeType: "application/json" } : undefined
+                config: isWeeklySummary ? { 
+                    responseMimeType: "application/json",
+                    systemInstruction: "You are a professional and accurate football journalist. Stick strictly to the match events and data provided. Never fabricate tactical observations or player performances not explicitly recorded in the event logs."
+                } : undefined
             });
 
             if (isWeeklySummary) {
@@ -309,7 +320,7 @@ const SocialMediaGenerator: React.FC = () => {
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FDB913';
-        ctx.font = '800 36px "Poppins", sans-serif';
+        ctx.font = 'bold 36px "Poppins", sans-serif';
         ctx.fillText(topComp.competition.toUpperCase(), W / 2, 320);
 
         ctx.fillStyle = '#FFFFFF';

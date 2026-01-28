@@ -24,7 +24,7 @@ const PremierLeaguePage: React.FC = () => {
         </div>
 
         <div className="space-y-16">
-          <NewsSection category="National" />
+          <NewsSection /> {/* Defaults to showing latest headlines which includes Premier League news */}
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             <div className="w-full">

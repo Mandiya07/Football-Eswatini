@@ -1,7 +1,7 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Video } from '../data/videos';
-// FIX: Import 'fetchVideos' which is now correctly exported from the API service.
-import { fetchVideos } from '../services/api';
+import { fetchVideos, sortByLatest } from '../services/api';
 import VideoModal from './VideoModal';
 import VideoCard from './VideoCard';
 import Spinner from './ui/Spinner';
@@ -25,7 +25,9 @@ const VideoHub: React.FC = () => {
     }, []);
 
     const filteredVideos = useMemo(() => {
-        return allVideos.filter(video => video.category === activeTab);
+        // Filter by category first, then apply descending sort (newest first)
+        const categorized = allVideos.filter(video => video.category === activeTab);
+        return sortByLatest(categorized);
     }, [activeTab, allVideos]);
 
     const handlePlayVideo = (video: Video) => {

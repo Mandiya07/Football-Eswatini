@@ -2,14 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { NewsItem } from '../data/news';
-import { fetchNewsArticleByUrl, addNewsComment, listenToNewsComments, NewsComment } from '../services/api';
+import { fetchNewsArticleByUrl, addNewsComment, listenToNewsComments, NewsComment, fetchAllUsers } from '../services/api';
 import { Card, CardContent } from './ui/Card';
 import Spinner from './ui/Spinner';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import AdBanner from './AdBanner';
 import MessageSquareIcon from './icons/MessageSquareIcon';
 import Button from './ui/Button';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, User } from '../contexts/AuthContext';
+import BadgeCheckIcon from './icons/BadgeCheckIcon';
 
 function formatTimeAgo(timestamp: { seconds: number } | null): string {
   if (!timestamp) return '';
@@ -47,6 +48,44 @@ function formatTimeAgo(timestamp: { seconds: number } | null): string {
   if (seconds < 10) return "just now";
   return Math.floor(seconds) + " seconds ago";
 }
+
+const AuthorCard: React.FC<{ authorId?: string; fallbackAuthor?: string }> = ({ authorId, fallbackAuthor }) => {
+    const [author, setAuthor] = useState<User | null>(null);
+    const [loading, setLoading] = useState(!!authorId);
+
+    useEffect(() => {
+        if (authorId) {
+            const loadAuthor = async () => {
+                const users = await fetchAllUsers();
+                const found = users.find(u => u.id === authorId);
+                setAuthor(found || null);
+                setLoading(false);
+            };
+            loadAuthor();
+        }
+    }, [authorId]);
+
+    if (loading) return <div className="h-20 bg-slate-50 animate-pulse rounded-2xl mb-8"></div>;
+
+    const name = author?.name || fallbackAuthor || "Football Eswatini Desk";
+    const bio = author?.journalismCredentials?.bio || "Eswatini Football Official News Correspondent";
+    const outlet = author?.journalismCredentials?.outlet || "Staff Reporter";
+
+    return (
+        <div className="flex items-center gap-5 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 mb-10 group">
+            <img src={author?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`} alt="" className="w-16 h-16 rounded-2xl object-cover shadow-sm bg-white" />
+            <div className="flex-grow min-w-0">
+                <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{name}</h4>
+                    {author?.role === 'journalist' && <BadgeCheckIcon className="w-4 h-4 text-blue-600" />}
+                </div>
+                <p className="text-[10px] font-black uppercase text-indigo-500 tracking-widest">{outlet}</p>
+                <p className="text-xs text-slate-500 mt-1 line-clamp-1 italic">"{bio}"</p>
+            </div>
+            <Link to="/press" className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600">Profile</Link>
+        </div>
+    );
+};
 
 const NewsCommentSection: React.FC<{ articleId: string }> = ({ articleId }) => {
     const { user, isLoggedIn, openAuthModal } = useAuth();
@@ -146,31 +185,16 @@ const NewsArticlePage: React.FC = () => {
 
     const safeRenderDate = (date: any): string => {
         if (!date) return "Unknown Date";
-        
-        // Handle Firestore Timestamp or ISO string conversion
         let d: Date | null = null;
+        if (typeof date === 'string') d = new Date(date);
+        else if (date && typeof date.toDate === 'function') d = date.toDate();
+        else if (date.seconds && typeof date.seconds === 'number') d = new Date(date.seconds * 1000);
 
-        if (typeof date === 'string') {
-            d = new Date(date);
-        } else if (date && typeof date.toDate === 'function') {
-            d = date.toDate();
-        } else if (date.seconds && typeof date.seconds === 'number') {
-            d = new Date(date.seconds * 1000);
-        }
-
-        // If we have a valid date object
         if (d && !isNaN(d.getTime())) {
-            return d.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-            });
+            return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         }
-        
-        // Fallback for non-standard strings
         return typeof date === 'string' ? date : 'Invalid Date';
     };
-
 
     if (loading) {
         return <div className="flex justify-center items-center h-screen"><Spinner /></div>;
@@ -180,9 +204,7 @@ const NewsArticlePage: React.FC = () => {
         return (
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
                 <h1 className="text-2xl font-bold">Article not found.</h1>
-                <Link to="/news" className="text-blue-600 hover:underline mt-4 inline-block">
-                    Back to News
-                </Link>
+                <Link to="/news" className="text-blue-600 hover:underline mt-4 inline-block">Back to News</Link>
             </div>
         );
     }
@@ -201,20 +223,24 @@ const NewsArticlePage: React.FC = () => {
                     <AdBanner placement="news-article-top-banner" />
                 </div>
                 
-                <Card className="shadow-lg animate-fade-in">
-                    <img src={article.image} alt={article.title} className="w-full h-64 md:h-96 object-cover rounded-t-2xl" />
+                <Card className="shadow-lg animate-fade-in border-0 overflow-hidden rounded-[2.5rem]">
+                    <img src={article.image} alt={article.title} className="w-full h-64 md:h-[450px] object-cover" />
                     <CardContent className="p-8 md:p-12">
-                        <div className="flex justify-between items-center mb-4 text-sm text-gray-500">
-                             <span className="font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs">
-                                {article.category}
+                        <div className="flex justify-between items-center mb-6 text-sm text-gray-500">
+                             <span className="font-black px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] uppercase tracking-widest">
+                                {Array.isArray(article.category) ? article.category[0] : article.category}
                             </span>
-                            <span>{safeRenderDate(article.date)}</span>
+                            <span className="font-bold">{safeRenderDate(article.date)}</span>
                         </div>
-                        <h1 className="text-3xl md:text-4xl font-display font-extrabold text-blue-800 mb-6">
+                        
+                        <h1 className="text-3xl md:text-5xl font-display font-black text-slate-900 mb-10 leading-[1.1] tracking-tight">
                             {article.title}
                         </h1>
-                        <div className="prose max-w-none text-gray-700 leading-relaxed space-y-4">
-                            <p className="font-semibold text-lg">{article.summary}</p>
+
+                        <AuthorCard authorId={(article as any).authorId} fallbackAuthor={(article as any).author} />
+
+                        <div className="prose prose-lg max-w-none text-slate-700 leading-relaxed space-y-6">
+                            <p className="font-bold text-xl text-slate-900 leading-normal">{article.summary}</p>
                             {article.content && article.content.split('\n').map((paragraph, index) => (
                                 paragraph.trim() && <p key={index}>{paragraph}</p>
                             ))}
@@ -223,6 +249,10 @@ const NewsArticlePage: React.FC = () => {
                         <NewsCommentSection articleId={article.id} />
                     </CardContent>
                 </Card>
+                
+                <div className="mt-12">
+                    <AdBanner placement="news-article-bottom-banner" />
+                </div>
             </div>
         </div>
     );

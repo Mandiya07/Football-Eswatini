@@ -174,15 +174,19 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         if (!ctx) return;
 
         const W = canvas.width, H = canvas.height;
+        
+        // 1. CLEAR AND BG
         const grad = ctx.createLinearGradient(0, 0, W, H);
         grad.addColorStop(0, '#001E5A');
         grad.addColorStop(1, '#002B7F');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, W, H);
 
+        // Grid overlay
         ctx.strokeStyle = 'rgba(255,255,255,0.05)';
         for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
 
+        // 2. COMPETITION LOGO
         if (match.competitionLogoUrl && imageCache.has(match.competitionLogoUrl)) {
              const logo = imageCache.get(match.competitionLogoUrl)!;
              const size = 150;
@@ -194,28 +198,59 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         ctx.textAlign = 'center';
         ctx.fillText((match.competition || '').toUpperCase(), W/2, 210);
 
-        // Render Matchday
         if (match.matchday) {
             ctx.fillStyle = 'rgba(255,255,255,0.8)';
             ctx.font = '800 20px "Poppins", sans-serif';
             ctx.fillText(`MATCHDAY ${match.matchday}`, W/2, 250);
         }
 
-        if (match.teamACrest && imageCache.has(match.teamACrest)) {
-            ctx.drawImage(imageCache.get(match.teamACrest)!, W/2 - 440, H/2 - 130, 240, 240);
-        }
-        if (match.teamBCrest && imageCache.has(match.teamBCrest)) {
-            ctx.drawImage(imageCache.get(match.teamBCrest)!, W/2 + 200, H/2 - 130, 240, 240);
-        }
+        // 3. SCORE GLASS BOX (CENTER)
+        const boxW = 400, boxH = 140;
+        const boxX = (W - boxW) / 2, boxY = H / 2 - 70;
+        
+        // Glass effect box
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 20);
+        ctx.fill();
+        ctx.stroke();
 
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '900 100px "Poppins", sans-serif';
         const mainLine = mode === 'results' ? `${match.scoreA ?? 0} - ${match.scoreB ?? 0}` : match.time || '15:00';
-        ctx.fillText(mainLine, W/2, H/2 + 20);
+        ctx.fillText(mainLine, W/2, boxY + boxH / 2 + 35);
 
-        ctx.font = 'bold 36px "Inter", sans-serif';
-        ctx.fillText(match.home, W/2 - 300, H/2 + 180, 280);
-        ctx.fillText(match.away, W/2 + 300, H/2 + 180, 280);
+        // 4. CRESTS
+        if (match.teamACrest && imageCache.has(match.teamACrest)) {
+            ctx.drawImage(imageCache.get(match.teamACrest)!, W/2 - 420, H/2 - 120, 200, 200);
+        }
+        if (match.teamBCrest && imageCache.has(match.teamBCrest)) {
+            ctx.drawImage(imageCache.get(match.teamBCrest)!, W/2 + 220, H/2 - 120, 200, 200);
+        }
+
+        // 5. TEAM NAME GLASS LABELS
+        const labelW = 320, labelH = 60;
+        const labelY = H / 2 + 150;
+        
+        // Home Label Box
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.beginPath();
+        ctx.roundRect(W/2 - 160 - labelW/2 - 140, labelY - 40, labelW, labelH, 15);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Away Label Box
+        ctx.beginPath();
+        ctx.roundRect(W/2 + 160 - labelW/2 + 140, labelY - 40, labelW, labelH, 15);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 32px "Inter", sans-serif';
+        ctx.fillText(match.home, W/2 - 300, labelY, 280);
+        ctx.fillText(match.away, W/2 + 300, labelY, 280);
 
         ctx.font = '600 24px "Inter", sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
@@ -227,10 +262,10 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         setIsExporting(true);
         
         const canvas = canvasRef.current;
-        const stream = canvas.captureStream(30); // 30 FPS
+        const stream = canvas.captureStream(30); 
         const mediaRecorder = new MediaRecorder(stream, {
             mimeType: 'video/webm;codecs=vp9',
-            bitsPerSecond: 5000000 // 5Mbps
+            bitsPerSecond: 5000000 
         });
 
         const chunks: Blob[] = [];
@@ -248,7 +283,6 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
         mediaRecorder.start();
 
-        // Record each match frame for 2.5 seconds
         for (let i = 0; i < matches.length; i++) {
             setCurrentFrameIndex(i);
             drawMatchFrame(matches[i]);

@@ -13,13 +13,52 @@ import { OnThisDayEvent, ArchiveItem, onThisDayData as mockOnThisDayData, archiv
 import { Sponsor, KitPartner, sponsors as defaultSponsors } from '../data/sponsors';
 import { PhotoAlbum, BehindTheScenesContent } from '../data/media';
 import { Referee, Rule, refereeData as defaultRefereeData } from '../data/referees';
-import { calculateStandings, normalizeTeamName, superNormalize } from './utils';
+import { calculateStandings, normalizeTeamName, superNormalize, removeUndefinedProps } from './utils';
 import { User } from '../contexts/AuthContext';
 import { ExclusiveItem, TeamYamVideo, initialExclusiveContent, initialTeamYamVideos } from '../data/features';
 import { internationalData, youthHybridData, HybridTournament } from '../data/international';
 
 export { type Competition, type HybridTournament }; 
 export { type ExclusiveItem, type TeamYamVideo }; 
+
+export interface MerchantConfig {
+    momoMerchantName: string;
+    momoMerchantNumber: string; 
+    momoMerchantID: string;
+    cardGatewayProvider: 'Flutterwave' | 'Paystack' | 'DirectBank';
+    cardMerchantID: string;
+    cardSecretKey: string;
+    currency: string;
+    isProduction: boolean;
+}
+
+export interface MerchantBalance {
+    totalRevenue: number;
+    pendingPayout: number;
+    lastPayoutDate?: string;
+}
+
+export const getTimestamp = (item: any): number => {
+    if (item?.date) {
+        const parsed = new Date(item.date).getTime();
+        if (!isNaN(parsed)) return parsed;
+    }
+    if (item?.timestamp?.seconds) return item.timestamp.seconds * 1000;
+    if (item?.submittedAt?.seconds) return item.submittedAt.seconds * 1000;
+    if (item?.createdAt?.seconds) return item.createdAt.seconds * 1000;
+    return 0;
+};
+
+export const sortByLatest = <T>(items: T[]): T[] => {
+    return [...items].sort((a, b) => {
+        const timeA = getTimestamp(a);
+        const timeB = getTimestamp(b);
+        if (timeA === timeB) {
+            return String((b as any).id || '').localeCompare(String((a as any).id || ''));
+        }
+        return timeB - timeA;
+    });
+};
 
 export interface AppSettings {
     appLogoUrl?: string;
@@ -121,10 +160,18 @@ export interface InAppNotification {
 
 export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
-    if (firebaseError.code === 'unavailable' || firebaseError.code === 'deadline-exceeded') {
-        console.warn(`[Offline] '${operation}' failed to reach server. Using cache.`);
+    const code = firebaseError.code;
+    
+    if (code === 'unavailable' || code === 'deadline-exceeded' || firebaseError.message?.includes('reach Cloud Firestore backend')) {
+        console.warn(`[Firestore Status] '${operation}' backend connection timed out. Running in offline mode.`);
         return;
     }
+    
+    if (code === 'permission-denied') {
+        console.error(`[Firestore Security] Access denied for '${operation}'.`);
+        return;
+    }
+
     console.error(`[Firestore Error] '${operation}':`, error);
 };
 
@@ -236,30 +283,78 @@ export interface PaymentDetails {
     momoNumber?: string;
 }
 
+export const fetchMerchantConfig = async (): Promise<MerchantConfig | null> => {
+    try {
+        const docRef = doc(db, 'settings', 'merchant');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) return snap.data() as MerchantConfig;
+        return null;
+    } catch { return null; }
+};
+
+export const fetchMerchantBalance = async (): Promise<MerchantBalance> => {
+    try {
+        const docRef = doc(db, 'finance', 'balance');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) return snap.data() as MerchantBalance;
+        return { totalRevenue: 0, pendingPayout: 0 }; 
+    } catch { 
+        return { totalRevenue: 0, pendingPayout: 0 }; 
+    }
+};
+
+/**
+ * Records revenue in the global finance doc.
+ * Ensuring direct reflection in the Merchant & Payouts admin section.
+ */
+export const recordRevenue = async (amount: number) => {
+    try {
+        const docRef = doc(db, 'finance', 'balance');
+        await setDoc(docRef, {
+            totalRevenue: increment(amount),
+            pendingPayout: increment(amount)
+        }, { merge: true });
+    } catch (e) {
+        console.error("Failed to sync revenue with database", e);
+    }
+};
+
+export const updateMerchantConfig = async (data: Partial<MerchantConfig>) => {
+    await setDoc(doc(db, 'settings', 'merchant'), data, { merge: true });
+};
+
 export const processPayment = async (amount: number, details: PaymentDetails): Promise<{ success: boolean; transactionId: string; message: string }> => {
+    const merchant = await fetchMerchantConfig();
+    
     return new Promise((resolve) => {
-        console.log(`[Production Gateway] Initiating secure transaction for E${amount} via ${details.method.toUpperCase()}...`);
-        setTimeout(() => {
+        const targetNumber = merchant?.momoMerchantNumber || '76000000';
+        console.log(`[Production Gateway] Routing E${amount} to Merchant Account: ${targetNumber} via ${details.method.toUpperCase()}...`);
+        
+        setTimeout(async () => {
             if (details.method === 'card' && (!details.cardNumber || details.cardNumber.length < 16)) {
-                return resolve({ success: false, transactionId: '', message: 'Invalid card number provided.' });
+                return resolve({ success: false, transactionId: '', message: 'Invalid card number.' });
             }
             if (details.method === 'momo' && (!details.momoNumber || details.momoNumber.length < 8)) {
-                return resolve({ success: false, transactionId: '', message: 'Invalid MTN number. Please use 8 digits (e.g., 76000000).' });
+                return resolve({ success: false, transactionId: '', message: 'Invalid MTN number.' });
             }
+            
             const isAuthorized = Math.random() < 0.99;
             if (isAuthorized) {
                 const txId = `FE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-                console.log(`[Production Gateway] SUCCESS: Transaction ${txId} confirmed.`);
+                
+                // Record the revenue globally for Admin visibility
+                await recordRevenue(amount);
+
                 resolve({ 
                     success: true, 
                     transactionId: txId, 
-                    message: 'Payment authorized and settled successfully.' 
+                    message: 'Payment settled to admin account.' 
                 });
             } else {
                 resolve({ 
                     success: false, 
                     transactionId: '', 
-                    message: 'The transaction was declined by the issuer. Please check your balance or try another method.' 
+                    message: 'Transaction declined.' 
                 });
             }
         }, 3000); 
@@ -340,7 +435,7 @@ export const fetchNews = async (): Promise<NewsItem[]> => {
         const dbUrls = new Set(dbItems.map(i => i.url));
         const fallbacks = newsData.filter(i => !dbUrls.has(i.url));
         const allItems = [...dbItems, ...fallbacks];
-        return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return sortByLatest(allItems);
     } catch (error) {
         handleFirestoreError(error, 'fetch news');
         return newsData;
@@ -400,7 +495,6 @@ export const fetchCompetition = async (id: string): Promise<Competition | undefi
     try {
         const docRef = doc(db, 'competitions', id);
         const docSnap = await getDoc(docRef);
-        // Fixed: Use docSnap instead of snap
         if (docSnap.exists()) return docSnap.data() as Competition;
         return undefined;
     } catch (error) { return undefined; }
@@ -440,6 +534,54 @@ export const fetchPlayerById = async (playerId: number): Promise<{ player: Playe
         }
     }
     return null;
+};
+
+export const updatePlayerStats = async (compId: string, teamName: string, playerName: string, statType: 'goal' | 'assist' | 'appearance' | 'yellow_card' | 'red_card' | 'clean_sheet') => {
+    const docRef = doc(db, 'competitions', compId);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const snap = await transaction.get(docRef);
+            if (!snap.exists()) return;
+            const data = snap.data() as Competition;
+            const updatedTeams = (data.teams || []).map(t => {
+                if (superNormalize(t.name) === superNormalize(teamName)) {
+                    const players = [...(t.players || [])];
+                    let player = players.find(p => superNormalize(p.name) === superNormalize(playerName));
+                    
+                    if (!player) {
+                        player = {
+                            id: Date.now() + Math.floor(Math.random() * 1000),
+                            name: playerName,
+                            position: 'Midfielder',
+                            number: 0,
+                            photoUrl: '',
+                            bio: { nationality: 'Eswatini', age: 0, height: '-' },
+                            stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0 },
+                            transferHistory: []
+                        };
+                        players.push(player);
+                    }
+
+                    const updatedPlayers = players.map(p => {
+                        if (superNormalize(p.name) === superNormalize(playerName)) {
+                            const newStats = { ...p.stats };
+                            if (statType === 'goal') newStats.goals = (newStats.goals || 0) + 1;
+                            if (statType === 'assist') newStats.assists = (newStats.assists || 0) + 1;
+                            if (statType === 'appearance') newStats.appearances = (newStats.appearances || 0) + 1;
+                            if (statType === 'yellow_card') newStats.yellowCards = (newStats.yellowCards || 0) + 1;
+                            if (statType === 'red_card') newStats.redCards = (newStats.redCards || 0) + 1;
+                            if (statType === 'clean_sheet') newStats.cleanSheets = (newStats.cleanSheets || 0) + 1;
+                            return { ...p, stats: newStats };
+                        }
+                        return p;
+                    });
+                    return { ...t, players: updatedPlayers };
+                }
+                return t;
+            });
+            transaction.update(docRef, { teams: updatedTeams });
+        });
+    } catch (e) { console.error("Player stats sync failed", e); }
 };
 
 export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
@@ -507,11 +649,18 @@ export const fetchVideos = async (): Promise<Video[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'videos'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
-        return [...dbItems, ...mockVideoData.filter(v => !dbItems.find(dv => dv.id === v.id))];
+        const all = [...dbItems, ...mockVideoData.filter(v => !dbItems.find(dv => dv.id === v.id))];
+        return sortByLatest(all);
     } catch (error) { return mockVideoData; }
 };
 
-export const addVideo = async (data: Omit<Video, 'id'>) => { await addDoc(collection(db, 'videos'), data); };
+export const addVideo = async (data: Omit<Video, 'id'>) => { 
+    await addDoc(collection(db, 'videos'), { 
+        ...data, 
+        timestamp: serverTimestamp() 
+    }); 
+};
+
 export const updateVideo = async (id: string, data: Partial<Video>) => { await updateDoc(doc(db, 'videos', id), data); };
 export const deleteVideo = async (id: string) => { await deleteDoc(doc(db, 'videos', id)); };
 
@@ -519,7 +668,8 @@ export const fetchExclusiveContent = async (): Promise<ExclusiveItem[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'exclusiveContent'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExclusiveItem));
-        return [...dbItems, ...initialExclusiveContent.filter(i => !dbItems.find(di => di.id === i.id))];
+        const all = [...dbItems, ...initialExclusiveContent.filter(i => !dbItems.find(di => di.id === i.id))];
+        return sortByLatest(all);
     } catch { return initialExclusiveContent; }
 };
 
@@ -531,7 +681,8 @@ export const fetchTeamYamVideos = async (): Promise<TeamYamVideo[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'teamYamVideos'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamYamVideo));
-        return [...dbItems, ...initialTeamYamVideos.filter(i => !dbItems.find(di => di.id === i.id))];
+        const all = [...dbItems, ...initialTeamYamVideos.filter(i => !dbItems.find(di => di.id === i.id))];
+        return sortByLatest(all);
     } catch { return initialTeamYamVideos; }
 };
 
@@ -664,6 +815,20 @@ export const submitSponsorRequest = async (data: any) => { await addDoc(collecti
 export const submitAdvertiserRequest = async (data: any) => { await addDoc(collection(db, 'advertiserRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() }); };
 export const submitClubRequest = async (data: any) => { await addDoc(collection(db, 'clubRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() }); };
 
+export const fetchSponsorRequests = async (): Promise<SponsorRequest[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'sponsorRequests'));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SponsorRequest));
+    } catch { return []; }
+};
+
+export const fetchAdvertiserRequests = async (): Promise<AdvertiserRequest[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'advertiserRequests'));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AdvertiserRequest));
+    } catch { return []; }
+};
+
 export const fetchPendingChanges = async (): Promise<PendingChange[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'pending_changes'));
@@ -754,12 +919,69 @@ export const resetAllCompetitionData = async () => {
 
 export const fetchFootballDataOrg = async (apiId: string, key: string, season: string, type: 'fixtures' | 'results', proxy: boolean, officialNames: string[]): Promise<CompetitionFixture[]> => {
     console.log(`Fetching from Football-Data.org for ${apiId}...`);
-    return []; 
+    const endpoint = `https://api.football-data.org/v4/competitions/${apiId}/matches?status=${type === 'results' ? 'FINISHED' : 'SCHEDULED'}&season=${season}`;
+    const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    try {
+        const response = await fetch(url, { headers: key ? { 'X-Auth-Token': key } : {} });
+        if (!response.ok) throw new Error(`Football-Data error: ${response.status}`);
+        const data = await response.json();
+        return (data.matches || []).map((m: any) => {
+            const dateObj = new Date(m.utcDate);
+            return {
+                id: m.id,
+                teamA: normalizeTeamName(m.homeTeam.name, officialNames) || m.homeTeam.name,
+                teamB: normalizeTeamName(m.awayTeam.name, officialNames) || m.awayTeam.name,
+                scoreA: m.score?.fullTime?.home ?? undefined,
+                scoreB: m.score?.fullTime?.away ?? undefined,
+                fullDate: dateObj.toISOString().split('T')[0],
+                date: dateObj.getDate().toString(),
+                day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+                time: dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                status: m.status === 'FINISHED' ? 'finished' : 'scheduled',
+                matchday: m.matchday,
+                venue: m.venue
+            };
+        });
+    } catch (e: any) { throw e; }
 };
 
-export const fetchApiFootball = async (apiId: string, key: string, season: string, type: 'fixtures' | 'results', proxy: boolean, officialNames: string[]): Promise<CompetitionFixture[]> => {
-    console.log(`Fetching from API-Football for ${apiId}...`);
-    return [];
+export const fetchApiFootball = async (apiId: string, key: string, season: string, type: 'fixtures' | 'results', proxy: boolean, officialNames: string[], isRapidApi: boolean = false): Promise<CompetitionFixture[]> => {
+    const host = isRapidApi ? 'api-football-v1.p.rapidapi.com' : 'v3.football.api-sports.io';
+    const statusParam = type === 'results' ? 'FT' : 'NS';
+    const endpoint = `https://${ host }/v3/fixtures?league=${apiId}&season=${season}&status=${statusParam}`;
+    const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    const headers: Record<string, string> = { 'Accept': 'application/json' };
+    if (isRapidApi) {
+        headers['x-rapidapi-key'] = key;
+        headers['x-rapidapi-host'] = host;
+    } else {
+        headers['x-apisports-key'] = key;
+    }
+    try {
+        const response = await fetch(url, { headers });
+        const data = await response.json();
+        if (data.errors && Object.keys(data.errors).length > 0) throw new Error(JSON.stringify(data.errors));
+        return (data.response || []).map((item: any) => {
+            const f = item.fixture;
+            const teams = item.teams;
+            const goals = item.goals;
+            const dateObj = new Date(f.date);
+            return {
+                id: f.id,
+                teamA: normalizeTeamName(teams.home.name, officialNames) || teams.home.name,
+                teamB: normalizeTeamName(teams.away.name, officialNames) || teams.away.name,
+                scoreA: goals.home ?? undefined,
+                scoreB: goals.away ?? undefined,
+                fullDate: dateObj.toISOString().split('T')[0],
+                date: dateObj.getDate().toString(),
+                day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+                time: dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                status: f.status.short === 'FT' ? 'finished' : 'scheduled',
+                matchday: item.league.round.match(/\d+/) ? parseInt(item.league.round.match(/\d+/)[0]) : undefined,
+                venue: f.venue.name
+            };
+        });
+    } catch (e: any) { throw e; }
 };
 
 export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {

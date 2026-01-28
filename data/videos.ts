@@ -1,3 +1,4 @@
+
 export interface Video {
     id: string;
     title: string;
@@ -5,6 +6,7 @@ export interface Video {
     videoUrl: string;
     duration: string;
     description: string;
+    date?: string; // ISO date string YYYY-MM-DD
     category: 'highlight' | 'recap' | 'fan';
 }
 
