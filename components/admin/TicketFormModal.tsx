@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -18,6 +17,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     const [selectedComp, setSelectedComp] = useState('');
     const [selectedFixtureId, setSelectedFixtureId] = useState('');
     const [price, setPrice] = useState('');
+    const [purchaseUrl, setPurchaseUrl] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -52,6 +52,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             time: fixture.time || '15:00',
             venue: fixture.venue || 'TBA',
             price: parseFloat(price),
+            purchaseUrl: purchaseUrl || undefined,
             status: 'available'
         });
     };
@@ -110,6 +111,17 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                                     placeholder="e.g. 50" 
                                     min="0"
                                     required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Link (Optional)</label>
+                                <input 
+                                    type="url" 
+                                    value={purchaseUrl} 
+                                    onChange={e => setPurchaseUrl(e.target.value)} 
+                                    className={inputClass} 
+                                    placeholder="Link to external booking site" 
                                 />
                             </div>
 

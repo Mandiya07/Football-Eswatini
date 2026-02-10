@@ -1,11 +1,11 @@
-
 export interface Product {
     id: string;
     name: string;
     price: number;
-    salePrice?: number; // New optional field
+    salePrice?: number;
     imageUrl: string;
     category: 'Jersey' | 'Scarf' | 'Ticket' | 'Accessory' | 'Match Ticket';
+    purchaseUrl?: string; // Link to external purchase page
 }
 
 export const products: Product[] = [
@@ -13,7 +13,7 @@ export const products: Product[] = [
         id: '1',
         name: 'Mbabane Swallows Home Jersey 23/24',
         price: 650.00,
-        salePrice: 585.00, // On sale
+        salePrice: 585.00,
         imageUrl: 'https://via.placeholder.com/400/FF0000/FFFFFF?text=HOME+JERSEY',
         category: 'Jersey',
     },
@@ -35,7 +35,7 @@ export const products: Product[] = [
         id: '4',
         name: 'Royal Leopards FC Home Jersey 23/24',
         price: 600.00,
-        salePrice: 450.00, // Heavy discount
+        salePrice: 450.00,
         imageUrl: 'https://via.placeholder.com/400/00008B/FFFFFF?text=HOME+JERSEY',
         category: 'Jersey',
     },

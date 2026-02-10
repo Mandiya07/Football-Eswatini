@@ -30,6 +30,7 @@ export interface Player {
         yellowCards?: number;
         redCards?: number;
         cleanSheets?: number;
+        potmWins?: number;
     };
     transferHistory: {
         from: string;
@@ -138,6 +139,11 @@ export interface CompetitionFixture {
     lineups?: {
         teamA?: MatchLineup;
         teamB?: MatchLineup;
+    };
+    playerOfTheMatch?: {
+        name: string;
+        playerID?: number;
+        teamName: string;
     };
 }
   

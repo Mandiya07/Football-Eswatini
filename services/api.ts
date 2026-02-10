@@ -1,4 +1,4 @@
-import { Team, Player, CompetitionFixture, Competition } from '../data/teams';
+import { Team, Player, CompetitionFixture, MatchEvent, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
 import { app, db } from './firebase';
 import { collection, getDocs, doc, getDoc, query, orderBy, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, runTransaction, deleteField, writeBatch, where, serverTimestamp, limit, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
@@ -13,13 +13,19 @@ import { OnThisDayEvent, ArchiveItem, onThisDayData as mockOnThisDayData, archiv
 import { Sponsor, KitPartner, sponsors as defaultSponsors } from '../data/sponsors';
 import { PhotoAlbum, BehindTheScenesContent } from '../data/media';
 import { Referee, Rule, refereeData as defaultRefereeData } from '../data/referees';
-import { calculateStandings, normalizeTeamName, superNormalize, removeUndefinedProps } from './utils';
+import { calculateStandings, normalizeTeamName, superNormalize, removeUndefinedProps, reconcilePlayers } from './utils';
 import { User } from '../contexts/AuthContext';
 import { ExclusiveItem, TeamYamVideo, initialExclusiveContent, initialTeamYamVideos } from '../data/features';
 import { internationalData, youthHybridData, HybridTournament } from '../data/international';
 
 export { type Competition, type HybridTournament }; 
 export { type ExclusiveItem, type TeamYamVideo }; 
+
+export interface StandaloneMatch extends CompetitionFixture {
+    id: string;
+    isFriendly: boolean;
+    managedByTeam: string;
+}
 
 export interface MerchantConfig {
     momoMerchantName: string;
@@ -38,7 +44,17 @@ export interface MerchantBalance {
     lastPayoutDate?: string;
 }
 
+export interface ContactInquiry {
+    id: string;
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    submittedAt: any;
+}
+
 export const getTimestamp = (item: any): number => {
+    if (!item) return 0;
     if (item?.date) {
         const parsed = new Date(item.date).getTime();
         if (!isNaN(parsed)) return parsed;
@@ -50,6 +66,7 @@ export const getTimestamp = (item: any): number => {
 };
 
 export const sortByLatest = <T>(items: T[]): T[] => {
+    if (!items || !Array.isArray(items)) return [];
     return [...items].sort((a, b) => {
         const timeA = getTimestamp(a);
         const timeB = getTimestamp(b);
@@ -136,6 +153,17 @@ export interface CommunityEvent {
     createdAt: any;
 }
 
+// Added InAppNotification interface to fix missing type definition errors
+export interface InAppNotification {
+    id: string;
+    userId: string;
+    title: string;
+    message: string;
+    type: 'success' | 'warning' | 'error' | 'info';
+    read: boolean;
+    timestamp: any;
+}
+
 export interface LeagueRegistrationRequest {
     id: string;
     leagueName: string;
@@ -146,16 +174,9 @@ export interface LeagueRegistrationRequest {
     description: string;
     status: 'pending' | 'approved' | 'rejected';
     submittedAt: any;
-}
-
-export interface InAppNotification {
-    id: string;
-    userId: string;
-    title: string;
-    message: string;
-    type: 'success' | 'info' | 'warning' | 'error';
-    read: boolean;
-    timestamp: any;
+    requestType: 'create' | 'manage';
+    targetLeagueId?: string;
+    categoryId?: string;
 }
 
 export const handleFirestoreError = (error: any, operation: string) => {
@@ -169,6 +190,11 @@ export const handleFirestoreError = (error: any, operation: string) => {
     
     if (code === 'permission-denied') {
         console.error(`[Firestore Security] Access denied for '${operation}'.`);
+        return;
+    }
+
+    if (code === 'failed-precondition' && firebaseError.message?.includes('index')) {
+        console.error(`[Firestore Index Error] '${operation}' requires a composite index. Check firestore.indexes.json.`);
         return;
     }
 
@@ -192,6 +218,7 @@ export interface MatchTicket {
   venue: string;
   price: number;
   status: 'available' | 'sold_out';
+  purchaseUrl?: string; // Direct link to purchase
 }
 
 export interface PendingChange {
@@ -303,10 +330,6 @@ export const fetchMerchantBalance = async (): Promise<MerchantBalance> => {
     }
 };
 
-/**
- * Records revenue in the global finance doc.
- * Ensuring direct reflection in the Merchant & Payouts admin section.
- */
 export const recordRevenue = async (amount: number) => {
     try {
         const docRef = doc(db, 'finance', 'balance');
@@ -341,10 +364,7 @@ export const processPayment = async (amount: number, details: PaymentDetails): P
             const isAuthorized = Math.random() < 0.99;
             if (isAuthorized) {
                 const txId = `FE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-                
-                // Record the revenue globally for Admin visibility
                 await recordRevenue(amount);
-
                 resolve({ 
                     success: true, 
                     transactionId: txId, 
@@ -514,10 +534,11 @@ export const fetchAllTeams = async (): Promise<Team[]> => {
     return Object.values(comps).flatMap(c => c.teams || []);
 };
 
-export const fetchTeamByIdGlobally = async (teamId: number): Promise<{ team: Team, competitionId: string } | null> => {
+export const fetchTeamByIdGlobally = async (teamId: string | number): Promise<{ team: Team, competitionId: string } | null> => {
     const comps = await fetchAllCompetitions();
+    const searchId = String(teamId);
     for (const [compId, comp] of Object.entries(comps)) {
-        const team = comp.teams?.find(t => t.id === teamId);
+        const team = comp.teams?.find(t => String(t.id) === searchId);
         if (team) return { team, competitionId: compId };
     }
     return null;
@@ -527,7 +548,11 @@ export const fetchPlayerById = async (playerId: number): Promise<{ player: Playe
     const comps = await fetchAllCompetitions();
     for (const [compId, comp] of Object.entries(comps)) {
         if (comp.teams) {
-            for (const team of comp.teams) {
+            // Source of Truth: Reconcile virtual players from matches to resolve global ID lookups
+            const allMatches = [...(comp.fixtures || []), ...(comp.results || [])];
+            const reconciledTeams = reconcilePlayers(comp.teams, allMatches);
+            
+            for (const team of reconciledTeams) {
                 const player = team.players?.find(p => p.id === playerId);
                 if (player) return { player, team, competitionId: compId };
             }
@@ -597,6 +622,32 @@ export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
 export const addDirectoryEntry = async (entry: Omit<DirectoryEntity, 'id'>) => { await addDoc(collection(db, 'directory'), entry); };
 export const updateDirectoryEntry = async (id: string, data: Partial<DirectoryEntity>) => { await updateDoc(doc(db, 'directory', id), data); };
 export const deleteDirectoryEntry = async (id: string) => { await deleteDoc(doc(db, 'directory', id)); };
+
+// STANDALONE MATCH FUNCTIONS
+export const fetchStandaloneMatches = async (teamName?: string): Promise<StandaloneMatch[]> => {
+    try {
+        let q = query(collection(db, 'standalone_matches'), orderBy('fullDate', 'desc'));
+        const snapshot = await getDocs(q);
+        const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StandaloneMatch));
+        if (teamName) {
+            const norm = superNormalize(teamName);
+            return all.filter(m => superNormalize(m.teamA) === norm || superNormalize(m.teamB) === norm);
+        }
+        return all;
+    } catch (e) { return []; }
+};
+
+export const addStandaloneMatch = async (match: Omit<StandaloneMatch, 'id'>) => {
+    await addDoc(collection(db, 'standalone_matches'), { ...match, createdAt: serverTimestamp() });
+};
+
+export const updateStandaloneMatch = async (id: string, data: Partial<StandaloneMatch>) => {
+    await updateDoc(doc(db, 'standalone_matches', id), data);
+};
+
+export const deleteStandaloneMatch = async (id: string) => {
+    await deleteDoc(doc(db, 'standalone_matches', id));
+};
 
 export const fetchProducts = async (): Promise<Product[]> => {
     try {
@@ -694,7 +745,7 @@ export const fetchCoachingContent = async (): Promise<CoachingContent[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'coaching'));
         const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CoachingContent));
-        return [...dbItems, ...mockCoachingContent.filter(i => !dbItems.find(di => di.id === i.id))];
+        return [...dbItems, ...mockCoachingContent.filter(i => !dbItems.find(di => i.id === i.id))];
     } catch { return mockCoachingContent; }
 };
 
@@ -716,7 +767,7 @@ export const deleteArchiveItem = async (id: string) => { await deleteDoc(doc(db,
 export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'onThisDay'));
-        return snapshot.docs.map(doc => ({ id: parseInt(doc.id), ...doc.data() } as OnThisDayEvent));
+        return snapshot.docs.map(doc => ({ id: parseInt(doc.id) || 0, ...doc.data() } as OnThisDayEvent));
     } catch { return mockOnThisDayData; }
 };
 
@@ -862,16 +913,37 @@ export const rejectLeagueRequest = async (id: string) => {
     await updateDoc(doc(db, 'leagueRequests', id), { status: 'rejected' });
 };
 
+// Added InAppNotification interface to fix missing type definition errors
+export interface InAppNotification {
+    id: string;
+    userId: string;
+    title: string;
+    message: string;
+    type: 'success' | 'warning' | 'error' | 'info';
+    read: boolean;
+    timestamp: any;
+}
+
 export const addNotification = async (data: Omit<InAppNotification, 'id' | 'read' | 'timestamp'>) => {
     await addDoc(collection(db, 'in_app_notifications'), { ...data, read: false, timestamp: serverTimestamp() });
 };
 
 export const listenToNotifications = (userId: string, callback: (notifications: InAppNotification[]) => void): (() => void) => {
-    const q = query(collection(db, "in_app_notifications"), where("userId", "==", userId), orderBy("timestamp", "desc"), limit(20));
+    const q = query(collection(db, "in_app_notifications"), where("userId", "==", userId), limit(100));
     return onSnapshot(q, (querySnapshot) => {
         const notifications: InAppNotification[] = [];
         querySnapshot.forEach((doc) => { notifications.push({ id: doc.id, ...doc.data() } as InAppNotification); });
-        callback(notifications);
+        
+        notifications.sort((a, b) => {
+            const timeA = a.timestamp?.seconds || 0;
+            const timeB = b.timestamp?.seconds || 0;
+            return timeB - timeA;
+        });
+        
+        callback(notifications.slice(0, 20));
+    }, (error) => {
+        handleFirestoreError(error, 'listen to notifications');
+        callback([]);
     });
 };
 
@@ -1056,4 +1128,17 @@ export const listenToYouthArticleComments = (articleId: string, callback: (comme
         comments.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
         callback(comments);
     });
+};
+
+export const submitContactInquiry = async (data: Omit<ContactInquiry, 'id' | 'submittedAt'>) => {
+    await addDoc(collection(db, 'contact_inquiries'), {
+        ...data,
+        submittedAt: serverTimestamp()
+    });
+};
+
+export const fetchContactInquiries = async (): Promise<ContactInquiry[]> => {
+    const q = query(collection(db, 'contact_inquiries'), orderBy('submittedAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContactInquiry));
 };

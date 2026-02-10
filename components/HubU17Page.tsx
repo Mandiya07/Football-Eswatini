@@ -11,12 +11,20 @@ import TournamentView from './TournamentView';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 import YouthArticleSection from './YouthArticleSection';
+import { useAuth } from '../contexts/AuthContext';
+import { Card, CardContent } from './ui/Card';
+import Button from './ui/Button';
+import Fixtures from './Fixtures';
+import Logs from './Logs';
 
 const HubU17Page: React.FC = () => {
+  const { isLoggedIn, openAuthModal } = useAuth();
   const [data, setData] = useState<YouthLeague | null>(null);
   const [hybridTournament, setHybridTournament] = useState<HybridTournament | null>(null);
   const [globalNews, setGlobalNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const COMPETITION_ID = 'u17-national-football';
 
   useEffect(() => {
     const loadData = async () => {
@@ -28,7 +36,7 @@ const HubU17Page: React.FC = () => {
              fetchNews()
         ]);
 
-        const league = youthLeagues.find(l => l.id === 'hub-hardware-u17');
+        const league = youthLeagues.find(l => l.id === COMPETITION_ID);
         setData(league || null);
         setGlobalNews(newsData);
 
@@ -39,7 +47,7 @@ const HubU17Page: React.FC = () => {
         setHybridTournament(foundHybrid);
 
       } catch (error) {
-        console.error("Failed to load Hub U17 data", error);
+        console.error("Failed to load U17 data", error);
       } finally {
         setLoading(false);
       }
@@ -51,7 +59,7 @@ const HubU17Page: React.FC = () => {
       const specificArticles = data?.articles || [];
       const relevantGlobalNews = globalNews.filter(n => {
           const cats = Array.isArray(n.category) ? n.category : [n.category];
-          return cats.includes('Youth') && n.title.toLowerCase().includes('hub');
+          return cats.includes('Youth') && (n.title.toLowerCase().includes('u17') || n.title.toLowerCase().includes('u-17'));
       }).map(n => ({
           id: n.id,
           title: n.title,
@@ -66,6 +74,13 @@ const HubU17Page: React.FC = () => {
       );
   }, [data, globalNews]);
 
+  const handleCreateLeague = (e: React.MouseEvent) => {
+      if (!isLoggedIn) {
+          e.preventDefault();
+          openAuthModal();
+      }
+  };
+
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
   return (
@@ -79,39 +94,62 @@ const HubU17Page: React.FC = () => {
         </div>
 
         <div className="text-center mb-16">
-          <div className="inline-block p-4 bg-yellow-100 rounded-full mb-4">
+          <div className="inline-block p-4 bg-yellow-100 rounded-full mb-4 shadow-sm">
             <TrophyIcon className="w-12 h-12 text-yellow-600" />
           </div>
-          <h1 className="text-3xl md:text-5xl font-display font-extrabold text-blue-900 mb-4">
-            {data?.name || "The Hub Hardware Under-17 Tournament"}
+          <h1 className="text-3xl md:text-5xl font-display font-black text-blue-900 mb-4 uppercase tracking-tight">
+            {data?.name || "U-17 National Football"}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            {data?.description || "Organized under the Hhohho Regional Football Association, this tournament serves as a vital grassroots platform."}
+            The identification platform for Eswatini's next elite generation. Follow national qualifiers or digitize your community U-17 league.
           </p>
         </div>
 
-        <div className="space-y-16">
-            <div className="border-t pt-8">
-                <h2 className="text-2xl font-display font-bold mb-6 text-gray-800">Latest Updates</h2>
-                {combinedArticles.length > 0 ? (
-                    <YouthArticleSection articles={combinedArticles} />
-                ) : (
-                    <div className="text-center py-8 text-gray-500 bg-white rounded-lg border border-gray-200">
-                        No recent news articles found for Hub U-17.
+        {/* Create New League CTA */}
+        <div className="mb-16 max-w-4xl mx-auto">
+            <Card className="bg-gradient-to-br from-yellow-600 to-yellow-800 text-white shadow-2xl border-0 overflow-hidden relative group">
+                <CardContent className="p-10 text-center md:text-left md:flex items-center justify-between gap-8 relative z-10">
+                    <div className="flex-1">
+                        <h2 className="text-3xl font-display font-black mb-4 uppercase tracking-tight">Digitize Your U-17 League</h2>
+                        <p className="text-yellow-50 mb-6 md:mb-0 leading-relaxed opacity-90">
+                            Run your regional or community Under-17 competition through our professional hub. Manage teams, track every goal, and maintain live standings.
+                        </p>
                     </div>
-                )}
+                    <div className="flex-shrink-0">
+                        <Link to={isLoggedIn ? "/league-registration" : "#"} onClick={handleCreateLeague}>
+                            <Button className="bg-white text-yellow-900 font-black px-8 py-4 rounded-xl hover:bg-yellow-50 transition-all hover:scale-105 shadow-xl border-0 uppercase tracking-widest text-xs">
+                                Create New League
+                            </Button>
+                        </Link>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+
+        <div className="space-y-16">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-yellow-500 pb-2">National Fixtures</h2>
+                    <Fixtures showSelector={false} defaultCompetition={COMPETITION_ID} maxHeight="max-h-[600px]" />
+                </div>
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-yellow-500 pb-2">National Standings</h2>
+                    <Logs showSelector={false} defaultLeague={COMPETITION_ID} maxHeight="max-h-[600px]" />
+                </div>
             </div>
 
-            <div className="max-w-6xl mx-auto">
-                <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Hub</h2>
-                {hybridTournament ? (
+            {combinedArticles.length > 0 && (
+                <div className="border-t pt-12">
+                    <YouthArticleSection articles={combinedArticles} />
+                </div>
+            )}
+
+            {hybridTournament && (
+                <div className="max-w-6xl mx-auto">
+                    <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">National Championship Hub</h2>
                     <TournamentView tournament={hybridTournament} />
-                ) : (
-                    <div className="p-12 text-center bg-white rounded-xl border border-dashed">
-                        <p className="text-gray-500">Zonal structure not initialized. Use Admin Panel &gt; Seed Database.</p>
-                    </div>
-                )}
-            </div>
+                </div>
+            )}
 
             {data?.risingStars && data.risingStars.length > 0 && (
                 <section>

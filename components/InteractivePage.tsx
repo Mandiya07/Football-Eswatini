@@ -1,4 +1,3 @@
-
 import React from 'react';
 import MatchPredictor from './MatchPredictor';
 import MiniFantasy from './MiniFantasy';
@@ -6,6 +5,7 @@ import Logs from './Logs';
 import PlayerOfTheMonth from './PlayerOfTheMonth';
 import FanOfTheWeek from './FanOfTheWeek';
 import AdBanner from './AdBanner';
+import TopScorers from './TopScorers';
 
 const InteractivePage: React.FC = () => {
   return (
@@ -24,8 +24,9 @@ const InteractivePage: React.FC = () => {
             
             <div className="space-y-8 mb-12">
                 <MatchPredictor />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
                     <MiniFantasy />
+                    <TopScorers competitionId="mtn-premier-league" />
                     <PlayerOfTheMonth />
                     <FanOfTheWeek />
                 </div>

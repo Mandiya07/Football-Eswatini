@@ -31,6 +31,10 @@ import MessageSquareIcon from './icons/MessageSquareIcon';
 import HeartIcon from './icons/HeartIcon';
 import PencilIcon from './icons/PencilIcon';
 import { useAuth } from '../contexts/AuthContext';
+import ChevronLeftIcon from './icons/ChevronLeftIcon';
+import ChevronRightIcon from './icons/ChevronRightIcon';
+
+const NEWS_PAGE_SIZE = 6;
 
 function formatTimeAgo(timestamp: { seconds: number } | null): string {
     if (!timestamp) return '';
@@ -232,6 +236,7 @@ const CommunityHub: React.FC = () => {
     const [events, setEvents] = useState<CommunityEvent[]>([]);
     const [communityNews, setCommunityNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [newsPage, setNewsPage] = useState(1);
     
     // View Modal State
     const [viewEvent, setViewEvent] = useState<CommunityEvent | null>(null);
@@ -272,12 +277,12 @@ const CommunityHub: React.FC = () => {
             ]);
             setEvents(eventsData);
 
-            // Filter news for Community Hub category and limit to 6
+            // Filter news for Community Hub category
             const hubNews = newsData.filter(item => {
                 const cats = Array.isArray(item.category) ? item.category : [item.category];
                 return cats.includes('Community Football Hub');
             });
-            setCommunityNews(hubNews.slice(0, 6));
+            setCommunityNews(hubNews);
         } catch (error) {
             console.error("Error loading community data:", error);
         } finally {
@@ -288,6 +293,13 @@ const CommunityHub: React.FC = () => {
     useEffect(() => {
         loadEvents();
     }, []);
+
+    // Pagination for community news
+    const totalNewsPages = Math.ceil(communityNews.length / NEWS_PAGE_SIZE);
+    const paginatedCommunityNews = useMemo(() => {
+        const start = (newsPage - 1) * NEWS_PAGE_SIZE;
+        return communityNews.slice(start, start + NEWS_PAGE_SIZE);
+    }, [communityNews, newsPage]);
 
     const upcomingEvents = useMemo(() => {
         const today = new Date().toISOString().split('T')[0];
@@ -436,19 +448,44 @@ const CommunityHub: React.FC = () => {
             <div className="max-w-6xl mx-auto">
                 {activeTab === 'news' && (
                     <div className="space-y-12">
-                        {/* Community News Articles */}
-                        {communityNews.length > 0 && (
-                            <div>
-                                <h3 className="text-xl font-bold font-display mb-6 border-b pb-2 flex items-center gap-2">
-                                    <NewspaperIcon className="w-5 h-5 text-green-600" /> Community Headlines
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {communityNews.map(item => (
-                                        <NewsCard key={item.id} item={item} variant="compact" />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                        {/* Community News Articles with Pagination */}
+                        <div id="community-news">
+                            <h3 className="text-xl font-bold font-display mb-6 border-b pb-2 flex items-center gap-2">
+                                <NewspaperIcon className="w-5 h-5 text-green-600" /> Community Headlines
+                            </h3>
+                            {paginatedCommunityNews.length > 0 ? (
+                                <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {paginatedCommunityNews.map(item => (
+                                            <NewsCard key={item.id} item={item} variant="compact" />
+                                        ))}
+                                    </div>
+                                    {totalNewsPages > 1 && (
+                                        <div className="mt-8 flex justify-center items-center gap-4">
+                                            <Button 
+                                                onClick={() => setNewsPage(prev => Math.max(1, prev - 1))} 
+                                                disabled={newsPage === 1}
+                                                variant="outline"
+                                                className="h-9 text-xs"
+                                            >
+                                                <ChevronLeftIcon className="w-4 h-4" />
+                                            </Button>
+                                            <span className="text-xs font-bold text-gray-500">Page {newsPage} of {totalNewsPages}</span>
+                                            <Button 
+                                                onClick={() => setNewsPage(prev => Math.min(totalNewsPages, prev + 1))} 
+                                                disabled={newsPage === totalNewsPages}
+                                                variant="outline"
+                                                className="h-9 text-xs"
+                                            >
+                                                <ChevronRightIcon className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <p className="text-center text-gray-500 italic py-6">No community news found.</p>
+                            )}
+                        </div>
 
                         {/* Featured Spotlight */}
                         {featuredEvent ? (
@@ -483,11 +520,7 @@ const CommunityHub: React.FC = () => {
                                     </div>
                                 </CardContent>
                             </Card>
-                        ) : !loading && communityNews.length === 0 && (
-                            <div className="text-center py-12 bg-gray-50 rounded-lg">
-                                <p className="text-gray-500 italic">No spotlight events at the moment.</p>
-                            </div>
-                        )}
+                        ) : null}
 
                         {/* Upcoming Grid */}
                         <div>

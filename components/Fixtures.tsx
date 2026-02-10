@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -17,6 +16,7 @@ import { doc, runTransaction } from 'firebase/firestore';
 import { calculateStandings, removeUndefinedProps, findInMap } from '../services/utils';
 import Button from './ui/Button';
 import CollapsibleSelector from './ui/CollapsibleSelector';
+import ClockIcon from './icons/ClockIcon';
 
 interface FixturesProps {
     showSelector?: boolean;
@@ -93,8 +93,18 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     
     const getStatusBadge = () => {
         switch (fixture.status) {
-            case 'live': return <div className="absolute top-1 right-1 flex items-center space-x-1 text-secondary font-bold text-[9px]"><span className="w-1.5 h-1.5 bg-secondary rounded-full animate-ping"></span><span>LIVE</span></div>;
-            case 'finished': return <div className="absolute top-1 right-1 text-gray-400 font-bold text-[9px]">FT</div>;
+            case 'live': 
+                return (
+                    <div className="absolute top-1 right-2 flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                        </span>
+                        <span className="bg-red-600 text-white font-black text-[8px] px-1.5 py-0.5 rounded shadow-sm tracking-tighter">LIVE</span>
+                    </div>
+                );
+            case 'finished': 
+                return <div className="absolute top-1 right-2 text-gray-400 font-bold text-[9px] uppercase tracking-widest bg-gray-100 px-1.5 py-0.5 rounded">FT</div>;
             default: return null;
         }
     };
@@ -109,40 +119,45 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
     };
 
     return (
-        <div className={`flex flex-col border-l-4 ${fixture.status === 'live' ? 'border-secondary' : 'border-transparent'} hover:bg-gray-50/50 transition-colors duration-200`}>
+        <div className={`flex flex-col border-l-4 transition-all duration-300 ${fixture.status === 'live' ? 'border-red-600 bg-red-50/40 ring-1 ring-red-100/50' : 'border-transparent hover:bg-gray-50/50'}`}>
             <div className="flex items-center space-x-2 p-3 min-h-[70px] cursor-pointer relative" onClick={onToggleDetails}>
                 {getStatusBadge()}
-                <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-secondary text-white' : 'bg-primary text-white'} w-12 h-12 rounded-md shadow-sm flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
+                <div className={`flex flex-col items-center justify-center ${fixture.status === 'live' ? 'bg-red-600 text-white shadow-md' : 'bg-primary text-white'} w-12 h-12 rounded-md flex-shrink-0 transition-colors duration-300 border-b-2 ${fixture.status === 'live' ? 'border-red-800' : 'border-accent'}`}>
                     <span className="font-bold text-base leading-tight">{fixture.date}</span>
                     <span className="text-[9px] uppercase font-bold tracking-wider">{fixture.day}</span>
                 </div>
                 <div className="flex-grow grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
                     <div className="flex justify-end items-center gap-2 pr-1 overflow-hidden w-full text-right">
                          {renderTeamName(fixture.teamA, teamALink)}
-                         {crestA && <img src={crestA} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
+                         {crestA && <img src={crestA} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm border border-gray-100" />}
                     </div>
                     {isScoreVisible ? (
-                        <div className="text-center min-w-[5rem]">
-                            <p className={`font-bold text-xl ${fixture.status === 'live' ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}>{fixture.scoreA ?? '-'} - {fixture.scoreB ?? '-'}</p>
-                            {fixture.status === 'live' && <p className="text-[10px] font-mono font-bold text-red-600">{displayMinute}'</p>}
+                        <div className="text-center min-w-[5.5rem] flex flex-col items-center justify-center">
+                            <p className={`font-black text-2xl tracking-tighter leading-none ${fixture.status === 'live' ? 'text-red-600 drop-shadow-sm' : 'text-gray-900'}`}>{fixture.scoreA ?? '-'} - {fixture.scoreB ?? '-'}</p>
+                            {fixture.status === 'live' && (
+                                <div className="flex items-center gap-1 mt-1">
+                                    <ClockIcon className="w-2.5 h-2.5 text-red-600" />
+                                    <p className="text-[10px] font-mono font-black text-red-600 animate-pulse">{displayMinute}'</p>
+                                </div>
+                            )}
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center min-w-[5rem]">
+                        <div className="flex flex-col items-center justify-center min-w-[5.5rem]">
                             <p className="text-sm text-red-500 font-black italic tracking-widest">VS</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{fixture.time}</p>
+                            <p className="text-xs text-gray-400 mt-0.5 font-bold uppercase">{fixture.time}</p>
                         </div>
                     )}
                     <div className="flex justify-start items-center gap-2 pl-1 overflow-hidden w-full text-left">
-                        {crestB && <img src={crestB} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm" />}
+                        {crestB && <img src={crestB} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm border border-gray-100" />}
                         {renderTeamName(fixture.teamB, teamBLink)}
                     </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                    <button onClick={handleShare} className="p-2 text-gray-400 hover:text-primary transition-colors" title="Share Match"><ShareIcon className="w-4 h-4" /></button>
+                    <button onClick={handleShare} className={`p-2 transition-colors rounded-full ${fixture.status === 'live' ? 'text-red-400 hover:bg-red-100 hover:text-red-600' : 'text-gray-400 hover:text-primary hover:bg-gray-100'}`} title="Share Match"><ShareIcon className="w-4 h-4" /></button>
                     <div className={`p-1 text-gray-300 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}><ChevronDownIcon className="w-5 h-5" /></div>
                 </div>
             </div>
-            {isExpanded && <div className="w-full border-t border-gray-100 bg-gray-50/50"><FixtureDetail fixture={fixture} competitionId={competitionId} /></div>}
+            {isExpanded && <div className="w-full border-t border-gray-100 bg-white/50"><FixtureDetail fixture={fixture} competitionId={competitionId} /></div>}
         </div>
     );
 });
@@ -182,8 +197,8 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                         if (catId && categoryGroups.has(catId)) categoryGroups.get(catId)!.competitions.push(item);
                         else uncategorizedCompetitions.push(item);
                     });
-                    const finalOptions = Array.from(categoryGroups.values()).filter(group => group.competitions.length > 0).sort((a, b) => a.order - b.order).map(group => ({ label: group.name, options: group.competitions.sort((a, b) => a.name.localeCompare(b.name)) }));
-                    if (uncategorizedCompetitions.length > 0) finalOptions.push({ label: "Other Leagues", options: uncategorizedCompetitions.sort((a, b) => a.name.localeCompare(b.name)) });
+                    const finalOptions = Array.from(categoryGroups.values()).filter(group => group.competitions.length > 0).sort((a, b) => a.order - b.order).map(group => ({ label: group.name, options: group.competitions.sort((a, b) => (a.name || '').localeCompare(b.name || '')) }));
+                    if (uncategorizedCompetitions.length > 0) finalOptions.push({ label: "Other Leagues", options: uncategorizedCompetitions.sort((a, b) => (a.name || '').localeCompare(b.name || '')) });
                     setCompOptions(finalOptions);
                 }
              } catch (error) {}
@@ -195,17 +210,6 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
         if (!selectedComp) return;
         setLoading(true);
         const unsubscribe = listenToCompetition(selectedComp, async (data) => {
-            if (data?.externalApiId) {
-                // If API is linked, optionally try to fetch live results/fixtures
-                try {
-                    const apiData = activeTab === 'results' 
-                        ? await fetchApiFootball(data.externalApiId, '', '', 'results', true, []) 
-                        : await fetchApiFootball(data.externalApiId, '', '', 'fixtures', true, []);
-                    if (apiData.length > 0) {
-                        // Merge or override logic if needed
-                    }
-                } catch (e) {}
-            }
             setCompetition(data || null);
             setLoading(false);
         });
@@ -266,7 +270,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     {groupedData.map((group) => (
                         <div key={group.title} className="mb-8">
                             <h3 className="text-sm font-black uppercase text-gray-400 mb-3 tracking-widest pl-2 border-l-4 border-accent">{group.title}</h3>
-                            <Card className="divide-y overflow-hidden">
+                            <Card className="divide-y overflow-hidden shadow-md">
                                 {group.fixtures.map(f => (
                                     <FixtureItem key={f.id} fixture={f} isExpanded={expandedFixtureId === f.id} onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === f.id ? null : f.id)} teams={competition?.teams || []} onDeleteFixture={() => {}} isDeleting={false} directoryMap={directoryMap} competitionId={selectedComp} />
                                 ))}

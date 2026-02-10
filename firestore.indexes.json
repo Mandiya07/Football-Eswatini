@@ -1,12 +1,16 @@
 {
   "indexes": [
     {
-      "collectionGroup": "news",
+      "collectionGroup": "in_app_notifications",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "url",
+          "fieldPath": "userId",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
         }
       ]
     }

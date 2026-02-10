@@ -35,6 +35,12 @@ export interface SubscriptionInfo {
     lastTransactionId?: string;
 }
 
+export interface ManagedTeam {
+    teamName: string;
+    competitionId: string;
+    role: 'club_admin' | 'coach';
+}
+
 export interface User {
   id: string;
   name: string;
@@ -42,6 +48,7 @@ export interface User {
   avatar: string;
   role: 'user' | 'club_admin' | 'league_admin' | 'super_admin' | 'journalist';
   club?: string;
+  managedTeams: ManagedTeam[]; // Support for multiple divisions
   managedLeagues?: string[]; 
   favoriteTeamIds: number[];
   notificationPreferences: NotificationPreferences;
@@ -104,6 +111,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         role: isInitialAdmin ? 'super_admin' : 'user',
         favoriteTeamIds: [],
         notificationPreferences: DEFAULT_PREFERENCES,
+        managedTeams: [],
         xp: 0,
         level: 1
     };
@@ -140,7 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                          await updateDoc(userDocRef, { role: 'super_admin' });
                          setUser({ id: firebaseUser.uid, ...data, role: 'super_admin' });
                     } else {
-                         setUser({ id: firebaseUser.uid, ...data } as User);
+                         setUser({ id: firebaseUser.uid, ...data, managedTeams: data.managedTeams || [] } as User);
                     }
                 } else {
                     const initial: Omit<User, 'id'> = {
@@ -149,6 +157,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
                         role: isAuthorized ? 'super_admin' : 'user',
                         favoriteTeamIds: [],
+                        managedTeams: [],
                         notificationPreferences: DEFAULT_PREFERENCES,
                         xp: 0,
                         level: 1

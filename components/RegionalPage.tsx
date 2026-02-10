@@ -9,6 +9,7 @@ import Button from './ui/Button';
 import { fetchRegionConfigs, RegionConfig } from '../services/api';
 import Spinner from './ui/Spinner';
 import { useAuth } from '../contexts/AuthContext';
+import CommunityHub from './CommunityHub';
 
 const RegionalPage: React.FC = () => {
   const { isLoggedIn, openAuthModal } = useAuth();
@@ -104,6 +105,10 @@ const RegionalPage: React.FC = () => {
                 ))}
             </div>
         )}
+
+        <div className="mt-12">
+            <CommunityHub />
+        </div>
 
         <div className="mt-20 max-w-4xl mx-auto">
             <Card className="bg-gradient-to-br from-gray-900 to-blue-900 text-white shadow-2xl border-0">

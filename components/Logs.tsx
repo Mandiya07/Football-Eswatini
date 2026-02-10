@@ -76,13 +76,13 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     .sort((a, b) => a.order - b.order)
                     .map(group => ({
                         label: group.name,
-                        options: group.competitions.sort((a, b) => a.name.localeCompare(b.name))
+                        options: group.competitions.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                     }));
                 
                 if (uncategorizedCompetitions.length > 0) {
                     finalOptions.push({
                         label: "Other Leagues",
-                        options: uncategorizedCompetitions.sort((a, b) => a.name.localeCompare(b.name))
+                        options: uncategorizedCompetitions.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                     });
                 }
                 setLeagueOptions(finalOptions);

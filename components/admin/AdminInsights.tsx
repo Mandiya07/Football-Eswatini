@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AIDailyBriefing from '../AIDailyBriefing';
 import { Card, CardContent } from '../ui/Card';
@@ -6,6 +7,7 @@ import { Link } from 'react-router-dom';
 import SparklesIcon from '../icons/SparklesIcon';
 import ArrowRightIcon from '../icons/ArrowRightIcon';
 import BarChartIcon from '../icons/BarChartIcon';
+import BriefcaseIcon from '../icons/BriefcaseIcon';
 import { fetchMerchantBalance, MerchantBalance } from '../../services/api';
 import Spinner from '../ui/Spinner';
 
@@ -44,32 +46,40 @@ const AdminInsights: React.FC = () => {
                 <AIDailyBriefing />
             </div>
 
-            <Card className="shadow-lg border-l-4 border-primary bg-slate-900 text-white overflow-hidden relative group">
-                <div className="absolute top-0 right-0 p-8 opacity-5 scale-125 transform group-hover:rotate-12 transition-transform duration-1000">
-                    <SparklesIcon className="w-48 h-48 text-accent" />
-                </div>
-                <CardContent className="p-8 relative z-10">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="max-w-xl">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/20 rounded-full mb-3 border border-accent/20">
-                                <SparklesIcon className="w-3.5 h-3.5 text-accent" />
-                                <span className="text-[9px] font-black uppercase tracking-widest text-accent">Internal Roadmap</span>
-                            </div>
-                            <h2 className="text-2xl font-display font-bold text-white mb-2">Enterprise Pitch Deck</h2>
-                            <p className="text-blue-100 text-sm leading-relaxed">
-                                Access the latest strategic vision for Football Eswatini. Use this deck for presentations with potential government partners and high-level corporate sponsors.
-                            </p>
-                        </div>
-                        <div className="flex-shrink-0">
-                            <Link to="/pitch-deck">
-                                <Button className="bg-white text-gray-900 font-bold px-8 h-12 rounded-xl hover:bg-accent transition-all shadow-xl flex items-center gap-2 text-xs uppercase tracking-widest">
-                                    View Pitch Deck <ArrowRightIcon className="w-4 h-4" />
-                                </Button>
-                            </Link>
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="shadow-lg border-l-4 border-primary bg-slate-900 text-white overflow-hidden relative group">
+                    <div className="absolute top-0 right-0 p-8 opacity-5 scale-125 transform group-hover:rotate-12 transition-transform duration-1000">
+                        <SparklesIcon className="w-48 h-48 text-accent" />
                     </div>
-                </CardContent>
-            </Card>
+                    <CardContent className="p-8 relative z-10">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/20 rounded-full mb-3 border border-accent/20">
+                            <SparklesIcon className="w-3.5 h-3.5 text-accent" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-accent">Strategic Asset</span>
+                        </div>
+                        <h2 className="text-xl font-display font-bold text-white mb-4">Enterprise Pitch Deck</h2>
+                        <Link to="/pitch-deck">
+                            <Button className="bg-white text-gray-900 font-bold px-6 h-10 rounded-xl hover:bg-accent transition-all shadow-xl flex items-center gap-2 text-[10px] uppercase tracking-widest">
+                                View Full Deck <ArrowRightIcon className="w-3 h-3" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-lg border-l-4 border-green-500 bg-white overflow-hidden relative group">
+                    <CardContent className="p-8 relative z-10">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full mb-3 border border-green-100">
+                            <BriefcaseIcon className="w-3.5 h-3.5 text-green-600" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-green-600">Active Prospect</span>
+                        </div>
+                        <h2 className="text-xl font-display font-bold text-gray-900 mb-4">Umbuluzi Valley Sales</h2>
+                        <Link to="/pitch-umbuluzi">
+                            <Button className="bg-green-600 text-white font-bold px-6 h-10 rounded-xl hover:bg-green-700 transition-all shadow-xl flex items-center gap-2 text-[10px] uppercase tracking-widest">
+                                View Specific Pitch <ArrowRightIcon className="w-3 h-3" />
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="bg-blue-50 border-blue-100">

@@ -9,7 +9,8 @@ import {
     handleFirestoreError,
     fetchRegionConfigs,
     updateRegionConfig,
-    RegionConfig
+    RegionConfig,
+    fetchCups
 } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -24,17 +25,18 @@ import { db } from '../../services/firebase';
 import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
 import { compressImage, removeUndefinedProps } from '../../services/utils';
 
-interface CompetitionSummary {
+interface EntitySummary {
     id: string;
     name: string;
     logoUrl?: string;
     categoryId: string | null;
     externalApiId?: string;
+    isCup?: boolean;
 }
 
 const CategoryManagement: React.FC = () => {
     const [categories, setCategories] = useState<Category[]>([]);
-    const [competitions, setCompetitions] = useState<CompetitionSummary[]>([]);
+    const [entities, setEntities] = useState<EntitySummary[]>([]);
     const [regions, setRegions] = useState<RegionConfig[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,7 +46,7 @@ const CategoryManagement: React.FC = () => {
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
     const [isCompModalOpen, setIsCompModalOpen] = useState(false);
-    const [editingComp, setEditingComp] = useState<CompetitionSummary | null>(null);
+    const [editingEntity, setEditingEntity] = useState<EntitySummary | null>(null);
     
     // Forms
     const [catForm, setCatForm] = useState({ name: '', order: 100, logoUrl: '' });
@@ -53,15 +55,15 @@ const CategoryManagement: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [catData, compData, regionData] = await Promise.all([
+            const [catData, compData, regionData, cupData] = await Promise.all([
                 fetchCategories(),
                 fetchAllCompetitions(),
-                fetchRegionConfigs()
+                fetchRegionConfigs(),
+                fetchCups()
             ]);
             
             setCategories(catData);
             
-            // Standardize Regions: Ensure we have the 4 main ones even if DB is empty
             const standardIds = ['hhohho', 'manzini', 'lubombo', 'shiselweni'];
             const regionMap = new Map(regionData.map(r => [r.id.toLowerCase(), r]));
             
@@ -83,9 +85,19 @@ const CategoryManagement: React.FC = () => {
                     name: comp.name,
                     logoUrl: comp.logoUrl,
                     categoryId: comp.categoryId || null,
-                    externalApiId: comp.externalApiId
+                    externalApiId: comp.externalApiId,
+                    isCup: false
                 }));
-            setCompetitions(compArray.sort((a,b) => (a.name || '').localeCompare(b.name || '')));
+
+            const cupArray = cupData.map(cup => ({
+                id: cup.id,
+                name: cup.name,
+                logoUrl: (cup as any).logoUrl,
+                categoryId: cup.categoryId || null,
+                isCup: true
+            }));
+
+            setEntities([...compArray, ...cupArray].sort((a,b) => (a.name || '').localeCompare(b.name || '')));
         } catch (err) { handleFirestoreError(err, 'load categories'); }
         finally { setLoading(false); }
     };
@@ -94,22 +106,21 @@ const CategoryManagement: React.FC = () => {
         loadData();
     }, []);
     
-    const groupedCompetitions = useMemo(() => {
-        const groups: Record<string, CompetitionSummary[]> = { 'uncategorized': [] };
+    const groupedEntities = useMemo(() => {
+        const groups: Record<string, EntitySummary[]> = { 'uncategorized': [] };
         categories.forEach(c => { groups[c.id] = []; });
-        competitions.forEach(comp => {
-            if (comp.categoryId && groups[comp.categoryId]) groups[comp.categoryId].push(comp);
-            else groups['uncategorized'].push(comp);
+        entities.forEach(entity => {
+            if (entity.categoryId && groups[entity.categoryId]) groups[entity.categoryId].push(entity);
+            else groups['uncategorized'].push(entity);
         });
         return groups;
-    }, [categories, competitions]);
+    }, [categories, entities]);
 
     const handleSaveRegionLogo = async (regionId: string, base64: string) => {
         setSavingRegionId(regionId);
         try {
             const region = regions.find(r => r.id === regionId);
             if (region) {
-                // FORCE ID to lowercase to match RegionalPage requirements
                 await updateRegionConfig(regionId.toLowerCase(), { ...region, logoUrl: base64 });
                 setRegions(prev => prev.map(r => r.id === regionId ? { ...r, logoUrl: base64 } : r));
             }
@@ -155,7 +166,7 @@ const CategoryManagement: React.FC = () => {
     };
 
     const handleDeleteCategory = async (id: string) => {
-        if (!window.confirm("Delete this category? Any linked competitions will become uncategorized.")) return;
+        if (!window.confirm("Delete this category? Any linked items will become uncategorized.")) return;
         setIsSubmitting(true);
         try {
             await deleteCategory(id);
@@ -174,32 +185,37 @@ const CategoryManagement: React.FC = () => {
         }
     };
 
-    const openCompModal = (comp: CompetitionSummary) => {
-        setEditingComp(comp);
+    const openEntityModal = (entity: EntitySummary) => {
+        setEditingEntity(entity);
         setCompForm({
-            name: comp.name,
-            logoUrl: comp.logoUrl || '',
-            categoryId: comp.categoryId || '',
-            externalApiId: comp.externalApiId || ''
+            name: entity.name,
+            logoUrl: entity.logoUrl || '',
+            categoryId: entity.categoryId || '',
+            externalApiId: entity.externalApiId || ''
         });
         setIsCompModalOpen(true);
     };
 
-    const handleSaveCompetition = async (e: React.FormEvent) => {
+    const handleSaveEntity = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingComp) return;
+        if (!editingEntity) return;
         setIsSubmitting(true);
         try {
-            const docRef = doc(db, 'competitions', editingComp.id);
-            await updateDoc(docRef, removeUndefinedProps({
+            const collectionName = editingEntity.isCup ? 'cups' : 'competitions';
+            const docRef = doc(db, collectionName, editingEntity.id);
+            const dataToSave: any = {
                 name: compForm.name,
                 logoUrl: compForm.logoUrl,
-                categoryId: compForm.categoryId || null,
-                externalApiId: compForm.externalApiId || null
-            }));
+                categoryId: compForm.categoryId || null
+            };
+            if (!editingEntity.isCup) {
+                dataToSave.externalApiId = compForm.externalApiId || null;
+            }
+            
+            await updateDoc(docRef, removeUndefinedProps(dataToSave));
             setIsCompModalOpen(false);
             loadData();
-        } catch (err) { handleFirestoreError(err, 'save competition'); }
+        } catch (err) { handleFirestoreError(err, 'save entity'); }
         finally { setIsSubmitting(false); }
     };
 
@@ -222,7 +238,6 @@ const CategoryManagement: React.FC = () => {
                     {loading ? <div className="flex justify-center py-12"><Spinner /></div> : (
                         <div className="space-y-10">
                             
-                            {/* REGIONAL HUB SECTION - Source of Truth for Regional Page Cards */}
                             <section>
                                 <div className="flex items-center gap-3 mb-6 border-b pb-2">
                                     <GlobeIcon className="w-6 h-6 text-primary" />
@@ -267,12 +282,10 @@ const CategoryManagement: React.FC = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <p className="mt-4 text-[10px] text-gray-400 italic">Note: These logos specifically appear on the cards of the main "Regional" landing page.</p>
                             </section>
 
                             <div className="h-px bg-gray-100"></div>
 
-                            {/* STANDARD CATEGORIES SECTION */}
                             <section className="space-y-8">
                                 <div className="flex items-center gap-3 mb-2">
                                     <ImageIcon className="w-6 h-6 text-primary" />
@@ -296,32 +309,36 @@ const CategoryManagement: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            {groupedCompetitions[cat.id]?.map(comp => (
-                                                <div key={comp.id} onClick={() => openCompModal(comp)} className="p-3 border border-gray-100 rounded-xl hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer flex items-center gap-3 group">
-                                                    <img src={comp.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
+                                            {groupedEntities[cat.id]?.map(entity => (
+                                                <div key={entity.id} onClick={() => openEntityModal(entity)} className="p-3 border border-gray-100 rounded-xl hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer flex items-center gap-3 group">
+                                                    <div className="w-8 h-8 flex items-center justify-center bg-gray-50 rounded">
+                                                        {entity.logoUrl ? <img src={entity.logoUrl} className="max-h-full max-w-full object-contain" /> : <div className="text-[10px] font-black text-gray-300">{entity.isCup ? 'CUP' : 'LG'}</div>}
+                                                    </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-sm font-bold text-gray-800 truncate group-hover:text-primary">{comp.name}</p>
-                                                        {comp.externalApiId && <span className="text-[9px] font-bold text-purple-600 uppercase">API: {comp.externalApiId}</span>}
+                                                        <p className="text-sm font-bold text-gray-800 truncate group-hover:text-primary">{entity.name}</p>
+                                                        {entity.isCup && <span className="text-[8px] font-black text-yellow-600 uppercase">Bracket Type</span>}
+                                                        {!entity.isCup && entity.externalApiId && <span className="text-[9px] font-bold text-purple-600 uppercase ml-2">API: {entity.externalApiId}</span>}
                                                     </div>
                                                 </div>
                                             ))}
-                                            {(groupedCompetitions[cat.id]?.length || 0) === 0 && <p className="text-xs text-gray-400 italic py-2 col-span-full text-center">No competitions in this category.</p>}
+                                            {(groupedEntities[cat.id]?.length || 0) === 0 && <p className="text-xs text-gray-400 italic py-2 col-span-full text-center">No items in this category.</p>}
                                         </div>
                                     </div>
                                 ))}
 
-                                {/* Uncategorized Section */}
-                                {groupedCompetitions['uncategorized'].length > 0 && (
+                                {groupedEntities['uncategorized'].length > 0 && (
                                     <div className="border border-red-100 rounded-2xl overflow-hidden bg-red-50/30">
                                         <div className="p-4 border-b border-red-100">
                                             <h4 className="font-bold text-red-800">Uncategorized Entities</h4>
-                                            <p className="text-xs text-red-600">These will not appear in the Navigation menus.</p>
+                                            <p className="text-xs text-red-600">These will not appear in specialized Hub sections.</p>
                                         </div>
                                         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            {groupedCompetitions['uncategorized'].map(comp => (
-                                                <div key={comp.id} onClick={() => openCompModal(comp)} className="p-3 border border-red-200 bg-white rounded-xl hover:border-red-400 transition-all cursor-pointer flex items-center gap-3">
-                                                    <img src={comp.logoUrl || 'https://via.placeholder.com/64?text=?'} className="w-8 h-8 object-contain bg-gray-50 rounded" />
-                                                    <span className="text-sm font-bold text-gray-800 truncate">{comp.name}</span>
+                                            {groupedEntities['uncategorized'].map(entity => (
+                                                <div key={entity.id} onClick={() => openEntityModal(entity)} className="p-3 border border-red-200 bg-white rounded-xl hover:border-red-400 transition-all cursor-pointer flex items-center gap-3">
+                                                    <div className="w-8 h-8 flex items-center justify-center bg-gray-50 rounded">
+                                                        {entity.logoUrl ? <img src={entity.logoUrl} className="max-h-full max-w-full object-contain" /> : <div className="text-[10px] font-black text-gray-300">{entity.isCup ? 'CUP' : 'LG'}</div>}
+                                                    </div>
+                                                    <span className="text-sm font-bold text-gray-800 truncate">{entity.name}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -333,7 +350,6 @@ const CategoryManagement: React.FC = () => {
                 </CardContent>
             </Card>
 
-            {/* Category Edit Modal */}
             {isCatModalOpen && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsCatModalOpen(false)}>
                     <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
@@ -345,7 +361,7 @@ const CategoryManagement: React.FC = () => {
                                     <input value={catForm.name} onChange={e => setCatForm({...catForm, name: e.target.value})} className={inputClass} required />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Order Position (lower = first)</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Order Position</label>
                                     <input type="number" value={catForm.order} onChange={e => setCatForm({...catForm, order: parseInt(e.target.value) || 0})} className={inputClass} />
                                 </div>
                                 <div>
@@ -365,13 +381,12 @@ const CategoryManagement: React.FC = () => {
                 </div>
             )}
 
-            {/* Competition Edit Modal */}
-            {isCompModalOpen && editingComp && (
+            {isCompModalOpen && editingEntity && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsCompModalOpen(false)}>
                     <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <CardContent className="p-8">
-                            <h3 className="text-2xl font-bold mb-6">Edit Entity Info</h3>
-                            <form onSubmit={handleSaveCompetition} className="space-y-4">
+                            <h3 className="text-2xl font-bold mb-6">Edit {editingEntity.isCup ? 'Tournament' : 'League'} Info</h3>
+                            <form onSubmit={handleSaveEntity} className="space-y-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Display Name</label>
                                     <input value={compForm.name} onChange={e => setCompForm({...compForm, name: e.target.value})} className={inputClass} required />
@@ -391,10 +406,12 @@ const CategoryManagement: React.FC = () => {
                                     </div>
                                     {compForm.logoUrl && <img src={compForm.logoUrl} className="h-16 mx-auto mt-4 object-contain border p-2 rounded bg-gray-50" />}
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">External API ID</label>
-                                    <input value={compForm.externalApiId} onChange={e => setCompForm({...compForm, externalApiId: e.target.value})} className={inputClass} placeholder="e.g. 2021" />
-                                </div>
+                                {!editingEntity.isCup && (
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">External API ID</label>
+                                        <input value={compForm.externalApiId} onChange={e => setCompForm({...compForm, externalApiId: e.target.value})} className={inputClass} placeholder="e.g. 2021" />
+                                    </div>
+                                )}
                                 <div className="flex justify-end gap-3 pt-4">
                                     <Button type="button" onClick={() => setIsCompModalOpen(false)} className="bg-gray-100 text-gray-700">Cancel</Button>
                                     <Button type="submit" disabled={isSubmitting} className="bg-primary text-white">{isSubmitting ? 'Saving...' : 'Save Changes'}</Button>

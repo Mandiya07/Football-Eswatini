@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -26,7 +27,7 @@ const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HT
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={`text-2xl font-semibold leading-none tracking-tight font-display ${className || ''}`}
+      className={`text-xl font-bold leading-none tracking-tight font-display ${className || ''}`}
       {...props}
     />
   )
@@ -37,7 +38,7 @@ const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttribu
   ({ className, ...props }, ref) => (
     <p
       ref={ref}
-      className={`text-sm text-slate-500 ${className || ''}`}
+      className={`text-sm text-slate-500 font-medium ${className || ''}`}
       {...props}
     />
   )

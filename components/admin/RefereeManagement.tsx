@@ -11,12 +11,15 @@ import PencilIcon from '../icons/PencilIcon';
 import SaveIcon from '../icons/SaveIcon';
 import RefereeFormModal from './RefereeFormModal';
 import StarIcon from '../icons/StarIcon';
+import SparklesIcon from '../icons/SparklesIcon';
+import { GoogleGenAI, Type } from "@google/genai";
 
 const RefereeManagement: React.FC = () => {
     const [referees, setReferees] = useState<Referee[]>([]);
     const [rule, setRule] = useState<Rule>({ id: '', title: '', summary: '', explanation: '' });
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
     
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,7 +72,6 @@ const RefereeManagement: React.FC = () => {
             updatedReferees.push(newReferee);
         }
 
-        // Ensure only one spotlight if the new/edited one is set to true (optional logic, but good UX)
         if (data.isSpotlight) {
             updatedReferees = updatedReferees.map(r => r.id === (id || updatedReferees[updatedReferees.length-1].id) ? r : { ...r, isSpotlight: false });
         }
@@ -82,6 +84,46 @@ const RefereeManagement: React.FC = () => {
         e.preventDefault();
         await saveData(referees, rule);
         alert("Rule of the Week updated!");
+    };
+
+    const handleGenerateAIRule = async () => {
+        if (!process.env.API_KEY) return alert("API Key missing from environment.");
+        
+        setIsGenerating(true);
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const prompt = "Act as a senior FIFA Referee Instructor. Generate a 'Football Rule of the Week' educational entry. Choose a specific law (e.g., handball, offside, DOGSO, VAR protocols). Provide a title, a concise 1-sentence summary, and a detailed 3-paragraph explanation suitable for players and fans. Return as a clean JSON object.";
+            
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            title: { type: Type.STRING },
+                            summary: { type: Type.STRING },
+                            explanation: { type: Type.STRING }
+                        },
+                        required: ["title", "summary", "explanation"]
+                    }
+                }
+            });
+
+            const generated = JSON.parse(response.text || '{}');
+            setRule(prev => ({
+                ...prev,
+                title: generated.title || prev.title,
+                summary: generated.summary || prev.summary,
+                explanation: generated.explanation || prev.explanation
+            }));
+        } catch (error) {
+            console.error("AI Generation error:", error);
+            alert("Digital Referee Assistant failed to synthesize rule. Please try again.");
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const saveData = async (updatedReferees: Referee[], updatedRule: Rule) => {
@@ -104,43 +146,60 @@ const RefereeManagement: React.FC = () => {
     return (
         <div className="space-y-8 animate-fade-in">
             {/* Rule of the Week Section */}
-            <Card className="shadow-lg">
+            <Card className="shadow-lg border-t-4 border-indigo-600">
                 <CardContent className="p-6">
-                    <h3 className="text-2xl font-bold font-display mb-4">Manage Rule of the Week</h3>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                        <div>
+                            <h3 className="text-2xl font-bold font-display text-gray-900">Manage Rule of the Week</h3>
+                            <p className="text-sm text-gray-500">Educate fans with the latest FIFA Law clarifications.</p>
+                        </div>
+                        <Button 
+                            onClick={handleGenerateAIRule} 
+                            disabled={isGenerating}
+                            className="bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg flex items-center gap-2"
+                        >
+                            {isGenerating ? <Spinner className="w-4 h-4 border-white" /> : <SparklesIcon className="w-4 h-4" />}
+                            AI Rule Generator
+                        </Button>
+                    </div>
+
                     <form onSubmit={handleSaveRule} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Rule Title</label>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">Rule Title</label>
                             <input 
                                 type="text" 
                                 value={rule.title} 
                                 onChange={e => setRule({ ...rule, title: e.target.value })} 
                                 className={inputClass} 
+                                placeholder="e.g., Law 11: Offside Protocols"
                                 required 
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Summary</label>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">Brief Summary</label>
                             <textarea 
                                 value={rule.summary} 
                                 onChange={e => setRule({ ...rule, summary: e.target.value })} 
                                 className={inputClass} 
                                 rows={2} 
+                                placeholder="One sentence for the card view..."
                                 required 
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Full Explanation</label>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">In-Depth Explanation</label>
                             <textarea 
                                 value={rule.explanation} 
                                 onChange={e => setRule({ ...rule, explanation: e.target.value })} 
                                 className={inputClass} 
-                                rows={4} 
+                                rows={5} 
+                                placeholder="Detailed breakdown for the fan hub..."
                                 required 
                             />
                         </div>
-                        <div className="text-right">
-                            <Button type="submit" disabled={isSubmitting} className="bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2 ml-auto">
-                                {isSubmitting ? <Spinner className="w-4 h-4 border-2" /> : <><SaveIcon className="w-4 h-4" /> Update Rule</>}
+                        <div className="text-right pt-2 border-t">
+                            <Button type="submit" disabled={isSubmitting} className="bg-primary text-white hover:bg-primary-dark flex items-center gap-2 ml-auto shadow-md">
+                                {isSubmitting ? <Spinner className="w-4 h-4 border-white border-2" /> : <><SaveIcon className="w-4 h-4" /> Save & Publish Rule</>}
                             </Button>
                         </div>
                     </form>
@@ -175,8 +234,8 @@ const RefereeManagement: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex gap-2 self-end sm:self-center">
-                                    <Button onClick={() => handleEditReferee(referee)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center"><PencilIcon className="w-4 h-4"/></Button>
-                                    <Button onClick={() => handleDeleteReferee(referee.id)} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center"><TrashIcon className="w-4 h-4"/></Button>
+                                    <Button onClick={() => handleEditReferee(referee)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center"><PencilIcon className="w-4 h-4" /></Button>
+                                    <Button onClick={() => handleDeleteReferee(referee.id)} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center"><TrashIcon className="w-4 h-4" /></Button>
                                 </div>
                             </div>
                         ))}

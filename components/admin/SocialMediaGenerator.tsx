@@ -8,11 +8,11 @@ import SparklesIcon from '../icons/SparklesIcon';
 import RefreshIcon from '../icons/RefreshIcon';
 import PhotoIcon from '../icons/PhotoIcon';
 import FilmIcon from '../icons/FilmIcon';
-import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api';
+import { fetchAllCompetitions, fetchDirectoryEntries, fetchCups, fetchAllTeams } from '../../services/api';
 import { superNormalize, findInMap, calculateStandings } from '../../services/utils';
 import RecapGeneratorModal from './RecapGeneratorModal';
 import { DirectoryEntity } from '../../data/directory';
-import { MatchEvent } from '../../data/teams';
+import { MatchEvent, Team } from '../../data/teams';
 import CalendarIcon from '../icons/CalendarIcon';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -40,6 +40,13 @@ interface SocialMatch {
     events?: MatchEvent[];
 }
 
+interface LeagueOption {
+    id: string;
+    name: string;
+    logoUrl?: string;
+    isCup: boolean;
+}
+
 const SocialMediaGenerator: React.FC = () => {
     const [activeTab, setActiveTab] = useState<ContentType>('captions');
     const [platform, setPlatform] = useState<PlatformType>('Instagram');
@@ -49,7 +56,7 @@ const SocialMediaGenerator: React.FC = () => {
     const [publishSuccess, setPublishSuccess] = useState(false);
     const [isFetchingData, setIsFetchingData] = useState(false);
     
-    const [allLeagues, setAllLeagues] = useState<{ id: string, name: string, logoUrl?: string }[]>([]);
+    const [allLeagues, setAllLeagues] = useState<LeagueOption[]>([]);
     const [selectedLeagueId, setSelectedLeagueId] = useState('');
     
     const [rawMatches, setRawMatches] = useState<SocialMatch[]>([]);
@@ -61,10 +68,22 @@ const SocialMediaGenerator: React.FC = () => {
 
     useEffect(() => {
         const loadLeagues = async () => {
-            const comps = await fetchAllCompetitions();
-            const list = Object.entries(comps)
-                .map(([id, c]) => ({ id, name: c.name, logoUrl: c.logoUrl }))
-                .sort((a, b) => a.name.localeCompare(b.name));
+            const [comps, cups] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchCups()
+            ]);
+            
+            const leagueList = Object.entries(comps)
+                .map(([id, c]) => ({ id, name: c.name, logoUrl: c.logoUrl, isCup: false }));
+            
+            const cupList = cups.map(c => ({ 
+                id: c.id, 
+                name: c.name, 
+                logoUrl: (c as any).logoUrl, 
+                isCup: true 
+            }));
+
+            const list = [...leagueList, ...cupList].sort((a, b) => a.name.localeCompare(b.name));
             setAllLeagues(list);
             if (list.length > 0) setSelectedLeagueId(list[0].id);
         };
@@ -77,9 +96,11 @@ const SocialMediaGenerator: React.FC = () => {
         setRawMatches([]);
         setSelectedMatchIds([]);
         try {
-            const [allComps, dirEntries] = await Promise.all([
+            const [allComps, dirEntries, allCups, allGlobalTeams] = await Promise.all([
                 fetchAllCompetitions(),
-                fetchDirectoryEntries()
+                fetchDirectoryEntries(),
+                fetchCups(),
+                fetchAllTeams()
             ]);
 
             const dirMap = new Map<string, DirectoryEntity>();
@@ -87,41 +108,103 @@ const SocialMediaGenerator: React.FC = () => {
                 if (e.name) dirMap.set(superNormalize(e.name), e);
             });
 
-            const comp = allComps[selectedLeagueId];
-            if (!comp) throw new Error("Competition not found");
-
+            const selectedOption = allLeagues.find(l => l.id === selectedLeagueId);
             const extractedMatches: SocialMatch[] = [];
+
             const getCrest = (name: string) => {
-                if (!name) return undefined;
+                if (!name || name === 'TBD') return undefined;
                 const dirEntry = findInMap(name, dirMap);
                 if (dirEntry?.crestUrl) return dirEntry.crestUrl;
-                const teamInComp = comp.teams?.find(t => superNormalize(t.name) === superNormalize(name));
-                return teamInComp?.crestUrl;
+                return undefined;
             };
 
-            const results = (comp.results || []).map(m => ({ ...m, type: 'result' as const }));
-            const fixtures = (comp.fixtures || []).map(m => ({ ...m, type: 'fixture' as const }));
-            
-            const combined = [...results, ...fixtures];
-            combined.forEach(m => {
-                extractedMatches.push({
-                    id: `${selectedLeagueId}-${m.id}`,
-                    type: m.type,
-                    teamA: m.teamA,
-                    teamB: m.teamB,
-                    teamACrest: getCrest(m.teamA),
-                    teamBCrest: getCrest(m.teamB),
-                    scoreA: m.scoreA,
-                    scoreB: m.scoreB,
-                    date: m.fullDate || m.date || '',
-                    time: m.time,
-                    venue: m.venue,
-                    matchday: m.matchday,
-                    competition: comp.displayName || comp.name,
-                    competitionLogoUrl: comp.logoUrl,
-                    events: m.events
-                });
-            });
+            const parseVal = (val: any): number | undefined => {
+                if (val === undefined || val === null || val === '') return undefined;
+                const n = Number(val);
+                return isNaN(n) ? undefined : n;
+            };
+
+            if (selectedOption?.isCup) {
+                // Handling Cup Matches from Tournament Bracket
+                const cup = allCups.find(c => c.id === selectedLeagueId);
+                if (cup) {
+                    cup.rounds.forEach(round => {
+                        const roundTitle = round.title;
+                        round.matches.forEach(m => {
+                            const mAny = m as any;
+                            
+                            // ROBUST TEAM NAME DETECTION
+                            // Matches from the builder use flat properties (team1Name) whereas hybrid uses nested objects
+                            let t1Name = mAny.team1Name || m.team1?.name || mAny.teamA || 'TBD';
+                            let t2Name = mAny.team2Name || m.team2?.name || mAny.teamB || 'TBD';
+
+                            // SECONDARY ID LOOKUP (If name is TBD but ID exists)
+                            const t1Id = mAny.team1Id || m.team1?.id;
+                            const t2Id = mAny.team2Id || m.team2?.id;
+
+                            if (t1Name === 'TBD' && t1Id) {
+                                const lookup = allGlobalTeams.find(t => String(t.id) === String(t1Id));
+                                if (lookup) t1Name = lookup.name;
+                            }
+                            if (t2Name === 'TBD' && t2Id) {
+                                const lookup = allGlobalTeams.find(t => String(t.id) === String(t2Id));
+                                if (lookup) t2Name = lookup.name;
+                            }
+
+                            // ROBUST SCORE DETECTION (Prevents NaN)
+                            const s1 = parseVal(mAny.score1 ?? m.team1?.score ?? mAny.scoreA);
+                            const s2 = parseVal(mAny.score2 ?? m.team2?.score ?? mAny.scoreB);
+
+                            // Determine if result or fixture
+                            const isFinished = m.winner !== null || (s1 !== undefined && s2 !== undefined);
+
+                            extractedMatches.push({
+                                id: `${selectedLeagueId}-${m.id}`,
+                                type: isFinished ? 'result' : 'fixture',
+                                teamA: t1Name,
+                                teamB: t2Name,
+                                teamACrest: mAny.team1Crest || m.team1?.crestUrl || getCrest(t1Name),
+                                teamBCrest: mAny.team2Crest || m.team2?.crestUrl || getCrest(t2Name),
+                                scoreA: s1,
+                                scoreB: s2,
+                                date: m.date || '',
+                                time: m.time,
+                                venue: m.venue,
+                                competition: `${cup.name} (${roundTitle})`, 
+                                competitionLogoUrl: (cup as any).logoUrl
+                            });
+                        });
+                    });
+                }
+            } else {
+                // Handling Standard League Matches
+                const comp = allComps[selectedLeagueId];
+                if (comp) {
+                    const results = (comp.results || []).map(m => ({ ...m, type: 'result' as const }));
+                    const fixtures = (comp.fixtures || []).map(m => ({ ...m, type: 'fixture' as const }));
+                    
+                    const combined = [...results, ...fixtures];
+                    combined.forEach(m => {
+                        extractedMatches.push({
+                            id: `${selectedLeagueId}-${m.id}`,
+                            type: m.type,
+                            teamA: m.teamA,
+                            teamB: m.teamB,
+                            teamACrest: getCrest(m.teamA),
+                            teamBCrest: getCrest(m.teamB),
+                            scoreA: m.scoreA,
+                            scoreB: m.scoreB,
+                            date: m.fullDate || m.date || '',
+                            time: m.time,
+                            venue: m.venue,
+                            matchday: m.matchday,
+                            competition: comp.displayName || comp.name,
+                            competitionLogoUrl: comp.logoUrl,
+                            events: m.events
+                        });
+                    });
+                }
+            }
 
             const sorted = extractedMatches.sort((a, b) => {
                 if (a.type !== b.type) return a.type === 'fixture' ? -1 : 1;
@@ -134,7 +217,7 @@ const SocialMediaGenerator: React.FC = () => {
             setRawMatches(sorted);
             if (sorted.length > 0) setSelectedMatchIds(sorted.slice(0, 8).map(m => m.id));
         } catch (error) {
-            console.error(error);
+            console.error("Fetch Data Error:", error);
         } finally {
             setIsFetchingData(false);
         }
@@ -150,15 +233,17 @@ const SocialMediaGenerator: React.FC = () => {
             const allComps = await fetchAllCompetitions();
             const currentComp = allComps[selectedLeagueId];
             
-            // Calculate Standings Context for the AI
-            const standings = currentComp ? calculateStandings(currentComp.teams || [], currentComp.results || [], currentComp.fixtures || []) : [];
-            const standingsContext = standings.slice(0, 10).map((t, i) => 
-                `${i+1}. ${t.name} (P:${t.stats.p}, GD:${t.stats.gd}, PTS:${t.stats.pts}, Form: ${t.stats.form})`
-            ).join('; ');
+            let standingsContext = "N/A (Cup format)";
+            if (currentComp) {
+                const standings = calculateStandings(currentComp.teams || [], currentComp.results || [], currentComp.fixtures || []);
+                standingsContext = standings.slice(0, 10).map((t, i) => 
+                    `${i+1}. ${t.name} (P:${t.stats.p}, GD:${t.stats.gd}, PTS:${t.stats.pts}, Form: ${t.stats.form})`
+                ).join('; ');
+            }
 
             const matchesToSummarize = rawMatches.filter(m => selectedMatchIds.includes(m.id));
             const dataToProcess = matchesToSummarize.map(m => {
-                let matchStr = `${m.teamA} ${m.type === 'result' ? m.scoreA + '-' + m.scoreB : 'vs'} ${m.teamB} (Matchday: ${m.matchday || 'N/A'}, Date: ${m.date})`;
+                let matchStr = `${m.teamA} ${m.type === 'result' ? (m.scoreA ?? '?') + '-' + (m.scoreB ?? '?') : 'vs'} ${m.teamB} (Date: ${m.date})`;
                 if (m.events && m.events.length > 0) {
                     const eventsDetail = m.events.map(e => `${e.minute}' ${e.type}${e.playerName ? ' by ' + e.playerName : ''}: ${e.description}`).join('; ');
                     matchStr += ` [STATISTICS: ${eventsDetail}]`;
@@ -169,8 +254,8 @@ const SocialMediaGenerator: React.FC = () => {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             let prompt = "";
-            const commonContext = `League Name: ${currentComp?.name}. 
-            CURRENT STANDINGS (Top 10): ${standingsContext}. 
+            const commonContext = `Competition: ${matchesToSummarize[0]?.competition}. 
+            CONTEXT STANDINGS: ${standingsContext}. 
             MATCH DATA: "${dataToProcess}".`;
 
             if (isWeeklySummary) {
@@ -179,9 +264,8 @@ const SocialMediaGenerator: React.FC = () => {
                 
                 REQUIREMENTS & CONSTRAINTS:
                 1. DATA-DRIVEN ANALYSIS: You MUST include specific match statistics. Explicitly mention goal scorers, red cards, and yellow cards for each match where this information is provided in the [STATISTICS] section of the context.
-                2. NO HALLUCINATIONS: Do NOT invent tactical patterns (e.g., "clinical on the counter-attack", "possession-based dominance", "vulnerable in transitions") unless those specific tactical descriptions or events are explicitly mentioned in the match logs provided. If a goal came from a corner, highlight that; do not assume it was a "fast-paced team move" unless stated.
-                3. STANDINGS IMPACT: Specifically mention which teams moved up or down the table based on the match results and standings context provided.
-                4. FUTURE OUTLOOK: Mention why the upcoming fixtures in the data matter for the points gap.
+                2. NO HALLUCINATIONS: Do NOT invent tactical patterns unless those specific descriptions are explicitly mentioned in the match logs provided.
+                3. STANDINGS IMPACT: Specifically mention which teams moved up or down the table if league context is provided.
                 
                 Format as a JSON object with keys: "title", "summary", "content". The content should be at least 600 words with H2 headers.`;
             } else {
@@ -189,11 +273,11 @@ const SocialMediaGenerator: React.FC = () => {
                 CONTEXT: ${commonContext}.
                 
                 REQUIREMENTS:
-                - Caption 1: Focus on a specific 'Big Result', naming the specific scorers or card incidents from the [STATISTICS] if available.
-                - Caption 2: Focus on 'League Movement'. Mention who jumped who in the standings.
-                - Caption 3: Hype for the 'Upcoming Fixtures' mentioned in data.
+                - Caption 1: Focus on a specific 'Big Result' or 'Major Fixure'.
+                - Caption 2: Focus on 'Climb to Glory' or the current status of the competition.
+                - Caption 3: Hype for the 'Upcoming Matches' mentioned in data.
                 
-                Use emojis, #FootballEswatini, and the league name. Separate each caption with '---'.`;
+                Use emojis, #FootballEswatini. Separate each caption with '---'.`;
             }
             
             const response = await ai.models.generateContent({ 
@@ -201,7 +285,7 @@ const SocialMediaGenerator: React.FC = () => {
                 contents: prompt,
                 config: isWeeklySummary ? { 
                     responseMimeType: "application/json",
-                    systemInstruction: "You are a professional and accurate football journalist. Stick strictly to the match events and data provided. Never fabricate tactical observations or player performances not explicitly recorded in the event logs."
+                    systemInstruction: "You are a professional and accurate football journalist."
                 } : undefined
             });
 
@@ -356,7 +440,7 @@ const SocialMediaGenerator: React.FC = () => {
             ctx.fillText(m.teamB, W - 200, y + 80, textMaxW);
             ctx.textAlign = 'center';
             ctx.font = '900 62px "Poppins", sans-serif';
-            const centerInfo = m.type === 'result' ? `${m.scoreA}-${m.scoreB}` : m.time || '15:00';
+            const centerInfo = m.type === 'result' ? `${m.scoreA ?? 0}-${m.scoreB ?? 0}` : m.time || '15:00';
             ctx.fillText(centerInfo, W/2, y + 85);
             ctx.font = '600 16px "Inter", sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.4)';
@@ -412,13 +496,13 @@ const SocialMediaGenerator: React.FC = () => {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
                             <div>
-                                <label className="block text-xs font-black uppercase text-gray-400 mb-2">Select League</label>
+                                <label className="block text-xs font-black uppercase text-gray-400 mb-2">Select Competition / Cup</label>
                                 <select 
                                     value={selectedLeagueId} 
                                     onChange={(e) => setSelectedLeagueId(e.target.value)} 
                                     className="block w-full px-3 py-2 border border-gray-300 rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-indigo-500"
                                 >
-                                    {allLeagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                    {allLeagues.map(l => <option key={l.id} value={l.id}>{l.name} {l.isCup ? '(Cup)' : ''}</option>)}
                                 </select>
                             </div>
                             <div className="flex items-end">
@@ -454,7 +538,7 @@ const SocialMediaGenerator: React.FC = () => {
                                             <div key={m.id} onClick={() => toggleMatchSelection(m.id)} className={`p-3 border rounded-xl cursor-pointer transition-all flex items-center gap-3 ${selectedMatchIds.includes(m.id) ? 'bg-green-50 border-green-400 ring-1 ring-green-400' : 'bg-white hover:bg-gray-50 border-gray-100'}`}>
                                                 <input type="checkbox" checked={selectedMatchIds.includes(m.id)} readOnly className="h-4 w-4 rounded text-green-600" />
                                                 <div className="flex-grow min-w-0">
-                                                    <p className="font-bold text-xs truncate">{m.teamA} {m.scoreA}-{m.scoreB} {m.teamB}</p>
+                                                    <p className="font-bold text-xs truncate">{m.teamA} {m.scoreA ?? '?'}-{m.scoreB ?? '?'} {m.teamB}</p>
                                                     <p className="text-[10px] text-gray-500">{m.date} &bull; {m.competition}</p>
                                                 </div>
                                             </div>
@@ -502,40 +586,44 @@ const SocialMediaGenerator: React.FC = () => {
                     ) : activeTab === 'weekly' ? (
                         <div className="space-y-4">
                             {generatedCaptions.map((jsonStr, i) => {
-                                const article = JSON.parse(jsonStr);
-                                return (
-                                    <Card key={i} className="bg-white border-0 shadow-lg animate-fade-in overflow-hidden">
-                                        <div className="bg-indigo-600 p-4 text-white">
-                                            <h4 className="text-lg font-bold font-display">{article.title}</h4>
-                                            <p className="text-xs text-indigo-100 italic mt-1">{article.summary}</p>
-                                        </div>
-                                        <CardContent className="p-6">
-                                            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-y-auto custom-scrollbar">
-                                                {article.content}
+                                try {
+                                    const article = JSON.parse(jsonStr);
+                                    return (
+                                        <Card key={i} className="bg-white border-0 shadow-lg animate-fade-in overflow-hidden">
+                                            <div className="bg-indigo-600 p-4 text-white">
+                                                <h4 className="text-lg font-bold font-display">{article.title}</h4>
+                                                <p className="text-xs text-indigo-100 italic mt-1">{article.summary}</p>
                                             </div>
-                                            
-                                            {publishSuccess ? (
-                                                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center justify-center gap-2 text-green-700 font-bold">
-                                                    <CheckCircleIcon className="w-5 h-5" />
-                                                    Sent to News Management!
+                                            <CardContent className="p-6">
+                                                <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-y-auto custom-scrollbar">
+                                                    {article.content}
                                                 </div>
-                                            ) : (
-                                                <div className="mt-6 flex gap-3">
-                                                    <Button 
-                                                        onClick={handlePublishArticle} 
-                                                        disabled={isPublishing} 
-                                                        className="flex-grow bg-indigo-600 text-white hover:bg-indigo-700 shadow-md font-bold h-12"
-                                                    >
-                                                        {isPublishing ? <Spinner className="w-4 h-4 border-white" /> : "Send to News Section"}
-                                                    </Button>
-                                                    <button onClick={() => { navigator.clipboard.writeText(`${article.title}\n\n${article.content}`); alert("Copied!"); }} className="p-3 bg-gray-100 rounded-xl text-gray-500 hover:text-indigo-600 transition-colors">
-                                                        <CopyIcon className="w-5 h-5" />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                );
+                                                
+                                                {publishSuccess ? (
+                                                    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center justify-center gap-2 text-green-700 font-bold">
+                                                        <CheckCircleIcon className="w-5 h-5" />
+                                                        Sent to News Management!
+                                                    </div>
+                                                ) : (
+                                                    <div className="mt-6 flex gap-3">
+                                                        <Button 
+                                                            onClick={handlePublishArticle} 
+                                                            disabled={isPublishing} 
+                                                            className="flex-grow bg-indigo-600 text-white hover:bg-indigo-700 shadow-md font-bold h-12"
+                                                        >
+                                                            {isPublishing ? <Spinner className="w-4 h-4 border-white" /> : "Send to News Section"}
+                                                        </Button>
+                                                        <button onClick={() => { navigator.clipboard.writeText(`${article.title}\n\n${article.content}`); alert("Copied!"); }} className="p-3 bg-gray-100 rounded-xl text-gray-500 hover:text-indigo-600 transition-colors">
+                                                            <CopyIcon className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                } catch(e) {
+                                    return <p key={i} className="text-red-500">Error parsing generated article.</p>;
+                                }
                             })}
                             {generatedCaptions.length === 0 && <p className="text-center py-20 text-gray-400 italic">Generate a weekly summary to preview it here.</p>}
                         </div>

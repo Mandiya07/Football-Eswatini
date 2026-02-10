@@ -17,6 +17,7 @@ import MessageSquareIcon from './icons/MessageSquareIcon';
 import StarIcon from './icons/StarIcon';
 import SendIcon from './icons/SendIcon';
 import UsersIcon from './icons/UsersIcon';
+import MedalIcon from './icons/MedalIcon';
 
 const EventIcon: React.FC<{ type: MatchEvent['type'] }> = ({ type }) => {
     switch (type) {
@@ -189,6 +190,18 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                             <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 shadow-sm">
                                 <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-4">Technical Info</h4>
                                 <div className="space-y-4">
+                                    {fixture.playerOfTheMatch && (
+                                        <div className="flex items-center gap-4 text-sm text-gray-700 bg-yellow-50 p-3 rounded-xl border border-yellow-200 shadow-sm">
+                                            <div className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center shadow-md">
+                                                <MedalIcon className="w-6 h-6 text-yellow-900" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase text-yellow-700">Man of the Match</p>
+                                                <p className="font-black text-gray-900">{fixture.playerOfTheMatch.name}</p>
+                                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">{fixture.playerOfTheMatch.teamName}</p>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-4 text-sm text-gray-700">
                                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border shadow-sm"><MapPinIcon className="w-5 h-5 text-gray-400" /></div>
                                         <div><p className="text-[10px] font-black uppercase text-gray-400">Venue</p><p className="font-bold">{fixture.venue || 'TBA'}</p></div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -11,6 +10,7 @@ import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api'
 import { superNormalize, findInMap } from '../../services/utils';
 import { DirectoryEntity } from '../../data/directory';
 import DownloadIcon from '../icons/DownloadIcon';
+import MusicIcon from '../icons/MusicIcon';
 
 interface MatchSummary {
     id: string;
@@ -50,8 +50,13 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
     const [statusText, setStatusText] = useState('');
     const [imageCache, setImageCache] = useState<Map<string, HTMLImageElement>>(new Map());
     
+    // Music State
+    const [musicFile, setMusicFile] = useState<File | null>(null);
+    const [musicUrl, setMusicUrl] = useState<string | null>(null);
+    
     const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const musicInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const loadComps = async () => {
@@ -78,6 +83,15 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                 img.src = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
             }
         });
+    };
+
+    const handleMusicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setMusicFile(file);
+            if (musicUrl) URL.revokeObjectURL(musicUrl);
+            setMusicUrl(URL.createObjectURL(file));
+        }
     };
 
     const handlePrepare = async () => {
@@ -262,8 +276,33 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         setIsExporting(true);
         
         const canvas = canvasRef.current;
-        const stream = canvas.captureStream(30); 
-        const mediaRecorder = new MediaRecorder(stream, {
+        const canvasStream = canvas.captureStream(30); 
+        
+        let finalStream = canvasStream;
+        let audioContext: AudioContext | null = null;
+        let audioEl: HTMLAudioElement | null = null;
+
+        if (musicUrl) {
+            audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            audioEl = new Audio(musicUrl);
+            audioEl.crossOrigin = "anonymous";
+            audioEl.loop = true;
+            
+            const source = audioContext.createMediaElementSource(audioEl);
+            const dest = audioContext.createMediaStreamDestination();
+            source.connect(dest);
+            // Optional: connect to speakers to hear while exporting (might be loud)
+            // source.connect(audioContext.destination); 
+            
+            await audioEl.play();
+            
+            finalStream = new MediaStream([
+                ...canvasStream.getVideoTracks(),
+                ...dest.stream.getAudioTracks()
+            ]);
+        }
+
+        const mediaRecorder = new MediaRecorder(finalStream, {
             mimeType: 'video/webm;codecs=vp9',
             bitsPerSecond: 5000000 
         });
@@ -271,6 +310,9 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         const chunks: Blob[] = [];
         mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
         mediaRecorder.onstop = () => {
+            if (audioEl) audioEl.pause();
+            if (audioContext) audioContext.close();
+            
             const blob = new Blob(chunks, { type: 'video/webm' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -324,20 +366,49 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <button onClick={() => setMode('results')} className={`p-6 rounded-2xl border-2 transition-all text-left ${mode === 'results' ? 'bg-purple-600 border-purple-400 shadow-xl' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
                                     <h4 className="text-xl font-bold">Recap Results</h4>
+                                    <p className="text-xs opacity-70 mt-1">Review past match performances.</p>
                                 </button>
                                 <button onClick={() => setMode('fixtures')} className={`p-6 rounded-2xl border-2 transition-all text-left ${mode === 'fixtures' ? 'bg-purple-600 border-purple-400 shadow-xl' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
                                     <h4 className="text-xl font-bold">Preview Fixtures</h4>
+                                    <p className="text-xs opacity-70 mt-1">Hype upcoming matchdays.</p>
                                 </button>
                              </div>
 
-                             <div className="grid grid-cols-2 gap-4 bg-slate-800 p-4 rounded-xl">
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Start Date</label>
-                                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none" />
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <label className="block text-xs font-black uppercase text-slate-500 tracking-widest">Timeframe</label>
+                                    <div className="grid grid-cols-2 gap-3 bg-slate-800 p-4 rounded-xl">
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Start Date</label>
+                                            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">End Date</label>
+                                            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none" />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">End Date</label>
-                                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white outline-none" />
+
+                                <div className="space-y-4">
+                                    <label className="block text-xs font-black uppercase text-slate-500 tracking-widest">Background Audio</label>
+                                    <div 
+                                        onClick={() => musicInputRef.current?.click()}
+                                        className={`flex flex-col items-center justify-center p-4 h-[72px] border-2 border-dashed rounded-xl cursor-pointer transition-all ${musicFile ? 'bg-blue-600/20 border-blue-400' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}
+                                    >
+                                        <input type="file" ref={musicInputRef} onChange={handleMusicChange} accept="audio/*" className="hidden" />
+                                        {musicFile ? (
+                                            <div className="flex items-center gap-2 text-blue-300 font-bold text-xs truncate max-w-full">
+                                                <MusicIcon className="w-4 h-4 flex-shrink-0" />
+                                                <span className="truncate">{musicFile.name}</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 text-slate-500 text-xs font-bold">
+                                                <MusicIcon className="w-4 h-4" />
+                                                Upload Background Music
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-slate-500 italic">MP3 or WAV files supported. Audio will loop during playback.</p>
                                 </div>
                              </div>
 

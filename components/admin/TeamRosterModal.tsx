@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Team, Player, Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -8,54 +8,85 @@ import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import UserIcon from '../icons/UserIcon';
+import HistoryIcon from '../icons/HistoryIcon';
+import BarChartIcon from '../icons/BarChartIcon';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { removeUndefinedProps } from '../../services/utils';
+import { removeUndefinedProps, superNormalize } from '../../services/utils';
 import Spinner from '../ui/Spinner';
+import { handleFirestoreError } from '../../services/api';
+import InfoIcon from '../icons/InfoIcon';
 
 interface TeamRosterModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: () => void; // Trigger refresh in parent
+    onSave: () => void;
     team: Team;
     competitionId: string;
+    initialPlayer?: Player | null;
 }
 
-const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSave, team, competitionId }) => {
+const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSave, team, competitionId, initialPlayer }) => {
     const [players, setPlayers] = useState<Player[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [activeTab, setActiveTab] = useState<'basic' | 'technical' | 'history'>('basic');
     
-    // Form State
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formData, setFormData] = useState({
-        name: '', 
-        position: 'Forward', 
-        number: '', 
-        photoUrl: '',
-        age: '',
-        nationality: '',
-        height: ''
+        name: '', position: 'Forward', number: '', photoUrl: '',
+        age: '', nationality: '', height: '',
+        appearances: '0', goals: '0', assists: '0', cleanSheets: '0',
+        yellowCards: '0', redCards: '0'
     });
-    
+
+    const [transferHistory, setTransferHistory] = useState<{from: string, to: string, year: number}[]>([]);
+    const [newTransfer, setNewTransfer] = useState({ from: '', to: '', year: new Date().getFullYear() });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        setPlayers(team.players || []);
-    }, [team]);
-
-    const resetForm = () => {
-        setFormData({ 
-            name: '', 
-            position: 'Forward', 
-            number: '', 
-            photoUrl: '',
-            age: '',
-            nationality: '',
-            height: '' 
+    const startEditing = useCallback((player: Player) => {
+        setEditingId(player.id);
+        setFormData({
+            name: player.name || '',
+            position: player.position || 'Forward',
+            number: player.number === 0 ? '' : String(player.number), 
+            photoUrl: player.photoUrl || '',
+            age: String(player.bio?.age || ''),
+            nationality: player.bio?.nationality || '',
+            height: player.bio?.height || '',
+            appearances: String(player.stats?.appearances || 0),
+            goals: String(player.stats?.goals || 0),
+            assists: String(player.stats?.assists || 0),
+            cleanSheets: String(player.stats?.cleanSheets || 0),
+            yellowCards: String(player.stats?.yellowCards || 0),
+            redCards: String(player.stats?.redCards || 0)
         });
+        setTransferHistory(player.transferHistory || []);
+        setActiveTab('basic');
+    }, []);
+
+    const resetForm = useCallback(() => {
+        setFormData({ 
+            name: '', position: 'Forward', number: '', photoUrl: '',
+            age: '', nationality: '', height: '',
+            appearances: '0', goals: '0', assists: '0', cleanSheets: '0',
+            yellowCards: '0', redCards: '0'
+        });
+        setTransferHistory([]);
         setEditingId(null);
+        setActiveTab('basic');
         if (fileInputRef.current) fileInputRef.current.value = '';
-    };
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            setPlayers(team.players || []);
+            if (initialPlayer) {
+                startEditing(initialPlayer);
+            } else {
+                resetForm();
+            }
+        }
+    }, [team, initialPlayer, isOpen, startEditing, resetForm]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -63,28 +94,16 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
             const reader = new FileReader();
-            reader.onloadend = () => {
-                if (typeof reader.result === 'string') {
-                    setFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
-                }
-            };
-            reader.readAsDataURL(file);
+            reader.onloadend = () => { if (typeof reader.result === 'string') setFormData(prev => ({ ...prev, photoUrl: reader.result as string })); };
+            reader.readAsDataURL(e.target.files[0]);
         }
     };
 
-    const startEditing = (player: Player) => {
-        setEditingId(player.id);
-        setFormData({
-            name: player.name,
-            position: player.position,
-            number: player.number === 0 ? '' : player.number.toString(), // Show empty string if 0 (no number)
-            photoUrl: player.photoUrl || '',
-            age: player.bio?.age ? player.bio.age.toString() : '',
-            nationality: player.bio?.nationality || '',
-            height: player.bio?.height || ''
-        });
+    const handleAddTransfer = () => {
+        if (!newTransfer.from || !newTransfer.to) return;
+        setTransferHistory([...transferHistory, newTransfer].sort((a,b) => b.year - a.year));
+        setNewTransfer({ from: '', to: '', year: new Date().getFullYear() });
     };
 
     const updateFirestore = async (updatedPlayers: Player[]) => {
@@ -93,178 +112,185 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             const docRef = doc(db, 'competitions', competitionId);
             await runTransaction(db, async (transaction) => {
                 const docSnap = await transaction.get(docRef);
-                if (!docSnap.exists()) throw new Error("Competition not found");
-                
+                if (!docSnap.exists()) throw new Error("Hub missing.");
                 const competition = docSnap.data() as Competition;
-                const updatedTeams = competition.teams.map(t => 
-                    t.id === team.id ? { ...t, players: updatedPlayers } : t
-                );
-                
-                transaction.update(docRef, { teams: removeUndefinedProps(updatedTeams) });
+                const normName = superNormalize(team.name);
+                const updatedTeams = competition.teams.map(t => {
+                    if (t.id === team.id || superNormalize(t.name) === normName) {
+                        return { ...t, players: updatedPlayers };
+                    }
+                    return t;
+                });
+                transaction.update(docRef, removeUndefinedProps({ teams: updatedTeams }));
             });
             setPlayers(updatedPlayers);
+            onSave();
         } catch (error) {
-            console.error("Error updating roster:", error);
-            alert("Failed to update roster.");
-        } finally {
-            setIsSubmitting(false);
-        }
+            handleFirestoreError(error, 'update roster');
+        } finally { setIsSubmitting(false); }
     };
 
     const handleSavePlayer = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name) return; // Name is the only strict requirement
-
+        if (!formData.name) return;
         const playerToSave: Player = {
             id: editingId || Date.now(),
-            name: formData.name,
+            name: formData.name.trim(),
             position: formData.position as any,
-            number: formData.number ? parseInt(formData.number, 10) : 0, // Default to 0 if no number
-            photoUrl: formData.photoUrl, // Can be empty string
-            bio: { 
-                nationality: formData.nationality || 'Eswatini', 
-                age: formData.age ? parseInt(formData.age, 10) : 0, 
-                height: formData.height || '-' 
+            number: parseInt(formData.number, 10) || 0,
+            photoUrl: formData.photoUrl,
+            bio: { nationality: formData.nationality || 'Eswatini', age: parseInt(formData.age, 10) || 0, height: formData.height || '-' },
+            stats: { 
+                appearances: parseInt(formData.appearances, 10) || 0,
+                goals: parseInt(formData.goals, 10) || 0,
+                assists: parseInt(formData.assists, 10) || 0,
+                cleanSheets: parseInt(formData.cleanSheets, 10) || 0,
+                yellowCards: parseInt(formData.yellowCards, 10) || 0,
+                redCards: parseInt(formData.redCards, 10) || 0
             },
-            stats: editingId 
-                ? (players.find(p => p.id === editingId)?.stats || { appearances: 0, goals: 0, assists: 0 }) 
-                : { appearances: 0, goals: 0, assists: 0 },
-            transferHistory: editingId 
-                ? (players.find(p => p.id === editingId)?.transferHistory || []) 
-                : [],
+            transferHistory: transferHistory,
         };
-
-        let updatedPlayers: Player[];
-        if (editingId) {
-            updatedPlayers = players.map(p => p.id === editingId ? playerToSave : p);
-        } else {
-            updatedPlayers = [...players, playerToSave];
-        }
-
-        // Sort by number (0s/unknowns at the end usually, or strictly numeric)
-        const sortedPlayers = updatedPlayers.sort((a, b) => {
-            if (a.number === 0) return 1;
-            if (b.number === 0) return -1;
-            return a.number - b.number;
-        });
-        
-        await updateFirestore(sortedPlayers);
+        let updated: Player[] = editingId ? players.map(p => p.id === editingId ? playerToSave : p) : [...players, playerToSave];
+        await updateFirestore(updated.sort((a,b) => a.number - b.number));
         resetForm();
-    };
-
-    const handleRemovePlayer = async (playerId: number) => {
-        if (!window.confirm("Remove this player from the team?")) return;
-        const updatedPlayers = players.filter(p => p.id !== playerId);
-        await updateFirestore(updatedPlayers);
-        if (editingId === playerId) resetForm();
+        onClose();
     };
 
     if (!isOpen) return null;
-
-    const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+    const inputClass = "block w-full px-4 py-3 border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm outline-none bg-white transition-all";
 
     return (
-        <div className="fixed inset-0 bg-black/70 z-[300] flex items-start justify-center p-4 pt-24 md:pt-32 overflow-y-auto animate-fade-in" onClick={onClose}>
-            <Card className="w-full max-w-3xl mb-8 relative animate-slide-up" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800" aria-label="Close"><XIcon className="w-6 h-6" /></button>
-                <CardContent className="p-8">
-                    <div className="mb-6">
-                        <h2 className="text-2xl font-bold font-display">Manage Roster: {team.name}</h2>
-                        <p className="text-sm text-gray-600">Add, edit, or remove players for this team.</p>
+        <div className="fixed inset-0 bg-slate-900/90 z-[300] flex items-center justify-center p-0 lg:p-4 overflow-y-auto animate-fade-in" onClick={onClose}>
+            <Card className="w-full max-w-5xl min-h-screen lg:min-h-0 lg:rounded-[2.5rem] relative animate-slide-up flex flex-col" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 z-50 bg-white/10 rounded-full p-2"><XIcon className="w-6 h-6" /></button>
+                <CardContent className="p-6 lg:p-12 flex-grow overflow-y-auto lg:overflow-visible">
+                    <div className="mb-8">
+                        <h2 className="text-2xl lg:text-3xl font-black font-display text-slate-900">{team.name}</h2>
+                        <p className="text-sm text-slate-500 font-medium mt-1">Roster & Technical Management Suite</p>
                     </div>
 
-                    {/* Add/Edit Player Form */}
-                    <form onSubmit={handleSavePlayer} className={`p-4 rounded-lg border mb-6 transition-colors ${editingId ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'}`}>
-                        <div className="flex justify-between items-center mb-3">
-                            <h4 className="font-bold text-sm text-gray-700">{editingId ? 'Edit Player' : 'Add New Player'}</h4>
-                            {editingId && <button type="button" onClick={resetForm} className="text-xs text-red-600 hover:underline">Cancel Edit</button>}
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Full Name *</label>
-                                <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Player Name" className={inputClass} required />
+                    <div className="flex flex-col lg:flex-row gap-10">
+                        {/* List - Mobile Top / Desktop Left */}
+                        <div className="lg:w-1/3 order-2 lg:order-1">
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Active Squad</h4>
+                                <button onClick={resetForm} className="text-[10px] font-black uppercase text-blue-600 hover:underline">New Player</button>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Jersey Number</label>
-                                <input type="number" name="number" value={formData.number} onChange={handleInputChange} placeholder="#" className={inputClass} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Position</label>
-                                <select name="position" value={formData.position} onChange={handleInputChange} className={inputClass}>
-                                    <option>Forward</option><option>Midfielder</option><option>Defender</option><option>Goalkeeper</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Nationality</label>
-                                <input type="text" name="nationality" value={formData.nationality} onChange={handleInputChange} placeholder="e.g. Eswatini" className={inputClass} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Age</label>
-                                <input type="number" name="age" value={formData.age} onChange={handleInputChange} placeholder="Years" className={inputClass} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Height</label>
-                                <input type="text" name="height" value={formData.height} onChange={handleInputChange} placeholder="e.g. 1.75m" className={inputClass} />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Photo (Optional)</label>
-                                <div className="flex items-center gap-2">
-                                    <input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} className="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
-                                    {formData.photoUrl && <img src={formData.photoUrl} alt="Preview" className="h-9 w-9 rounded-full object-cover border bg-gray-100"/>}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <Button type="submit" disabled={isSubmitting} className={`${editingId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white h-10 px-4 flex items-center justify-center w-full sm:w-auto ml-auto gap-2`}>
-                                {isSubmitting ? <Spinner className="w-4 h-4 border-2"/> : editingId ? 'Update Player' : <><PlusCircleIcon className="w-5 h-5" /> Add Player</>}
-                            </Button>
-                        </div>
-                    </form>
-
-                    {/* Player List */}
-                    <div className="space-y-2">
-                        <h4 className="font-bold text-sm mb-2">Current Squad ({players.length})</h4>
-                        <div className="max-h-64 overflow-y-auto pr-2 space-y-2">
-                            {players.length > 0 ? players.map(player => (
-                                <div key={player.id} className={`flex items-center justify-between p-2 border rounded transition-colors ${editingId === player.id ? 'bg-blue-50 border-blue-200' : 'bg-white hover:bg-gray-50'}`}>
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative flex-shrink-0">
-                                            {player.photoUrl ? (
-                                                <img src={player.photoUrl} alt={player.name} className="w-10 h-10 rounded-full object-cover border" />
-                                            ) : (
-                                                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border">
-                                                    <UserIcon className="w-6 h-6 text-gray-400" />
-                                                </div>
-                                            )}
-                                            {player.number > 0 && (
-                                                <span className="absolute -bottom-1 -right-1 font-mono text-[10px] font-bold text-white bg-gray-600 rounded-full w-5 h-5 flex items-center justify-center border border-white">{player.number}</span>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold text-sm">{player.name}</p>
-                                            <div className="flex gap-2 text-xs text-gray-500">
-                                                <span>{player.position}</span>
-                                                {player.bio?.age > 0 && <span>• {player.bio.age} yrs</span>}
-                                                {player.bio?.nationality && <span>• {player.bio.nationality}</span>}
+                            <div className="grid grid-cols-1 gap-2 max-h-[400px] lg:max-h-[600px] overflow-y-auto pr-1 no-scrollbar lg:custom-scrollbar">
+                                {players.map(p => (
+                                    <div key={p.id} onClick={() => startEditing(p)} className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${editingId === p.id ? 'bg-blue-600 border-blue-600 text-white shadow-xl' : 'bg-white hover:bg-slate-50 border-slate-100'}`}>
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex-shrink-0 flex items-center justify-center overflow-hidden border border-white shadow-sm">
+                                                {p.photoUrl ? <img src={p.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className={`w-5 h-5 ${editingId === p.id ? 'text-white' : 'text-slate-300'}`}/>}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-sm truncate">{p.name}</p>
+                                                <p className={`text-[10px] font-black uppercase tracking-tighter ${editingId === p.id ? 'text-white/60' : 'text-blue-600'}`}>#{p.number} • {p.position}</p>
                                             </div>
                                         </div>
+                                        <PencilIcon className={`w-4 h-4 ${editingId === p.id ? 'text-white/40' : 'text-slate-300'}`} />
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => startEditing(player)} className="text-blue-600 hover:text-blue-800 p-2 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors" title="Edit Player">
-                                            <PencilIcon className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => handleRemovePlayer(player.id)} className="text-red-500 hover:text-red-700 p-2 bg-red-50 rounded-full hover:bg-red-100 transition-colors" title="Remove Player">
-                                            <TrashIcon className="w-4 h-4" />
-                                        </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Form - Mobile Bottom / Desktop Right */}
+                        <div className="lg:w-2/3 order-1 lg:order-2">
+                            <form onSubmit={handleSavePlayer} className="space-y-8">
+                                <div className="flex p-1 bg-slate-100 rounded-2xl w-fit">
+                                    {(['basic', 'technical', 'history'] as const).map(tab => (
+                                        <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500'}`}>{tab}</button>
+                                    ))}
+                                </div>
+
+                                <div className="min-h-[400px]">
+                                    {activeTab === 'basic' && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in">
+                                            <div className="sm:col-span-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Full Legal Name</label>
+                                                <input name="name" value={formData.name} onChange={handleInputChange} required className={inputClass} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Jersey Number</label>
+                                                <input type="number" name="number" value={formData.number} onChange={handleInputChange} className={inputClass} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Position</label>
+                                                <select name="position" value={formData.position} onChange={handleInputChange} className={inputClass}>
+                                                    <option>Goalkeeper</option><option>Defender</option><option>Midfielder</option><option>Forward</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Age</label>
+                                                <input type="number" name="age" value={formData.age} onChange={handleInputChange} className={inputClass} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Nationality</label>
+                                                <input name="nationality" value={formData.nationality} onChange={handleInputChange} className={inputClass} />
+                                            </div>
+                                            <div className="sm:col-span-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Profile Photo</label>
+                                                <input type="file" onChange={handleFileChange} accept="image/*" className="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'technical' && (
+                                        <div className="space-y-8 animate-fade-in">
+                                            <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex items-start gap-4">
+                                                <InfoIcon className="w-6 h-6 text-blue-600 mt-1" />
+                                                <p className="text-sm text-blue-800 leading-relaxed font-medium">Use these overrides to seed historical stats. Current season match events will be added to these base tallies automatically.</p>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Appearances</label><input type="number" name="appearances" value={formData.appearances} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Goals</label><input type="number" name="goals" value={formData.goals} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Assists</label><input type="number" name="assists" value={formData.assists} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Clean Sheets</label><input type="number" name="cleanSheets" value={formData.cleanSheets} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Yellow Cards</label><input type="number" name="yellowCards" value={formData.yellowCards} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Red Cards</label><input type="number" name="redCards" value={formData.redCards} onChange={handleInputChange} className={inputClass} /></div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'history' && (
+                                        <div className="space-y-6 animate-fade-in">
+                                            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                                                <h5 className="font-bold text-xs mb-4 uppercase tracking-widest text-slate-400">Add History Event</h5>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                                                    <input value={newTransfer.from} onChange={e => setNewTransfer({...newTransfer, from: e.target.value})} placeholder="From Club" className="p-3 bg-white border rounded-xl text-sm shadow-inner" />
+                                                    <input value={newTransfer.to} onChange={e => setNewTransfer({...newTransfer, to: e.target.value})} placeholder="To Club" className="p-3 bg-white border rounded-xl text-sm shadow-inner" />
+                                                    <div className="flex gap-2">
+                                                        <input type="number" value={newTransfer.year} onChange={e => setNewTransfer({...newTransfer, year: parseInt(e.target.value) || 2024})} className="p-3 bg-white border rounded-xl text-sm w-full shadow-inner" />
+                                                        <button type="button" onClick={handleAddTransfer} className="bg-primary text-white p-3 rounded-xl shadow-lg"><PlusCircleIcon className="w-5 h-5"/></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {transferHistory.map((t, i) => (
+                                                    <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl flex items-center justify-between group shadow-sm">
+                                                        <div className="flex items-center gap-6 font-bold text-sm">
+                                                            <span className="text-slate-400 tabular-nums">{t.year}</span>
+                                                            <span className="text-slate-900">{t.from} &rarr; {t.to}</span>
+                                                        </div>
+                                                        <button type="button" onClick={() => setTransferHistory(prev => prev.filter((_, idx) => idx !== i))} className="text-red-400 opacity-0 group-hover:opacity-100 p-2"><TrashIcon className="w-4 h-4"/></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-6">
+                                    <button type="button" onClick={() => editingId && updateFirestore(players.filter(p => p.id !== editingId))} disabled={!editingId || isSubmitting} className="text-red-600 text-xs font-black uppercase tracking-widest hover:underline disabled:opacity-20">Terminate Profile</button>
+                                    <div className="flex gap-4 w-full sm:w-auto">
+                                        <Button type="button" variant="ghost" onClick={onClose} className="flex-1">Discard</Button>
+                                        <Button type="submit" disabled={isSubmitting} className="flex-[2] sm:flex-none bg-primary text-white px-12 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl transition-all active:scale-95">
+                                            {isSubmitting ? <Spinner className="w-5 h-5 border-white" /> : editingId ? 'Update Identity' : 'Create Profile'}
+                                        </Button>
                                     </div>
                                 </div>
-                            )) : <p className="text-sm text-gray-500 text-center py-4">No players on roster.</p>}
+                            </form>
                         </div>
-                    </div>
-
-                    <div className="mt-6 text-right border-t pt-4">
-                        <Button onClick={() => { onSave(); onClose(); }} className="bg-primary text-white">Done</Button>
                     </div>
                 </CardContent>
             </Card>

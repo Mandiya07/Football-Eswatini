@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import { fetchMatchTickets, MatchTicket } from '../services/api';
@@ -7,6 +6,7 @@ import { useCart } from '../contexts/CartContext';
 import { Product } from '../data/shop';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import Spinner from './ui/Spinner';
+import ArrowRightIcon from './icons/ArrowRightIcon';
 
 const Ticketing: React.FC = () => {
     const [addedTicketId, setAddedTicketId] = useState<string | null>(null);
@@ -36,18 +36,22 @@ const Ticketing: React.FC = () => {
     }, []);
 
     const handleBuyTicket = (ticket: MatchTicket) => {
-        const ticketProduct: Product = {
-            id: `ticket-${ticket.id}`,
-            name: `Ticket: ${ticket.teamA} vs ${ticket.teamB}`,
-            price: ticket.price,
-            imageUrl: 'https://via.placeholder.com/300/CCCCCC/FFFFFF?text=MATCH+TICKET',
-            category: 'Match Ticket',
-        };
-        addToCart(ticketProduct);
-        setAddedTicketId(ticket.id);
-        setTimeout(() => {
-            setAddedTicketId(null);
-        }, 1500);
+        if (ticket.purchaseUrl) {
+            window.open(ticket.purchaseUrl, '_blank');
+        } else {
+            const ticketProduct: Product = {
+                id: `ticket-${ticket.id}`,
+                name: `Ticket: ${ticket.teamA} vs ${ticket.teamB}`,
+                price: ticket.price,
+                imageUrl: 'https://via.placeholder.com/300/CCCCCC/FFFFFF?text=MATCH+TICKET',
+                category: 'Match Ticket',
+            };
+            addToCart(ticketProduct);
+            setAddedTicketId(ticket.id);
+            setTimeout(() => {
+                setAddedTicketId(null);
+            }, 1500);
+        }
     };
 
     if (loading) {
@@ -85,7 +89,11 @@ const Ticketing: React.FC = () => {
                                             : 'bg-yellow-500 text-blue-900 hover:bg-yellow-400 focus:ring-yellow-500'
                                         }`}
                                     >
-                                    {addedTicketId === ticket.id ? (
+                                    {ticket.purchaseUrl ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            Buy Online <ArrowRightIcon className="w-4 h-4" />
+                                        </span>
+                                    ) : addedTicketId === ticket.id ? (
                                         <span className="flex items-center justify-center gap-2">
                                             <CheckCircleIcon className="w-5 h-5" /> Added!
                                         </span>

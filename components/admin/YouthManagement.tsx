@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { fetchYouthData, handleFirestoreError } from '../../services/api';
-import { YouthLeague, RisingStarPlayer, YouthArticle, YouthTeam } from '../../data/youth';
+import { YouthLeague, RisingStarPlayer, YouthArticle, YouthTeam, youthData as mockYouthData } from '../../data/youth';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -39,7 +40,16 @@ const YouthManagement: React.FC = () => {
     const [isNewLeagueModalOpen, setIsNewLeagueModalOpen] = useState(false);
     const [newLeagueForm, setNewLeagueForm] = useState({ name: '', id: '' });
 
-    // FIX: Defined missing resetForm function
+    const ALLOWED_IDS = [
+        'u20-elite-league', 
+        'schools', 
+        'build-it-u13-national', 
+        'hub-hardware-u17-competition', 
+        'u13-grassroots-national-football', 
+        'u17-national-football', 
+        'u19-national-football'
+    ];
+
     const resetForm = () => {
         setTeamFormData({ name: '', crestUrl: '' });
         setEditingTeamIndex(null);
@@ -50,19 +60,24 @@ const YouthManagement: React.FC = () => {
         try {
             const data = await fetchYouthData();
             
-            const leagueMap = new Map<string, YouthLeague>();
-            data.forEach(l => {
-                const nameKey = l.name.trim().toLowerCase();
-                if (!leagueMap.has(nameKey)) {
-                    leagueMap.set(nameKey, l);
-                }
-            });
+            // Filter to strictly only show requested tournaments
+            let filteredData = data.filter(l => ALLOWED_IDS.includes(l.id));
+            
+            // If Firestore returns less than the full set, fill in from mock data
+            if (filteredData.length < ALLOWED_IDS.length) {
+                const missingIds = ALLOWED_IDS.filter(id => !filteredData.find(f => f.id === id));
+                const extras = mockYouthData.filter(m => missingIds.includes(m.id));
+                filteredData = [...filteredData, ...extras];
+            }
 
-            const uniqueLeagues = Array.from(leagueMap.values());
-            setLeagues(uniqueLeagues);
-            if (uniqueLeagues.length > 0 && !activeLeagueId) setActiveLeagueId(uniqueLeagues[0].id);
+            // Force strict ordering
+            const sortedData = [...filteredData].sort((a, b) => ALLOWED_IDS.indexOf(a.id) - ALLOWED_IDS.indexOf(b.id));
+
+            setLeagues(sortedData);
+            if (sortedData.length > 0 && !activeLeagueId) setActiveLeagueId(sortedData[0].id);
         } catch(e) {
             console.error("Failed to load youth management data:", e);
+            setLeagues(mockYouthData.filter(l => ALLOWED_IDS.includes(l.id)));
         } finally {
             setLoading(false);
         }
@@ -109,7 +124,7 @@ const YouthManagement: React.FC = () => {
     };
 
     const handleDeleteLeague = async (id: string) => {
-        if (!window.confirm("ARE YOU SURE? This will permanently delete this competition, all its teams, players, and articles from the Youth Hub.")) return;
+        if (!window.confirm("ARE YOU SURE? This will permanently delete this competition. This action cannot be undone.")) return;
         try {
             await deleteDoc(doc(db, 'youth', id));
             const updatedLeagues = leagues.filter(l => l.id !== id);
@@ -221,7 +236,7 @@ const YouthManagement: React.FC = () => {
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-bold font-display">Youth Hub Management</h3>
                         <Button onClick={() => setIsNewLeagueModalOpen(true)} className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2 h-10 px-4">
-                            <PlusCircleIcon className="w-5 h-5" /> New Competition
+                            <PlusCircleIcon className="w-5 h-5" /> Add Competition
                         </Button>
                     </div>
                     
@@ -249,7 +264,7 @@ const YouthManagement: React.FC = () => {
                         <div className="space-y-10 animate-fade-in w-full overflow-hidden">
                             <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                                 <div className="flex justify-between items-center mb-3">
-                                    <h4 className="font-bold text-blue-900 uppercase text-xs">League Description</h4>
+                                    <h4 className="font-bold text-blue-900 uppercase text-xs">Hub Description</h4>
                                     {!isEditingLeague ? (
                                         <button onClick={() => { setEditingLeagueDesc(activeLeague.description); setIsEditingLeague(true); }} className="text-xs font-bold text-blue-600 hover:underline">Edit</button>
                                     ) : (
@@ -265,7 +280,7 @@ const YouthManagement: React.FC = () => {
                             {/* Articles Section */}
                             <section className="w-full">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Articles & Updates ({activeLeague.articles?.length || 0})</h4>
+                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Articles ({activeLeague.articles?.length || 0})</h4>
                                     <Button onClick={() => { setEditingArticle(null); setIsArticleModalOpen(true); }} className="bg-primary text-white text-[10px] h-7 px-3 flex items-center gap-1"><PlusCircleIcon className="w-4 h-4" /> New Article</Button>
                                 </div>
                                 <div className="space-y-2">
@@ -287,7 +302,7 @@ const YouthManagement: React.FC = () => {
                                         </div>
                                     ))}
                                     {(!activeLeague.articles || activeLeague.articles.length === 0) && (
-                                        <p className="text-center py-8 text-gray-400 text-xs italic border-2 border-dashed rounded-xl">No articles posted yet.</p>
+                                        <p className="text-center py-8 text-gray-400 text-xs italic border-2 border-dashed rounded-xl">No hub articles found.</p>
                                     )}
                                 </div>
                             </section>
@@ -295,7 +310,7 @@ const YouthManagement: React.FC = () => {
                             {/* Teams Section */}
                             <section className="w-full">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Teams ({activeLeague.teams?.length || 0})</h4>
+                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Participating Teams ({activeLeague.teams?.length || 0})</h4>
                                     <Button onClick={() => { resetForm(); setEditingTeamIndex(null); setIsTeamModalOpen(true); }} className="bg-blue-600 text-white text-[10px] h-7 px-3">Add Team</Button>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -313,54 +328,29 @@ const YouthManagement: React.FC = () => {
                                     ))}
                                 </div>
                             </section>
-
-                            {/* Rising Stars Section */}
-                            <section className="w-full">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-black text-xs uppercase tracking-widest text-gray-400">Rising Star Profiles ({activeLeague.risingStars?.length || 0})</h4>
-                                    <Button onClick={() => { setEditingPlayer(null); setPlayerFormData({ name: '', age: 16, team: '', position: '', photoUrl: '', bio: '' }); setIsPlayerModalOpen(true); }} className="bg-green-600 text-white text-[10px] h-7 px-3">Add Star</Button>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {(activeLeague.risingStars || []).map(player => (
-                                        <div key={player.id} className="p-4 border border-gray-100 rounded-2xl flex gap-4 bg-white shadow-sm hover:shadow-md transition-shadow">
-                                            <div className="w-16 h-16 bg-gray-50 rounded-xl flex-shrink-0 overflow-hidden border">
-                                                {player.photoUrl ? <img src={player.photoUrl} className="w-full h-full object-cover" /> : <Spinner className="w-full h-full p-4"/>}
-                                            </div>
-                                            <div className="flex-grow min-w-0">
-                                                <p className="font-bold text-gray-900 truncate">{player.name}</p>
-                                                <p className="text-xs text-gray-500 font-semibold truncate uppercase">{player.position} • {player.team}</p>
-                                            </div>
-                                            <div className="flex flex-col gap-2">
-                                                <button onClick={() => { setEditingPlayer(player); setPlayerFormData({ ...player }); setIsPlayerModalOpen(true); }} className="text-blue-500 p-1.5 hover:bg-blue-50 rounded-lg"><PencilIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => { if(window.confirm("Remove profile?")) saveLeagueState({...activeLeague, risingStars: activeLeague.risingStars.filter(s => s.id !== player.id)}); }} className="text-red-400 p-1.5 hover:bg-red-50 rounded-lg"><TrashIcon className="w-4 h-4"/></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
                         </div>
                     )}
                 </CardContent>
             </Card>
 
-            {/* NEW LEAGUE MODAL */}
+            {/* MODALS */}
             {isNewLeagueModalOpen && (
                 <div className="fixed inset-0 bg-black/80 z-[110] flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsNewLeagueModalOpen(false)}>
                     <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <CardContent className="p-8">
-                            <h4 className="font-black text-xl mb-6 uppercase tracking-tight text-primary">Initialize Youth Competition</h4>
+                            <h4 className="font-black text-xl mb-6 uppercase tracking-tight text-primary">Add Youth Competition</h4>
                             <form onSubmit={handleCreateLeague} className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-black uppercase text-gray-400 mb-1">League Name</label>
-                                    <input placeholder="e.g. Malkerns U-15 Challenge" value={newLeagueForm.name} onChange={e => setNewLeagueForm({...newLeagueForm, name: e.target.value})} className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none" required />
+                                    <label className="block text-xs font-black uppercase text-gray-400 mb-1">Competition Name</label>
+                                    <input placeholder="e.g. Malkerns U-15 Cup" value={newLeagueForm.name} onChange={e => setNewLeagueForm({...newLeagueForm, name: e.target.value})} className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none" required />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-black uppercase text-gray-400 mb-1">Unique ID (Slug)</label>
-                                    <input placeholder="e.g. malkerns-u15" value={newLeagueForm.id} onChange={e => setNewLeagueForm({...newLeagueForm, id: e.target.value})} className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none font-mono text-sm" required />
+                                    <label className="block text-xs font-black uppercase text-gray-400 mb-1">Internal ID (Slug)</label>
+                                    <input placeholder="e.g. u15-malkerns" value={newLeagueForm.id} onChange={e => setNewLeagueForm({...newLeagueForm, id: e.target.value})} className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none font-mono text-sm" required />
                                 </div>
                                 <div className="flex justify-end gap-3 mt-6">
                                     <Button type="button" onClick={() => setIsNewLeagueModalOpen(false)} className="bg-gray-100 text-gray-700">Cancel</Button>
-                                    <Button type="submit" className="bg-primary text-white shadow-xl px-8">Create Hub</Button>
+                                    <Button type="submit" className="bg-primary text-white shadow-xl px-8">Initialize Hub</Button>
                                 </div>
                             </form>
                         </CardContent>
@@ -368,33 +358,29 @@ const YouthManagement: React.FC = () => {
                 </div>
             )}
 
-            {/* TEAM MODAL */}
             {isTeamModalOpen && (
                 <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsTeamModalOpen(false)}>
                     <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
                         <CardContent className="p-8">
-                            <h4 className="font-bold text-xl mb-6">{editingTeamIndex !== null ? 'Edit Team' : 'Add Youth Team'}</h4>
+                            <h4 className="font-bold text-xl mb-6">{editingTeamIndex !== null ? 'Edit Team' : 'Add Team'}</h4>
                             <form onSubmit={handleSaveTeam} className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-black uppercase text-gray-400 mb-1">Name</label>
-                                    <input placeholder="Club/Academy Name" value={teamFormData.name} onChange={e => setTeamFormData({...teamFormData, name: e.target.value})} className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none" required />
+                                    <label className="block text-xs font-black uppercase text-gray-400 mb-1">Team Name</label>
+                                    <input placeholder="Club/Academy" value={teamFormData.name} onChange={e => setTeamFormData({...teamFormData, name: e.target.value})} className="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none" required />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-black uppercase text-gray-400 mb-1">Logo URL or Upload</label>
                                     <div className="flex gap-2">
-                                        <input placeholder="https://..." value={teamFormData.crestUrl} onChange={e => setTeamFormData({...teamFormData, crestUrl: e.target.value})} className="block w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none sm:text-sm" />
+                                        <input placeholder="https://..." value={teamFormData.crestUrl} onChange={e => setTeamFormData({...teamFormData, crestUrl: e.target.value})} className="block w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none text-xs" />
                                         <label className="bg-white border px-3 rounded-xl cursor-pointer hover:bg-gray-100 flex items-center shadow-sm">
                                             {teamProcessing ? <Spinner className="w-4 h-4"/> : <ImageIcon className="w-5 h-5 text-gray-400"/>}
                                             <input type="file" className="hidden" onChange={handleTeamImageUpload} accept="image/*" />
                                         </label>
                                     </div>
-                                    {teamFormData.crestUrl && <img src={teamFormData.crestUrl} className="mt-4 h-16 w-16 object-contain border rounded-full p-1 bg-white mx-auto shadow-sm" />}
                                 </div>
                                 <div className="flex justify-end gap-3 mt-6">
-                                    <Button type="button" onClick={() => setIsTeamModalOpen(false)} className="bg-gray-100 text-gray-700">Cancel</Button>
-                                    <Button type="submit" disabled={teamProcessing} className="bg-primary text-white shadow-lg">
-                                        {editingTeamIndex !== null ? 'Update Team' : 'Register Team'}
-                                    </Button>
+                                    <Button type="button" onClick={() => setIsTeamModalOpen(false)} className="bg-gray-200 text-gray-700">Cancel</Button>
+                                    <Button type="submit" disabled={teamProcessing} className="bg-primary text-white shadow-lg">Save Team</Button>
                                 </div>
                             </form>
                         </CardContent>

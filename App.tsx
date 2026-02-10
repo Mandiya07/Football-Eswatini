@@ -15,7 +15,8 @@ import AuthModal from './components/AuthModal';
 import { useAuth } from './contexts/AuthContext';
 import DataManagementPage from './components/DataManagementPage';
 import SystemToolbar from './components/SystemToolbar';
-
+import RefreshPage from './components/RefreshPage';
+import NotFound from './components/NotFound';
 
 const InteractivePage = lazy(() => import('./components/InteractivePage'));
 const MediaPage = lazy(() => import('./components/MediaPage'));
@@ -27,9 +28,12 @@ const AdminPanelPage = lazy(() => import('./components/admin/AdminPanelPage'));
 const ShopPage = lazy(() => import('./components/ShopPage'));
 const YouthPage = lazy(() => import('./components/YouthPage'));
 const U20Page = lazy(() => import('./components/U20Page'));
+const U19Page = lazy(() => import('./components/U19Page'));
 const SchoolsPage = lazy(() => import('./components/SchoolsPage'));
 const HubU17Page = lazy(() => import('./components/HubU17Page'));
 const BuildItU13Page = lazy(() => import('./components/BuildItU13Page'));
+const GrassrootsU13Page = lazy(() => import('./components/GrassrootsU13Page'));
+const NationalU17Page = lazy(() => import('./components/NationalU17Page'));
 const WomensPage = lazy(() => import('./components/WomensPage'));
 const PremierLeaguePage = lazy(() => import('./components/PremierLeaguePage'));
 const NationalFirstDivisionPage = lazy(() => import('./components/NationalFirstDivisionPage'));
@@ -63,6 +67,7 @@ const InternationalPage = lazy(() => import('./components/InternationalPage'));
 const LeagueRegistrationPage = lazy(() => import('./components/LeagueRegistrationPage'));
 const PitchDeckPage = lazy(() => import('./components/PitchDeckPage'));
 const JournalistPortalPage = lazy(() => import('./components/JournalistPortalPage'));
+const UmbuluziPitchPage = lazy(() => import('./components/UmbuluziPitchPage'));
 
 
 const App: React.FC = () => {
@@ -98,6 +103,7 @@ const App: React.FC = () => {
               <Suspense fallback={<div className="p-8 text-center">Loading Page...</div>}>
                 <Routes>
                   <Route path="/" element={<Home />} />
+                  <Route path="/refresh" element={<RefreshPage />} />
                   <Route path="/news" element={<NewsPage />} />
                   <Route path="/news/:slug" element={<NewsArticlePage />} />
                   <Route path="/about" element={<About />} />
@@ -111,8 +117,11 @@ const App: React.FC = () => {
                   <Route path="/media" element={<MediaPage />} />
                   <Route path="/youth" element={<YouthPage />} />
                   <Route path="/youth/u20" element={<U20Page />} />
+                  <Route path="/youth/u19" element={<U19Page />} />
                   <Route path="/youth/hub-u17" element={<HubU17Page />} />
                   <Route path="/youth/build-it-u13" element={<BuildItU13Page />} />
+                  <Route path="/youth/grassroots-u13" element={<GrassrootsU13Page />} />
+                  <Route path="/youth/national-u17" element={<NationalU17Page />} />
                   <Route path="/schools" element={<SchoolsPage />} />
                   <Route path="/womens" element={<WomensPage />} />
                   <Route path="/premier-league" element={<PremierLeaguePage />} />
@@ -152,6 +161,8 @@ const App: React.FC = () => {
                   <Route path="/voice-scout" element={<AIAgentPage />} />
                   <Route path="/pitch-deck" element={<PitchDeckPage />} />
                   <Route path="/press" element={<JournalistPortalPage />} />
+                  <Route path="/pitch-umbuluzi" element={<UmbuluziPitchPage />} />
+                  <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
             </main>

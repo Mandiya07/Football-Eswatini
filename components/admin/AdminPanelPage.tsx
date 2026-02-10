@@ -177,7 +177,7 @@ const AdminPanelPage: React.FC = () => {
                         <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
                         <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
                         <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
-                        <TabButton tabName="international" label="International Hub" Icon={GlobeIcon} />
+                        <TabButton tabName="international" label="Hybrid & Int. Hubs" Icon={GlobeIcon} />
                         <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
                         <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
                         <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />

@@ -1,30 +1,48 @@
-
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { fetchHybridTournaments } from '../services/api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { fetchHybridTournaments, fetchNews } from '../services/api';
 import { HybridTournament } from '../data/international';
+import { NewsItem } from '../data/news';
+import { NewsCard } from './News';
 import TournamentView from './TournamentView';
 import GlobeIcon from './icons/GlobeIcon';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Card, CardContent } from './ui/Card';
 import ArrowRightIcon from './icons/ArrowRightIcon';
+import ChevronLeftIcon from './icons/ChevronLeftIcon';
+import ChevronRightIcon from './icons/ChevronRightIcon';
 import Spinner from './ui/Spinner';
-import NewsSection from './News';
+import Button from './ui/Button';
+
+const PAGE_SIZE = 6;
 
 const InternationalPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [tournaments, setTournaments] = useState<HybridTournament[]>([]);
+    const [news, setNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    
     const selectedTournamentId = searchParams.get('id');
 
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
             try {
-                const data = await fetchHybridTournaments();
-                setTournaments(data);
+                const [tournData, newsData] = await Promise.all([
+                    fetchHybridTournaments(),
+                    fetchNews()
+                ]);
+                setTournaments(tournData);
+                
+                // Filter for International news
+                const filteredNews = newsData.filter(item => {
+                    const cats = Array.isArray(item.category) ? item.category : [item.category];
+                    return cats.includes('International');
+                });
+                setNews(filteredNews);
             } catch (error) {
-                console.error("Failed to load international tournaments", error);
+                console.error("Failed to load international data", error);
             } finally {
                 setLoading(false);
             }
@@ -40,6 +58,21 @@ const InternationalPage: React.FC = () => {
 
     const handleBack = () => {
         setSearchParams({});
+    };
+
+    // Pagination Logic
+    const totalPages = Math.ceil(news.length / PAGE_SIZE);
+    const paginatedNews = useMemo(() => {
+        const start = (currentPage - 1) * PAGE_SIZE;
+        return news.slice(start, start + PAGE_SIZE);
+    }, [news, currentPage]);
+
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            // Scroll to news section if it exists
+            document.getElementById('news-section')?.scrollIntoView({ behavior: 'smooth' });
+        }
     };
 
     if (selectedTournament) {
@@ -59,8 +92,8 @@ const InternationalPage: React.FC = () => {
     }
 
     return (
-        <div className="bg-gray-50 py-12 min-h-screen">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
+        <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+            <div className="container mx-auto max-w-6xl animate-fade-in">
                 <div className="text-center mb-12">
                     <div className="inline-block p-4 bg-blue-900 rounded-full mb-4 shadow-lg">
                         <GlobeIcon className="w-12 h-12 text-white" />
@@ -74,7 +107,46 @@ const InternationalPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-16">
-                    <NewsSection category="International" />
+                    {/* News Section with Pagination */}
+                    <div id="news-section">
+                        <h2 className="text-2xl font-display font-bold mb-8 text-gray-800">Latest International News</h2>
+                        {loading ? (
+                            <div className="flex justify-center"><Spinner /></div>
+                        ) : news.length > 0 ? (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                    {paginatedNews.map(item => (
+                                        <NewsCard key={item.id} item={item} />
+                                    ))}
+                                </div>
+                                {totalPages > 1 && (
+                                    <div className="mt-12 flex justify-center items-center gap-4">
+                                        <Button 
+                                            onClick={() => goToPage(currentPage - 1)} 
+                                            disabled={currentPage === 1}
+                                            variant="outline"
+                                            className="flex items-center gap-2"
+                                        >
+                                            <ChevronLeftIcon className="w-4 h-4" /> Previous
+                                        </Button>
+                                        <span className="text-sm font-bold text-gray-500">
+                                            Page {currentPage} of {totalPages}
+                                        </span>
+                                        <Button 
+                                            onClick={() => goToPage(currentPage + 1)} 
+                                            disabled={currentPage === totalPages}
+                                            variant="outline"
+                                            className="flex items-center gap-2"
+                                        >
+                                            Next <ChevronRightIcon className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <p className="text-center text-gray-500 italic py-10">No international news articles found.</p>
+                        )}
+                    </div>
 
                     <div>
                         <h2 className="text-2xl font-display font-bold text-center mb-8 text-gray-800">Elite International Tournaments</h2>

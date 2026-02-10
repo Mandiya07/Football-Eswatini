@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Product } from '../../data/shop';
 import { Card, CardContent } from '../ui/Card';
@@ -18,6 +17,7 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({ isOpen, onClose, onSave, 
         price: 0,
         imageUrl: '',
         category: 'Jersey' as Product['category'],
+        purchaseUrl: ''
     });
 
     useEffect(() => {
@@ -27,6 +27,7 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({ isOpen, onClose, onSave, 
                 price: product.price,
                 imageUrl: product.imageUrl,
                 category: product.category,
+                purchaseUrl: product.purchaseUrl || ''
             });
         } else {
             setFormData({
@@ -34,6 +35,7 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({ isOpen, onClose, onSave, 
                 price: 0,
                 imageUrl: '',
                 category: 'Jersey',
+                purchaseUrl: ''
             });
         }
     }, [product, isOpen]);
@@ -91,6 +93,10 @@ const ShopFormModal: React.FC<ShopFormModalProps> = ({ isOpen, onClose, onSave, 
                                     <option>Match Ticket</option>
                                 </select>
                             </div>
+                        </div>
+                        <div>
+                            <label htmlFor="purchaseUrl" className="block text-sm font-medium text-gray-700 mb-1">Purchase Link (Optional)</label>
+                            <input type="url" id="purchaseUrl" name="purchaseUrl" value={formData.purchaseUrl} onChange={handleChange} className={inputClass} placeholder="Link to external shop or payment page" />
                         </div>
                         <div>
                             <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-1">Image URL or Upload</label>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -21,6 +22,7 @@ import Spinner from '../ui/Spinner';
 import UsersIcon from '../icons/UsersIcon';
 import ClipboardListIcon from '../icons/ClipboardListIcon';
 import TrophyIcon from '../icons/TrophyIcon';
+import ShieldCheckIcon from '../icons/ShieldCheckIcon';
 
 const ApprovalQueue: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'data' | 'clubs' | 'leagues'>('clubs');
@@ -182,13 +184,14 @@ const ApprovalQueue: React.FC = () => {
                                 >
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
-                                            <TrophyIcon className="w-5 h-5 text-green-600"/>
+                                            {req.requestType === 'manage' ? <ShieldCheckIcon className="w-5 h-5 text-blue-600"/> : <TrophyIcon className="w-5 h-5 text-green-600"/>}
                                             <span className="font-bold text-lg text-gray-900">{req.leagueName}</span>
+                                            {req.requestType === 'manage' && <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Manage Existing</span>}
                                         </div>
                                         <div className="text-sm text-gray-600 space-y-1">
                                             <p><span className="font-semibold">Region:</span> {req.region}</p>
                                             <p><span className="font-semibold">Manager:</span> {req.managerName}</p>
-                                            <p className="line-clamp-2"><span className="font-semibold">Description:</span> {req.description}</p>
+                                            <p className="line-clamp-2"><span className="font-semibold">Context:</span> {req.description}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 self-start md:self-center">

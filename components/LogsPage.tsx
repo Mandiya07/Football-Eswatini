@@ -7,6 +7,7 @@ import { NewsCard } from './News';
 import Spinner from './ui/Spinner';
 import { Card, CardContent } from './ui/Card';
 import { featuresData, FeatureCard } from './Features';
+import TopScorers from './TopScorers';
 
 const LogsPage: React.FC = () => {
   const [latestArticles, setLatestArticles] = useState<NewsItem[]>([]);
@@ -45,6 +46,8 @@ const LogsPage: React.FC = () => {
             <Logs showSelector={true} />
           </div>
           <div className="lg:col-span-1 sticky top-20 h-fit space-y-8">
+            <TopScorers />
+            
             <div>
               <h2 className="text-2xl font-display font-bold mb-4">Latest News</h2>
               {loadingArticles ? (

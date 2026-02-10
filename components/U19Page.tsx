@@ -4,9 +4,7 @@ import TrophyIcon from './icons/TrophyIcon';
 import { fetchYouthData, fetchHybridTournaments, fetchNews } from '../services/api';
 import { YouthLeague, YouthArticle } from '../data/youth';
 import { NewsItem } from '../data/news';
-import { HybridTournament, youthHybridData } from '../data/international';
 import Spinner from './ui/Spinner';
-import TournamentView from './TournamentView';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { Link } from 'react-router-dom';
 import YouthArticleSection from './YouthArticleSection';
@@ -17,37 +15,28 @@ import Button from './ui/Button';
 import Fixtures from './Fixtures';
 import Logs from './Logs';
 
-const BuildItU13Page: React.FC = () => {
+const U19Page: React.FC = () => {
   const { isLoggedIn, openAuthModal } = useAuth();
   const [data, setData] = useState<YouthLeague | null>(null);
-  const [hybridTournament, setHybridTournament] = useState<HybridTournament | null>(null);
   const [globalNews, setGlobalNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const COMPETITION_ID = 'u13-grassroots-national-football';
+  const COMPETITION_ID = 'u19-national-football';
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [youthLeagues, allHybrids, newsData] = await Promise.all([
+        const [youthLeagues, newsData] = await Promise.all([
              fetchYouthData(),
-             fetchHybridTournaments(),
              fetchNews()
         ]);
         
         const league = youthLeagues.find(l => l.id === COMPETITION_ID);
         setData(league || null);
         setGlobalNews(newsData);
-
-        let foundHybrid = allHybrids.find(h => h.id === 'build-it-u13-national');
-        if (!foundHybrid) {
-            foundHybrid = youthHybridData.find(h => h.id === 'build-it-u13-national') || null;
-        }
-        setHybridTournament(foundHybrid);
-
       } catch (error) {
-        console.error("Failed to load U13 data", error);
+        console.error("Failed to load U19 data", error);
       } finally {
         setLoading(false);
       }
@@ -59,7 +48,7 @@ const BuildItU13Page: React.FC = () => {
       const specificArticles = data?.articles || [];
       const relevantGlobalNews = globalNews.filter(n => {
           const cats = Array.isArray(n.category) ? n.category : [n.category];
-          return cats.includes('Youth') && (n.title.toLowerCase().includes('u13') || n.title.toLowerCase().includes('grassroots'));
+          return cats.includes('Youth') && (n.title.toLowerCase().includes('u19') || n.title.toLowerCase().includes('u-19'));
       }).map(n => ({
           id: n.id,
           title: n.title,
@@ -94,30 +83,30 @@ const BuildItU13Page: React.FC = () => {
         </div>
 
         <div className="text-center mb-16">
-          <div className="inline-block p-4 bg-red-100 rounded-full mb-4 shadow-sm">
-            <TrophyIcon className="w-12 h-12 text-red-600" />
+          <div className="inline-block p-4 bg-indigo-100 rounded-full mb-4 shadow-sm">
+            <TrophyIcon className="w-12 h-12 text-indigo-600" />
           </div>
           <h1 className="text-3xl md:text-5xl font-display font-black text-blue-900 mb-4 uppercase tracking-tight">
-            {data?.name || "U-13 Grassroots National Football"}
+            {data?.name || "U-19 National Football"}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Developing future Sihlangu stars from the earliest stages. Track national grassroots results or start a regional league.
+            The bridge between youth development and elite professional football. Track every tactical battle or organize your own U-19 hub.
           </p>
         </div>
 
         {/* Create New League CTA */}
         <div className="mb-16 max-w-4xl mx-auto">
-            <Card className="bg-gradient-to-br from-red-600 to-red-800 text-white shadow-2xl border-0 overflow-hidden relative group">
+            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white shadow-2xl border-0 overflow-hidden relative group">
                 <CardContent className="p-10 text-center md:text-left md:flex items-center justify-between gap-8 relative z-10">
                     <div className="flex-1">
-                        <h2 className="text-3xl font-display font-black mb-4 uppercase tracking-tight">Launch a Regional League</h2>
-                        <p className="text-red-50 mb-6 md:mb-0 leading-relaxed opacity-90">
-                            Organizing an U-13 tournament in your region? Use our platform to track scores, rosters, and standings live. Empower your community digitally.
+                        <h2 className="text-3xl font-display font-black mb-4 uppercase tracking-tight">Manage an U-19 Juniors League</h2>
+                        <p className="text-indigo-50 mb-6 md:mb-0 leading-relaxed opacity-90">
+                            Take control of your regional juniors competition. Track every tackle, goal, and league position through our professional digital hub.
                         </p>
                     </div>
                     <div className="flex-shrink-0">
                         <Link to={isLoggedIn ? "/league-registration" : "#"} onClick={handleCreateLeague}>
-                            <Button className="bg-yellow-400 text-red-900 font-black px-8 py-4 rounded-xl hover:bg-yellow-300 transition-all hover:scale-105 shadow-xl border-0 uppercase tracking-widest text-xs">
+                            <Button className="bg-yellow-400 text-indigo-900 font-black px-8 py-4 rounded-xl hover:bg-yellow-300 transition-all hover:scale-105 shadow-xl border-0 uppercase tracking-widest text-xs">
                                 Create New League
                             </Button>
                         </Link>
@@ -129,11 +118,11 @@ const BuildItU13Page: React.FC = () => {
         <div className="space-y-16">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                 <div className="space-y-6">
-                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-red-500 pb-2">National Fixtures</h2>
+                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-indigo-500 pb-2">National Fixtures</h2>
                     <Fixtures showSelector={false} defaultCompetition={COMPETITION_ID} maxHeight="max-h-[600px]" />
                 </div>
                 <div className="space-y-6">
-                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-red-500 pb-2">National Standings</h2>
+                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-indigo-500 pb-2">National Standings</h2>
                     <Logs showSelector={false} defaultLeague={COMPETITION_ID} maxHeight="max-h-[600px]" />
                 </div>
             </div>
@@ -144,16 +133,9 @@ const BuildItU13Page: React.FC = () => {
                 </div>
             )}
             
-            {hybridTournament && (
-                <div className="max-w-6xl mx-auto">
-                    <h2 className="text-3xl font-display font-bold text-center mb-8 text-gray-800">Tournament Final Hub</h2>
-                    <TournamentView tournament={hybridTournament} />
-                </div>
-            )}
-
             {data?.risingStars && data.risingStars.length > 0 && (
                 <section>
-                    <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Early Talents</h2>
+                    <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Rising Stars</h2>
                     <RisingStars players={data.risingStars} />
                 </section>
             )}
@@ -163,4 +145,4 @@ const BuildItU13Page: React.FC = () => {
   );
 };
 
-export default BuildItU13Page;
+export default U19Page;

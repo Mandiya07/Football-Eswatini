@@ -17,7 +17,7 @@ const Hero: React.FC = () => {
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     
     const [backgroundImage, setBackgroundImage] = useState<string>(
-        localStorage.getItem('fe_hero_bg') || "https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=2069&auto=format&fit=crop"
+        localStorage.getItem('fe_hero_bg') || "https://images.unsplash.com/photo-1553126736-a8332206f250?q=80&w=2050&auto=format&fit=crop"
     );
     const [isGenerating, setIsGenerating] = useState(false);
 
@@ -179,7 +179,7 @@ const Hero: React.FC = () => {
                                 <div className="relative group">
                                     <div className="absolute -inset-10 bg-red-600/20 rounded-full blur-[80px] animate-pulse"></div>
                                     <div className="relative bg-white/10 backdrop-blur-3xl px-12 py-6 rounded-[2rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/30">
-                                        <div className="text-7xl md:text-[8rem] font-black tracking-tighter leadership-none flex items-center">
+                                        <div className="text-7xl md:text-[8rem] font-black tracking-tighter leading-none flex items-center">
                                             <span>{nextMatch.scoreA ?? 0}</span>
                                             <span className="text-red-600 mx-4 animate-pulse">:</span>
                                             <span>{nextMatch.scoreB ?? 0}</span>
@@ -195,7 +195,7 @@ const Hero: React.FC = () => {
                         </div>
 
                         <div className="flex flex-col items-center group flex-1">
-                            <div className="w-40 h-40 md:w-56 md:h-56 mb-8 bg-white/5 backdrop-blur-md rounded-[2.5rem] p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:-rotate-2 group-hover:border-white/30">
+                            <div className="w-40 h-40 md:w-56 md:h-56 mb-8 bg-white/5 backdrop-blur-md rounded-[2.5rem] p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:scale-110 group-hover:-rotate-2 group-hover:border-white/30">
                                 {crestB ? (
                                     <img src={crestB} alt="" className="max-w-full max-h-full object-contain drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]"/>
                                 ) : (
@@ -240,7 +240,7 @@ const Hero: React.FC = () => {
                 </div>
             ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-12 duration-1000">
-                    <h1 className="text-7xl md:text-[11rem] font-black font-display tracking-tighter leadership-none mb-10 select-none">
+                    <h1 className="text-7xl md:text-[11rem] font-black font-display tracking-tighter leading-none mb-10 select-none">
                         THE GAME <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent via-yellow-400 to-accent bg-[length:200%_auto] animate-marquee drop-shadow-[0_0_30px_rgba(253,185,19,0.3)]">LIVES HERE</span>
                     </h1>
                     <p className="text-xl md:text-2xl text-white/60 max-w-3xl mx-auto font-medium leading-relaxed tracking-wide italic">
@@ -250,10 +250,10 @@ const Hero: React.FC = () => {
             )}
             
             <div className="mt-20 flex flex-wrap justify-center gap-6">
-                <Link to="/fixtures" className="group bg-primary text-white font-black py-5 px-12 rounded-2xl hover:bg-primary-dark transition-all hover:scale-105 shadow-[0_20px_60px_rgba(0,43,127,0.3)] uppercase text-[10px] tracking-[0.2em] flex items-center gap-3">
-                    MATCH SCHEDULE <ArrowRightIcon className="w-4 h-4 text-white transition-transform group-hover:translate-x-1" />
+                <Link to="/fixtures" className="group bg-accent text-primary-dark font-black py-5 px-12 rounded-2xl hover:bg-yellow-400 transition-all hover:scale-105 shadow-[0_20px_60px_rgba(253,185,19,0.3)] uppercase text-[10px] tracking-[0.2em] flex items-center gap-3">
+                    MATCH SCHEDULE <ArrowRightIcon className="w-4 h-4 text-primary-dark transition-transform group-hover:translate-x-1" />
                 </Link>
-                <Link to="/live-updates" className="group bg-primary-dark border border-white/20 text-white font-black py-5 px-12 rounded-2xl hover:bg-black transition-all hover:scale-105 uppercase text-[10px] tracking-[0.2em] shadow-2xl flex items-center gap-3">
+                <Link to="/live-updates" className="group bg-transparent border-2 border-white/40 text-white font-black py-5 px-12 rounded-2xl hover:bg-white/10 transition-all hover:scale-105 uppercase text-[10px] tracking-[0.2em] shadow-2xl flex items-center gap-3">
                     MATCH CENTER <RadioIcon className="w-4 h-4 text-accent" />
                 </Link>
             </div>
