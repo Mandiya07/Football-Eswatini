@@ -1,0 +1,212 @@
+
+import React, { useState, useEffect } from 'react';
+import { NewsItem } from '../../data/news';
+import { Card, CardContent } from '../ui/Card';
+import Button from '../ui/Button';
+import XIcon from '../icons/XIcon';
+import { compressImage } from '../../services/utils';
+
+interface NewsFormModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (articleData: Omit<NewsItem, 'id'>, id?: string) => void;
+    article: NewsItem | null;
+}
+
+const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, article }) => {
+    // State for categories must handle array
+    const [formData, setFormData] = useState({
+        title: '',
+        summary: '',
+        content: '',
+        image: '',
+        categories: [] as string[],
+        date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+        url: '',
+    });
+    const [imageProcessing, setImageProcessing] = useState(false);
+
+    const availableCategories = [
+        'National', 
+        'International', 
+        'Womens', 
+        'Schools', 
+        'Football News', 
+        'Community Football Hub',
+        'Sponsored',
+        'Partner Feature'
+    ];
+
+    useEffect(() => {
+        if (article) {
+            const cats = Array.isArray(article.category) ? article.category : [article.category];
+            setFormData({
+                title: article.title,
+                summary: article.summary,
+                content: article.content || '',
+                image: article.image,
+                categories: cats,
+                // Ensure date is in YYYY-MM-DD for input field
+                date: new Date(article.date).toISOString().split('T')[0],
+                url: article.url,
+            });
+        } else {
+             setFormData({
+                title: '',
+                summary: '',
+                content: '',
+                image: '',
+                categories: ['National'],
+                date: new Date().toISOString().split('T')[0],
+                url: '',
+            });
+        }
+    }, [article, isOpen]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+
+        if (name === 'title' && !article) { // Auto-generate URL slug for new articles
+            const slug = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            setFormData(prev => ({ ...prev, url: `/news/${slug}` }));
+        }
+    };
+
+    const handleCategoryChange = (category: string) => {
+        setFormData(prev => {
+            const current = prev.categories;
+            if (current.includes(category)) {
+                return { ...prev, categories: current.filter(c => c !== category) };
+            } else {
+                return { ...prev, categories: [...current, category] };
+            }
+        });
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageProcessing(true);
+            try {
+                // Compress image to ensure it's under Firestore limit (1000px max width, 0.7 quality)
+                const compressedBase64 = await compressImage(file, 1000, 0.7);
+                setFormData(prev => ({ ...prev, image: compressedBase64 }));
+            } catch (error) {
+                console.error("Error compressing image:", error);
+                alert("Failed to process image. Please try another file.");
+            } finally {
+                setImageProcessing(false);
+            }
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (formData.categories.length === 0) {
+            alert("Please select at least one category.");
+            return;
+        }
+
+        const dataToSave = {
+            title: formData.title,
+            summary: formData.summary,
+            content: formData.content,
+            image: formData.image,
+            url: formData.url,
+            category: formData.categories, // Save array
+            date: formData.date // Save YYYY-MM-DD
+        };
+        onSave(dataToSave as any, article?.id);
+    };
+
+    const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="fixed inset-0 bg-black/70 z-[300] flex items-start justify-center p-4 pt-24 md:pt-32 overflow-y-auto animate-fade-in"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="news-form-title"
+        >
+            <Card
+                className="w-full max-w-3xl mb-8 relative animate-slide-up"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <button
+                    onClick={onClose}
+                    className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 transition-colors z-10"
+                    aria-label="Close form"
+                >
+                    <XIcon className="w-6 h-6" />
+                </button>
+
+                <CardContent className="p-8">
+                    <h2 id="news-form-title" className="text-2xl font-bold font-display mb-6">
+                        {article ? 'Edit Article' : 'Create New Article'}
+                    </h2>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                            <input type="text" id="title" name="title" value={formData.title} onChange={handleChange} required className={inputClass} />
+                        </div>
+                        <div>
+                            <label htmlFor="summary" className="block text-sm font-medium text-gray-700 mb-1">Summary</label>
+                            <textarea id="summary" name="summary" rows={3} value={formData.summary} onChange={handleChange} required className={inputClass}></textarea>
+                        </div>
+                         <div>
+                            <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-1">Full Article Content</label>
+                            <textarea id="content" name="content" rows={8} value={formData.content} onChange={handleChange} required className={inputClass} placeholder="Write the full article content here. You can use newlines to create paragraphs."></textarea>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Categories (Select one or more)</label>
+                            <div className="flex flex-wrap gap-3">
+                                {availableCategories.map(cat => (
+                                    <label key={cat} className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer border ${formData.categories.includes(cat) ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-300 text-gray-700'}`}>
+                                        <input 
+                                            type="checkbox" 
+                                            value={cat} 
+                                            checked={formData.categories.includes(cat)}
+                                            onChange={() => handleCategoryChange(cat)}
+                                            className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm font-medium">{cat}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">Image URL or Upload</label>
+                            <div className="flex items-center gap-2">
+                                <input type="text" id="image" name="image" value={formData.image} onChange={handleChange} required className={inputClass} placeholder="Paste URL..."/>
+                                <label htmlFor="image-upload" className={`cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap ${imageProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                    {imageProcessing ? 'Compressing...' : 'Upload'}
+                                    <input type="file" id="image-upload" name="image-upload" onChange={handleFileChange} accept="image/*" className="sr-only" disabled={imageProcessing} />
+                                </label>
+                            </div>
+                            {formData.image && <img src={formData.image} alt="Preview" className="mt-2 h-32 w-auto rounded-md object-contain border p-1" />}
+                        </div>
+
+                        <div>
+                            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Publication Date</label>
+                            <input type="date" id="date" name="date" value={formData.date} onChange={handleChange} required className={inputClass} />
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4">
+                            <Button type="button" onClick={onClose} className="bg-gray-200 text-gray-800">Cancel</Button>
+                            <Button type="submit" className="bg-primary text-white hover:bg-primary-dark" disabled={imageProcessing}>Save Article</Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
+    );
+};
+
+export default NewsFormModal;

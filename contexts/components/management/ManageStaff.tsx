@@ -1,0 +1,226 @@
+
+import React, { useState, useEffect } from 'react';
+import { fetchCompetition, handleFirestoreError } from '../../services/api';
+import { StaffMember, Team, Competition } from '../../data/teams';
+import { Card, CardContent } from '../ui/Card';
+import Button from '../ui/Button';
+import Spinner from '../ui/Spinner';
+import PlusCircleIcon from '../icons/PlusCircleIcon';
+import TrashIcon from '../icons/TrashIcon';
+import PencilIcon from '../icons/PencilIcon';
+import PhoneIcon from '../icons/PhoneIcon';
+import MailIcon from '../icons/MailIcon';
+import UserIcon from '../icons/UserIcon';
+import { db } from '../../services/firebase';
+import { doc, runTransaction } from 'firebase/firestore';
+import { removeUndefinedProps } from '../../services/utils';
+
+const StaffForm: React.FC<{
+    staffMember: Partial<StaffMember> | 'new';
+    onSave: (data: Partial<StaffMember>) => void;
+    onCancel: () => void;
+}> = ({ staffMember, onSave, onCancel }) => {
+    const isNew = staffMember === 'new';
+    const [formData, setFormData] = useState(isNew ? { name: '', role: 'Head Coach' as const, email: '', phone: '', photoUrl: '' } : staffMember);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    setFormData(prev => ({ ...prev, photoUrl: reader.result as string }));
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(formData);
+    };
+
+    const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+
+    return (
+        <form onSubmit={handleSubmit} className="p-4 bg-gray-50 border rounded-lg mb-4 space-y-4 animate-fade-in">
+            <h4 className="font-bold">{isNew ? 'New Staff Member Details' : 'Edit Staff Member'}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" name="name" value={formData.name || ''} onChange={handleChange} placeholder="Full Name" required className={inputClass} />
+                <select name="role" value={formData.role || 'Head Coach'} onChange={handleChange} required className={inputClass}>
+                    <option>Head Coach</option>
+                    <option>Assistant Coach</option>
+                    <option>Goalkeeper Coach</option>
+                    <option>Physiotherapist</option>
+                    <option>Team Doctor</option>
+                    <option>Kit Manager</option>
+                </select>
+                <input type="email" name="email" value={formData.email || ''} onChange={handleChange} placeholder="Email Address" className={inputClass} />
+                <input type="tel" name="phone" value={formData.phone || ''} onChange={handleChange} placeholder="Phone Number" className={inputClass} />
+            </div>
+            
+            {/* Photo Upload */}
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo</label>
+                <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded-full bg-gray-100 border overflow-hidden flex-shrink-0">
+                        {formData.photoUrl ? (
+                            <img src={formData.photoUrl} alt="Preview" className="h-full w-full object-cover" />
+                        ) : (
+                            <div className="h-full w-full flex items-center justify-center text-gray-400">
+                                <UserIcon className="w-8 h-8" />
+                            </div>
+                        )}
+                    </div>
+                    <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                        Change Photo
+                        <input type="file" onChange={handleFileChange} accept="image/*" className="sr-only" />
+                    </label>
+                    {formData.photoUrl && (
+                        <button type="button" onClick={() => setFormData(prev => ({...prev, photoUrl: ''}))} className="text-xs text-red-500 hover:underline">Remove Photo</button>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+                <Button type="button" onClick={onCancel} className="bg-gray-200 text-gray-800">Cancel</Button>
+                <Button type="submit" className="bg-green-600 text-white hover:bg-green-700">Save</Button>
+            </div>
+        </form>
+    );
+};
+
+
+const ManageStaff: React.FC<{ clubName: string }> = ({ clubName }) => {
+    const [staff, setStaff] = useState<StaffMember[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [editingMember, setEditingMember] = useState<StaffMember | 'new' | null>(null);
+
+    const COMPETITION_ID = 'mtn-premier-league';
+
+    useEffect(() => {
+        const loadStaff = async () => {
+            setLoading(true);
+            const competitionData = await fetchCompetition(COMPETITION_ID);
+            const team = competitionData?.teams?.find(t => t.name === clubName);
+            setStaff(team?.staff || []);
+            setLoading(false);
+        };
+        loadStaff();
+    }, [clubName]);
+
+    const updateFirestoreStaff = async (updatedStaff: StaffMember[]) => {
+        setIsSubmitting(true);
+        const docRef = doc(db, 'competitions', COMPETITION_ID);
+        try {
+            await runTransaction(db, async (transaction) => {
+                const docSnap = await transaction.get(docRef);
+                if (!docSnap.exists()) {
+                    throw new Error("Competition document not found!");
+                }
+                const competition = docSnap.data() as Competition;
+                const updatedTeams = competition.teams.map(team =>
+                    team.name === clubName
+                        ? { ...team, staff: updatedStaff }
+                        : team
+                );
+                // CRITICAL: Sanitize the entire teams array payload.
+                transaction.update(docRef, { teams: removeUndefinedProps(updatedTeams) });
+            });
+            setStaff(updatedStaff);
+        } catch (error) {
+            handleFirestoreError(error, 'update team staff');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
+    const handleSave = async (data: Partial<StaffMember>) => {
+        let updatedStaff: StaffMember[];
+        if (editingMember === 'new') {
+            const newMember: StaffMember = { id: Date.now(), ...data } as StaffMember;
+            updatedStaff = [...staff, newMember];
+        } else if (editingMember) {
+            updatedStaff = staff.map(s => s.id === editingMember.id ? { ...s, ...data } as StaffMember : s);
+        } else {
+            return;
+        }
+        await updateFirestoreStaff(updatedStaff);
+        setEditingMember(null);
+    };
+    
+    const handleRemove = async (id: number) => {
+        if (window.confirm("Are you sure you want to remove this staff member?")) {
+            const updatedStaff = staff.filter(s => s.id !== id);
+            await updateFirestoreStaff(updatedStaff);
+        }
+    };
+    
+    return (
+        <Card className="shadow-lg animate-fade-in">
+            <CardContent className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-2xl font-bold font-display">Manage Team Staff</h3>
+                    {!editingMember && (
+                        <Button onClick={() => setEditingMember('new')} className="bg-primary text-white hover:bg-primary-dark focus:ring-primary-light inline-flex items-center gap-2">
+                            <PlusCircleIcon className="w-5 h-5 text-white" /> Add Staff
+                        </Button>
+                    )}
+                </div>
+                
+                {editingMember && <StaffForm staffMember={editingMember} onSave={handleSave} onCancel={() => setEditingMember(null)} />}
+
+                {(loading || isSubmitting) && <div className="flex justify-center py-8"><Spinner /></div>}
+                
+                {!loading && !isSubmitting && (
+                    staff.length > 0 ? (
+                        <div className="space-y-3">
+                            {staff.map(member => (
+                                <div key={member.id} className="p-3 bg-white border rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden border">
+                                            {member.photoUrl ? (
+                                                <img src={member.photoUrl} alt={member.name} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-gray-400">
+                                                    <UserIcon className="w-8 h-8" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-gray-800">{member.name}</p>
+                                            <p className="text-sm font-semibold text-primary">{member.role}</p>
+                                            <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-600">
+                                                {member.email && <span className="inline-flex items-center gap-1.5"><MailIcon className="w-3.5 h-3.5"/> {member.email}</span>}
+                                                {member.phone && <span className="inline-flex items-center gap-1.5"><PhoneIcon className="w-3.5 h-3.5"/> {member.phone}</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex-shrink-0 flex items-center gap-2 self-end sm:self-center">
+                                        <Button onClick={() => setEditingMember(member)} className="bg-blue-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Edit ${member.name}`}>
+                                            <PencilIcon className="w-4 h-4 text-white" />
+                                        </Button>
+                                        <Button onClick={() => handleRemove(member.id)} className="bg-red-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Remove ${member.name}`}>
+                                            <TrashIcon className="w-4 h-4 text-white" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                         <p className="text-center text-gray-500 py-8">No staff members have been added yet.</p>
+                    )
+                )}
+            </CardContent>
+        </Card>
+    );
+};
+
+export default ManageStaff;
