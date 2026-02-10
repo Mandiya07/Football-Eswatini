@@ -214,7 +214,7 @@ const MerchantSettings: React.FC = () => {
                                 <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Card Hub Setup</p>
                                 <ol className="text-xs text-blue-800 list-decimal pl-5 space-y-2">
                                     <li>Sign up for <strong>Flutterwave</strong> or <strong>Paystack</strong>.</li>
-                                    <li>In Settings > API Keys, enable <strong>Zonal/Regional Settlement</strong> for Eswatini.</li>
+                                    <li>In Settings &amp;gt; API Keys, enable <strong>Zonal/Regional Settlement</strong> for Eswatini.</li>
                                     <li>Copy your <strong>Live Secret Key</strong> and <strong>Public ID</strong> into the fields above.</li>
                                 </ol>
                             </div>
