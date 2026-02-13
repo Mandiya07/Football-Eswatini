@@ -14,7 +14,7 @@ import { Sponsor, KitPartner, sponsors as defaultSponsors } from '../data/sponso
 import { PhotoAlbum, BehindTheScenesContent } from '../data/media';
 import { Referee, Rule, refereeData as defaultRefereeData } from '../data/referees';
 import { calculateStandings, normalizeTeamName, superNormalize, removeUndefinedProps, reconcilePlayers } from './utils';
-import { User } from '../contexts/AuthContext';
+import { User, ManagedTeam } from '../contexts/AuthContext';
 import { ExclusiveItem, TeamYamVideo, initialExclusiveContent, initialTeamYamVideos } from '../data/features';
 import { internationalData, youthHybridData, HybridTournament } from '../data/international';
 
@@ -75,6 +75,23 @@ export const sortByLatest = <T>(items: T[]): T[] => {
         }
         return timeB - timeA;
     });
+};
+
+const fetchWithRetry = async (url: string, options: RequestInit, retries = 3, backoff = 1000): Promise<Response> => {
+    try {
+        const response = await fetch(url, options);
+        if ((response.status === 429 || response.status >= 500) && retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, backoff));
+            return fetchWithRetry(url, options, retries - 1, backoff * 2);
+        }
+        return response;
+    } catch (err) {
+        if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, backoff));
+            return fetchWithRetry(url, options, retries - 1, backoff * 2);
+        }
+        throw err;
+    }
 };
 
 export interface AppSettings {
@@ -153,7 +170,6 @@ export interface CommunityEvent {
     createdAt: any;
 }
 
-// Added InAppNotification interface to fix missing type definition errors
 export interface InAppNotification {
     id: string;
     userId: string;
@@ -182,22 +198,15 @@ export interface LeagueRegistrationRequest {
 export const handleFirestoreError = (error: any, operation: string) => {
     const firebaseError = error as { code?: string, message?: string };
     const code = firebaseError.code;
-    
     if (code === 'unavailable' || code === 'deadline-exceeded' || firebaseError.message?.includes('reach Cloud Firestore backend')) {
-        console.warn(`[Firestore Status] '${operation}' backend connection timed out. Running in offline mode.`);
         return;
     }
-    
     if (code === 'permission-denied') {
-        console.error(`[Firestore Security] Access denied for '${operation}'.`);
         return;
     }
-
     if (code === 'failed-precondition' && firebaseError.message?.includes('index')) {
-        console.error(`[Firestore Index Error] '${operation}' requires a composite index. Check firestore.indexes.json.`);
         return;
     }
-
     console.error(`[Firestore Error] '${operation}':`, error);
 };
 
@@ -218,7 +227,7 @@ export interface MatchTicket {
   venue: string;
   price: number;
   status: 'available' | 'sold_out';
-  purchaseUrl?: string; // Direct link to purchase
+  purchaseUrl?: string;
 }
 
 export interface PendingChange {
@@ -240,6 +249,7 @@ export interface ClubRegistrationRequest {
     promoCode?: string;
     paymentStatus?: 'pending' | 'paid';
     tier?: string;
+    managedTeams?: ManagedTeam[];
 }
 
 export interface AdvertiserRequest {
@@ -348,11 +358,7 @@ export const updateMerchantConfig = async (data: Partial<MerchantConfig>) => {
 
 export const processPayment = async (amount: number, details: PaymentDetails): Promise<{ success: boolean; transactionId: string; message: string }> => {
     const merchant = await fetchMerchantConfig();
-    
     return new Promise((resolve) => {
-        const targetNumber = merchant?.momoMerchantNumber || '76000000';
-        console.log(`[Production Gateway] Routing E${amount} to Merchant Account: ${targetNumber} via ${details.method.toUpperCase()}...`);
-        
         setTimeout(async () => {
             if (details.method === 'card' && (!details.cardNumber || details.cardNumber.length < 16)) {
                 return resolve({ success: false, transactionId: '', message: 'Invalid card number.' });
@@ -360,22 +366,13 @@ export const processPayment = async (amount: number, details: PaymentDetails): P
             if (details.method === 'momo' && (!details.momoNumber || details.momoNumber.length < 8)) {
                 return resolve({ success: false, transactionId: '', message: 'Invalid MTN number.' });
             }
-            
             const isAuthorized = Math.random() < 0.99;
             if (isAuthorized) {
                 const txId = `FE-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
                 await recordRevenue(amount);
-                resolve({ 
-                    success: true, 
-                    transactionId: txId, 
-                    message: 'Payment settled to admin account.' 
-                });
+                resolve({ success: true, transactionId: txId, message: 'Payment settled.' });
             } else {
-                resolve({ 
-                    success: false, 
-                    transactionId: '', 
-                    message: 'Transaction declined.' 
-                });
+                resolve({ success: false, transactionId: '', message: 'Transaction declined.' });
             }
         }, 3000); 
     });
@@ -501,9 +498,7 @@ export const fetchAllCompetitions = async (): Promise<Record<string, Competition
 export const listenToAllCompetitions = (callback: (allComps: Record<string, Competition>) => void): (() => void) => {
     return onSnapshot(collection(db, "competitions"), (querySnapshot) => {
         const comps: Record<string, Competition> = {};
-        querySnapshot.forEach((doc) => {
-            comps[doc.id] = doc.data() as Competition;
-        });
+        querySnapshot.forEach((doc) => { comps[doc.id] = doc.data() as Competition; });
         callback(comps);
     }, (error) => {
         handleFirestoreError(error, 'listen to all comps');
@@ -548,10 +543,8 @@ export const fetchPlayerById = async (playerId: number): Promise<{ player: Playe
     const comps = await fetchAllCompetitions();
     for (const [compId, comp] of Object.entries(comps)) {
         if (comp.teams) {
-            // Source of Truth: Reconcile virtual players from matches to resolve global ID lookups
             const allMatches = [...(comp.fixtures || []), ...(comp.results || [])];
             const reconciledTeams = reconcilePlayers(comp.teams, allMatches);
-            
             for (const team of reconciledTeams) {
                 const player = team.players?.find(p => p.id === playerId);
                 if (player) return { player, team, competitionId: compId };
@@ -572,21 +565,10 @@ export const updatePlayerStats = async (compId: string, teamName: string, player
                 if (superNormalize(t.name) === superNormalize(teamName)) {
                     const players = [...(t.players || [])];
                     let player = players.find(p => superNormalize(p.name) === superNormalize(playerName));
-                    
                     if (!player) {
-                        player = {
-                            id: Date.now() + Math.floor(Math.random() * 1000),
-                            name: playerName,
-                            position: 'Midfielder',
-                            number: 0,
-                            photoUrl: '',
-                            bio: { nationality: 'Eswatini', age: 0, height: '-' },
-                            stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0 },
-                            transferHistory: []
-                        };
+                        player = { id: Date.now() + Math.floor(Math.random() * 1000), name: playerName, position: 'Midfielder', number: 0, photoUrl: '', bio: { nationality: 'Eswatini', age: 0, height: '-' }, stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0 }, transferHistory: [] };
                         players.push(player);
                     }
-
                     const updatedPlayers = players.map(p => {
                         if (superNormalize(p.name) === superNormalize(playerName)) {
                             const newStats = { ...p.stats };
@@ -623,7 +605,6 @@ export const addDirectoryEntry = async (entry: Omit<DirectoryEntity, 'id'>) => {
 export const updateDirectoryEntry = async (id: string, data: Partial<DirectoryEntity>) => { await updateDoc(doc(db, 'directory', id), data); };
 export const deleteDirectoryEntry = async (id: string) => { await deleteDoc(doc(db, 'directory', id)); };
 
-// STANDALONE MATCH FUNCTIONS
 export const fetchStandaloneMatches = async (teamName?: string): Promise<StandaloneMatch[]> => {
     try {
         let q = query(collection(db, 'standalone_matches'), orderBy('fullDate', 'desc'));
@@ -706,10 +687,7 @@ export const fetchVideos = async (): Promise<Video[]> => {
 };
 
 export const addVideo = async (data: Omit<Video, 'id'>) => { 
-    await addDoc(collection(db, 'videos'), { 
-        ...data, 
-        timestamp: serverTimestamp() 
-    }); 
+    await addDoc(collection(db, 'videos'), { ...data, timestamp: serverTimestamp() }); 
 };
 
 export const updateVideo = async (id: string, data: Partial<Video>) => { await updateDoc(doc(db, 'videos', id), data); };
@@ -800,7 +778,7 @@ export const fetchCups = async (): Promise<Tournament[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'cups'));
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament));
-    } catch { return mockCupData; }
+    } catch { return []; }
 };
 
 export const addCup = async (data: Omit<Tournament, 'id'>) => { await addDoc(collection(db, 'cups'), data); };
@@ -905,24 +883,38 @@ export const fetchLeagueRequests = async (): Promise<LeagueRegistrationRequest[]
 };
 
 export const approveLeagueRequest = async (request: LeagueRegistrationRequest) => {
-    await updateDoc(doc(db, 'leagueRequests', request.id), { status: 'approved' });
-    await addNotification({ userId: request.managerId, title: 'League Registration Approved', message: `Your request for ${request.leagueName} has been approved.`, type: 'success' });
+    const batch = writeBatch(db);
+    
+    // 1. Create the competition doc if it's a 'create' request
+    if (request.requestType === 'create') {
+        const slug = request.leagueName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const compRef = doc(db, 'competitions', slug);
+        batch.set(compRef, {
+            name: request.leagueName,
+            region: request.region, // Explicitly capture the region for hub mapping
+            categoryId: request.categoryId || 'regional-leagues',
+            teams: [], fixtures: [], results: []
+        }, { merge: true });
+    }
+
+    // 2. Update manager permissions
+    if (request.managerId && request.managerId !== 'new_user') {
+        const userRef = doc(db, 'users', request.managerId);
+        batch.update(userRef, { role: 'league_admin' });
+    }
+
+    // 3. Mark request as approved
+    const reqRef = doc(db, 'leagueRequests', request.id);
+    batch.update(reqRef, { status: 'approved' });
+    
+    await batch.commit();
+
+    await addNotification({ userId: request.managerId, title: 'League Registration Approved', message: `Your request for ${request.leagueName} has been approved. You are now a League Admin.`, type: 'success' });
 };
 
 export const rejectLeagueRequest = async (id: string) => {
     await updateDoc(doc(db, 'leagueRequests', id), { status: 'rejected' });
 };
-
-// Added InAppNotification interface to fix missing type definition errors
-export interface InAppNotification {
-    id: string;
-    userId: string;
-    title: string;
-    message: string;
-    type: 'success' | 'warning' | 'error' | 'info';
-    read: boolean;
-    timestamp: any;
-}
 
 export const addNotification = async (data: Omit<InAppNotification, 'id' | 'read' | 'timestamp'>) => {
     await addDoc(collection(db, 'in_app_notifications'), { ...data, read: false, timestamp: serverTimestamp() });
@@ -933,14 +925,8 @@ export const listenToNotifications = (userId: string, callback: (notifications: 
     return onSnapshot(q, (querySnapshot) => {
         const notifications: InAppNotification[] = [];
         querySnapshot.forEach((doc) => { notifications.push({ id: doc.id, ...doc.data() } as InAppNotification); });
-        
-        notifications.sort((a, b) => {
-            const timeA = a.timestamp?.seconds || 0;
-            const timeB = b.timestamp?.seconds || 0;
-            return timeB - timeA;
-        });
-        
-        callback(notifications.slice(0, 20));
+        notifications.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+        callback(notifications.reverse().slice(0, 20));
     }, (error) => {
         handleFirestoreError(error, 'listen to notifications');
         callback([]);
@@ -950,12 +936,23 @@ export const listenToNotifications = (userId: string, callback: (notifications: 
 export const markNotificationRead = async (id: string) => { await updateDoc(doc(db, 'in_app_notifications', id), { read: true }); };
 
 export const approveClubRequest = async (request: ClubRegistrationRequest) => {
+    const batch = writeBatch(db);
+
     if (request.userId && request.userId !== 'pending-auth') {
         const userRef = doc(db, 'users', request.userId);
-        await updateDoc(userRef, { role: 'club_admin', club: request.clubName });
+        batch.update(userRef, { 
+            role: 'club_admin', 
+            club: request.clubName,
+            managedTeams: arrayUnion(...(request.managedTeams || []))
+        });
     }
-    await updateDoc(doc(db, 'clubRequests', request.id), { status: 'approved' });
-    await addNotification({ userId: request.userId, title: 'Club Management Approved', message: `Welcome! Your request for ${request.clubName} has been approved.`, type: 'success' });
+
+    const reqRef = doc(db, 'clubRequests', request.id);
+    batch.update(reqRef, { status: 'approved' });
+
+    await batch.commit();
+
+    await addNotification({ userId: request.userId, title: 'Club Management Approved', message: `Welcome! Your request for ${request.clubName} has been approved. You now have full access to the Club Portal.`, type: 'success' });
 };
 
 export const fetchCategories = async (): Promise<Category[]> => {
@@ -990,31 +987,29 @@ export const resetAllCompetitionData = async () => {
 };
 
 export const fetchFootballDataOrg = async (apiId: string, key: string, season: string, type: 'fixtures' | 'results', proxy: boolean, officialNames: string[]): Promise<CompetitionFixture[]> => {
-    console.log(`Fetching from Football-Data.org for ${apiId}...`);
-    const endpoint = `https://api.football-data.org/v4/competitions/${apiId}/matches?status=${type === 'results' ? 'FINISHED' : 'SCHEDULED'}&season=${season}`;
+    const statusParam = type === 'results' ? 'FINISHED' : 'SCHEDULED';
+    const endpoint = `https://api.football-data.org/v4/competitions/${apiId}/matches?status=${statusParam}&season=${season}`;
     const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
-    try {
-        const response = await fetch(url, { headers: key ? { 'X-Auth-Token': key } : {} });
-        if (!response.ok) throw new Error(`Football-Data error: ${response.status}`);
-        const data = await response.json();
-        return (data.matches || []).map((m: any) => {
-            const dateObj = new Date(m.utcDate);
-            return {
-                id: m.id,
-                teamA: normalizeTeamName(m.homeTeam.name, officialNames) || m.homeTeam.name,
-                teamB: normalizeTeamName(m.awayTeam.name, officialNames) || m.awayTeam.name,
-                scoreA: m.score?.fullTime?.home ?? undefined,
-                scoreB: m.score?.fullTime?.away ?? undefined,
-                fullDate: dateObj.toISOString().split('T')[0],
-                date: dateObj.getDate().toString(),
-                day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-                time: dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-                status: m.status === 'FINISHED' ? 'finished' : 'scheduled',
-                matchday: m.matchday,
-                venue: m.venue
-            };
-        });
-    } catch (e: any) { throw e; }
+    const response = await fetchWithRetry(url, { method: 'GET', headers: { 'X-Auth-Token': key, 'Accept': 'application/json' } });
+    if (!response.ok) throw new Error(`Football-Data Error (${response.status})`);
+    const data = await response.json();
+    return (data.matches || []).map((m: any) => {
+        const dateObj = new Date(m.utcDate);
+        return {
+            id: m.id,
+            teamA: normalizeTeamName(m.homeTeam.name, officialNames) || m.homeTeam.name,
+            teamB: normalizeTeamName(m.awayTeam.name, officialNames) || m.awayTeam.name,
+            scoreA: m.score?.fullTime?.home ?? undefined,
+            scoreB: m.score?.fullTime?.away ?? undefined,
+            fullDate: dateObj.toISOString().split('T')[0],
+            date: dateObj.getDate().toString(),
+            day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+            time: dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+            status: m.status === 'FINISHED' ? 'finished' : 'scheduled',
+            matchday: m.matchday,
+            venue: m.venue
+        };
+    });
 };
 
 export const fetchApiFootball = async (apiId: string, key: string, season: string, type: 'fixtures' | 'results', proxy: boolean, officialNames: string[], isRapidApi: boolean = false): Promise<CompetitionFixture[]> => {
@@ -1023,37 +1018,30 @@ export const fetchApiFootball = async (apiId: string, key: string, season: strin
     const endpoint = `https://${ host }/v3/fixtures?league=${apiId}&season=${season}&status=${statusParam}`;
     const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
     const headers: Record<string, string> = { 'Accept': 'application/json' };
-    if (isRapidApi) {
-        headers['x-rapidapi-key'] = key;
-        headers['x-rapidapi-host'] = host;
-    } else {
-        headers['x-apisports-key'] = key;
-    }
-    try {
-        const response = await fetch(url, { headers });
-        const data = await response.json();
-        if (data.errors && Object.keys(data.errors).length > 0) throw new Error(JSON.stringify(data.errors));
-        return (data.response || []).map((item: any) => {
-            const f = item.fixture;
-            const teams = item.teams;
-            const goals = item.goals;
-            const dateObj = new Date(f.date);
-            return {
-                id: f.id,
-                teamA: normalizeTeamName(teams.home.name, officialNames) || teams.home.name,
-                teamB: normalizeTeamName(teams.away.name, officialNames) || teams.away.name,
-                scoreA: goals.home ?? undefined,
-                scoreB: goals.away ?? undefined,
-                fullDate: dateObj.toISOString().split('T')[0],
-                date: dateObj.getDate().toString(),
-                day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-                time: dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-                status: f.status.short === 'FT' ? 'finished' : 'scheduled',
-                matchday: item.league.round.match(/\d+/) ? parseInt(item.league.round.match(/\d+/)[0]) : undefined,
-                venue: f.venue.name
-            };
-        });
-    } catch (e: any) { throw e; }
+    if (isRapidApi) { headers['x-rapidapi-key'] = key; headers['x-rapidapi-host'] = host; } else { headers['x-apisports-key'] = key; }
+    const response = await fetchWithRetry(url, { method: 'GET', headers });
+    if (!response.ok) throw new Error(`API-Football Error (${response.status})`);
+    const data = await response.json();
+    return (data.response || []).map((item: any) => {
+        const f = item.fixture;
+        const teams = item.teams;
+        const goals = item.goals;
+        const dateObj = new Date(f.date);
+        return {
+            id: f.id,
+            teamA: normalizeTeamName(teams.home.name, officialNames) || teams.home.name,
+            teamB: normalizeTeamName(teams.away.name, officialNames) || teams.away.name,
+            scoreA: goals.home ?? undefined,
+            scoreB: goals.away ?? undefined,
+            fullDate: dateObj.toISOString().split('T')[0],
+            date: dateObj.getDate().toString(),
+            day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+            time: dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+            status: f.status.short === 'FT' ? 'finished' : 'scheduled',
+            matchday: item.league.round.match(/\d+/) ? parseInt(item.league.round.match(/\d+/)[0]) : undefined,
+            venue: f.venue.name
+        };
+    });
 };
 
 export const fetchCommunityEvents = async (): Promise<CommunityEvent[]> => {
@@ -1069,13 +1057,7 @@ export const fetchAllCommunityEvents = async (): Promise<CommunityEvent[]> => {
 };
 
 export const submitCommunityEvent = async (data: any) => {
-    await addDoc(collection(db, 'community_events'), { 
-        ...data, 
-        status: 'pending', 
-        likes: 0, 
-        likedBy: [], 
-        createdAt: serverTimestamp() 
-    });
+    await addDoc(collection(db, 'community_events'), { ...data, status: 'pending', likes: 0, likedBy: [], createdAt: serverTimestamp() });
 };
 
 export const updateCommunityEvent = async (id: string, data: any) => {
@@ -1096,10 +1078,7 @@ export const submitCommunityResult = async (id: string, summary: string) => {
 
 export const toggleCommunityEventLike = async (eventId: string, userId: string, isLiked: boolean) => {
     const docRef = doc(db, 'community_events', eventId);
-    await updateDoc(docRef, {
-        likes: increment(isLiked ? -1 : 1),
-        likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId)
-    });
+    await updateDoc(docRef, { likes: increment(isLiked ? -1 : 1), likedBy: isLiked ? arrayRemove(userId) : arrayUnion(userId) });
 };
 
 export const addCommunityEventComment = async (eventId: string, text: string, user: User) => {
@@ -1131,10 +1110,7 @@ export const listenToYouthArticleComments = (articleId: string, callback: (comme
 };
 
 export const submitContactInquiry = async (data: Omit<ContactInquiry, 'id' | 'submittedAt'>) => {
-    await addDoc(collection(db, 'contact_inquiries'), {
-        ...data,
-        submittedAt: serverTimestamp()
-    });
+    await addDoc(collection(db, 'contact_inquiries'), { ...data, submittedAt: serverTimestamp() });
 };
 
 export const fetchContactInquiries = async (): Promise<ContactInquiry[]> => {

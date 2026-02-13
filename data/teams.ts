@@ -1,4 +1,3 @@
-
 export interface LogEntry {
   p: number;
   w: number;
@@ -9,6 +8,16 @@ export interface LogEntry {
   gd: number;
   pts: number;
   form: string;
+}
+
+export interface PlayerStats {
+    appearances: number;
+    goals: number;
+    assists: number;
+    yellowCards?: number;
+    redCards?: number;
+    cleanSheets?: number;
+    potmWins?: number;
 }
 
 export interface Player {
@@ -23,15 +32,8 @@ export interface Player {
         age: number;
         height: string;
     };
-    stats: {
-        appearances: number;
-        goals: number;
-        assists: number;
-        yellowCards?: number;
-        redCards?: number;
-        cleanSheets?: number;
-        potmWins?: number;
-    };
+    baseStats?: PlayerStats; // Manual/Historical baseline
+    stats: PlayerStats;      // Current calculated total
     transferHistory: {
         from: string;
         to: string;
@@ -158,4 +160,5 @@ export interface Competition {
     externalApiId?: string;
     displayName?: string;
     description?: string;
+    region?: string;
 }

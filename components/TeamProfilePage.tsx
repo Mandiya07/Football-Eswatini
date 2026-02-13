@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Team, Player, Competition, CompetitionFixture, TeamVideo } from '../data/teams';
@@ -14,7 +13,7 @@ import CheckCircleIcon from './icons/CheckCircleIcon';
 import Spinner from './ui/Spinner';
 import FormGuide from './ui/FormGuide';
 import { useAuth } from '../contexts/AuthContext';
-import { removeUndefinedProps, findInMap, reconcilePlayers, superNormalize } from '../services/utils';
+import { removeUndefinedProps, findInMap, reconcilePlayers, superNormalize, calculateStandings } from '../services/utils';
 import FacebookIcon from './icons/FacebookIcon';
 import InstagramIcon from './icons/InstagramIcon';
 import YouTubeIcon from './icons/YouTubeIcon';
@@ -113,20 +112,30 @@ const TeamProfilePage: React.FC = () => {
       setActiveCompId(resolvedCompId || null);
 
       if (competitionData && teamMatch) {
-          const allMatches = [...(competitionData.fixtures || []), ...(competitionData.results || [])];
-          const reconciledTeams = reconcilePlayers(competitionData.teams || [], allMatches);
+          // Fix: Use calculateStandings to get dynamically calculated team stats (P, W, D, L, Pts)
+          // instead of just reconcilePlayers. This ensures the profile stats match the Logs page.
+          const updatedStandings = calculateStandings(
+              competitionData.teams || [], 
+              competitionData.results || [], 
+              competitionData.fixtures || []
+          );
           
-          const currentTeam = reconciledTeams.find(t => String(t.id) === String(teamMatch!.id));
+          const currentTeam = updatedStandings.find(t => String(t.id) === String(teamMatch!.id));
           setTeam(currentTeam || null);
 
           if (currentTeam) {
-              const teamName = currentTeam.name;
-              const officialUpcoming = (competitionData.fixtures || [])
-                  .filter(f => f.teamA === teamName || f.teamB === teamName);
-              const officialFinished = (competitionData.results || [])
-                  .filter(r => r.teamA === teamName || r.teamB === teamName);
+              const normName = superNormalize(currentTeam.name);
               
-              const standalone = await fetchStandaloneMatches(teamName);
+              // Fix: Use normalized matching to filter matches, ensuring "Hlatikhulu FC" 
+              // matches "Hlatikhulu" or other variations in fixture records.
+              const officialUpcoming = (competitionData.fixtures || [])
+                  .filter(f => superNormalize(f.teamA) === normName || superNormalize(f.teamB) === normName);
+                  
+              const officialFinished = (competitionData.results || [])
+                  .filter(r => superNormalize(r.teamA) === normName || superNormalize(r.teamB) === normName);
+              
+              const standalone = await fetchStandaloneMatches(currentTeam.name);
+              const normStandaloneName = superNormalize(currentTeam.name);
               
               setTeamFixtures([...officialUpcoming, ...standalone.filter(m => m.status !== 'finished')].sort((a, b) => {
                   const dateA = new Date(a.fullDate || 0).getTime();
@@ -294,7 +303,7 @@ const OpponentLink: React.FC<{
 const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, directoryMap: Map<string, DirectoryEntity>, allComps: Record<string, Competition>, currentCompId: string }> = ({ fixtures, teamName, directoryMap, allComps, currentCompId }) => (
     <div className="space-y-3">
         {fixtures.length > 0 ? fixtures.map(f => {
-            const isHome = f.teamA === teamName;
+            const isHome = superNormalize(f.teamA) === superNormalize(teamName);
             return (
                 <div key={f.id} className="p-4 border rounded-2xl flex justify-between items-center bg-white hover:bg-gray-50 transition-all border-gray-100">
                     <div><div className="flex items-center gap-3"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded border">{isHome ? 'Home' : 'Away'}</span><span className="font-black text-gray-800 text-lg">vs <OpponentLink opponentName={isHome ? f.teamB : f.teamA} directoryMap={directoryMap} allComps={allComps} currentCompId={currentCompId} /></span></div><p className="text-xs text-gray-400 font-bold uppercase mt-1">{f.fullDate} @ {f.time} &bull; {f.venue || 'TBA'}</p></div>
@@ -308,7 +317,7 @@ const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, 
 const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, directoryMap: Map<string, DirectoryEntity>, allComps: Record<string, Competition>, currentCompId: string }> = ({ results, teamName, directoryMap, allComps, currentCompId }) => (
     <div className="space-y-3">
         {results.length > 0 ? results.map(r => {
-            const isTeamA = r.teamA === teamName;
+            const isTeamA = superNormalize(r.teamA) === superNormalize(teamName);
             const outcome: 'W'|'D'|'L' = r.scoreA === r.scoreB ? 'D' : (isTeamA ? (r.scoreA! > r.scoreB! ? 'W' : 'L') : (r.scoreB! > r.scoreA! ? 'W' : 'L'));
             const colors = { 'W': 'bg-green-100 text-green-700 border-green-200', 'D': 'bg-gray-100 text-gray-700 border-gray-200', 'L': 'bg-red-100 text-red-700 border-red-200' };
             return (

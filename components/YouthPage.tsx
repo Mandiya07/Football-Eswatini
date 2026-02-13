@@ -20,6 +20,7 @@ const YouthPage: React.FC = () => {
     'build-it-u13-national', 
     'hub-hardware-u17-competition', 
     'u13-grassroots-national-football', 
+    'u15-national-football',
     'u17-national-football', 
     'u19-national-football'
   ];
@@ -30,18 +31,14 @@ const YouthPage: React.FC = () => {
       try {
           const data = await fetchYouthData();
           
-          // Filter to strictly only show requested tournaments
           let filteredData = data.filter(l => ALLOWED_IDS.includes(l.id));
           
-          // If Firestore returns less than the full set (missing documents), 
-          // fill in from mock data for these specific IDs to ensure the UI is complete
           if (filteredData.length < ALLOWED_IDS.length) {
               const missingIds = ALLOWED_IDS.filter(id => !filteredData.find(f => f.id === id));
               const extras = mockYouthData.filter(m => missingIds.includes(m.id));
               filteredData = [...filteredData, ...extras];
           }
 
-          // Force strict ordering
           const sortedData = [...filteredData].sort((a, b) => ALLOWED_IDS.indexOf(a.id) - ALLOWED_IDS.indexOf(b.id));
           setLeagues(sortedData);
       } catch (e) {
@@ -58,6 +55,7 @@ const YouthPage: React.FC = () => {
       if (id.includes('u20')) return <TrophyIcon className="w-8 h-8 text-yellow-400" />;
       if (id.includes('u19')) return <TrophyIcon className="w-8 h-8 text-indigo-400" />;
       if (id.includes('u17')) return <TrophyIcon className="w-8 h-8 text-blue-400" />;
+      if (id.includes('u15')) return <TrophyIcon className="w-8 h-8 text-teal-400" />;
       if (id === 'schools') return <SchoolIcon className="w-8 h-8 text-orange-600" />;
       return <GlobeIcon className="w-8 h-8 text-blue-600" />;
   };
@@ -76,6 +74,7 @@ const YouthPage: React.FC = () => {
           case 'build-it-u13-national': return "/youth/build-it-u13";
           case 'hub-hardware-u17-competition': return "/youth/hub-u17";
           case 'u13-grassroots-national-football': return "/youth/grassroots-u13";
+          case 'u15-national-football': return "/youth/national-u15";
           case 'u17-national-football': return "/youth/national-u17";
           case 'u19-national-football': return "/youth/u19";
           default: return "/youth";

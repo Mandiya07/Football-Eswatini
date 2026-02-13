@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -15,6 +14,7 @@ import LiveTicker from './LiveTicker';
 import LogOutIcon from './icons/LogOutIcon';
 import DatabaseIcon from './icons/DatabaseIcon';
 import NewspaperIcon from './icons/NewspaperIcon';
+import MenuIcon from './icons/MenuIcon';
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,9 +57,9 @@ const Navigation: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Close mobile menu on route change
   useEffect(() => {
     setIsOpen(false);
+    setIsUserMenuOpen(false);
   }, [location.pathname]);
 
   const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -69,8 +69,7 @@ const Navigation: React.FC = () => {
   };
 
   const getNavLinkClass = ({ isActive }: { isActive: boolean }) => {
-    // Restored font sizes to readable levels: 11px on small laptops, 13px on larger screens
-    const baseClass = "relative h-full flex items-center text-[11px] xl:text-[12px] 2xl:text-[13px] font-bold px-2 xl:px-2.5 2xl:px-3.5 transition-all duration-300 whitespace-nowrap";
+    const baseClass = "relative h-full flex items-center text-[11px] xl:text-[12px] 2xl:text-[13px] font-bold px-2 xl:px-2.5 2xl:px-3.5 transition-all duration-300 whitespace-nowrap tracking-tighter";
     return isActive 
       ? `${baseClass} text-white bg-white/10 backdrop-blur-md` 
       : `${baseClass} text-white/70 hover:text-white hover:bg-white/5`;
@@ -78,19 +77,17 @@ const Navigation: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-[120] w-full shadow-lg">
+      <header className="sticky top-0 z-[120] w-full shadow-2xl">
         <SecondaryNavigation />
         
         <div className="bg-[#002B7F] border-b border-white/10">
           <div className="container mx-auto px-4">
             <div className="flex items-center h-20">
-              {/* Logo - Increased margin as requested */}
               <div className="flex items-center h-full">
                 <NavLink to="/" className="flex-shrink-0 mr-8 xl:mr-12 transition-transform hover:scale-105 active:scale-95">
                   <Logo className="h-9 xl:h-10 w-auto" />
                 </NavLink>
                 
-                {/* Navigation Items - balanced spacing to use the horizontal space efficiently */}
                 <nav className="hidden lg:flex items-center h-full overflow-x-auto scrollbar-hide">
                   <div className="flex items-center h-full">
                     {navItems.map((item) => (
@@ -109,17 +106,16 @@ const Navigation: React.FC = () => {
                 </nav>
               </div>
 
-              {/* Action Icons - used ml-auto to push them to the end and fill the gap */}
               <div className="flex items-center gap-2 xl:gap-4 ml-auto flex-shrink-0">
                 <div className="relative hidden xl:block">
                   <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
                   <input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search news..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={handleSearchSubmit}
-                    className="bg-white/10 text-white placeholder-white/50 rounded-xl py-2 pl-10 pr-4 text-sm w-32 2xl:w-44 focus:w-52 focus:bg-white/20 outline-none border border-white/5 focus:border-white/20 transition-all"
+                    className="bg-white/10 text-white placeholder-white/40 rounded-xl py-2 pl-10 pr-4 text-sm w-32 2xl:w-44 focus:w-52 focus:bg-white/20 outline-none border border-white/5 focus:border-white/20 transition-all"
                   />
                 </div>
 
@@ -143,9 +139,9 @@ const Navigation: React.FC = () => {
                     
                     {isUserMenuOpen && (
                       <div className="absolute top-full right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 text-gray-800 animate-in slide-in-from-top-3 duration-200">
-                        <div className="px-5 py-3 border-b border-gray-50">
+                        <div className="px-5 py-3 border-b border-gray-50 text-center">
                           <p className="font-black text-sm truncate text-gray-900">{user?.name}</p>
-                          <p className="text-[10px] text-primary/50 uppercase font-black tracking-widest">{user?.role?.replace('_', ' ')}</p>
+                          <p className="text-[10px] text-primary/50 font-black tracking-widest">{user?.role?.replace('_', ' ')}</p>
                         </div>
                         <div className="p-1.5">
                           <Link to="/profile" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold hover:bg-gray-50 rounded-xl transition-colors">
@@ -170,7 +166,7 @@ const Navigation: React.FC = () => {
                   </div>
                 ) : (
                   <Button variant="accent" size="sm" onClick={openAuthModal} className="h-9 px-4 rounded-xl text-[10px] tracking-widest shadow-xl">
-                    SIGN IN
+                    Sign In
                   </Button>
                 )}
                 
@@ -182,7 +178,6 @@ const Navigation: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile Navigation Overlay */}
         {isOpen && (
           <div className="lg:hidden fixed inset-0 z-[130] bg-[#002B7F] animate-fade-in flex flex-col">
              <div className="flex justify-between items-center p-6 border-b border-white/10">
@@ -203,7 +198,7 @@ const Navigation: React.FC = () => {
              <div className="p-8 border-t border-white/5">
                 {!isLoggedIn && (
                   <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="w-full h-16 rounded-2xl bg-accent text-primary-dark font-black text-lg shadow-2xl">
-                      SIGN IN / JOIN HUB
+                      Sign In / Join Hub
                   </Button>
                 )}
              </div>
@@ -217,9 +212,5 @@ const Navigation: React.FC = () => {
     </>
   );
 };
-
-const MenuIcon: React.FC<{className?: string}> = ({className}) => (
-  <svg className={className} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" /></svg>
-);
 
 export default Navigation;

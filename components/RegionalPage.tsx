@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -115,14 +114,14 @@ const RegionalPage: React.FC = () => {
                 <CardContent className="p-10 text-center md:text-left md:flex items-center justify-between gap-8">
                     <div className="flex-1">
                         <h2 className="text-3xl font-display font-bold mb-4">Are you a League Manager?</h2>
-                        <p className="text-blue-100 mb-6 md:mb-0">
-                            Create and manage your own regional league. Digitally track scores, teams, and standings for your community or organization.
+                        <p className="text-blue-100 mb-6 md:mb-0 leading-relaxed">
+                            Start a brand new Promotion or B Division league, or request access to manage an existing official regional hub.
                         </p>
                     </div>
                     <div className="flex-shrink-0">
                         <Link to={isLoggedIn ? "/league-registration" : "#"} onClick={handleCreateLeague}>
                             <Button className="bg-yellow-400 text-blue-950 font-black px-8 py-4 rounded-xl hover:bg-yellow-300 transition-all hover:scale-105 shadow-xl">
-                                Create New League
+                                Enter Manager Portal
                             </Button>
                         </Link>
                     </div>

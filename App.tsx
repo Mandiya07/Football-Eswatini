@@ -34,6 +34,7 @@ const HubU17Page = lazy(() => import('./components/HubU17Page'));
 const BuildItU13Page = lazy(() => import('./components/BuildItU13Page'));
 const GrassrootsU13Page = lazy(() => import('./components/GrassrootsU13Page'));
 const NationalU17Page = lazy(() => import('./components/NationalU17Page'));
+const NationalU15Page = lazy(() => import('./components/NationalU15Page'));
 const WomensPage = lazy(() => import('./components/WomensPage'));
 const PremierLeaguePage = lazy(() => import('./components/PremierLeaguePage'));
 const NationalFirstDivisionPage = lazy(() => import('./components/NationalFirstDivisionPage'));
@@ -122,6 +123,7 @@ const App: React.FC = () => {
                   <Route path="/youth/build-it-u13" element={<BuildItU13Page />} />
                   <Route path="/youth/grassroots-u13" element={<GrassrootsU13Page />} />
                   <Route path="/youth/national-u17" element={<NationalU17Page />} />
+                  <Route path="/youth/national-u15" element={<NationalU15Page />} />
                   <Route path="/schools" element={<SchoolsPage />} />
                   <Route path="/womens" element={<WomensPage />} />
                   <Route path="/premier-league" element={<PremierLeaguePage />} />

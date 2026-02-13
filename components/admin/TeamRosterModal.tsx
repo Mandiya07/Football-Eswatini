@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Team, Player, Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
@@ -36,7 +35,7 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
         name: '', position: 'Forward', number: '', photoUrl: '',
         age: '', nationality: '', height: '',
         appearances: '0', goals: '0', assists: '0', cleanSheets: '0',
-        yellowCards: '0', redCards: '0'
+        yellowCards: '0', redCards: '0', potmWins: '0'
     });
 
     const [transferHistory, setTransferHistory] = useState<{from: string, to: string, year: number}[]>([]);
@@ -45,6 +44,17 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
 
     const startEditing = useCallback((player: Player) => {
         setEditingId(player.id);
+        // Source baseline from baseStats if present, else stats
+        // Fix: Explicitly provided a default object that satisfies PlayerStats to avoid "Property does not exist on type '{}'" errors.
+        const source = player.baseStats || player.stats || {
+            appearances: 0,
+            goals: 0,
+            assists: 0,
+            yellowCards: 0,
+            redCards: 0,
+            cleanSheets: 0,
+            potmWins: 0
+        };
         setFormData({
             name: player.name || '',
             position: player.position || 'Forward',
@@ -53,12 +63,13 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             age: String(player.bio?.age || ''),
             nationality: player.bio?.nationality || '',
             height: player.bio?.height || '',
-            appearances: String(player.stats?.appearances || 0),
-            goals: String(player.stats?.goals || 0),
-            assists: String(player.stats?.assists || 0),
-            cleanSheets: String(player.stats?.cleanSheets || 0),
-            yellowCards: String(player.stats?.yellowCards || 0),
-            redCards: String(player.stats?.redCards || 0)
+            appearances: String(source.appearances || 0),
+            goals: String(source.goals || 0),
+            assists: String(source.assists || 0),
+            cleanSheets: String(source.cleanSheets || 0),
+            yellowCards: String(source.yellowCards || 0),
+            redCards: String(source.redCards || 0),
+            potmWins: String(source.potmWins || 0)
         });
         setTransferHistory(player.transferHistory || []);
         setActiveTab('basic');
@@ -69,7 +80,7 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             name: '', position: 'Forward', number: '', photoUrl: '',
             age: '', nationality: '', height: '',
             appearances: '0', goals: '0', assists: '0', cleanSheets: '0',
-            yellowCards: '0', redCards: '0'
+            yellowCards: '0', redCards: '0', potmWins: '0'
         });
         setTransferHistory([]);
         setEditingId(null);
@@ -94,9 +105,10 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
             const reader = new FileReader();
             reader.onloadend = () => { if (typeof reader.result === 'string') setFormData(prev => ({ ...prev, photoUrl: reader.result as string })); };
-            reader.readAsDataURL(e.target.files[0]);
+            reader.readAsDataURL(file);
         }
     };
 
@@ -133,6 +145,17 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
     const handleSavePlayer = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name) return;
+        
+        const manualBaseline = { 
+            appearances: parseInt(formData.appearances, 10) || 0,
+            goals: parseInt(formData.goals, 10) || 0,
+            assists: parseInt(formData.assists, 10) || 0,
+            cleanSheets: parseInt(formData.cleanSheets, 10) || 0,
+            yellowCards: parseInt(formData.yellowCards, 10) || 0,
+            redCards: parseInt(formData.redCards, 10) || 0,
+            potmWins: parseInt(formData.potmWins, 10) || 0
+        };
+
         const playerToSave: Player = {
             id: editingId || Date.now(),
             name: formData.name.trim(),
@@ -140,16 +163,11 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             number: parseInt(formData.number, 10) || 0,
             photoUrl: formData.photoUrl,
             bio: { nationality: formData.nationality || 'Eswatini', age: parseInt(formData.age, 10) || 0, height: formData.height || '-' },
-            stats: { 
-                appearances: parseInt(formData.appearances, 10) || 0,
-                goals: parseInt(formData.goals, 10) || 0,
-                assists: parseInt(formData.assists, 10) || 0,
-                cleanSheets: parseInt(formData.cleanSheets, 10) || 0,
-                yellowCards: parseInt(formData.yellowCards, 10) || 0,
-                redCards: parseInt(formData.redCards, 10) || 0
-            },
+            baseStats: manualBaseline, // Saved as baseline
+            stats: manualBaseline,      // Initial display total
             transferHistory: transferHistory,
         };
+        
         let updated: Player[] = editingId ? players.map(p => p.id === editingId ? playerToSave : p) : [...players, playerToSave];
         await updateFirestore(updated.sort((a,b) => a.number - b.number));
         resetForm();
@@ -170,7 +188,7 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
                     </div>
 
                     <div className="flex flex-col lg:flex-row gap-10">
-                        {/* List - Mobile Top / Desktop Left */}
+                        {/* List */}
                         <div className="lg:w-1/3 order-2 lg:order-1">
                             <div className="flex justify-between items-center mb-4">
                                 <h4 className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Active Squad</h4>
@@ -194,7 +212,7 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
                             </div>
                         </div>
 
-                        {/* Form - Mobile Bottom / Desktop Right */}
+                        {/* Form */}
                         <div className="lg:w-2/3 order-1 lg:order-2">
                             <form onSubmit={handleSavePlayer} className="space-y-8">
                                 <div className="flex p-1 bg-slate-100 rounded-2xl w-fit">
@@ -230,7 +248,7 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
                                             </div>
                                             <div className="sm:col-span-2">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Profile Photo</label>
-                                                <input type="file" onChange={handleFileChange} accept="image/*" className="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                                                <input type="file" onChange={handleFileChange} accept="image/*" className="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" ref={fileInputRef} />
                                             </div>
                                         </div>
                                     )}
@@ -239,7 +257,10 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
                                         <div className="space-y-8 animate-fade-in">
                                             <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex items-start gap-4">
                                                 <InfoIcon className="w-6 h-6 text-blue-600 mt-1" />
-                                                <p className="text-sm text-blue-800 leading-relaxed font-medium">Use these overrides to seed historical stats. Current season match events will be added to these base tallies automatically.</p>
+                                                <div>
+                                                    <p className="text-sm text-blue-800 font-bold uppercase tracking-tight">Historical / Manual Baseline</p>
+                                                    <p className="text-xs text-blue-700 leading-relaxed mt-1">Use these fields to set a starting point (e.g. goals from previous years). Matches currently in the system will be added to these baselines automatically.</p>
+                                                </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-6">
                                                 <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Appearances</label><input type="number" name="appearances" value={formData.appearances} onChange={handleInputChange} className={inputClass} /></div>

@@ -75,6 +75,14 @@ export const youthData: YouthLeague[] = [
         articles: []
     },
     {
+        id: 'u15-national-football',
+        name: "U-15 National Football",
+        description: "Focusing on tactical refinement and competitive growth for the Under-15 tier. Launch your regional U-15 center here.",
+        teams: [],
+        risingStars: [],
+        articles: []
+    },
+    {
         id: 'u17-national-football',
         name: "U-17 National Football",
         description: "Elite developmental football for the Under-17 category. Launch and track your regional U-17 juniors leagues live.",

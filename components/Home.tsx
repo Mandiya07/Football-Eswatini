@@ -9,6 +9,8 @@ import { Link } from 'react-router-dom';
 import TagIcon from './icons/TagIcon';
 import ShoppingCartIcon from './icons/ShoppingCartIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
+import GlobeIcon from './icons/GlobeIcon';
+import { Card } from './ui/Card';
 
 // Lazy load components that are below the fold
 const SponsorSpotlight = lazy(() => import('./SponsorSpotlight'));
@@ -87,7 +89,7 @@ const Home: React.FC = () => {
         </div>
 
         <Suspense fallback={<SectionLoader />}>
-          <VideoHub />
+          <VideoHub limit={3} />
         </Suspense>
 
         <div className="py-12 border-y border-slate-100">

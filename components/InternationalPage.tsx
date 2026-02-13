@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { fetchHybridTournaments, fetchNews } from '../services/api';
@@ -35,7 +36,6 @@ const InternationalPage: React.FC = () => {
                 ]);
                 setTournaments(tournData);
                 
-                // Filter for International news
                 const filteredNews = newsData.filter(item => {
                     const cats = Array.isArray(item.category) ? item.category : [item.category];
                     return cats.includes('International');
@@ -60,7 +60,6 @@ const InternationalPage: React.FC = () => {
         setSearchParams({});
     };
 
-    // Pagination Logic
     const totalPages = Math.ceil(news.length / PAGE_SIZE);
     const paginatedNews = useMemo(() => {
         const start = (currentPage - 1) * PAGE_SIZE;
@@ -70,7 +69,6 @@ const InternationalPage: React.FC = () => {
     const goToPage = (page: number) => {
         if (page >= 1 && page <= totalPages) {
             setCurrentPage(page);
-            // Scroll to news section if it exists
             document.getElementById('news-section')?.scrollIntoView({ behavior: 'smooth' });
         }
     };
@@ -81,7 +79,7 @@ const InternationalPage: React.FC = () => {
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <button 
                         onClick={handleBack} 
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors mb-6"
+                        className="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors mb-6"
                     >
                         <ArrowLeftIcon className="w-4 h-4" /> Back to International Hub
                     </button>
@@ -98,18 +96,17 @@ const InternationalPage: React.FC = () => {
                     <div className="inline-block p-4 bg-blue-900 rounded-full mb-4 shadow-lg">
                         <GlobeIcon className="w-12 h-12 text-white" />
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-900 mb-2">
+                    <h1 className="text-4xl md:text-5xl font-display font-black text-blue-900 mb-2">
                         International Hub
                     </h1>
                     <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                        Your comprehensive source for international football fixtures, live results, and updated standings from across Africa and the world.
+                        Global fixtures, live results, and updated standings from across Africa and the world.
                     </p>
                 </div>
 
                 <div className="space-y-16">
-                    {/* News Section with Pagination */}
                     <div id="news-section">
-                        <h2 className="text-2xl font-display font-bold mb-8 text-gray-800">Latest International News</h2>
+                        <h2 className="text-2xl font-display font-bold mb-8 text-gray-800 uppercase tracking-tight">Latest International News</h2>
                         {loading ? (
                             <div className="flex justify-center"><Spinner /></div>
                         ) : news.length > 0 ? (
@@ -121,25 +118,9 @@ const InternationalPage: React.FC = () => {
                                 </div>
                                 {totalPages > 1 && (
                                     <div className="mt-12 flex justify-center items-center gap-4">
-                                        <Button 
-                                            onClick={() => goToPage(currentPage - 1)} 
-                                            disabled={currentPage === 1}
-                                            variant="outline"
-                                            className="flex items-center gap-2"
-                                        >
-                                            <ChevronLeftIcon className="w-4 h-4" /> Previous
-                                        </Button>
-                                        <span className="text-sm font-bold text-gray-500">
-                                            Page {currentPage} of {totalPages}
-                                        </span>
-                                        <Button 
-                                            onClick={() => goToPage(currentPage + 1)} 
-                                            disabled={currentPage === totalPages}
-                                            variant="outline"
-                                            className="flex items-center gap-2"
-                                        >
-                                            Next <ChevronRightIcon className="w-4 h-4" />
-                                        </Button>
+                                        <Button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} variant="outline" className="flex items-center gap-2"><ChevronLeftIcon className="w-4 h-4" /> Previous</Button>
+                                        <span className="text-sm font-bold text-gray-500">Page {currentPage} of {totalPages}</span>
+                                        <Button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} variant="outline" className="flex items-center gap-2">Next <ChevronRightIcon className="w-4 h-4" /></Button>
                                     </div>
                                 )}
                             </>
@@ -149,7 +130,7 @@ const InternationalPage: React.FC = () => {
                     </div>
 
                     <div>
-                        <h2 className="text-2xl font-display font-bold text-center mb-8 text-gray-800">Elite International Tournaments</h2>
+                        <h2 className="text-2xl font-display font-bold text-center mb-8 text-gray-800 uppercase tracking-tight">Elite International Tournaments</h2>
                         {loading ? (
                             <div className="flex justify-center py-20"><Spinner /></div>
                         ) : (
@@ -170,8 +151,8 @@ const InternationalPage: React.FC = () => {
                                             </div>
                                             <h2 className="text-2xl font-bold font-display text-gray-900 mb-3">{tourn.name}</h2>
                                             <p className="text-gray-600 mb-6 flex-grow line-clamp-2">{tourn.description}</p>
-                                            <div className="text-blue-600 font-bold flex items-center gap-2 group-hover:gap-3 transition-all border-t w-full pt-4 justify-center">
-                                                Explore Tournament <ArrowRightIcon className="w-5 h-5"/>
+                                            <div className="text-blue-600 font-bold flex items-center gap-2 group-hover:gap-3 transition-all border-t w-full pt-4 justify-center uppercase text-xs tracking-widest">
+                                                Explore Hub <ArrowRightIcon className="w-5 h-5"/>
                                             </div>
                                         </CardContent>
                                     </Card>

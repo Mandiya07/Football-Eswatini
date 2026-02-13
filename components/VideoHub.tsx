@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Video } from '../data/videos';
 import { fetchVideos, sortByLatest } from '../services/api';
@@ -8,7 +7,7 @@ import Spinner from './ui/Spinner';
 
 type VideoCategory = 'highlight' | 'recap' | 'fan';
 
-const VideoHub: React.FC = () => {
+const VideoHub: React.FC<{ limit?: number }> = ({ limit }) => {
     const [activeTab, setActiveTab] = useState<VideoCategory>('highlight');
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
     const [allVideos, setAllVideos] = useState<Video[]>([]);
@@ -27,8 +26,9 @@ const VideoHub: React.FC = () => {
     const filteredVideos = useMemo(() => {
         // Filter by category first, then apply descending sort (newest first)
         const categorized = allVideos.filter(video => video.category === activeTab);
-        return sortByLatest(categorized);
-    }, [activeTab, allVideos]);
+        const sorted = sortByLatest(categorized);
+        return limit ? sorted.slice(0, limit) : sorted;
+    }, [activeTab, allVideos, limit]);
 
     const handlePlayVideo = (video: Video) => {
         setSelectedVideo(video);

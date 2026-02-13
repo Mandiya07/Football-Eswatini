@@ -23,13 +23,17 @@ const UserProfilePage = lazy(() => import('./components/UserProfilePage'));
 const ProfileSetupPage = lazy(() => import('./components/ProfileSetupPage'));
 const NewsPage = lazy(() => import('./components/NewsPage'));
 const NewsArticlePage = lazy(() => import('./components/NewsArticlePage'));
-const AdminPanelPage = lazy(() => import('./components/AdminPanelPage'));
+const AdminPanelPage = lazy(() => import('./components/admin/AdminPanelPage'));
 const ShopPage = lazy(() => import('./components/ShopPage'));
 const YouthPage = lazy(() => import('./components/YouthPage'));
 const U20Page = lazy(() => import('./components/U20Page'));
+const U19Page = lazy(() => import('./components/U19Page'));
 const SchoolsPage = lazy(() => import('./components/SchoolsPage'));
 const HubU17Page = lazy(() => import('./components/HubU17Page'));
 const BuildItU13Page = lazy(() => import('./components/BuildItU13Page'));
+const GrassrootsU13Page = lazy(() => import('./components/GrassrootsU13Page'));
+const NationalU17Page = lazy(() => import('./components/NationalU17Page'));
+const NationalU15Page = lazy(() => import('./components/NationalU15Page'));
 const WomensPage = lazy(() => import('./components/WomensPage'));
 const PremierLeaguePage = lazy(() => import('./components/PremierLeaguePage'));
 const NationalFirstDivisionPage = lazy(() => import('./components/NationalFirstDivisionPage'));
@@ -72,14 +76,12 @@ const App: React.FC = () => {
     <HashRouter>
       <div className={`min-h-screen transition-all duration-500 ${isPreviewMode ? 'bg-slate-300 py-10' : 'bg-eswatini-pattern'}`}>
         
-        {/* Device Preview Wrapper */}
         <div className={`transition-all duration-700 mx-auto bg-white flex flex-col ${
           isPreviewMode 
           ? 'w-[390px] h-[844px] rounded-[3.5rem] shadow-[0_0_0_12px_#1e293b,0_25px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden relative border-[1px] border-white/20' 
           : 'min-h-screen w-full'
         }`}>
           
-          {/* Mobile Status Bar Simulation */}
           {isPreviewMode && (
             <div className="h-10 bg-black flex justify-between items-center px-8 flex-shrink-0 z-[1000]">
               <span className="text-white text-[10px] font-bold">9:41</span>
@@ -112,8 +114,12 @@ const App: React.FC = () => {
                   <Route path="/media" element={<MediaPage />} />
                   <Route path="/youth" element={<YouthPage />} />
                   <Route path="/youth/u20" element={<U20Page />} />
+                  <Route path="/youth/u19" element={<U19Page />} />
                   <Route path="/youth/hub-u17" element={<HubU17Page />} />
                   <Route path="/youth/build-it-u13" element={<BuildItU13Page />} />
+                  <Route path="/youth/grassroots-u13" element={<GrassrootsU13Page />} />
+                  <Route path="/youth/national-u17" element={<NationalU17Page />} />
+                  <Route path="/youth/national-u15" element={<NationalU15Page />} />
                   <Route path="/schools" element={<SchoolsPage />} />
                   <Route path="/womens" element={<WomensPage />} />
                   <Route path="/premier-league" element={<PremierLeaguePage />} />
@@ -158,7 +164,6 @@ const App: React.FC = () => {
             <Footer />
           </div>
 
-          {/* Mobile Navigation Bar Simulation */}
           {isPreviewMode && (
              <div className="h-8 bg-black flex justify-center items-center flex-shrink-0 z-[1000]">
                 <div className="w-32 h-1 bg-white/20 rounded-full"></div>
@@ -168,7 +173,6 @@ const App: React.FC = () => {
 
         <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
         
-        {/* Built-in Platform Controls for Select Device, Reload, Fullscreen */}
         <SystemToolbar 
           isPreviewActive={isPreviewMode} 
           onTogglePreview={() => setIsPreviewMode(!isPreviewMode)} 

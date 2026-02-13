@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Logs from './Logs';
 import Fixtures from './Fixtures';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
-import UsersIcon from './icons/UsersIcon';
 import { Link } from 'react-router-dom';
 import { fetchYouthData, fetchAllCompetitions, fetchNews } from '../services/api';
 import { YouthLeague, YouthArticle } from '../data/youth';
@@ -11,7 +10,6 @@ import { NewsItem } from '../data/news';
 import YouthArticleSection from './YouthArticleSection';
 import Spinner from './ui/Spinner';
 import RisingStars from './RisingStars';
-import { Card, CardContent } from './ui/Card';
 
 const U20Page: React.FC = () => {
   const [leagueData, setLeagueData] = useState<YouthLeague | null>(null);
@@ -23,14 +21,12 @@ const U20Page: React.FC = () => {
     const load = async () => {
         setLoading(true);
         try {
-            // 1. Fetch Youth Content (Articles, Rising Stars)
             const [youthData, newsData, allCompetitions] = await Promise.all([
                 fetchYouthData(),
                 fetchNews(),
                 fetchAllCompetitions()
             ]);
 
-            // Try strict ID first, then loose name matching
             let target = youthData.find(l => l.id === 'u20-elite-league');
             if (!target) {
                 target = youthData.find(l => l.name.includes('U-20') || l.name.includes('Elite'));
@@ -38,9 +34,7 @@ const U20Page: React.FC = () => {
             setLeagueData(target || null);
             setGlobalNews(newsData);
 
-            // 2. Fetch Actual Competition ID for Fixtures (Resolution Strategy)
             const compList = Object.entries(allCompetitions).map(([id, c]) => ({ id, name: c.name }));
-            
             const match = compList.find(c => 
                 c.id === 'u20-elite-league' || 
                 c.name.toLowerCase().trim() === 'u-20 elite league' ||
@@ -59,11 +53,8 @@ const U20Page: React.FC = () => {
     load();
   }, []);
 
-  // Merge dedicated youth articles with global news tagged for this section
   const combinedArticles = useMemo(() => {
       const specificArticles = leagueData?.articles || [];
-      
-      // Filter global news for relevant keywords/categories
       const relevantGlobalNews = globalNews.filter(n => {
           const title = n.title.toLowerCase();
           const summary = n.summary.toLowerCase();
@@ -83,7 +74,6 @@ const U20Page: React.FC = () => {
           date: n.date
       } as YouthArticle));
 
-      // Combine and deduplicate by ID/Title similarity if needed, sort by date
       return [...specificArticles, ...relevantGlobalNews].sort((a, b) => 
           new Date(b.date).getTime() - new Date(a.date).getTime()
       );
@@ -133,41 +123,12 @@ const U20Page: React.FC = () => {
             </div>
           </div>
 
-          {/* Rising Stars Section */}
           {leagueData?.risingStars && leagueData.risingStars.length > 0 && (
                 <section>
                     <h2 className="text-3xl font-display font-bold mb-8 border-b pb-4">Players to Watch</h2>
                     <RisingStars players={leagueData.risingStars} />
                 </section>
           )}
-
-          {/* Participating Teams */}
-          {leagueData?.teams && leagueData.teams.length > 0 && (
-                <section>
-                    <Card className="bg-blue-50/50 border border-blue-100">
-                        <CardContent className="p-8">
-                            <h3 className="text-2xl font-bold font-display text-gray-800 mb-6 flex items-center gap-2">
-                                <UsersIcon className="w-6 h-6 text-blue-600" /> Participating Clubs
-                            </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                {leagueData.teams.map(team => (
-                                    <div key={team.id} className="flex items-center gap-3 bg-white py-3 px-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200">
-                                        <img src={team.crestUrl} alt={team.name} className="w-10 h-10 object-contain" />
-                                        <span className="text-sm font-bold text-gray-800">{team.name}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </section>
-            )}
-            
-            {/* Conditional Loading Helper for Empty DBs */}
-            {!loading && leagueData?.teams.length === 0 && (
-                <div className="py-10 text-center bg-white border border-dashed rounded-xl">
-                    <p className="text-gray-400">Competition structure not found. Use Admin Panel &gt; Seed Database to initialize.</p>
-                </div>
-            )}
         </div>
       </div>
     </div>

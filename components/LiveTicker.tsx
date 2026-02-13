@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { listenToAllCompetitions, fetchNews, fetchCommunityEvents } from '../services/api';
@@ -65,7 +64,7 @@ const LiveTicker: React.FC = () => {
             community.filter(c => c.date >= todayStr).slice(0, 3).forEach(c => combined.push({ type: 'community', data: c }));
 
             // 7. CTA
-            combined.push({ type: 'cta', text: "⚽ Predict match outcomes & win!", link: "/interactive" });
+            combined.push({ type: 'cta', text: "Predict match outcomes & win!", link: "/interactive" });
 
             setItems(combined);
         };
@@ -98,12 +97,12 @@ const LiveTicker: React.FC = () => {
     if (items.length === 0) return null;
 
     const getStatusLabel = (m: CompetitionFixture) => {
-        if (m.status === 'live') return `LIVE ${m.liveMinute || 0}'`;
-        if (m.status === 'suspended') return `SUSPENDED`;
-        if (m.status === 'abandoned') return `ABANDONED`;
-        if (m.status === 'postponed') return `POSTPONED`;
-        if (m.status === 'cancelled') return `CANCELLED`;
-        if (m.status === 'finished') return `FINAL`;
+        if (m.status === 'live') return `Live ${m.liveMinute || 0}'`;
+        if (m.status === 'suspended') return `Suspended`;
+        if (m.status === 'abandoned') return `Abandoned`;
+        if (m.status === 'postponed') return `Postponed`;
+        if (m.status === 'cancelled') return `Cancelled`;
+        if (m.status === 'finished') return `Final`;
         return m.time || 'TBD';
     };
 
@@ -119,7 +118,7 @@ const LiveTicker: React.FC = () => {
         <div className="bg-primary-dark border-y border-white/5 h-10 flex items-center overflow-hidden relative z-[90] shadow-inner">
             <div className="flex-shrink-0 bg-secondary px-4 h-full flex items-center z-20 shadow-[8px_0_15px_rgba(0,0,0,0.5)]">
                 <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse mr-2"></div>
-                <span className="text-white text-[10px] font-black uppercase tracking-widest">Pulse</span>
+                <span className="text-white text-[10px] font-black tracking-widest">Pulse</span>
             </div>
             
             <div className="flex whitespace-nowrap animate-marquee hover:pause-animation items-center">
@@ -131,7 +130,7 @@ const LiveTicker: React.FC = () => {
                                     {getStatusLabel(item.data)}
                                 </span>
                                 <span className="text-white text-xs font-bold tracking-tight">
-                                    <span className="opacity-40 font-black mr-2 text-[9px] uppercase">{item.data.competition}</span>
+                                    <span className="opacity-40 font-black mr-2 text-[9px]">{item.data.competition}</span>
                                     {item.data.teamA} 
                                     <span className="mx-2 text-accent">
                                         {item.data.status === 'scheduled' || item.data.status === 'postponed' || item.data.status === 'cancelled' 
@@ -145,7 +144,7 @@ const LiveTicker: React.FC = () => {
 
                         {item.type === 'news' && (
                             <>
-                                <span className="text-[8px] font-black mr-3 px-2 py-0.5 rounded bg-blue-500 text-white uppercase shadow-sm">News</span>
+                                <span className="text-[8px] font-black mr-3 px-2 py-0.5 rounded bg-blue-500 text-white shadow-sm">News</span>
                                 <Link to={item.data.url} className="text-white text-xs font-medium hover:text-accent transition-colors">
                                     {item.data.title}
                                 </Link>
@@ -154,7 +153,7 @@ const LiveTicker: React.FC = () => {
 
                         {item.type === 'community' && (
                             <>
-                                <span className="text-[8px] font-black mr-3 px-2 py-0.5 rounded bg-green-600 text-white uppercase shadow-sm">Local</span>
+                                <span className="text-[8px] font-black mr-3 px-2 py-0.5 rounded bg-green-600 text-white shadow-sm">Local</span>
                                 <span className="text-white text-xs font-medium italic opacity-90">
                                     {item.data.title} • {item.data.venue}
                                 </span>
@@ -162,7 +161,7 @@ const LiveTicker: React.FC = () => {
                         )}
 
                         {item.type === 'cta' && (
-                            <Link to={item.link} className="text-accent text-[10px] font-black uppercase tracking-widest hover:underline">
+                            <Link to={item.link} className="text-accent text-[10px] font-black tracking-widest hover:underline">
                                 {item.text}
                             </Link>
                         )}

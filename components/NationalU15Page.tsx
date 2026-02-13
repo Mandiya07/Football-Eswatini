@@ -13,12 +13,12 @@ import RegionalLeagueHub from './ui/RegionalLeagueHub';
 import YouthArticleSection from './YouthArticleSection';
 import RisingStars from './RisingStars';
 
-const NationalU17Page: React.FC = () => {
+const NationalU15Page: React.FC = () => {
   const [data, setData] = useState<YouthLeague | null>(null);
   const [globalNews, setGlobalNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const COMPETITION_ID = 'u17-national-football';
+  const COMPETITION_ID = 'u15-national-football';
 
   useEffect(() => {
     const loadData = async () => {
@@ -31,7 +31,7 @@ const NationalU17Page: React.FC = () => {
             setData(youth.find(l => l.id === COMPETITION_ID) || null);
             setGlobalNews(newsData);
         } catch (e) {
-            console.error("Failed to load U-17 data", e);
+            console.error("Failed to load U-15 data", e);
         } finally {
             setLoading(false);
         }
@@ -46,9 +46,9 @@ const NationalU17Page: React.FC = () => {
           const cats = Array.isArray(n.category) ? n.category : [n.category];
           return (
               cats.includes('Youth') || 
-              title.includes('u17') || 
-              title.includes('u-17') ||
-              title.includes('under-17')
+              title.includes('u15') || 
+              title.includes('u-15') ||
+              title.includes('under-15')
           );
       }).map(n => ({
           id: n.id,
@@ -77,35 +77,35 @@ const NationalU17Page: React.FC = () => {
         </div>
 
         <div className="text-center mb-16">
-          <div className="inline-block p-4 bg-blue-100 rounded-full mb-4 shadow-sm">
-            <TrophyIcon className="w-12 h-12 text-blue-700" />
+          <div className="inline-block p-4 bg-teal-100 rounded-full mb-4 shadow-sm">
+            <TrophyIcon className="w-12 h-12 text-teal-700" />
           </div>
           <h1 className="text-3xl md:text-5xl font-display font-black text-blue-900 mb-4 uppercase tracking-tight">
-            U-17 National Football
+            U-15 National Football
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            The elite identification tier. Follow national youth league results or establish a professional digital hub for your regional Under-17 competition.
+            The intermediate step in tactical development. Track official national U-15 standings or build and manage a regional competitive hub.
           </p>
         </div>
 
-        {/* 1. News Updates & Media */}
+        {/* 1. News Updates & Media (Standardized Top Placement) */}
         <div className="mb-20 border-t pt-8">
-            <h2 className="text-2xl font-display font-black mb-8 border-b pb-4 text-gray-900 uppercase">U-17 Updates & Media</h2>
+            <h2 className="text-2xl font-display font-black mb-8 border-b pb-4 text-gray-900 uppercase">U-15 Updates & Media</h2>
             {combinedArticles.length > 0 ? (
                 <YouthArticleSection articles={combinedArticles} />
             ) : (
                 <div className="text-center py-10 bg-white rounded-2xl border border-dashed text-gray-400">
-                    No recent news articles found for Under-17 Football.
+                    No recent news articles found for Under-15 Football.
                 </div>
             )}
         </div>
 
-        {/* 2. Regional League Hub */}
+        {/* 2. Regional League Hub (Map & Creation Feature) */}
         <div className="mb-20">
             <RegionalLeagueHub 
                 categoryId={COMPETITION_ID} 
-                hubType="U-17 Juniors" 
-                description="Manage your regional U-17 division with our digital suite. Professional standings, squad profiles, and verified match data for the next generation."
+                hubType="U-15 Juniors" 
+                description="Bring your regional Under-15 league online. Manage community results, track rosters, and ensure every talent is discovered through our verified data portal."
             />
         </div>
 
@@ -113,20 +113,20 @@ const NationalU17Page: React.FC = () => {
         <div className="space-y-16 mb-20">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                 <div className="space-y-6">
-                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-primary pb-2">National Fixtures</h2>
+                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-teal-500 pb-2">National Fixtures</h2>
                     <Fixtures showSelector={false} defaultCompetition={COMPETITION_ID} maxHeight="max-h-[600px]" />
                 </div>
                 <div className="space-y-6">
-                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-primary pb-2">National Standings</h2>
+                    <h2 className="text-2xl font-display font-black text-gray-800 uppercase tracking-tight border-b-4 border-teal-500 pb-2">National Standings</h2>
                     <Logs showSelector={false} defaultLeague={COMPETITION_ID} maxHeight="max-h-[600px]" />
                 </div>
             </div>
         </div>
 
-        {/* 4. Rising Stars */}
+        {/* 4. Rising Stars (Scouting Section) */}
         {data?.risingStars && data.risingStars.length > 0 && (
             <section className="border-t pt-16">
-                <h2 className="text-3xl font-display font-black mb-8 border-b pb-4 text-gray-900 uppercase">Top Talents (U-17)</h2>
+                <h2 className="text-3xl font-display font-black mb-8 border-b pb-4 text-gray-900 uppercase">Future Stars (U-15)</h2>
                 <RisingStars players={data.risingStars} />
             </section>
         )}
@@ -135,4 +135,4 @@ const NationalU17Page: React.FC = () => {
   );
 };
 
-export default NationalU17Page;
+export default NationalU15Page;

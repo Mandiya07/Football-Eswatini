@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Tournament, BracketMatch } from '../data/cups';
 import { Card, CardContent } from './ui/Card';
@@ -6,7 +5,7 @@ import TrophyIcon from './icons/TrophyIcon';
 import ShareIcon from './icons/ShareIcon';
 
 const CARD_WIDTH = 230; 
-const CARD_HEIGHT = 100; 
+const CARD_HEIGHT = 110; 
 const GAP_X = 60;
 const GAP_Y = 25;
 
@@ -46,14 +45,17 @@ const MatchCard: React.FC<{ match: BracketMatch; style: React.CSSProperties }> =
                 height: CARD_HEIGHT,
             }}
         >
-            <div className="bg-gray-50 border-b border-gray-100 px-3 py-1 flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-gray-400">
-                <span className="truncate max-w-[120px]">{match.venue || 'TBD'}</span>
-                <div className="flex gap-1.5">
-                    <span>{match.date || ''}</span>
+            <div className="bg-gray-50 border-b border-gray-100 px-3 py-1.5 flex flex-col gap-0.5 text-[9px] font-black uppercase tracking-wider text-gray-400">
+                <div className="flex justify-between items-center">
+                    <span className="truncate max-w-[140px] text-primary/70">{match.venue || 'TBD Venue'}</span>
+                    <span className="text-gray-500">{match.time || ''}</span>
+                </div>
+                <div className="text-[8px] opacity-70">
+                    {match.date || 'TBD Date'}
                 </div>
             </div>
             
-            <div className="flex flex-col justify-center flex-grow px-3 py-1.5 gap-2">
+            <div className="flex flex-col justify-center flex-grow px-3 py-2 gap-2">
                 {/* Team 1 */}
                 <div className={`flex justify-between items-center ${isWinner1 ? 'text-blue-900 font-black' : 'text-gray-600 font-bold'}`}>
                     <div className="flex items-center gap-2 overflow-hidden flex-1">

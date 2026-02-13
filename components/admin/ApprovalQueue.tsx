@@ -54,11 +54,9 @@ const ApprovalQueue: React.FC = () => {
     loadData();
   }, []);
 
-  // --- Data Changes Handlers ---
   const handleDataDecision = async (id: string, decision: 'approved' | 'rejected') => {
     setProcessedIds(prev => [...prev, id]);
     try {
-        await new Promise(resolve => setTimeout(resolve, 400)); 
         await deletePendingChange(id);
         setChanges(prev => prev.filter(change => change.id !== id));
     } catch (error) {
@@ -66,7 +64,6 @@ const ApprovalQueue: React.FC = () => {
     }
   };
 
-  // --- Club Registration Handlers ---
   const handleClubDecision = async (request: ClubRegistrationRequest, decision: 'approved' | 'rejected') => {
       if (!window.confirm(`Are you sure you want to ${decision} the registration for ${request.clubName}?`)) return;
       
@@ -77,7 +74,6 @@ const ApprovalQueue: React.FC = () => {
           } else {
               await rejectClubRequest(request.id);
           }
-          await new Promise(resolve => setTimeout(resolve, 400));
           setClubRequests(prev => prev.filter(req => req.id !== request.id));
       } catch (error) {
           handleFirestoreError(error, `process club request`);
@@ -85,7 +81,6 @@ const ApprovalQueue: React.FC = () => {
       }
   };
 
-  // --- League Registration Handlers ---
   const handleLeagueDecision = async (request: LeagueRegistrationRequest, decision: 'approved' | 'rejected') => {
       if (!window.confirm(`Are you sure you want to ${decision} the request for ${request.leagueName}?`)) return;
       
@@ -96,7 +91,6 @@ const ApprovalQueue: React.FC = () => {
           } else {
               await rejectLeagueRequest(request.id);
           }
-          await new Promise(resolve => setTimeout(resolve, 400));
           setLeagueRequests(prev => prev.filter(req => req.id !== request.id));
       } catch (error) {
           handleFirestoreError(error, `process league request`);
@@ -142,7 +136,7 @@ const ApprovalQueue: React.FC = () => {
                             {clubRequests.map(req => (
                                 <div 
                                     key={req.id} 
-                                    className={`p-4 bg-blue-50 border border-blue-100 rounded-lg flex flex-col md:flex-row justify-between gap-4 transition-opacity duration-300 ${processedIds.includes(req.id) ? 'opacity-0' : 'opacity-100'}`}
+                                    className={`p-4 bg-blue-50 border border-blue-100 rounded-lg flex flex-col md:flex-row justify-between gap-4 transition-all duration-300 ${processedIds.includes(req.id) ? 'opacity-50 grayscale' : 'opacity-100'}`}
                                 >
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
@@ -156,12 +150,16 @@ const ApprovalQueue: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 self-start md:self-center">
-                                        <Button onClick={() => handleClubDecision(req, 'rejected')} className="bg-white border border-red-200 text-red-600 hover:bg-red-50 focus:ring-red-500 h-9 px-3 flex items-center gap-1">
-                                            <XIcon className="w-4 h-4" /> Reject
-                                        </Button>
-                                        <Button onClick={() => handleClubDecision(req, 'approved')} className="bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 h-9 px-3 flex items-center gap-1">
-                                            <CheckIcon className="w-4 h-4" /> Approve
-                                        </Button>
+                                        {processedIds.includes(req.id) ? <Spinner className="w-6 h-6 border-blue-600"/> : (
+                                            <>
+                                                <Button onClick={() => handleClubDecision(req, 'rejected')} className="bg-white border border-red-200 text-red-600 hover:bg-red-50 focus:ring-red-500 h-9 px-3 flex items-center gap-1">
+                                                    <XIcon className="w-4 h-4" /> Reject
+                                                </Button>
+                                                <Button onClick={() => handleClubDecision(req, 'approved')} className="bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 h-9 px-3 flex items-center gap-1">
+                                                    <CheckIcon className="w-4 h-4" /> Approve
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -180,7 +178,7 @@ const ApprovalQueue: React.FC = () => {
                             {leagueRequests.map(req => (
                                 <div 
                                     key={req.id} 
-                                    className={`p-4 bg-green-50 border border-green-100 rounded-lg flex flex-col md:flex-row justify-between gap-4 transition-opacity duration-300 ${processedIds.includes(req.id) ? 'opacity-0' : 'opacity-100'}`}
+                                    className={`p-4 bg-green-50 border border-green-100 rounded-lg flex flex-col md:flex-row justify-between gap-4 transition-all duration-300 ${processedIds.includes(req.id) ? 'opacity-50 grayscale' : 'opacity-100'}`}
                                 >
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
@@ -195,12 +193,16 @@ const ApprovalQueue: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 self-start md:self-center">
-                                        <Button onClick={() => handleLeagueDecision(req, 'rejected')} className="bg-white border border-red-200 text-red-600 hover:bg-red-50 focus:ring-red-500 h-9 px-3 flex items-center gap-1">
-                                            <XIcon className="w-4 h-4" /> Reject
-                                        </Button>
-                                        <Button onClick={() => handleLeagueDecision(req, 'approved')} className="bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 h-9 px-3 flex items-center gap-1">
-                                            <CheckIcon className="w-4 h-4" /> Approve
-                                        </Button>
+                                        {processedIds.includes(req.id) ? <Spinner className="w-6 h-6 border-green-600"/> : (
+                                            <>
+                                                <Button onClick={() => handleLeagueDecision(req, 'rejected')} className="bg-white border border-red-200 text-red-600 hover:bg-red-50 focus:ring-red-500 h-9 px-3 flex items-center gap-1">
+                                                    <XIcon className="w-4 h-4" /> Reject
+                                                </Button>
+                                                <Button onClick={() => handleLeagueDecision(req, 'approved')} className="bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 h-9 px-3 flex items-center gap-1">
+                                                    <CheckIcon className="w-4 h-4" /> Approve
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -219,22 +221,26 @@ const ApprovalQueue: React.FC = () => {
                         {changes.map(change => (
                         <div 
                             key={change.id} 
-                            className={`p-3 bg-white border rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-opacity duration-300 ${processedIds.includes(change.id) ? 'opacity-0' : 'opacity-100'}`}
+                            className={`p-3 bg-white border rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-all duration-300 ${processedIds.includes(change.id) ? 'opacity-50 grayscale' : 'opacity-100'}`}
                         >
                             <div>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${change.type === 'Score Update' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                {change.type}
-                            </span>
-                            <p className="font-semibold mt-1">{change.description}</p>
-                            <p className="text-xs text-gray-500">Submitted by: {change.author}</p>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${change.type === 'Score Update' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                    {change.type}
+                                </span>
+                                <p className="font-semibold mt-1">{change.description}</p>
+                                <p className="text-xs text-gray-500">Submitted by: {change.author}</p>
                             </div>
                             <div className="flex-shrink-0 flex items-center gap-2">
-                            <Button onClick={() => handleDataDecision(change.id, 'rejected')} className="bg-red-100 text-red-700 hover:bg-red-200 focus:ring-red-500 h-9 w-9 p-0 flex items-center justify-center">
-                                <XIcon className="w-5 h-5" />
-                            </Button>
-                            <Button onClick={() => handleDataDecision(change.id, 'approved')} className="bg-green-100 text-green-700 hover:bg-green-200 focus:ring-green-500 h-9 w-9 p-0 flex items-center justify-center">
-                                <CheckIcon className="w-5 h-5" />
-                            </Button>
+                                {processedIds.includes(change.id) ? <Spinner className="w-6 h-6 border-blue-600"/> : (
+                                    <>
+                                        <Button onClick={() => handleDataDecision(change.id, 'rejected')} className="bg-red-100 text-red-700 hover:bg-red-200 focus:ring-red-500 h-9 w-9 p-0 flex items-center justify-center">
+                                            <XIcon className="w-5 h-5" />
+                                        </Button>
+                                        <Button onClick={() => handleDataDecision(change.id, 'approved')} className="bg-green-100 text-green-700 hover:bg-green-200 focus:ring-green-500 h-9 w-9 p-0 flex items-center justify-center">
+                                            <CheckIcon className="w-5 h-5" />
+                                        </Button>
+                                    </>
+                                )}
                             </div>
                         </div>
                         ))}

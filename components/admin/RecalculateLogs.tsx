@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
 import { Team, Competition, CompetitionFixture } from '../../data/teams';
@@ -113,18 +112,16 @@ const RecalculateLogs: React.FC = () => {
 
                 const competitionData = docSnap.data() as Competition;
                 const allMatches = [...(competitionData.fixtures || []), ...(competitionData.results || [])];
-                const cleanedResults = allMatches.filter(m => m.status === 'finished' && m.scoreA != null && m.scoreB != null);
-                const cleanedFixtures = allMatches.filter(m => m.status !== 'finished' || m.scoreA == null || m.scoreB == null);
-                const recalculatedTeams = calculateStandings(competitionData.teams || [], cleanedResults, cleanedFixtures);
+                
+                // Pure re-reconciliation starting from baselines
+                const recalculatedTeams = calculateStandings(competitionData.teams || [], competitionData.results || [], competitionData.fixtures || []);
                 
                 transaction.update(docRef, removeUndefinedProps({ 
-                    teams: recalculatedTeams,
-                    fixtures: cleanedFixtures,
-                    results: cleanedResults,
+                    teams: recalculatedTeams
                 }));
             });
 
-            setStatusMessage({ type: 'success', text: `Successfully recalculated standings for ${selectedLeague}.` });
+            setStatusMessage({ type: 'success', text: `Successfully synchronized statistics for ${selectedLeague}.` });
             analyzeLeague(selectedLeague);
         } catch (error) {
             handleFirestoreError(error, 'recalculate standings');
@@ -163,11 +160,11 @@ const RecalculateLogs: React.FC = () => {
                         <div className={`border rounded-xl p-5 ${ghostTeams.length > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-100'}`}>
                             <h4 className={`font-bold flex items-center gap-2 mb-2 ${ghostTeams.length > 0 ? 'text-orange-800' : 'text-gray-700'}`}>
                                 {ghostTeams.length > 0 ? <AlertTriangleIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5 text-green-500" />} 
-                                Team Mismatches: {ghostTeams.length} Detected
+                                Integrity Status: {ghostTeams.length > 0 ? `${ghostTeams.length} Mismatches` : 'Clean'}
                             </h4>
                             <p className="text-sm text-gray-600 leading-relaxed">
                                 {ghostTeams.length > 0 
-                                    ? "These team names are in match records but not in the team list. This causes them to be excluded from logs. Use Merge Teams or Add Teams to fix."
+                                    ? "Stale goal counts are often caused by team name mismatches. Ensure all team names in matches exactly match the Directory."
                                     : "All match data is mapped to registered teams correctly."
                                 }
                             </p>
@@ -175,7 +172,7 @@ const RecalculateLogs: React.FC = () => {
 
                         <div className="pt-6 border-t border-gray-100">
                             <Button onClick={handleRecalculate} disabled={submitting} className="bg-primary text-white hover:bg-primary-dark h-12 px-10 flex items-center gap-2 shadow-lg">
-                                {submitting ? <Spinner className="w-5 h-5 border-2 border-white"/> : <><RefreshIcon className="w-5 h-5" /> Force Standings Sync</>}
+                                {submitting ? <Spinner className="w-5 h-5 border-2 border-white"/> : <><RefreshIcon className="w-5 h-5" /> Clean Global Stats</>}
                             </Button>
                         </div>
                     </div>

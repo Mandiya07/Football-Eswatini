@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from './ui/Card';
@@ -133,6 +132,24 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
       return 'same';
   };
 
+  const getPositionInfo = (index: number) => {
+    const pos = index + 1;
+    const isFirstDivision = selectedLeague.includes('first-division');
+    const isPremierLeague = selectedLeague.includes('premier-league');
+    
+    if (isFirstDivision) {
+        if (pos <= 2) return { label: 'PROMOTION', color: 'bg-green-600', rowBg: 'bg-green-50/30' };
+        if (pos === 3) return { label: 'PROMOTION PLAYOFF', color: 'bg-yellow-500', rowBg: 'bg-yellow-50/50' };
+        if (pos === 12) return { label: 'RELEGATION PLAYOFF', color: 'bg-orange-500', rowBg: 'bg-orange-50/50' };
+        if (pos >= 13) return { label: 'RELEGATION', color: 'bg-red-600', rowBg: 'bg-red-50/30' };
+    } else if (isPremierLeague) {
+        if (pos === 1) return { label: 'CHAMPIONS / CAF', color: 'bg-blue-600', rowBg: 'bg-blue-50/30' };
+        if (pos === 12) return { label: 'RELEGATION PLAYOFF', color: 'bg-orange-500', rowBg: 'bg-orange-50/50' };
+        if (pos >= 13) return { label: 'RELEGATION', color: 'bg-red-600', rowBg: 'bg-red-50/30' };
+    }
+    return null;
+  };
+
   return (
     <section>
         <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
@@ -182,27 +199,32 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                 const dirEntry = findInMap(team.name, directoryMap);
                                 const profileUrl = team.id ? `/competitions/${selectedLeague}/teams/${team.id}` : 
                                                   (dirEntry?.teamId && dirEntry?.competitionId) ? `/competitions/${dirEntry.competitionId}/teams/${dirEntry.teamId}` : null;
+                                
+                                const posInfo = getPositionInfo(index);
 
                                 return (
-                                    <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors group">
+                                    <tr key={team.id || team.name} className={`${posInfo?.rowBg || ''} hover:bg-gray-50/50 transition-colors group relative`}>
                                         <td className="px-2 sm:px-3 py-3 text-center">
                                             <div className="flex flex-col items-center justify-center">
-                                                <span className="font-black text-gray-900 leading-none">{index + 1}</span>
+                                                <span className={`font-black text-gray-900 leading-none ${posInfo ? 'text-blue-900' : ''}`}>{index + 1}</span>
                                                 <PositionIndicator change={getTrend(team.stats.form)} />
                                             </div>
+                                            {posInfo && <div className={`absolute left-0 top-0 bottom-0 w-1 ${posInfo.color}`}></div>}
                                         </td>
                                         <td className="px-2 sm:px-3 py-3">
-                                            {profileUrl ? (
-                                                <Link to={profileUrl} className="flex items-center gap-2 sm:gap-3 group/link">
-                                                    <img src={dirEntry?.crestUrl || team?.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
-                                                    <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none group-hover/link:text-primary group-hover/link:underline transition-colors">{team.name}</span>
-                                                </Link>
-                                            ) : (
-                                                <div className="flex items-center gap-2 sm:gap-3">
-                                                    <img src={dirEntry?.crestUrl || team?.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
-                                                    <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
-                                                </div>
-                                            )}
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                                                {profileUrl ? (
+                                                    <Link to={profileUrl} className="flex items-center gap-2 sm:gap-3 group/link">
+                                                        <img src={dirEntry?.crestUrl || team?.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
+                                                        <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none group-hover/link:text-primary group-hover/link:underline transition-colors">{team.name}</span>
+                                                    </Link>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 sm:gap-3">
+                                                        <img src={dirEntry?.crestUrl || team?.crestUrl} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" alt="" />
+                                                        <span className="font-bold text-gray-900 truncate max-w-[120px] sm:max-w-none">{team.name}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-1 sm:px-2 py-3 text-center text-gray-600 font-medium">{team.stats.p}</td>
                                         <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.w}</td>
@@ -228,6 +250,22 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     </div>
                  )}
             </div>
+            {leagueData.length > 0 && (
+                <div className="bg-gray-50 p-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span className="text-[10px] font-black uppercase text-gray-400">Playoff Spot</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-600"></div>
+                        <span className="text-[10px] font-black uppercase text-gray-400">Relegation</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-600"></div>
+                        <span className="text-[10px] font-black uppercase text-gray-400">Promotion</span>
+                    </div>
+                </div>
+            )}
         </Card>
     </section>
   );
