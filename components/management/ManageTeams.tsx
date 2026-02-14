@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../services/firebase';
-import { doc, runTransaction } from 'firebase/firestore';
+/* Added missing 'collection' import */
+import { doc, runTransaction, collection } from 'firebase/firestore';
 import { Team, Competition } from '../../data/teams';
 import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry, deleteDirectoryEntry, handleFirestoreError } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
@@ -12,16 +13,19 @@ import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import UsersIcon from '../icons/UsersIcon';
 import CalendarIcon from '../icons/CalendarIcon';
+/* Added missing 'TrophyIcon' import */
+import TrophyIcon from '../icons/TrophyIcon';
 import TeamFormModal from '../admin/TeamFormModal';
 import TeamRosterModal from '../admin/TeamRosterModal';
 import TeamFixturesModal from '../admin/TeamFixturesModal';
 import { calculateStandings, removeUndefinedProps, renameTeamInMatches, superNormalize } from '../../services/utils';
-import { Region, DirectoryEntity } from '../../data/directory';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ManageTeams: React.FC = () => {
+    const { user } = useAuth();
     const [allCompsData, setAllCompsData] = useState<Record<string, Competition>>({});
     const [competitions, setCompetitions] = useState<{ id: string, name: string }[]>([]);
-    const [selectedCompId, setSelectedCompId] = useState('mtn-premier-league');
+    const [selectedCompId, setSelectedCompId] = useState('');
     const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<number | null>(null);
@@ -34,26 +38,36 @@ const ManageTeams: React.FC = () => {
     const [rosterTeam, setRosterTeam] = useState<Team | null>(null);
     const [scheduleTeam, setScheduleTeam] = useState<Team | null>(null);
 
+    const isSuperAdmin = user?.role === 'super_admin';
+    const isLeagueAdmin = user?.role === 'league_admin';
+
     const loadData = useCallback(async (refreshOnly: boolean = false) => {
         if (!refreshOnly) setLoading(true);
         try {
             const allComps = await fetchAllCompetitions();
             setAllCompsData(allComps);
             
+            // Filter and sort competitions based on role
             const compList = Object.entries(allComps)
-                .filter(([_, comp]) => comp && comp.name)
+                .filter(([id, comp]) => {
+                    if (!comp || !comp.name) return false;
+                    if (isSuperAdmin) return true;
+                    // Scoping for League Admins
+                    return user?.managedLeagues?.includes(id);
+                })
                 .map(([id, comp]) => ({ id, name: comp.name! }));
 
             const sortedList = compList.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             setCompetitions(sortedList);
 
+            // Determine active competition
             let activeId = selectedCompId;
-            if (!allComps[activeId] && sortedList.length > 0) {
+            if ((!activeId || !allComps[activeId]) && sortedList.length > 0) {
                 activeId = sortedList[0].id;
                 setSelectedCompId(activeId);
             }
 
-            if (allComps[activeId]) {
+            if (activeId && allComps[activeId]) {
                 const teamList = (allComps[activeId].teams || [])
                     .filter(t => t && t.name)
                     .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -66,11 +80,11 @@ const ManageTeams: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [selectedCompId]);
+    }, [selectedCompId, isSuperAdmin, user?.managedLeagues]);
     
     useEffect(() => {
         loadData();
-    }, []);
+    }, [loadData]);
 
     const handleCompChange = (compId: string) => {
         setSelectedCompId(compId);
@@ -205,6 +219,19 @@ const ManageTeams: React.FC = () => {
                     };
                     const updatedCompTeams = [...(competition.teams || []), newTeam];
                     transaction.update(compDocRef, { teams: updatedCompTeams });
+
+                    if (addToDir) {
+                        const newDirRef = doc(collection(db, 'directory'));
+                        transaction.set(newDirRef, {
+                            name: teamName,
+                            category: 'Club',
+                            region: competition.region || 'National',
+                            crestUrl: data.crestUrl || '',
+                            teamId: newTeamId,
+                            competitionId: selectedCompId,
+                            tier: 'Regional'
+                        });
+                    }
                 });
             }
 
@@ -216,19 +243,31 @@ const ManageTeams: React.FC = () => {
         }
     };
 
+    if (competitions.length === 0 && !loading) {
+        return (
+            <Card className="shadow-lg border-0 bg-white">
+                <CardContent className="p-12 text-center">
+                    <TrophyIcon className="w-16 h-16 mx-auto text-gray-200 mb-4" />
+                    <p className="text-gray-500 font-bold">No authorized leagues found.</p>
+                    <p className="text-sm text-gray-400 mt-1">If you recently requested a league, please wait for admin approval.</p>
+                </CardContent>
+            </Card>
+        );
+    }
+
     return (
         <div className="max-w-full overflow-hidden">
             <Card className="shadow-lg animate-fade-in">
                 <CardContent className="p-6">
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-2xl font-bold font-display">Manage Teams</h3>
+                        <h3 className="text-2xl font-bold font-display">Hub Roster Manager</h3>
                         <Button onClick={handleAddNew} className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2">
-                            <PlusCircleIcon className="w-5 h-5 text-white" /> Add Team
+                            <PlusCircleIcon className="w-5 h-5 text-white" /> Add New Club
                         </Button>
                     </div>
                     
                     <div className="mb-6">
-                        <label htmlFor="comp-select-teams" className="block text-sm font-bold text-gray-700 mb-2">Select Competition</label>
+                        <label htmlFor="comp-select-teams" className="block text-sm font-bold text-gray-700 mb-2">Target Competition</label>
                         <select
                             id="comp-select-teams"
                             value={selectedCompId}
@@ -249,20 +288,20 @@ const ManageTeams: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="font-bold text-gray-900">{team.name}</p>
-                                            <p className="text-xs text-gray-500 font-medium">ID: {team.id} &bull; {team.players?.length || 0} Players</p>
+                                            <p className="text-xs text-gray-500 font-medium">{team.players?.length || 0} Registered Players</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => handleManageSchedule(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Schedule"><CalendarIcon className="w-5 h-5 text-white"/></button>
                                         <button onClick={() => handleManageRoster(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Roster"><UsersIcon className="w-5 h-5 text-white"/></button>
-                                        <button onClick={() => handleEdit(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Edit"><PencilIcon className="w-5 h-5 text-white"/></button>
+                                        <button onClick={() => handleEdit(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Edit"><PencilIcon className="w-4 h-4 text-white"/></button>
                                         <button onClick={() => handleDelete(team.id)} disabled={processingId === team.id} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm" title="Delete">
                                             {processingId === team.id ? <Spinner className="w-5 h-5 border-white border-2" /> : <TrashIcon className="w-5 h-5 text-white" />}
                                         </button>
                                     </div>
                                 </div>
                             ))}
-                            {teams.length === 0 && <p className="text-center text-gray-500 py-12 italic border-2 border-dashed rounded-xl">No teams found in this competition.</p>}
+                            {teams.length === 0 && <p className="text-center text-gray-500 py-12 italic border-2 border-dashed rounded-xl">No teams registered in this hub yet.</p>}
                         </div>
                     )}
                 </CardContent>

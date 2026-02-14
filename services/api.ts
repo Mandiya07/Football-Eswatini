@@ -1,3 +1,4 @@
+
 import { Team, Player, CompetitionFixture, MatchEvent, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
 import { app, db } from './firebase';
@@ -885,9 +886,11 @@ export const fetchLeagueRequests = async (): Promise<LeagueRegistrationRequest[]
 export const approveLeagueRequest = async (request: LeagueRegistrationRequest) => {
     const batch = writeBatch(db);
     
+    // Generate unique slug
+    const slug = request.leagueName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
     // 1. Create the competition doc if it's a 'create' request
     if (request.requestType === 'create') {
-        const slug = request.leagueName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const compRef = doc(db, 'competitions', slug);
         batch.set(compRef, {
             name: request.leagueName,
@@ -897,10 +900,13 @@ export const approveLeagueRequest = async (request: LeagueRegistrationRequest) =
         }, { merge: true });
     }
 
-    // 2. Update manager permissions
+    // 2. Update manager permissions & add to managedLeagues array
     if (request.managerId && request.managerId !== 'new_user') {
         const userRef = doc(db, 'users', request.managerId);
-        batch.update(userRef, { role: 'league_admin' });
+        batch.update(userRef, { 
+            role: 'league_admin',
+            managedLeagues: arrayUnion(request.requestType === 'manage' ? (request.targetLeagueId || slug) : slug)
+        });
     }
 
     // 3. Mark request as approved
