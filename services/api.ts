@@ -990,14 +990,13 @@ export const fetchFootballDataOrg = async (apiId: string, key: string, season: s
     const statusParam = type === 'results' ? 'FINISHED' : 'SCHEDULED';
     const endpoint = `https://api.football-data.org/v4/competitions/${apiId}/matches?status=${statusParam}&season=${season}`;
     
-    // Switch to a more robust proxy that handles custom headers better on Vercel
-    const url = proxy ? `https://cors-proxy.org/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    // Switched to corsproxy.io which is more reliable for Vercel production deployments
+    const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
     
     const response = await fetchWithRetry(url, { 
         method: 'GET', 
         headers: { 
             'X-Auth-Token': key,
-            // Strictly specify Accept to avoid preflight complications in some environments
             'Accept': 'application/json' 
         } 
     });
@@ -1028,8 +1027,8 @@ export const fetchApiFootball = async (apiId: string, key: string, season: strin
     const statusParam = type === 'results' ? 'FT' : 'NS';
     const endpoint = `https://${ host }/v3/fixtures?league=${apiId}&season=${season}&status=${statusParam}`;
     
-    // Switch to a more robust proxy that handles custom headers better on Vercel
-    const url = proxy ? `https://cors-proxy.org/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    // Switched to corsproxy.io which is more reliable for Vercel production deployments
+    const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
     
     const headers: Record<string, string> = { 'Accept': 'application/json' };
     if (isRapidApi) { headers['x-rapidapi-key'] = key; headers['x-rapidapi-host'] = host; } else { headers['x-apisports-key'] = key; }

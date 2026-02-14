@@ -5,7 +5,7 @@ import TrophyIcon from './icons/TrophyIcon';
 import ShareIcon from './icons/ShareIcon';
 
 const CARD_WIDTH = 230; 
-const CARD_HEIGHT = 135; // Increased from 110 to accommodate venue/time without clipping
+const CARD_HEIGHT = 160; // Increased significantly to ensure top venue/time are never clipped
 const GAP_X = 60;
 const GAP_Y = 25;
 
@@ -38,14 +38,14 @@ const MatchCard: React.FC<{ match: BracketMatch; style: React.CSSProperties }> =
 
     return (
         <div 
-            className={`absolute rounded-xl border-2 bg-white shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col justify-center ${match.winner ? 'border-gray-300' : 'border-gray-100'}`}
+            className={`absolute rounded-xl border-2 bg-white shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col ${match.winner ? 'border-gray-300' : 'border-gray-100'}`}
             style={{
                 ...style,
                 width: CARD_WIDTH,
                 height: CARD_HEIGHT,
             }}
         >
-            <div className="bg-gray-50 border-b border-gray-100 px-3 py-2.5 flex flex-col gap-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
+            <div className="bg-gray-50 border-b border-gray-100 px-3 py-3 flex flex-col gap-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
                 <div className="flex justify-between items-center">
                     <span className="truncate max-w-[140px] text-primary/70">{match.venue || 'TBD Venue'}</span>
                     <span className="text-gray-500 font-mono">{match.time || ''}</span>
@@ -55,7 +55,7 @@ const MatchCard: React.FC<{ match: BracketMatch; style: React.CSSProperties }> =
                 </div>
             </div>
             
-            <div className="flex flex-col justify-center flex-grow px-3 py-2.5 gap-2.5">
+            <div className="flex flex-col justify-center flex-grow px-3 py-3 gap-3">
                 {/* Team 1 */}
                 <div className={`flex justify-between items-center ${isWinner1 ? 'text-blue-900 font-black' : 'text-gray-600 font-bold'}`}>
                     <div className="flex items-center gap-2 overflow-hidden flex-1">
