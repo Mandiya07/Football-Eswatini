@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
@@ -28,6 +29,8 @@ const SubmitFixturesPage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
 
+    const isAuthorized = user?.role === 'super_admin' || user?.role === 'league_admin' || user?.role === 'club_admin';
+
     useEffect(() => {
         const loadCompetitions = async () => {
             setLoading(true);
@@ -49,13 +52,13 @@ const SubmitFixturesPage: React.FC = () => {
             setLoading(true);
             const competitionData = await fetchCompetition(selectedComp);
             setTeams(competitionData?.teams?.sort((a,b) => a.name.localeCompare(b.name)) || []);
-            resetForm(); // Reset form when competition changes
+            resetForm(); 
             setLoading(false);
         };
-        if (isLoggedIn) {
+        if (isLoggedIn && isAuthorized) {
             loadTeams();
         }
-    }, [selectedComp, isLoggedIn]);
+    }, [selectedComp, isLoggedIn, isAuthorized]);
 
     const resetForm = () => {
         setHomeTeam('');
@@ -94,13 +97,12 @@ const SubmitFixturesPage: React.FC = () => {
                 const matchDateTimeObj = new Date(matchDateTime);
                 const matchDateStr = matchDateTimeObj.toISOString().split('T')[0];
                 
-                // DUPLICATE CHECK: Verify a result for this match doesn't already exist.
                 const resultExists = currentResults.some(r => 
                     r.fullDate === matchDateStr &&
                     ((r.teamA === homeTeam && r.teamB === awayTeam) || (r.teamA === awayTeam && r.teamB === homeTeam))
                 );
                 if (resultExists) {
-                    throw new Error("A result for this match already exists. Cannot create a duplicate fixture.");
+                    throw new Error("A result for this match already exists. Cannot schedule a duplicate fixture.");
                 }
 
                 const existingFixtureIndex = currentFixtures.findIndex(f => 
@@ -134,7 +136,7 @@ const SubmitFixturesPage: React.FC = () => {
                 });
             });
 
-            setStatusMessage({ type: 'success', text: 'Fixture submitted successfully!' });
+            setStatusMessage({ type: 'success', text: 'Fixture scheduled successfully!' });
             resetForm();
 
         } catch (error) {
@@ -147,7 +149,7 @@ const SubmitFixturesPage: React.FC = () => {
     
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
 
-    if (!isLoggedIn || (user?.role !== 'club_admin' && user?.role !== 'super_admin')) {
+    if (!isLoggedIn || !isAuthorized) {
         return (
             <div className="bg-gray-50 py-12">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
@@ -162,10 +164,10 @@ const SubmitFixturesPage: React.FC = () => {
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
                 <div className="text-center mb-12">
                     <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
-                        Submit Match Fixture
+                        Schedule Match Fixtures
                     </h1>
-                    <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                        Schedule an upcoming match for a competition.
+                    <p className="text-lg text-gray-600 max-w-3xl mx-auto font-medium">
+                        Use this tool to announce official match schedules for your competition hub.
                     </p>
                 </div>
                 
@@ -174,7 +176,7 @@ const SubmitFixturesPage: React.FC = () => {
                         {loading ? <div className="flex justify-center"><Spinner /></div> : (
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div>
-                                    <label htmlFor="competition" className="block text-sm font-medium text-gray-700 mb-1">Competition</label>
+                                    <label htmlFor="competition" className="block text-sm font-medium text-gray-700 mb-1">Competition Hub</label>
                                     <select id="competition" value={selectedComp} onChange={e => setSelectedComp(e.target.value)} className={inputClass}>
                                         {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
@@ -194,17 +196,17 @@ const SubmitFixturesPage: React.FC = () => {
                                             </select>
                                         </>
                                     ) : (
-                                         <p className="text-sm text-red-600 col-span-3">No teams found for this competition.</p>
+                                         <p className="text-sm text-red-600 col-span-3 text-center">No teams found for this competition hub.</p>
                                     )}
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="matchDateTime" className="block text-sm font-medium text-gray-700 mb-1">Match Date & Time</label>
+                                        <label htmlFor="matchDateTime" className="block text-sm font-medium text-gray-700 mb-1">Kickoff Date & Time</label>
                                         <input type="datetime-local" id="matchDateTime" value={matchDateTime} onChange={e => setMatchDateTime(e.target.value)} className={inputClass} required />
                                     </div>
                                     <div>
-                                        <label htmlFor="matchday" className="block text-sm font-medium text-gray-700 mb-1">Matchday</label>
+                                        <label htmlFor="matchday" className="block text-sm font-medium text-gray-700 mb-1">Matchday #</label>
                                         <input type="number" id="matchday" value={matchday} onChange={e => setMatchday(e.target.value)} placeholder="e.g., 5" className={inputClass} min="1" required />
                                     </div>
                                 </div>
@@ -227,8 +229,8 @@ const SubmitFixturesPage: React.FC = () => {
                                 )}
                                 
                                 <div className="text-right">
-                                    <Button type="submit" disabled={submitting || teams.length === 0} className="bg-primary text-white hover:bg-primary-dark w-full sm:w-auto h-10 flex items-center justify-center">
-                                        {submitting ? <Spinner className="w-5 h-5 border-2" /> : 'Submit Fixture'}
+                                    <Button type="submit" disabled={submitting || teams.length === 0} className="bg-primary text-white hover:bg-primary-dark w-full sm:w-auto h-12 flex items-center justify-center px-10 shadow-lg font-black uppercase tracking-widest text-xs">
+                                        {submitting ? <Spinner className="w-5 h-5 border-white border-2" /> : 'Schedule Official Fixture'}
                                     </Button>
                                 </div>
                             </form>

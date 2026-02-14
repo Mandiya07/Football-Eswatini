@@ -85,7 +85,8 @@ const UserProfilePage: React.FC = () => {
   const levelTitle = user.level! > 10 ? 'Elite Supporter' : user.level! > 5 ? 'Seasoned Fan' : 'Rookie Fan';
   const isSuperAdmin = user.role === 'super_admin';
   const isClubAdmin = user.role === 'club_admin';
-  const isAdmin = isSuperAdmin || isClubAdmin;
+  const isLeagueAdmin = user.role === 'league_admin';
+  const isAdmin = isSuperAdmin || isClubAdmin || isLeagueAdmin;
 
   return (
     <div className="bg-gray-50 py-12 min-h-screen">
@@ -100,34 +101,50 @@ const UserProfilePage: React.FC = () => {
                             <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="bg-accent/20 p-3 rounded-xl border border-accent/30 shadow-inner"><BriefcaseIcon className="w-10 h-10 text-accent" /></div>
-                                    <div><h2 className="text-3xl font-display font-bold">Portal Management Hub</h2><p className="text-blue-100 text-sm opacity-80">{isSuperAdmin ? 'Global Platform Control' : `Club Admin: ${user.club}`}</p></div>
+                                    <div>
+                                        <h2 className="text-3xl font-display font-bold">Portal Management Hub</h2>
+                                        <p className="text-blue-100 text-sm opacity-80">
+                                            {isSuperAdmin ? 'Global Platform Control' : isLeagueAdmin ? 'Official League Center' : `Club Admin: ${user.club}`}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <Link to="/club-management" className="group">
-                                    <div className="bg-white/10 hover:bg-white/20 p-6 rounded-2xl border border-white/20 transition-all h-full flex flex-col justify-between">
-                                        <div>
-                                            <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-xl">Team Portal</h3><div className="bg-blue-500/30 p-2 rounded-lg"><TrophyIcon className="w-5 h-5" /></div></div>
-                                            <p className="text-blue-100 text-sm leading-relaxed">Log scores, manage rosters, and publish club news.</p>
+                                {(isLeagueAdmin || isSuperAdmin) && (
+                                    <Link to="/data-management" className="group">
+                                        <div className="bg-accent text-primary-dark p-6 rounded-2xl shadow-xl transition-all hover:shadow-accent/20 hover:-translate-y-1 h-full flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <h3 className="font-black text-xl">League Hub</h3>
+                                                    <div className="bg-primary-dark/10 p-2 rounded-lg"><TrophyIcon className="w-5 h-5" /></div>
+                                                </div>
+                                                <p className="text-primary-dark/70 text-sm font-semibold">Manage match schedules, results, and AI data synchronization.</p>
+                                            </div>
+                                            <div className="mt-6 flex items-center gap-2 font-black text-xs uppercase tracking-wider group-hover:gap-3 transition-all">Open Match Center <ArrowRightIcon className="w-4 h-4" /></div>
                                         </div>
-                                        <div className="mt-6 flex items-center gap-2 text-accent font-bold text-xs uppercase tracking-wider group-hover:gap-3 transition-all">Open Portal <ArrowRightIcon className="w-4 h-4" /></div>
-                                    </div>
-                                </Link>
+                                    </Link>
+                                )}
+                                {(isClubAdmin || isSuperAdmin) && (
+                                    <Link to="/club-management" className="group">
+                                        <div className="bg-white/10 hover:bg-white/20 p-6 rounded-2xl border border-white/20 transition-all h-full flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <h3 className="font-bold text-xl">Club Portal</h3>
+                                                    <div className="bg-blue-500/30 p-2 rounded-lg"><ShieldIcon className="w-5 h-5" /></div>
+                                                </div>
+                                                <p className="text-blue-100 text-sm leading-relaxed">Publish club news, manage rosters, and list merchandise.</p>
+                                            </div>
+                                            <div className="mt-6 flex items-center gap-2 text-accent font-bold text-xs uppercase tracking-wider group-hover:gap-3 transition-all">Manage Club <ArrowRightIcon className="w-4 h-4" /></div>
+                                        </div>
+                                    </Link>
+                                )}
                                 {isSuperAdmin && (
-                                    <>
-                                        <Link to="/data-management" className="group">
-                                            <div className="bg-accent text-primary-dark p-6 rounded-2xl shadow-xl transition-all hover:shadow-accent/20 hover:-translate-y-1 h-full flex flex-col justify-between">
-                                                <div><div className="flex items-center justify-between mb-3"><h3 className="font-black text-xl">Data Center</h3><div className="bg-primary-dark/10 p-2 rounded-lg"><SparklesIcon className="w-5 h-5" /></div></div><p className="text-primary-dark/70 text-sm font-semibold">Bulk fixture uploads, results sync, and AI tools.</p></div>
-                                                <div className="mt-6 flex items-center gap-2 font-black text-xs uppercase tracking-wider group-hover:gap-3 transition-all">Manage Data <ArrowRightIcon className="w-4 h-4" /></div>
-                                            </div>
-                                        </Link>
-                                        <Link to="/admin-panel" className="group">
-                                            <div className="bg-white/10 hover:bg-white/20 p-6 rounded-2xl border border-white/20 transition-all h-full flex flex-col justify-between">
-                                                <div><div className="flex items-center justify-between mb-3"><h3 className="font-bold text-xl">Admin Panel</h3><div className="bg-red-500/30 p-2 rounded-lg"><ShieldIcon className="w-5 h-5" /></div></div><p className="text-blue-100 text-sm">Approvals, user roles, and system config.</p></div>
-                                                <div className="mt-6 flex items-center gap-2 text-accent font-bold text-xs uppercase tracking-wider group-hover:gap-3 transition-all">Control Center <ArrowRightIcon className="w-4 h-4" /></div>
-                                            </div>
-                                        </Link>
-                                    </>
+                                    <Link to="/admin-panel" className="group">
+                                        <div className="bg-white/10 hover:bg-white/20 p-6 rounded-2xl border border-white/20 transition-all h-full flex flex-col justify-between">
+                                            <div><div className="flex items-center justify-between mb-3"><h3 className="font-bold text-xl">Admin Panel</h3><div className="bg-red-500/30 p-2 rounded-lg"><ShieldIcon className="w-5 h-5" /></div></div><p className="text-blue-100 text-sm">System approvals, user roles, and global configuration.</p></div>
+                                            <div className="mt-6 flex items-center gap-2 text-accent font-bold text-xs uppercase tracking-wider group-hover:gap-3 transition-all">Control Center <ArrowRightIcon className="w-4 h-4" /></div>
+                                        </div>
+                                    </Link>
                                 )}
                             </div>
                         </CardContent>

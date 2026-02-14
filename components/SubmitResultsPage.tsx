@@ -28,6 +28,8 @@ const SubmitResultsPage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
 
+    const isAuthorized = user?.role === 'super_admin' || user?.role === 'league_admin' || user?.role === 'club_admin';
+
     useEffect(() => {
         const loadCompetitions = async () => {
             setLoading(true);
@@ -52,10 +54,10 @@ const SubmitResultsPage: React.FC = () => {
             resetForm(); 
             setLoading(false);
         };
-        if (isLoggedIn) {
+        if (isLoggedIn && isAuthorized) {
             loadTeams();
         }
-    }, [selectedComp, isLoggedIn]);
+    }, [selectedComp, isLoggedIn, isAuthorized]);
 
     const resetForm = () => {
         setHomeTeam('');
@@ -103,14 +105,11 @@ const SubmitResultsPage: React.FC = () => {
 
                 const updatedFixtures = fixtureToMove ? currentFixtures.filter(f => f.id !== fixtureToMove.id) : currentFixtures;
                 let newResult: CompetitionFixture;
-                const matchDateObj = new Date(matchDate);
-
-                // Default to existing data if form fields are empty, otherwise take form data
+                
                 const finalMatchday = matchday ? parseInt(matchday, 10) : (fixtureToMove?.matchday || undefined);
                 const finalVenue = venue || (fixtureToMove?.venue || '');
                 const finalDate = matchDate || (fixtureToMove?.fullDate || new Date().toISOString().split('T')[0]);
                 
-                // Reconstruct date object from finalDate to get day string if needed
                 const finalDateObj = new Date(finalDate);
 
                 const resultData = {
@@ -168,7 +167,7 @@ const SubmitResultsPage: React.FC = () => {
     
     const inputClass = "block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
     
-    if (!isLoggedIn || (user?.role !== 'club_admin' && user?.role !== 'super_admin')) {
+    if (!isLoggedIn || !isAuthorized) {
         return (
             <div className="bg-gray-50 py-12">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
@@ -185,8 +184,8 @@ const SubmitResultsPage: React.FC = () => {
                     <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
                         Submit Match Results
                     </h1>
-                    <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                        Add a finished match result. Metadata like venue and date will be preserved from the scheduled fixture if not provided here.
+                    <p className="text-lg text-gray-600 max-w-3xl mx-auto font-medium">
+                        Add a finished match result to update league standings and player performance records.
                     </p>
                 </div>
                 
@@ -215,21 +214,20 @@ const SubmitResultsPage: React.FC = () => {
                                             </select>
                                         </>
                                     ) : (
-                                         <p className="text-sm text-red-600 col-span-3">No teams found for this competition.</p>
+                                         <p className="text-sm text-red-600 col-span-3 text-center">No teams found for this competition hub.</p>
                                     )}
                                 </div>
 
                                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-                                    <input type="number" value={homeScore} onChange={e => setHomeScore(e.target.value)} placeholder="Home Score" className={`${inputClass} text-center`} min="0" required />
+                                    <input type="number" value={homeScore} onChange={e => setHomeScore(e.target.value)} placeholder="Home Score" className={`${inputClass} text-center font-black text-2xl h-16`} min="0" required />
                                     <span className="font-bold text-2xl text-gray-400">-</span>
-                                    <input type="number" value={awayScore} onChange={e => setAwayScore(e.target.value)} placeholder="Away Score" className={`${inputClass} text-center`} min="0" required />
+                                    <input type="number" value={awayScore} onChange={e => setAwayScore(e.target.value)} placeholder="Away Score" className={`${inputClass} text-center font-black text-2xl h-16`} min="0" required />
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label htmlFor="matchDate" className="block text-sm font-medium text-gray-700 mb-1">Match Date (Optional)</label>
                                         <input type="date" id="matchDate" value={matchDate} onChange={e => setMatchDate(e.target.value)} className={inputClass} />
-                                        <p className="text-xs text-gray-500 mt-1">Leave as is to use existing fixture date.</p>
                                     </div>
                                     <div>
                                         <label htmlFor="matchday" className="block text-sm font-medium text-gray-700 mb-1">Matchday (Optional)</label>
@@ -249,8 +247,8 @@ const SubmitResultsPage: React.FC = () => {
                                 )}
                                 
                                 <div className="text-right">
-                                    <Button type="submit" className="bg-primary text-white hover:bg-primary-dark w-full sm:w-auto h-10 flex items-center justify-center" disabled={submitting || teams.length === 0}>
-                                        {submitting ? <Spinner className="w-5 h-5 border-2" /> : 'Submit Result'}
+                                    <Button type="submit" className="bg-primary text-white hover:bg-primary-dark w-full sm:w-auto h-12 flex items-center justify-center px-10 shadow-lg font-black uppercase tracking-widest text-xs" disabled={submitting || teams.length === 0}>
+                                        {submitting ? <Spinner className="w-5 h-5 border-white border-2" /> : 'Confirm Result Submission'}
                                     </Button>
                                 </div>
                             </form>

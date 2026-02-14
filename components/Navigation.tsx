@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import SearchIcon from './icons/SearchIcon';
@@ -15,6 +16,7 @@ import LogOutIcon from './icons/LogOutIcon';
 import DatabaseIcon from './icons/DatabaseIcon';
 import NewspaperIcon from './icons/NewspaperIcon';
 import MenuIcon from './icons/MenuIcon';
+import TrophyIcon from './icons/TrophyIcon';
 
 const Navigation: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,8 +30,10 @@ const Navigation: React.FC = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'club_admin' || user?.role === 'league_admin';
-  const isJournalist = user?.role === 'journalist' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isClubAdmin = user?.role === 'club_admin' || isSuperAdmin;
+  const isLeagueAdmin = user?.role === 'league_admin' || isSuperAdmin;
+  const isJournalist = user?.role === 'journalist' || isSuperAdmin;
 
   const navItems = [
     { name: 'Home', to: '/' },
@@ -141,20 +145,25 @@ const Navigation: React.FC = () => {
                       <div className="absolute top-full right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 text-gray-800 animate-in slide-in-from-top-3 duration-200">
                         <div className="px-5 py-3 border-b border-gray-50 text-center">
                           <p className="font-black text-sm truncate text-gray-900">{user?.name}</p>
-                          <p className="text-[10px] text-primary/50 font-black tracking-widest">{user?.role?.replace('_', ' ')}</p>
+                          <p className="text-[10px] text-primary/50 font-black tracking-widest uppercase">{user?.role?.replace('_', ' ')}</p>
                         </div>
                         <div className="p-1.5">
                           <Link to="/profile" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold hover:bg-gray-50 rounded-xl transition-colors">
                             <UserCircleIcon className="w-5 h-5 text-gray-400" /> My Profile
                           </Link>
+                          {isLeagueAdmin && (
+                            <Link to="/data-management" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold hover:bg-blue-50 rounded-xl transition-colors text-blue-600">
+                              <TrophyIcon className="w-5 h-5" /> League Portal
+                            </Link>
+                          )}
+                          {isClubAdmin && (
+                            <Link to="/club-management" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold hover:bg-green-50 rounded-xl transition-colors text-green-600">
+                              <DatabaseIcon className="w-5 h-5" /> Club Portal
+                            </Link>
+                          )}
                           {isJournalist && (
                             <Link to="/press" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold hover:bg-indigo-50 rounded-xl transition-colors text-indigo-600">
                               <NewspaperIcon className="w-5 h-5" /> Press Portal
-                            </Link>
-                          )}
-                          {isAdmin && (
-                            <Link to="/club-management" className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold hover:bg-green-50 rounded-xl transition-colors text-green-600">
-                              <DatabaseIcon className="w-5 h-5" /> Club Portal
                             </Link>
                           )}
                           <button onClick={logout} className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl w-full text-left font-black border-t border-gray-50 mt-1.5">
