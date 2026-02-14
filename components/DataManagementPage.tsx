@@ -34,7 +34,7 @@ const DataManagementPage: React.FC = () => {
                             <p className="text-gray-600 mt-2 mb-6 flex-grow">
                                 Add new clubs to your hub, update team crests, and sync with the public directory.
                             </p>
-                            <Link to="/club-management?tab=teams">
+                            <Link to="/data-management/teams">
                                 <Button className="bg-blue-600 text-white hover:bg-blue-700 w-full h-11">
                                     Open Team Manager
                                 </Button>

@@ -1,4 +1,5 @@
 
+
 import React, { Suspense, lazy, useState } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navigation from './components/Navigation';
@@ -68,7 +69,9 @@ const InternationalPage = lazy(() => import('./components/InternationalPage'));
 const LeagueRegistrationPage = lazy(() => import('./components/LeagueRegistrationPage'));
 const PitchDeckPage = lazy(() => import('./components/PitchDeckPage'));
 const JournalistPortalPage = lazy(() => import('./components/JournalistPortalPage'));
+// Fix: Corrected variable name by removing space to resolve "Cannot find name 'UmbuluziPitchPage'" error on line 169
 const UmbuluziPitchPage = lazy(() => import('./components/UmbuluziPitchPage'));
+const ManageTeamsPage = lazy(() => import('./components/data-management/ManageTeamsPage'));
 
 
 const App: React.FC = () => {
@@ -155,6 +158,7 @@ const App: React.FC = () => {
                   <Route path="/team-yam" element={<TeamYamPage />} />
                   <Route path="/exclusive" element={<ExclusivePage />} />
                   <Route path="/data-management" element={<DataManagementPage />} />
+                  <Route path="/data-management/teams" element={<ManageTeamsPage />} />
                   <Route path="/data-management/bulk-import" element={<BulkImportPage />} />
                   <Route path="/data-management/api-import" element={<ApiImportPage />} />
                   <Route path="/submit-results" element={<SubmitResultsPage />} />

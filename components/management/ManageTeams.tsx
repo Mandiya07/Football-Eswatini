@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../services/firebase';
-/* Added missing 'collection' import */
 import { doc, runTransaction, collection } from 'firebase/firestore';
 import { Team, Competition } from '../../data/teams';
 import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry, deleteDirectoryEntry, handleFirestoreError } from '../../services/api';
@@ -13,7 +12,6 @@ import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import UsersIcon from '../icons/UsersIcon';
 import CalendarIcon from '../icons/CalendarIcon';
-/* Added missing 'TrophyIcon' import */
 import TrophyIcon from '../icons/TrophyIcon';
 import TeamFormModal from '../admin/TeamFormModal';
 import TeamRosterModal from '../admin/TeamRosterModal';
@@ -52,7 +50,7 @@ const ManageTeams: React.FC = () => {
                 .filter(([id, comp]) => {
                     if (!comp || !comp.name) return false;
                     if (isSuperAdmin) return true;
-                    // Scoping for League Admins
+                    // Scoping for League Admins - MUST have managedLeagues array populated in user profile
                     return user?.managedLeagues?.includes(id);
                 })
                 .map(([id, comp]) => ({ id, name: comp.name! }));
@@ -99,6 +97,7 @@ const ManageTeams: React.FC = () => {
     };
 
     const handleAddNew = () => {
+        if (!selectedCompId) return alert("Please select a target competition hub first.");
         setEditingTeam(null);
         setIsFormModalOpen(true);
     };
@@ -161,6 +160,7 @@ const ManageTeams: React.FC = () => {
     };
 
     const handleSaveTeam = async (data: any, id?: number, addToDir: boolean = false) => {
+        if (!selectedCompId) return;
         setLoading(true);
         setIsFormModalOpen(false);
         try {
@@ -203,13 +203,16 @@ const ManageTeams: React.FC = () => {
                     }));
                 });
             } else {
-                const maxId = teams.reduce((max, team) => Math.max(max, team.id), 0);
-                const newTeamId = maxId > 0 ? maxId + 1 : 1;
-                
+                // New Team Creation
                 await runTransaction(db, async (transaction) => {
                     const compDocSnap = await transaction.get(compDocRef);
                     if (!compDocSnap.exists()) throw new Error("Competition not found");
                     const competition = compDocSnap.data() as Competition;
+                    
+                    const currentTeams = competition.teams || [];
+                    const maxId = currentTeams.reduce((max, team) => Math.max(max, team.id), 0);
+                    const newTeamId = maxId > 0 ? maxId + 1 : 1;
+                    
                     const newTeam: Team = {
                         id: newTeamId,
                         name: teamName,
@@ -217,7 +220,7 @@ const ManageTeams: React.FC = () => {
                         players: [], fixtures: [], results: [], staff: [],
                         stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' }
                     };
-                    const updatedCompTeams = [...(competition.teams || []), newTeam];
+                    const updatedCompTeams = [...currentTeams, newTeam];
                     transaction.update(compDocRef, { teams: updatedCompTeams });
 
                     if (addToDir) {
@@ -238,6 +241,7 @@ const ManageTeams: React.FC = () => {
             await loadData(true);
         } catch (error) {
             console.error("Save team failed", error);
+            alert("Failed to save team: " + (error as Error).message);
         } finally {
             setLoading(false);
         }
@@ -261,19 +265,24 @@ const ManageTeams: React.FC = () => {
                 <CardContent className="p-6">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-2xl font-bold font-display">Hub Roster Manager</h3>
-                        <Button onClick={handleAddNew} className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2">
+                        <Button 
+                            onClick={handleAddNew} 
+                            disabled={!selectedCompId}
+                            className="bg-primary text-white hover:bg-primary-dark inline-flex items-center gap-2 shadow-lg disabled:opacity-50"
+                        >
                             <PlusCircleIcon className="w-5 h-5 text-white" /> Add New Club
                         </Button>
                     </div>
                     
-                    <div className="mb-6">
-                        <label htmlFor="comp-select-teams" className="block text-sm font-bold text-gray-700 mb-2">Target Competition</label>
+                    <div className="mb-6 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                        <label htmlFor="comp-select-teams" className="block text-xs font-black uppercase text-gray-400 mb-2 tracking-widest">Active Hub Control</label>
                         <select
                             id="comp-select-teams"
                             value={selectedCompId}
                             onChange={(e) => handleCompChange(e.target.value)}
-                            className="block w-full max-w-sm px-4 py-2.5 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                            className="block w-full max-w-sm px-4 py-2.5 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-bold text-gray-700"
                         >
+                            <option value="" disabled>Select a competition hub...</option>
                             {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
@@ -301,7 +310,13 @@ const ManageTeams: React.FC = () => {
                                     </div>
                                 </div>
                             ))}
-                            {teams.length === 0 && <p className="text-center text-gray-500 py-12 italic border-2 border-dashed rounded-xl">No teams registered in this hub yet.</p>}
+                            {teams.length === 0 && (
+                                <div className="text-center py-16 border-2 border-dashed rounded-3xl bg-gray-50 flex flex-col items-center">
+                                    <TrophyIcon className="w-12 h-12 text-gray-200 mb-4" />
+                                    <p className="text-gray-500 font-bold italic">No teams registered in this hub yet.</p>
+                                    <button onClick={handleAddNew} className="mt-4 text-blue-600 font-bold hover:underline">Click here to add the first club</button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </CardContent>

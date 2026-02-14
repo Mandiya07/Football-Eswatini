@@ -15,7 +15,8 @@ import AuthModal from './components/AuthModal';
 import { useAuth } from './contexts/AuthContext';
 import DataManagementPage from './components/DataManagementPage';
 import SystemToolbar from './components/SystemToolbar';
-
+import RefreshPage from './components/RefreshPage';
+import NotFound from './components/NotFound';
 
 const InteractivePage = lazy(() => import('./components/InteractivePage'));
 const MediaPage = lazy(() => import('./components/MediaPage'));
@@ -66,6 +67,9 @@ const BrandedClubExample = lazy(() => import('./components/BrandedClubExample'))
 const InternationalPage = lazy(() => import('./components/InternationalPage'));
 const LeagueRegistrationPage = lazy(() => import('./components/LeagueRegistrationPage'));
 const PitchDeckPage = lazy(() => import('./components/PitchDeckPage'));
+const JournalistPortalPage = lazy(() => import('./components/JournalistPortalPage'));
+const UmbuluziPitchPage = lazy(() => import('./components/UmbuluziPitchPage'));
+const ManageTeamsPage = lazy(() => import('./components/data-management/ManageTeamsPage'));
 
 
 const App: React.FC = () => {
@@ -101,6 +105,7 @@ const App: React.FC = () => {
               <Suspense fallback={<div className="p-8 text-center">Loading Page...</div>}>
                 <Routes>
                   <Route path="/" element={<Home />} />
+                  <Route path="/refresh" element={<RefreshPage />} />
                   <Route path="/news" element={<NewsPage />} />
                   <Route path="/news/:slug" element={<NewsArticlePage />} />
                   <Route path="/about" element={<About />} />
@@ -151,6 +156,7 @@ const App: React.FC = () => {
                   <Route path="/team-yam" element={<TeamYamPage />} />
                   <Route path="/exclusive" element={<ExclusivePage />} />
                   <Route path="/data-management" element={<DataManagementPage />} />
+                  <Route path="/data-management/teams" element={<ManageTeamsPage />} />
                   <Route path="/data-management/bulk-import" element={<BulkImportPage />} />
                   <Route path="/data-management/api-import" element={<ApiImportPage />} />
                   <Route path="/submit-results" element={<SubmitResultsPage />} />
@@ -158,6 +164,9 @@ const App: React.FC = () => {
                   <Route path="/ai-assistant" element={<AIAssistantPage />} />
                   <Route path="/voice-scout" element={<AIAgentPage />} />
                   <Route path="/pitch-deck" element={<PitchDeckPage />} />
+                  <Route path="/press" element={<JournalistPortalPage />} />
+                  <Route path="/pitch-umbuluzi" element={<UmbuluziPitchPage />} />
+                  <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
             </main>
@@ -172,7 +181,6 @@ const App: React.FC = () => {
         </div>
 
         <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
-        
         <SystemToolbar 
           isPreviewActive={isPreviewMode} 
           onTogglePreview={() => setIsPreviewMode(!isPreviewMode)} 
