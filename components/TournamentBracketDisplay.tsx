@@ -3,13 +3,12 @@ import { Tournament, BracketMatch } from '../data/cups';
 import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
 import ShareIcon from './icons/ShareIcon';
-// Fix: Added missing import for Logo component
 import Logo from './Logo';
 
-const CARD_WIDTH = 230; 
-const CARD_HEIGHT = 210; // Maximized height to prevent any possible clipping from font scaling
-const GAP_X = 60;
-const GAP_Y = 40; 
+const CARD_WIDTH = 220; 
+const CARD_HEIGHT = 190; 
+const GAP_X = 50;
+const GAP_Y = 30; 
 
 interface PositionedMatch extends BracketMatch {
     x: number;
@@ -40,75 +39,74 @@ const MatchCard: React.FC<{ match: BracketMatch; style: React.CSSProperties }> =
 
     return (
         <div 
-            className={`absolute rounded-2xl border-2 bg-white shadow-xl transition-all duration-300 overflow-hidden flex flex-col ${match.winner ? 'border-blue-200' : 'border-slate-100'}`}
+            className={`absolute rounded-xl border bg-white shadow-lg transition-all duration-300 overflow-hidden flex flex-col ${match.winner ? 'border-blue-200' : 'border-slate-100'}`}
             style={{
                 ...style,
                 width: CARD_WIDTH,
                 height: CARD_HEIGHT,
             }}
         >
-            {/* Metadata Header - Explicit padding and height to prevent squashing */}
-            <div className="bg-slate-50 border-b border-slate-100 px-4 py-4 h-[65px] flex flex-col justify-center gap-1 flex-shrink-0">
+            {/* Metadata Header */}
+            <div className="bg-slate-50 border-b border-slate-100 px-3 py-3 h-[55px] flex flex-col justify-center gap-0.5 flex-shrink-0">
                 <div className="flex justify-between items-center w-full">
-                    <span className="truncate max-w-[130px] font-black uppercase text-primary/80 tracking-tighter" style={{ fontSize: '10px' }}>
+                    <span className="truncate max-w-[120px] font-black uppercase text-primary/70 tracking-tighter text-[9px]">
                         {match.venue || 'TBD Venue'}
                     </span>
-                    <span className="font-mono font-black text-slate-600 bg-slate-200/50 px-1.5 rounded" style={{ fontSize: '10px' }}>
+                    <span className="font-mono font-black text-slate-500 bg-slate-200/50 px-1.5 rounded text-[9px]">
                         {match.time || 'TBD'}
                     </span>
                 </div>
-                <div className="font-bold text-slate-400 uppercase tracking-widest truncate" style={{ fontSize: '8px' }}>
+                <div className="font-bold text-slate-300 uppercase tracking-widest truncate text-[8px]">
                     {match.date || 'TBD'}
                 </div>
             </div>
             
-            {/* Match Teams Area - Larger gap for cleaner separation */}
-            <div className="flex flex-col justify-center flex-grow px-4 py-4 gap-5 bg-white">
+            {/* Match Teams Area */}
+            <div className="flex flex-col justify-center flex-grow px-3 py-3 gap-3 bg-white">
                 {/* Team 1 */}
-                <div className={`flex justify-between items-center ${isWinner1 ? 'text-blue-950 font-black scale-105' : 'text-slate-600 font-bold'} transition-transform`}>
-                    <div className="flex items-center gap-3 overflow-hidden flex-1">
+                <div className={`flex justify-between items-center ${isWinner1 ? 'text-blue-900 font-black' : 'text-slate-500 font-bold'}`}>
+                    <div className="flex items-center gap-2 overflow-hidden flex-1">
                         {!isTBD(team1Name) ? (
                             crest1 ? (
-                                <img src={crest1} alt="" className="w-9 h-9 object-contain flex-shrink-0 bg-white p-1 rounded shadow-sm border border-slate-100" />
+                                <img src={crest1} alt="" className="w-7 h-7 object-contain flex-shrink-0 bg-white p-0.5 rounded shadow-sm border border-slate-50" />
                             ) : (
-                                <div className="w-9 h-9 rounded bg-slate-50 border border-slate-100 flex-shrink-0 flex items-center justify-center">
-                                    <span className="text-slate-300 font-black" style={{ fontSize: '10px' }}>{team1Name.charAt(0)}</span>
+                                <div className="w-7 h-7 rounded bg-slate-50 border border-slate-100 flex-shrink-0 flex items-center justify-center">
+                                    <span className="text-slate-300 font-black text-[9px]">{team1Name.charAt(0)}</span>
                                 </div>
                             )
                         ) : (
-                            <div className="w-9 h-9 rounded-full border-2 border-dashed border-slate-100 flex-shrink-0"></div>
+                            <div className="w-7 h-7 rounded-full border border-dashed border-slate-200 flex-shrink-0"></div>
                         )}
-                        <span className={`truncate tracking-tight ${isTBD(team1Name) ? 'text-slate-300 font-medium italic' : ''}`} style={{ fontSize: '12px' }}>{team1Name}</span>
+                        <span className={`truncate tracking-tight text-[11px] ${isTBD(team1Name) ? 'text-slate-300 font-medium italic' : ''}`}>{team1Name}</span>
                     </div>
-                    <span className={`font-black font-mono px-2 py-1 rounded ml-2 min-w-[32px] text-center shadow-md ${isWinner1 ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`} style={{ fontSize: '14px' }}>
+                    <span className={`font-black font-mono px-1.5 py-0.5 rounded ml-1 min-w-[24px] text-center text-xs ${isWinner1 ? 'bg-green-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400'}`}>
                         {score1}
                     </span>
                 </div>
 
                 {/* Team 2 */}
-                <div className={`flex justify-between items-center ${isWinner2 ? 'text-blue-950 font-black scale-105' : 'text-slate-600 font-bold'} transition-transform`}>
-                    <div className="flex items-center gap-3 overflow-hidden flex-1">
+                <div className={`flex justify-between items-center ${isWinner2 ? 'text-blue-900 font-black' : 'text-slate-500 font-bold'}`}>
+                    <div className="flex items-center gap-2 overflow-hidden flex-1">
                         {!isTBD(team2Name) ? (
                             crest2 ? (
-                                <img src={crest2} alt="" className="w-9 h-9 object-contain flex-shrink-0 bg-white p-1 rounded shadow-sm border border-slate-100" />
+                                <img src={crest2} alt="" className="w-7 h-7 object-contain flex-shrink-0 bg-white p-0.5 rounded shadow-sm border border-slate-50" />
                             ) : (
-                                <div className="w-9 h-9 rounded bg-slate-50 border border-slate-100 flex-shrink-0 flex items-center justify-center">
-                                    <span className="text-slate-300 font-black" style={{ fontSize: '10px' }}>{team2Name.charAt(0)}</span>
+                                <div className="w-7 h-7 rounded bg-slate-50 border border-slate-100 flex-shrink-0 flex items-center justify-center">
+                                    <span className="text-slate-300 font-black text-[9px]">{team2Name.charAt(0)}</span>
                                 </div>
                             )
                         ) : (
-                            <div className="w-9 h-9 rounded-full border-2 border-dashed border-slate-100 flex-shrink-0"></div>
+                            <div className="w-7 h-7 rounded-full border border-dashed border-slate-200 flex-shrink-0"></div>
                         )}
-                        <span className={`truncate tracking-tight ${isTBD(team2Name) ? 'text-slate-300 font-medium italic' : ''}`} style={{ fontSize: '12px' }}>{team2Name}</span>
+                        <span className={`truncate tracking-tight text-[11px] ${isTBD(team2Name) ? 'text-slate-300 font-medium italic' : ''}`}>{team2Name}</span>
                     </div>
-                    <span className={`font-black font-mono px-2 py-1 rounded ml-2 min-w-[32px] text-center shadow-md ${isWinner2 ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-400'}`} style={{ fontSize: '14px' }}>
+                    <span className={`font-black font-mono px-1.5 py-0.5 rounded ml-1 min-w-[24px] text-center text-xs ${isWinner2 ? 'bg-green-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400'}`}>
                         {score2}
                     </span>
                 </div>
             </div>
             
-            {/* Action Bar - Decorative */}
-            <div className="h-1.5 w-full bg-gradient-to-r from-transparent via-slate-100 to-transparent"></div>
+            <div className="h-1 w-full bg-slate-50"></div>
         </div>
     );
 };
@@ -135,7 +133,7 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                 let yCenter = 0;
 
                 if (isFirstRound) {
-                    y = mIndex * (CARD_HEIGHT + GAP_Y) + 100; 
+                    y = mIndex * (CARD_HEIGHT + GAP_Y) + 80; 
                     yCenter = y + CARD_HEIGHT / 2;
                 } else {
                     const child1Key = `${rIndex - 1}-${mIndex * 2}`;
@@ -151,17 +149,17 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                         const path1 = `M${x - GAP_X + CARD_WIDTH},${child1Y} L${x - GAP_X/2},${child1Y} L${x - GAP_X/2},${yCenter} L${x},${yCenter}`;
                         const path2 = `M${x - GAP_X + CARD_WIDTH},${child2Y} L${x - GAP_X/2},${child2Y} L${x - GAP_X/2},${yCenter} L${x},${yCenter}`;
 
-                        connections.push(<path key={`conn-${rIndex}-${mIndex}-1`} d={path1} stroke="#E2E8F0" strokeWidth="2.5" fill="none" />);
-                        connections.push(<path key={`conn-${rIndex}-${mIndex}-2`} d={path2} stroke="#E2E8F0" strokeWidth="2.5" fill="none" />);
+                        connections.push(<path key={`conn-${rIndex}-${mIndex}-1`} d={path1} stroke="#E2E8F0" strokeWidth="2" fill="none" />);
+                        connections.push(<path key={`conn-${rIndex}-${mIndex}-2`} d={path2} stroke="#E2E8F0" strokeWidth="2" fill="none" />);
 
                     } else if (child1Y !== undefined) {
                         yCenter = child1Y;
                         y = yCenter - CARD_HEIGHT / 2;
-                        connections.push(<path key={`conn-${rIndex}-${mIndex}-1`} d={`M${x - GAP_X + CARD_WIDTH},${child1Y} L${x},${yCenter}`} stroke="#E2E8F0" strokeWidth="2.5" fill="none" />);
+                        connections.push(<path key={`conn-${rIndex}-${mIndex}-1`} d={`M${x - GAP_X + CARD_WIDTH},${child1Y} L${x},${yCenter}`} stroke="#E2E8F0" strokeWidth="2" fill="none" />);
                     } else {
                         const estimatedSlots = Math.pow(2, rIndex);
                         const slotHeight = (CARD_HEIGHT + GAP_Y) * estimatedSlots;
-                        y = (mIndex * slotHeight) + (slotHeight / 2) - (CARD_HEIGHT / 2) + 100;
+                        y = (mIndex * slotHeight) + (slotHeight / 2) - (CARD_HEIGHT / 2) + 80;
                         yCenter = y + CARD_HEIGHT / 2;
                     }
                 }
@@ -182,7 +180,7 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
 
         const maxMatchY = Array.from(yCenterMap.values()).reduce((max, y) => Math.max(max, y), 0);
         const containerWidth = (rounds.length * (CARD_WIDTH + GAP_X)) + 40;
-        const containerHeight = Math.max(900, maxMatchY + CARD_HEIGHT + 200);
+        const containerHeight = Math.max(800, maxMatchY + CARD_HEIGHT + 150);
 
         return { matches: positionedMatches, connections, width: containerWidth, height: containerHeight };
 
@@ -191,7 +189,7 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
     const handleShare = async () => {
         const shareData = {
             title: `${tournament.name} Bracket`,
-            text: `Follow the ${tournament.name} progress live on Football Eswatini!`,
+            text: `Follow the ${tournament.name} progress on Football Eswatini!`,
             url: window.location.href,
         };
 
@@ -207,29 +205,29 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
     };
 
     return (
-        <Card className="shadow-2xl border-0 rounded-[3.5rem] overflow-hidden bg-white">
+        <Card className="shadow-2xl border-0 rounded-[2.5rem] overflow-hidden bg-white">
             <CardContent className="p-0">
-                <div className="p-10 md:p-14 flex flex-col sm:flex-row items-center justify-between gap-8 border-b border-slate-100 bg-slate-50/20">
-                    <div className="flex items-center gap-8">
-                        <div className="h-28 w-28 bg-white rounded-[2rem] flex items-center justify-center border shadow-2xl">
+                <div className="p-8 md:p-10 flex flex-col sm:flex-row items-center justify-between gap-6 border-b border-slate-100 bg-slate-50/10">
+                    <div className="flex items-center gap-6">
+                        <div className="h-20 w-20 bg-white rounded-2xl flex items-center justify-center border shadow-xl">
                             {tournament.logoUrl ? (
-                                <img src={tournament.logoUrl} alt="" className="h-24 w-24 object-contain p-2" />
+                                <img src={tournament.logoUrl} alt="" className="h-16 w-16 object-contain p-1" />
                             ) : (
-                                <TrophyIcon className="w-14 h-14 text-slate-200" />
+                                <TrophyIcon className="w-10 h-10 text-slate-200" />
                             )}
                         </div>
                         <div>
-                            <h3 className="text-4xl md:text-6xl font-black font-display text-slate-900 leading-[0.9] uppercase tracking-tighter">{tournament.name}</h3>
-                            <p className="text-[12px] font-black uppercase tracking-[0.5em] text-primary mt-4">Official Tournament Roadmap</p>
+                            <h3 className="text-3xl md:text-5xl font-black font-display text-slate-900 leading-[0.9] uppercase tracking-tighter">{tournament.name}</h3>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-3">Kingdom Tournament roadmap</p>
                         </div>
                     </div>
                     
                     <button
                         onClick={handleShare}
-                        className="flex items-center gap-3 px-12 py-5 text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl bg-primary text-white hover:bg-primary-dark transition-all shadow-2xl active:scale-95 transform hover:-translate-y-1"
+                        className="flex items-center gap-3 px-8 py-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-primary text-white hover:bg-primary-dark transition-all shadow-xl active:scale-95 transform hover:-translate-y-0.5"
                     >
                         <ShareIcon className="w-4 h-4" />
-                        {copied ? 'Link Copied!' : 'Broadcast Hub'}
+                        {copied ? 'Copied!' : 'Broadcast'}
                     </button>
                 </div>
 
@@ -238,7 +236,7 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                         {tournament.rounds?.map((round, i) => (
                             <div 
                                 key={i} 
-                                className="absolute top-0 text-center py-8 font-black text-[13px] uppercase tracking-[0.4em] text-slate-400 border-b-2 border-slate-200 bg-white/40 backdrop-blur-xl z-10"
+                                className="absolute top-0 text-center py-6 font-black text-[11px] uppercase tracking-[0.3em] text-slate-400 border-b border-slate-100 bg-white/30 backdrop-blur-lg z-10"
                                 style={{
                                     left: i * (CARD_WIDTH + GAP_X) + 20,
                                     width: CARD_WIDTH,
@@ -260,11 +258,11 @@ const TournamentBracketDisplay: React.FC<{ tournament: Tournament }> = ({ tourna
                     </div>
                 </div>
                 
-                <div className="bg-slate-950 p-8 flex flex-col md:flex-row items-center justify-between border-t border-white/5">
-                    <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.6em]">Digital Bracket Visualization v3.0</p>
-                    <div className="flex gap-4 opacity-30 mt-4 md:mt-0">
-                        <TrophyIcon className="w-5 h-5 text-white" />
-                        <Logo className="h-4 w-auto grayscale invert" />
+                <div className="bg-slate-950 p-6 flex flex-col md:flex-row items-center justify-between border-t border-white/5">
+                    <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.5em]">Digital Bracket Visualization v3.1</p>
+                    <div className="flex gap-4 opacity-20 mt-4 md:mt-0">
+                        <TrophyIcon className="w-4 h-4 text-white" />
+                        <Logo className="h-3 w-auto grayscale invert" />
                     </div>
                 </div>
             </CardContent>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="font-size: 16px;">
+<html lang="en" style="font-size: 15px !important;">
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -54,13 +54,17 @@
     }
   </script>
   <style>
-    html, body { 
+    html {
+      font-size: 15px !important;
+      -webkit-text-size-adjust: none !important;
+      -moz-text-size-adjust: none !important;
+      text-size-adjust: none !important;
+    }
+    body { 
       background-color: #f8fafc; 
       font-family: 'Inter', sans-serif; 
       overflow-x: hidden;
-      -webkit-text-size-adjust: 100%;
-      -moz-text-size-adjust: 100%;
-      text-size-adjust: 100%;
+      font-size: 1rem !important;
     }
     .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
