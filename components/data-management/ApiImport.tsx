@@ -289,8 +289,8 @@ const ApiImportPage: React.FC = () => {
 
     return (
         <div className="bg-gray-50 py-12">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
-                <Card className="shadow-2xl border-0 overflow-hidden rounded-[2.5rem]">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl animate-fade-in">
+                <Card className="max-w-6xl mx-auto shadow-2xl border-0 overflow-hidden rounded-[2.5rem]">
                     <div className="bg-primary p-8 text-white flex flex-col md:flex-row justify-between items-center gap-6">
                         <div className="flex items-center gap-4">
                             <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md border border-white/20 shadow-inner">
@@ -425,7 +425,7 @@ const ApiImportPage: React.FC = () => {
                         </div>
                     </div>
                 )}
-            </CardContent>
+            </div>
         </div>
     );
 };
