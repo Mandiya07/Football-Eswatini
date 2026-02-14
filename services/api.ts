@@ -989,8 +989,19 @@ export const resetAllCompetitionData = async () => {
 export const fetchFootballDataOrg = async (apiId: string, key: string, season: string, type: 'fixtures' | 'results', proxy: boolean, officialNames: string[]): Promise<CompetitionFixture[]> => {
     const statusParam = type === 'results' ? 'FINISHED' : 'SCHEDULED';
     const endpoint = `https://api.football-data.org/v4/competitions/${apiId}/matches?status=${statusParam}&season=${season}`;
-    const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
-    const response = await fetchWithRetry(url, { method: 'GET', headers: { 'X-Auth-Token': key, 'Accept': 'application/json' } });
+    
+    // Switch to a more robust proxy that handles custom headers better on Vercel
+    const url = proxy ? `https://cors-proxy.org/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    
+    const response = await fetchWithRetry(url, { 
+        method: 'GET', 
+        headers: { 
+            'X-Auth-Token': key,
+            // Strictly specify Accept to avoid preflight complications in some environments
+            'Accept': 'application/json' 
+        } 
+    });
+    
     if (!response.ok) throw new Error(`Football-Data Error (${response.status})`);
     const data = await response.json();
     return (data.matches || []).map((m: any) => {
@@ -1016,7 +1027,10 @@ export const fetchApiFootball = async (apiId: string, key: string, season: strin
     const host = isRapidApi ? 'api-football-v1.p.rapidapi.com' : 'v3.football.api-sports.io';
     const statusParam = type === 'results' ? 'FT' : 'NS';
     const endpoint = `https://${ host }/v3/fixtures?league=${apiId}&season=${season}&status=${statusParam}`;
-    const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    
+    // Switch to a more robust proxy that handles custom headers better on Vercel
+    const url = proxy ? `https://cors-proxy.org/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    
     const headers: Record<string, string> = { 'Accept': 'application/json' };
     if (isRapidApi) { headers['x-rapidapi-key'] = key; headers['x-rapidapi-host'] = host; } else { headers['x-apisports-key'] = key; }
     const response = await fetchWithRetry(url, { method: 'GET', headers });
