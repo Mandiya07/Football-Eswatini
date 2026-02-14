@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/proxy/football-data/:path*",
+      "destination": "https://api.football-data.org/v4/:path*"
+    },
+    {
+      "source": "/proxy/api-sports/:path*",
+      "destination": "https://v3.football.api-sports.io/:path*"
+    },
+    {
+      "source": "/proxy/rapidapi/:path*",
+      "destination": "https://api-football-v1.p.rapidapi.com/v3/:path*"
+    }
+  ]
+}

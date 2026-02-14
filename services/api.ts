@@ -988,22 +988,39 @@ export const resetAllCompetitionData = async () => {
 
 export const fetchFootballDataOrg = async (apiId: string, key: string, season: string, type: 'fixtures' | 'results', proxy: boolean, officialNames: string[]): Promise<CompetitionFixture[]> => {
     const statusParam = type === 'results' ? 'FINISHED' : 'SCHEDULED';
-    const endpoint = `https://api.football-data.org/v4/competitions/${apiId}/matches?status=${statusParam}&season=${season}`;
+    const rawEndpoint = `https://api.football-data.org/v4/competitions/${apiId}/matches?status=${statusParam}&season=${season}`;
     
-    // Switched to corsproxy.io which is more reliable for Vercel production deployments
-    const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    // STAGE 1: Try Vercel Server-Side Rewrite (Preferred Production Method)
+    const vercelProxy = `/proxy/football-data/competitions/${apiId}/matches?status=${statusParam}&season=${season}`;
     
-    const response = await fetchWithRetry(url, { 
-        method: 'GET', 
-        headers: { 
-            'X-Auth-Token': key,
-            'Accept': 'application/json' 
-        } 
+    try {
+        const response = await fetchWithRetry(vercelProxy, { 
+            method: 'GET', 
+            headers: { 'X-Auth-Token': key, 'Accept': 'application/json' } 
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            return mapMatches(data.matches || [], officialNames);
+        }
+    } catch (e) {
+        console.warn("Vercel Proxy unavailable, attempting fallback tunnel...");
+    }
+
+    // STAGE 2: High-Reliability Fallback Tunnel (For dev or if vercel.json is missing)
+    const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rawEndpoint)}`;
+    const fallbackResponse = await fetchWithRetry(fallbackUrl, {
+        method: 'GET',
+        headers: { 'X-Auth-Token': key, 'Accept': 'application/json' }
     });
-    
-    if (!response.ok) throw new Error(`Football-Data Error (${response.status})`);
-    const data = await response.json();
-    return (data.matches || []).map((m: any) => {
+
+    if (!fallbackResponse.ok) throw new Error(`API Connection Failed (${fallbackResponse.status})`);
+    const data = await fallbackResponse.json();
+    return mapMatches(data.matches || [], officialNames);
+};
+
+const mapMatches = (matches: any[], officialNames: string[]): CompetitionFixture[] => {
+    return matches.map((m: any) => {
         const dateObj = new Date(m.utcDate);
         return {
             id: m.id,
@@ -1025,17 +1042,34 @@ export const fetchFootballDataOrg = async (apiId: string, key: string, season: s
 export const fetchApiFootball = async (apiId: string, key: string, season: string, type: 'fixtures' | 'results', proxy: boolean, officialNames: string[], isRapidApi: boolean = false): Promise<CompetitionFixture[]> => {
     const host = isRapidApi ? 'api-football-v1.p.rapidapi.com' : 'v3.football.api-sports.io';
     const statusParam = type === 'results' ? 'FT' : 'NS';
-    const endpoint = `https://${ host }/v3/fixtures?league=${apiId}&season=${season}&status=${statusParam}`;
+    const rawEndpoint = `https://${ host }/v3/fixtures?league=${apiId}&season=${season}&status=${statusParam}`;
     
-    // Switched to corsproxy.io which is more reliable for Vercel production deployments
-    const url = proxy ? `https://corsproxy.io/?url=${encodeURIComponent(endpoint)}` : endpoint;
+    // Use Vercel Secure Rewrite path
+    const proxyPath = isRapidApi ? '/proxy/rapidapi' : '/proxy/api-sports';
+    const endpoint = `${proxyPath}/fixtures?league=${apiId}&season=${season}&status=${statusParam}`;
     
     const headers: Record<string, string> = { 'Accept': 'application/json' };
-    if (isRapidApi) { headers['x-rapidapi-key'] = key; headers['x-rapidapi-host'] = host; } else { headers['x-apisports-key'] = key; }
-    const response = await fetchWithRetry(url, { method: 'GET', headers });
-    if (!response.ok) throw new Error(`API-Football Error (${response.status})`);
-    const data = await response.json();
-    return (data.response || []).map((item: any) => {
+    if (isRapidApi) { headers['x-rapidapi-key'] = key; } else { headers['x-apisports-key'] = key; }
+
+    try {
+        const response = await fetchWithRetry(endpoint, { method: 'GET', headers });
+        if (response.ok) {
+            const data = await response.json();
+            return mapApiFootballMatches(data.response || [], officialNames);
+        }
+    } catch (e) {
+        console.warn("Vercel API-Sports proxy failed, attempting fallback...");
+    }
+
+    const fallbackUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rawEndpoint)}`;
+    const fallbackResponse = await fetchWithRetry(fallbackUrl, { method: 'GET', headers });
+    if (!fallbackResponse.ok) throw new Error(`External API Link Failed (${fallbackResponse.status})`);
+    const data = await fallbackResponse.json();
+    return mapApiFootballMatches(data.response || [], officialNames);
+};
+
+const mapApiFootballMatches = (response: any[], officialNames: string[]): CompetitionFixture[] => {
+    return response.map((item: any) => {
         const f = item.fixture;
         const teams = item.teams;
         const goals = item.goals;
