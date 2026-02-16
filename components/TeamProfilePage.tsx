@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Team, Player, Competition, CompetitionFixture, TeamVideo } from '../data/teams';
@@ -23,16 +24,17 @@ import FilmIcon from './icons/FilmIcon';
 import VideoPlayer from './VideoPlayer';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import Button from './ui/Button';
+import { FixtureItem } from './Fixtures';
 
 const HERO_IMAGES = [
-    "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=2000&auto=format&fit=crop", // Stadium Action
-    "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2000&auto=format&fit=crop", // Professional Pitch
-    "https://images.unsplash.com/photo-1522778119026-d647f0565c79?q=80&w=2000&auto=format&fit=crop", // Stadium Lights
-    "https://images.unsplash.com/photo-1517466787929-bc90951d64b8?q=80&w=2000&auto=format&fit=crop", // Net & Ball
-    "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?q=80&w=2000&auto=format&fit=crop", // Match Day Atmosphere
-    "https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=2000&auto=format&fit=crop", // Ball Close-up
-    "https://images.unsplash.com/photo-1510563800743-aed236490d08?q=80&w=2000&auto=format&fit=crop", // Soccer Aerial
-    "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?q=80&w=2000&auto=format&fit=crop"  // Fans & Flags
+    "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=2000&auto=format&fit=crop", 
+    "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2000&auto=format&fit=crop", 
+    "https://images.unsplash.com/photo-1522778119026-d647f0565c79?q=80&w=2000&auto=format&fit=crop", 
+    "https://images.unsplash.com/photo-1517466787929-bc90951d64b8?q=80&w=2000&auto=format&fit=crop", 
+    "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?q=80&w=2000&auto=format&fit=crop", 
+    "https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=2000&auto=format&fit=crop", 
+    "https://images.unsplash.com/photo-1510563800743-aed236490d08?q=80&w=2000&auto=format&fit=crop", 
+    "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?q=80&w=2000&auto=format&fit=crop"  
 ];
 
 const TeamProfilePage: React.FC = () => {
@@ -46,6 +48,8 @@ const TeamProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
   const [allComps, setAllComps] = useState<Record<string, Competition>>({});
+  const [currentCompTeams, setCurrentCompTeams] = useState<Team[]>([]);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | number | null>(null);
   
   const heroImage = useMemo(() => {
       const idNum = parseInt(teamId || '0', 10) || 0;
@@ -66,12 +70,10 @@ const TeamProfilePage: React.FC = () => {
       ]);
       setAllComps(allCompetitionsData);
 
-      // 1. ATTEMPT INITIAL LOOKUP BY URL PARAMS
       let resolvedCompId = competitionId;
       let competitionData = competitionId ? allCompetitionsData[competitionId] : undefined;
       let teamMatch = competitionData?.teams?.find(t => String(t.id) === String(teamId));
       
-      // 2. DATA RECOVERY: GLOBAL ID SWEEP
       if (!teamMatch) {
           const globalResult = await fetchTeamByIdGlobally(teamId);
           if (globalResult) {
@@ -81,29 +83,19 @@ const TeamProfilePage: React.FC = () => {
           }
       }
 
-      // 3. DATA RECOVERY: NAME SWEEP (If ID is missing in the destination hub)
       if (!teamMatch) {
           const dirEntry = directoryEntries.find(e => String(e.teamId) === String(teamId));
           const nameToSearch = dirEntry?.name;
           
           if (nameToSearch) {
               const normSearch = superNormalize(nameToSearch);
-              const plHub = allCompetitionsData['mtn-premier-league'];
-              const plMatch = plHub?.teams?.find(t => superNormalize(t.name) === normSearch);
-              
-              if (plMatch) {
-                  teamMatch = plMatch;
-                  resolvedCompId = 'mtn-premier-league';
-                  competitionData = plHub;
-              } else {
-                  for (const [compId, comp] of Object.entries(allCompetitionsData)) {
-                      const match = comp.teams?.find(t => superNormalize(t.name) === normSearch);
-                      if (match) {
-                          teamMatch = match;
-                          resolvedCompId = compId;
-                          competitionData = comp;
-                          break;
-                      }
+              for (const [compId, comp] of Object.entries(allCompetitionsData)) {
+                  const match = comp.teams?.find(t => superNormalize(t.name) === normSearch);
+                  if (match) {
+                      teamMatch = match;
+                      resolvedCompId = compId;
+                      competitionData = comp;
+                      break;
                   }
               }
           }
@@ -112,22 +104,24 @@ const TeamProfilePage: React.FC = () => {
       setActiveCompId(resolvedCompId || null);
 
       if (competitionData && teamMatch) {
-          // Fix: Use calculateStandings to get dynamically calculated team stats (P, W, D, L, Pts)
-          // instead of just reconcilePlayers. This ensures the profile stats match the Logs page.
+          // 1. Calculate Team-Wide Standings (P, W, D, L)
           const updatedStandings = calculateStandings(
               competitionData.teams || [], 
               competitionData.results || [], 
               competitionData.fixtures || []
           );
           
-          const currentTeam = updatedStandings.find(t => String(t.id) === String(teamMatch!.id));
+          // 2. RECONCILE INCIDENTS: Map match events (Goals, Cards, POTM) to players
+          const allMatchesForReconcile = [...(competitionData.fixtures || []), ...(competitionData.results || [])];
+          const reconciledTeams = reconcilePlayers(updatedStandings, allMatchesForReconcile);
+          
+          const currentTeam = reconciledTeams.find(t => String(t.id) === String(teamMatch!.id));
           setTeam(currentTeam || null);
+          setCurrentCompTeams(reconciledTeams);
 
           if (currentTeam) {
               const normName = superNormalize(currentTeam.name);
               
-              // Fix: Use normalized matching to filter matches, ensuring "Hlatikhulu FC" 
-              // matches "Hlatikhulu" or other variations in fixture records.
               const officialUpcoming = (competitionData.fixtures || [])
                   .filter(f => superNormalize(f.teamA) === normName || superNormalize(f.teamB) === normName);
                   
@@ -135,7 +129,6 @@ const TeamProfilePage: React.FC = () => {
                   .filter(r => superNormalize(r.teamA) === normName || superNormalize(r.teamB) === normName);
               
               const standalone = await fetchStandaloneMatches(currentTeam.name);
-              const normStandaloneName = superNormalize(currentTeam.name);
               
               setTeamFixtures([...officialUpcoming, ...standalone.filter(m => m.status !== 'finished')].sort((a, b) => {
                   const dateA = new Date(a.fullDate || 0).getTime();
@@ -144,9 +137,9 @@ const TeamProfilePage: React.FC = () => {
               }));
               
               setTeamResults([...officialFinished, ...standalone.filter(m => m.status === 'finished')].sort((a, b) => {
-                  const dateA = a.fullDate || '';
-                  const dateB = b.fullDate || '';
-                  return (dateB || '').localeCompare(dateA || '');
+                  const dateA = new Date(a.fullDate || 0).getTime();
+                  const dateB = new Date(b.fullDate || 0).getTime();
+                  return dateB - dateA;
               }));
           }
       }
@@ -166,8 +159,8 @@ const TeamProfilePage: React.FC = () => {
     switch(activeTab) {
         case 'overview': return <OverviewTab team={team} primaryColor={team?.branding?.primaryColor} welcomeMessage={team?.branding?.welcomeMessage} />;
         case 'squad': return <SquadTab players={team?.players || []} />;
-        case 'fixtures': return <FixturesTab fixtures={teamFixtures} teamName={team.name} directoryMap={directoryMap} allComps={allComps} currentCompId={activeCompId || ''} />;
-        case 'results': return <ResultsTab results={teamResults} teamName={team.name} directoryMap={directoryMap} allComps={allComps} currentCompId={activeCompId || ''} />;
+        case 'fixtures': return <MatchTab matches={teamFixtures} teams={currentCompTeams} directoryMap={directoryMap} competitionId={activeCompId || ''} expandedId={expandedMatchId} setExpandedId={setExpandedMatchId} />;
+        case 'results': return <MatchTab matches={teamResults} teams={currentCompTeams} directoryMap={directoryMap} competitionId={activeCompId || ''} expandedId={expandedMatchId} setExpandedId={setExpandedMatchId} />;
         case 'videos': return <VideosTab videos={team?.videos} />;
         default: return null;
     }
@@ -265,7 +258,13 @@ const SquadTab: React.FC<{players: Player[]}> = ({players}) => (
             <Link key={player.id} to={`/players/${player.id}`} className="group block text-center">
                 <div className="aspect-[4/5] bg-gray-100 rounded-2xl overflow-hidden relative mb-3 shadow-sm border border-gray-200">
                     {player.photoUrl ? <img src={player.photoUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" /> : <div className="w-full h-full flex items-center justify-center bg-gray-100"><UserIcon className="w-12 h-12 text-gray-300" /></div>}
-                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end"><p className="text-white font-black text-xl leading-none">#{player.number}</p>{player.stats.goals > 0 && <div className="flex items-center gap-1 bg-green-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">⚽ {player.stats.goals}</div>}</div>
+                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end">
+                        <p className="text-white font-black text-xl leading-none">#{player.number}</p>
+                        <div className="flex flex-col gap-1 items-end">
+                            {player.stats.goals > 0 && <div className="flex items-center gap-1 bg-green-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">⚽ {player.stats.goals}</div>}
+                            {(player.stats.yellowCards || 0) > 0 && <div className="flex items-center gap-1 bg-yellow-400 text-yellow-900 text-[8px] font-black px-1.5 py-0.5 rounded shadow-sm border border-yellow-500">🟨 {player.stats.yellowCards}</div>}
+                        </div>
+                    </div>
                 </div>
                 <p className="font-bold text-gray-900 group-hover:text-primary transition-colors truncate">{player.name}</p>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{player.position}</p>
@@ -274,59 +273,22 @@ const SquadTab: React.FC<{players: Player[]}> = ({players}) => (
     </div>
 );
 
-const OpponentLink: React.FC<{ 
-    opponentName: string, 
-    directoryMap: Map<string, DirectoryEntity>, 
-    allComps: Record<string, Competition>,
-    currentCompId: string
-}> = ({ opponentName, directoryMap, allComps, currentCompId }) => {
-    
-    const profile = useMemo(() => {
-        const norm = superNormalize(opponentName);
-        const localComp = allComps[currentCompId];
-        const localMatch = localComp?.teams?.find(t => superNormalize(t.name) === norm);
-        if (localMatch) return { tid: localMatch.id, cid: currentCompId };
-        const dirEntry = findInMap(opponentName, directoryMap);
-        if (dirEntry?.teamId && dirEntry.competitionId) return { tid: dirEntry.teamId, cid: dirEntry.competitionId };
-        for (const [compId, comp] of Object.entries(allComps)) {
-            const team = (comp as Competition).teams?.find(t => superNormalize(t.name) === norm);
-            if (team) return { tid: team.id, cid: compId };
-        }
-        return null;
-    }, [opponentName, directoryMap, allComps, currentCompId]);
-
-    return profile ? (
-        <Link to={`/competitions/${profile.cid}/teams/${profile.tid}`} className="text-blue-600 hover:text-blue-800 font-black hover:underline transition-all underline-offset-4 decoration-2 decoration-blue-200">{opponentName}</Link>
-    ) : <span className="font-bold text-gray-600">{opponentName}</span>;
-};
-
-const FixturesTab: React.FC<{ fixtures: CompetitionFixture[], teamName: string, directoryMap: Map<string, DirectoryEntity>, allComps: Record<string, Competition>, currentCompId: string }> = ({ fixtures, teamName, directoryMap, allComps, currentCompId }) => (
-    <div className="space-y-3">
-        {fixtures.length > 0 ? fixtures.map(f => {
-            const isHome = superNormalize(f.teamA) === superNormalize(teamName);
-            return (
-                <div key={f.id} className="p-4 border rounded-2xl flex justify-between items-center bg-white hover:bg-gray-50 transition-all border-gray-100">
-                    <div><div className="flex items-center gap-3"><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded border">{isHome ? 'Home' : 'Away'}</span><span className="font-black text-gray-800 text-lg">vs <OpponentLink opponentName={isHome ? f.teamB : f.teamA} directoryMap={directoryMap} allComps={allComps} currentCompId={currentCompId} /></span></div><p className="text-xs text-gray-400 font-bold uppercase mt-1">{f.fullDate} @ {f.time} &bull; {f.venue || 'TBA'}</p></div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest border px-3 py-1 rounded-lg">Scheduled</span>
-                </div>
-            );
-        }) : <p className="text-center py-10 text-gray-400 italic">No upcoming matches scheduled.</p>}
-    </div>
-);
-
-const ResultsTab: React.FC<{ results: CompetitionFixture[], teamName: string, directoryMap: Map<string, DirectoryEntity>, allComps: Record<string, Competition>, currentCompId: string }> = ({ results, teamName, directoryMap, allComps, currentCompId }) => (
-    <div className="space-y-3">
-        {results.length > 0 ? results.map(r => {
-            const isTeamA = superNormalize(r.teamA) === superNormalize(teamName);
-            const outcome: 'W'|'D'|'L' = r.scoreA === r.scoreB ? 'D' : (isTeamA ? (r.scoreA! > r.scoreB! ? 'W' : 'L') : (r.scoreB! > r.scoreA! ? 'W' : 'L'));
-            const colors = { 'W': 'bg-green-100 text-green-700 border-green-200', 'D': 'bg-gray-100 text-gray-700 border-gray-200', 'L': 'bg-red-100 text-red-700 border-red-200' };
-            return (
-                <div key={r.id} className="p-5 border rounded-2xl flex justify-between items-center bg-white hover:shadow-md transition-all border-gray-100">
-                    <div className="flex-1 min-w-0"><div className="flex items-center gap-3"><div className={`flex-shrink-0 w-6 h-6 rounded flex items-center justify-center font-black text-xs border ${colors[outcome]}`}>{outcome}</div><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded border">{isTeamA ? 'Home' : 'Away'}</span><span className="font-black text-gray-900 text-lg truncate">vs <OpponentLink opponentName={isTeamA ? r.teamB : r.teamA} directoryMap={directoryMap} allComps={allComps} currentCompId={currentCompId} /></span></div><p className="text-xs text-gray-400 font-bold uppercase mt-1 truncate">{r.fullDate} &bull; {r.competition}</p></div>
-                    <div className="bg-slate-900 text-white px-5 py-2 rounded-xl font-black text-2xl tabular-nums shadow-lg ml-4">{isTeamA ? `${r.scoreA} - ${r.scoreB}` : `${r.scoreB} - ${r.scoreA}`}</div>
-                </div>
-            );
-        }) : <p className="text-center py-10 text-gray-400 italic">No recent results found.</p>}
+const MatchTab: React.FC<{ matches: CompetitionFixture[], teams: Team[], directoryMap: Map<string, any>, competitionId: string, expandedId: any, setExpandedId: any }> = ({ matches, teams, directoryMap, competitionId, expandedId, setExpandedId }) => (
+    <div className="space-y-4">
+        {matches.length > 0 ? matches.map(m => (
+            <Card key={m.id} className="overflow-hidden border border-gray-100 shadow-sm">
+                <FixtureItem 
+                    fixture={m} 
+                    isExpanded={expandedId === m.id} 
+                    onToggleDetails={() => setExpandedId(expandedId === m.id ? null : m.id)} 
+                    teams={teams} 
+                    onDeleteFixture={() => {}} 
+                    isDeleting={false} 
+                    directoryMap={directoryMap} 
+                    competitionId={competitionId} 
+                />
+            </Card>
+        )) : <p className="text-center py-10 text-gray-400 italic">No matches found in this category.</p>}
     </div>
 );
 

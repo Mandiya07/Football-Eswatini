@@ -1,3 +1,4 @@
+
 import { Team, CompetitionFixture, MatchEvent, Player } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 
@@ -86,8 +87,6 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
     // 1. DEDUPLICATE MATCHES to prevent double counting
     const processedMatches = new Map<string, CompetitionFixture>();
     allMatches.forEach(m => {
-        // Create a stable key: TeamA-TeamB-Date
-        // This is much safer than relying on match.id which can be unstable across imports
         const dateKey = m.fullDate || m.date || 'no-date';
         const stableKey = `${superNormalize(m.teamA)}-${superNormalize(m.teamB)}-${dateKey}`;
         
@@ -95,14 +94,13 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
             processedMatches.set(stableKey, m);
         } else {
             const existing = processedMatches.get(stableKey)!;
-            // Prefer the version with more technical data (status/score)
             if (m.status === 'finished' || (m.scoreA !== undefined && existing.status !== 'finished')) {
                 processedMatches.set(stableKey, m);
             }
         }
     });
 
-    // 2. Initialize teams and players starting from BASELINE (ignores previous 'stats' total)
+    // 2. Initialize teams starting from BASELINE
     baseTeams.forEach(team => {
         const teamCopy = { 
             ...team, 
@@ -110,23 +108,22 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
                 const base = p.baseStats || { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 };
                 return {
                     ...p,
-                    stats: { ...base } // Reset to baseline before re-calculating
+                    stats: { ...base } 
                 };
             })
         };
         teamsMap.set(superNormalize(team.name), teamCopy);
     });
 
-    // Per-player appearance set to ensure 1 app per match
     const playerAppearances = new Map<number, Set<string>>();
 
-    // 3. Scan unique matches
+    // 3. Scan unique matches for incidents
     processedMatches.forEach(match => {
         const matchIdStr = String(match.id || `${match.teamA}-${match.teamB}-${match.fullDate}`);
         const teamA = teamsMap.get(superNormalize(match.teamA));
         const teamB = teamsMap.get(superNormalize(match.teamB));
 
-        // Process Player of the Match
+        // Player of the Match
         if (match.playerOfTheMatch && match.playerOfTheMatch.teamName) {
             const potmTeam = teamsMap.get(superNormalize(match.playerOfTheMatch.teamName));
             if (potmTeam) {
@@ -140,7 +137,7 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
             }
         }
 
-        // Process Events (Goals, Cards, etc.)
+        // Match Events (Goals, Cards, etc.)
         if (match.events) {
             match.events.forEach(event => {
                 if (!event.playerName || !event.teamName) return;
@@ -168,12 +165,12 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
                 const type = String(event.type || '').toLowerCase();
                 if (type === 'goal') player.stats.goals += 1;
                 if (type === 'assist') player.stats.assists += 1;
-                if (type === 'yellow-card' || type === 'yellow_card') player.stats.yellowCards = (player.stats.yellowCards || 0) + 1;
-                if (type === 'red-card' || type === 'red_card') player.stats.redCards = (player.stats.redCards || 0) + 1;
+                if (['yellow-card', 'yellow_card', 'yellow'].includes(type)) player.stats.yellowCards = (player.stats.yellowCards || 0) + 1;
+                if (['red-card', 'red_card', 'red'].includes(type)) player.stats.redCards = (player.stats.redCards || 0) + 1;
             });
         }
 
-        // Process Lineups (Appearances & Clean Sheets)
+        // Lineups & Appearances
         const processSide = (side: 'teamA' | 'teamB', scoreAgainst: number) => {
             const team = side === 'teamA' ? teamA : teamB;
             const lineup = match.lineups?.[side];
@@ -183,7 +180,6 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
             allInvolvedIds.forEach(pid => {
                 const player = team.players.find(p => p.id === pid);
                 if (player) {
-                    // Unique appearance per match check
                     if (!playerAppearances.has(player.id)) playerAppearances.set(player.id, new Set());
                     const appSet = playerAppearances.get(player.id)!;
                     
@@ -216,10 +212,8 @@ export interface ScorerRecord {
     score: number; 
 }
 
-// Completed implementation for aggregateGoalsFromEvents
 /**
  * Aggregates goal stats for the Golden Boot race.
- * Fix: Sort primarily by pure goals count to satisfy standard football ranking rules.
  */
 export const aggregateGoalsFromEvents = (fixtures: CompetitionFixture[] = [], results: CompetitionFixture[] = [], teams: Team[] = []): ScorerRecord[] => {
     const reconciledTeams = reconcilePlayers(teams, [...fixtures, ...results]);
@@ -229,7 +223,6 @@ export const aggregateGoalsFromEvents = (fixtures: CompetitionFixture[] = [], re
         if (!t.players) return;
         t.players.forEach(p => {
             if (p.stats && (p.stats.goals > 0 || (p.stats.potmWins || 0) > 0)) {
-                // Keep the weighted score for internal Tie priority
                 scorers.push({
                     name: p.name,
                     teamName: t.name,
@@ -249,7 +242,6 @@ export const aggregateGoalsFromEvents = (fixtures: CompetitionFixture[] = [], re
     });
 };
 
-// Added exported function calculateStandings
 /**
  * Calculates league standings based on teams and match results.
  */
@@ -265,7 +257,6 @@ export const calculateStandings = (teams: Team[], results: CompetitionFixture[],
         });
     });
 
-    // Sort results by date to build form string correctly
     const sortedResults = [...results].sort((a, b) => {
         const dateA = new Date(a.fullDate || a.date).getTime();
         const dateB = new Date(b.fullDate || b.date).getTime();
@@ -314,7 +305,6 @@ export const calculateStandings = (teams: Team[], results: CompetitionFixture[],
         }
     });
 
-    // Finalize form (last 5) and sort
     return Array.from(standingsMap.values()).map(team => {
         const formArray = team.stats.form.split(' ').filter(Boolean);
         team.stats.form = formArray.slice(-5).reverse().join(' ');
@@ -326,18 +316,14 @@ export const calculateStandings = (teams: Team[], results: CompetitionFixture[],
     });
 };
 
-// Added exported function calculateGroupStandings
 /**
  * Calculates standings for a group stage.
  */
 export const calculateGroupStandings = (teams: Team[], matches: CompetitionFixture[]): Team[] => {
-    // Group stage matches are usually a mix of fixtures and results.
-    // We only care about 'finished' matches.
     const finishedMatches = (matches || []).filter(m => m.status === 'finished');
     return calculateStandings(teams, finishedMatches);
 };
 
-// Added exported function compressImage
 /**
  * Resizes and compresses an image to a base64 string.
  */
