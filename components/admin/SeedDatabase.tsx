@@ -29,11 +29,16 @@ const initialAds = {
 const initialCategories = [
     { id: 'national-teams', name: 'National Teams', order: 5 },
     { id: 'premier-leagues', name: 'Premier Leagues', order: 10 },
-    { id: 'international-leagues', name: 'International Leagues', order: 15 },
     { id: 'national-divisions', name: 'National Divisions', order: 20 },
-    { id: 'regional-leagues', name: 'Regional Leagues', order: 30 },
-    { id: 'development', name: 'Development', order: 40 },
-    { id: 'schools', name: 'Schools & Youth', order: 50 },
+    { id: 'international-leagues', name: 'International Leagues', order: 25 },
+    { id: 'regional-leagues', name: 'Regional Super Leagues', order: 30 },
+    { id: 'promotion-league', name: 'Promotion Leagues', order: 32 },
+    { id: 'b-division', name: 'B Division', order: 34 },
+    { id: 'schools', name: 'Schools Football', order: 40 },
+    { id: 'development', name: 'Youth and Development', order: 50 },
+    { id: 'u20-elite-league', name: 'U-20 Elite League', order: 90 },
+    { id: 'hub-hardware-u17-competition', name: 'Hub Hardware U-17 Tournament', order: 100 },
+    { id: 'build-it-u13-national', name: 'Build It U-13 National', order: 110 },
 ];
 
 const SeedDatabase: React.FC = () => {
@@ -41,7 +46,7 @@ const SeedDatabase: React.FC = () => {
     const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
     const handleSync = async () => {
-        if (!window.confirm("SYNC STRUCTURAL METADATA: This will update system categories and global configs. It will NOT overwrite your Hhohho Super League bracket results unless they are currently missing. Proceed?")) return;
+        if (!window.confirm("SYNC STRUCTURAL METADATA: This will update system categories and global configs. It will NOT overwrite your tournament bracket results. Proceed?")) return;
         setLoading(true);
         setStatus(null);
 
@@ -76,7 +81,6 @@ const SeedDatabase: React.FC = () => {
             // 5. BRACKET TEMPLATES - ONLY MERGE NAMES AND LOGOS
             cupData.forEach(cup => {
                 const cupRef = doc(db, 'cups', cup.id);
-                // We only merge the name and logo to avoid wiping the user's builder data
                 batch.set(cupRef, { name: cup.name, logoUrl: cup.logoUrl }, m);
             });
 

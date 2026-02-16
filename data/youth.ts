@@ -52,7 +52,7 @@ export const youthData: YouthLeague[] = [
     },
     {
         id: 'build-it-u13-national',
-        name: "Built it U13 National Competition",
+        name: "Build It U-13 National",
         description: "A prestigious national showcase for Under-13 talent and academies, identifying the earliest signs of elite potential.",
         teams: [],
         risingStars: [],
@@ -60,7 +60,7 @@ export const youthData: YouthLeague[] = [
     },
     {
         id: 'hub-hardware-u17-competition',
-        name: "The Hub Hardware Under -17 Tournament",
+        name: "Hub Hardware U-17 Tournament",
         description: "A high-stakes hybrid tournament for the nation's Under-17 tier, featuring regional groups and national knockout stages.",
         teams: [],
         risingStars: [],

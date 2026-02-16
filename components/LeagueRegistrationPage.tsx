@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
@@ -19,6 +19,7 @@ import SearchIcon from './icons/SearchIcon';
 import LayersIcon from './icons/LayersIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
 import PhoneIcon from './icons/PhoneIcon';
+import InfoIcon from './icons/InfoIcon';
 
 const LeagueRegistrationPage: React.FC = () => {
     const { user, isLoggedIn, openAuthModal, signup } = useAuth();
@@ -35,7 +36,7 @@ const LeagueRegistrationPage: React.FC = () => {
 
     const [leagueName, setLeagueName] = useState('');
     const [targetLeagueId, setTargetLeagueId] = useState('');
-    const [category, setCategory] = useState(fixedCategory || 'promotion-league');
+    const [category, setCategory] = useState('');
     const [region, setRegion] = useState('Hhohho');
     const [managerName, setManagerName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
@@ -61,7 +62,20 @@ const LeagueRegistrationPage: React.FC = () => {
                 setAllCategories(cats);
                 
                 if (list.length > 0) setTargetLeagueId(list[0].id);
-                if (cats.length > 0 && !fixedCategory) setCategory(cats[0].id);
+
+                // TIME SAVING MAPPING LOGIC
+                // Map the specific hub ID to a broad system category
+                if (fixedCategory) {
+                    if (fixedCategory === 'schools') {
+                        setCategory('schools'); // Schools Football
+                    } else if (fixedCategory.startsWith('u') || fixedCategory.includes('grassroots')) {
+                        setCategory('development'); // Youth and Development
+                    } else {
+                        setCategory(fixedCategory);
+                    }
+                } else if (cats.length > 0) {
+                    setCategory(cats[0].id);
+                }
             } catch (err) {
                 console.error(err);
             } finally {
@@ -70,6 +84,26 @@ const LeagueRegistrationPage: React.FC = () => {
         };
         load();
     }, [fixedCategory]);
+
+    const groupedCategories = useMemo(() => {
+        const groups: Record<string, DBCategory[]> = {
+            'Elite & National Leagues': [],
+            'Youth & Scholastic Hubs': [],
+            'Regional & Community': []
+        };
+        
+        allCategories.forEach(cat => {
+            const id = cat.id;
+            if (['national-teams', 'premier-leagues', 'national-divisions', 'international-leagues'].includes(id)) {
+                groups['Elite & National Leagues'].push(cat);
+            } else if (['schools', 'development', 'u20-elite-league', 'hub-hardware-u17-competition', 'build-it-u13-national'].includes(id)) {
+                groups['Youth & Scholastic Hubs'].push(cat);
+            } else {
+                groups['Regional & Community'].push(cat);
+            }
+        });
+        return groups;
+    }, [allCategories]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -97,7 +131,7 @@ const LeagueRegistrationPage: React.FC = () => {
                 targetLeagueId: requestType === 'manage' ? targetLeagueId : null,
                 requestType,
                 region, 
-                categoryId: requestType === 'manage' ? 'existing' : (fixedCategory || category),
+                categoryId: requestType === 'manage' ? 'existing' : category,
                 managerName: isLoggedIn && user ? user.name : managerName,
                 managerEmail: isLoggedIn && user ? user.email : email,
                 managerId: user?.id || 'new_user',
@@ -186,19 +220,22 @@ const LeagueRegistrationPage: React.FC = () => {
                                                     <Input value={leagueName} onChange={e => setLeagueName(e.target.value)} required placeholder={fixedCategory ? `e.g. Malkerns ${typeName} League` : "e.g. Mhlume B Division"} />
                                                 </div>
                                                 
-                                                {!fixedCategory && (
-                                                    <div>
-                                                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Placement Category</label>
-                                                        <select value={category} onChange={e => setCategory(e.target.value)} className={selectClass}>
-                                                            {allCategories.map(cat => (
-                                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                                            ))}
-                                                        </select>
-                                                        <p className="text-[9px] text-gray-400 mt-2 italic px-1">Determines which page this hub appears on (e.g. Youth, Schools, etc.)</p>
-                                                    </div>
-                                                )}
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Placement Category</label>
+                                                    <select value={category} onChange={e => setCategory(e.target.value)} className={selectClass} required>
+                                                        <option value="" disabled>-- Choose Competition Type --</option>
+                                                        {(Object.entries(groupedCategories) as [string, DBCategory[]][]).map(([group, cats]) => (
+                                                            cats.length > 0 && (
+                                                                <optgroup label={group} key={group}>
+                                                                    {cats.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                                                                </optgroup>
+                                                            )
+                                                        ))}
+                                                    </select>
+                                                    <p className="text-[9px] text-gray-400 mt-2 italic px-1">Determines which hub this league appears in (e.g. Schools, Youth Hub, etc.)</p>
+                                                </div>
 
-                                                <div className={fixedCategory ? 'md:col-span-2' : ''}>
+                                                <div>
                                                     <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Official Region</label>
                                                     <select value={region} onChange={e => setRegion(e.target.value)} className={selectClass}>
                                                         <option>Hhohho</option><option>Manzini</option><option>Lubombo</option><option>Shiselweni</option><option>National</option>
@@ -225,6 +262,16 @@ const LeagueRegistrationPage: React.FC = () => {
                                             </div>
                                         )}
                                     </div>
+                                    
+                                    {requestType === 'create' && (
+                                        <div className="p-4 bg-blue-50 text-blue-800 rounded-xl text-xs border border-blue-100 flex gap-3">
+                                            <InfoIcon className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                            <div>
+                                                <p className="font-bold mb-1">Categorization Tip:</p>
+                                                <p>Choosing the correct category ensures your league is visible in the right hub (e.g. Schools or Youth Development).</p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {!isLoggedIn ? (
@@ -262,7 +309,7 @@ const LeagueRegistrationPage: React.FC = () => {
 
                                 <div className="pt-6">
                                     <Button type="submit" disabled={isSubmitting} className="w-full bg-primary text-white h-16 text-lg shadow-xl font-black uppercase tracking-widest rounded-3xl hover:scale-[1.01] active:scale-95 transition-all">
-                                        {isSubmitting ? <Spinner className="w-6 h-6 border-white border-2" /> : (requestType === 'create' ? `Launch ${fixedCategory ? typeName : 'Hub'}` : 'Submit Management Request')}
+                                        {isSubmitting ? <Spinner className="w-6 h-6 border-white border-2" /> : (requestType === 'create' ? `Launch ${category.replace(/-/g, ' ').toUpperCase()} Hub` : 'Submit Management Request')}
                                     </Button>
                                     <div className="mt-6 flex items-center justify-center gap-2 text-gray-400">
                                         <ShieldCheckIcon className="w-4 h-4" />
