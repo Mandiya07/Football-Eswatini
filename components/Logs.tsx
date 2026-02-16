@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from './ui/Card';
-import { Team, Competition } from '../data/teams';
+// Fix: Added CompetitionFixture to imports to resolve "Cannot find name 'CompetitionFixture'" error on line 112
+import { Team, Competition, CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
-import { fetchAllCompetitions, listenToCompetition, fetchCategories, fetchDirectoryEntries } from '../services/api';
+import { fetchAllCompetitions, listenToCompetition, fetchCategories, fetchDirectoryEntries, fetchStandaloneMatches } from '../services/api';
 import Spinner from './ui/Spinner';
 import ArrowUpIcon from './icons/ArrowUpIcon';
 import ArrowDownIcon from './icons/ArrowDownIcon';
 import MinusIcon from './icons/MinusIcon';
 import ShareIcon from './icons/ShareIcon';
 import FormGuide from './ui/FormGuide';
-import { calculateStandings, findInMap } from '../services/utils';
+import { calculateStandings, findInMap, superNormalize } from '../services/utils';
 import CollapsibleSelector from './ui/CollapsibleSelector';
 
 interface LogsProps {
@@ -33,7 +35,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
   const [loading, setLoading] = useState(true);
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
 
-  // Sync selectedLeague with prop if it changes
   useEffect(() => {
       if (defaultLeague) setSelectedLeague(defaultLeague);
   }, [defaultLeague]);
@@ -52,21 +53,18 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
             setDirectoryMap(map);
 
             if (showSelector) {
+                const categoryGroups = new Map<string, { name: string; order: number; competitions: { value: string; name: string }[] }>();
+                categoriesData.forEach(cat => categoryGroups.set(cat.id, { name: cat.name, order: cat.order, competitions: [] }));
+                
                 const allCompetitions = Object.entries(allCompetitionsData)
                     .map(([id, comp]) => ({ id, ...(comp as Competition) }))
                     .filter(comp => comp.name);
 
-                const categoryGroups = new Map<string, { name: string; order: number; competitions: { value: string; name: string }[] }>();
-                categoriesData.forEach(cat => categoryGroups.set(cat.id, { name: cat.name, order: cat.order, competitions: [] }));
-                const uncategorizedCompetitions: { value: string; name: string }[] = [];
-
                 allCompetitions.forEach(comp => {
-                    const item = { value: comp.id, name: comp.name };
+                    const item = { value: comp.id, name: comp.displayName || comp.name };
                     const catId = comp.categoryId;
                     if (catId && categoryGroups.has(catId)) {
                         categoryGroups.get(catId)!.competitions.push(item);
-                    } else {
-                        uncategorizedCompetitions.push(item);
                     }
                 });
 
@@ -78,12 +76,12 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                         options: group.competitions.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                     }));
                 
-                if (uncategorizedCompetitions.length > 0) {
-                    finalOptions.push({
-                        label: "Other Leagues",
-                        options: uncategorizedCompetitions.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-                    });
-                }
+                // Add the pseudo "Independent Clubs" hub at the end
+                finalOptions.push({
+                    label: "Community & Independent",
+                    options: [{ value: 'independent-clubs', name: 'Independent Clubs (Friendlies)' }]
+                });
+
                 setLeagueOptions(finalOptions);
             }
         } catch (error) {}
@@ -94,6 +92,37 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
   useEffect(() => {
     if (!selectedLeague) return;
     setLoading(true);
+
+    if (selectedLeague === 'independent-clubs') {
+        const loadIndependent = async () => {
+            const [dir, standalone] = await Promise.all([
+                fetchDirectoryEntries(),
+                fetchStandaloneMatches()
+            ]);
+            // Only teams marked as 'Club' in directory
+            const clubs = dir.filter(e => e.category === 'Club');
+            const teams: Team[] = clubs.map(c => ({
+                id: c.teamId || Math.random(),
+                name: c.name,
+                crestUrl: c.crestUrl || '',
+                stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+                players: [], fixtures: [], results: [], staff: []
+            }));
+            
+            // Map results to CompetitionFixture format
+            const results: CompetitionFixture[] = standalone.filter(m => m.status === 'finished').map(m => ({
+                ...m, status: 'finished'
+            }));
+
+            const standings = calculateStandings(teams, results);
+            setLeagueData(standings);
+            setCompetition({ name: 'Independent Clubs Hub', fixtures: [], results: [], teams });
+            setLoading(false);
+        };
+        loadIndependent();
+        return;
+    }
+
     const unsubscribe = listenToCompetition(selectedLeague, (data) => {
         if (data) {
             setCompetition(data);
@@ -109,16 +138,14 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
   }, [selectedLeague]);
 
   const handleShareStandings = async () => {
-      let text = `🏆 Standings: ${competition?.name || 'League'}\n\n`;
+      let text = `🏆 Standings: ${competition?.displayName || competition?.name || 'League'}\n\n`;
       leagueData.slice(0, 5).forEach((team, i) => {
           text += `${i + 1}. ${team.name} - ${team.stats.pts}pts\n`;
       });
       text += `\nSee full table here: ${window.location.href}`;
 
       if (navigator.share) {
-          try {
-              await navigator.share({ title: `${competition?.name} Standings`, text });
-          } catch (e) {}
+          try { await navigator.share({ title: `${competition?.displayName || competition?.name} Standings`, text }); } catch (e) {}
       } else {
           await navigator.clipboard.writeText(text);
           alert("Standings copied to clipboard!");
@@ -132,30 +159,12 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
       return 'same';
   };
 
-  const getPositionInfo = (index: number) => {
-    const pos = index + 1;
-    const isFirstDivision = selectedLeague.includes('first-division');
-    const isPremierLeague = selectedLeague.includes('premier-league');
-    
-    if (isFirstDivision) {
-        if (pos <= 2) return { label: 'PROMOTION', color: 'bg-green-600', rowBg: 'bg-green-50/30' };
-        if (pos === 3) return { label: 'PROMOTION PLAYOFF', color: 'bg-yellow-500', rowBg: 'bg-yellow-50/50' };
-        if (pos === 12) return { label: 'RELEGATION PLAYOFF', color: 'bg-orange-500', rowBg: 'bg-orange-50/50' };
-        if (pos >= 13) return { label: 'RELEGATION', color: 'bg-red-600', rowBg: 'bg-red-50/30' };
-    } else if (isPremierLeague) {
-        if (pos === 1) return { label: 'CHAMPIONS / CAF', color: 'bg-blue-600', rowBg: 'bg-blue-50/30' };
-        if (pos === 12) return { label: 'RELEGATION PLAYOFF', color: 'bg-orange-500', rowBg: 'bg-orange-50/50' };
-        if (pos >= 13) return { label: 'RELEGATION', color: 'bg-red-600', rowBg: 'bg-red-50/30' };
-    }
-    return null;
-  };
-
   return (
     <section>
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-4">
                 {competition?.logoUrl && <img src={competition.logoUrl} alt="" className="h-10 object-contain" />}
-                <h2 className="text-3xl font-display font-bold">{competition?.name || 'Standings'}</h2>
+                <h2 className="text-3xl font-display font-bold">{competition?.displayName || competition?.name || 'Standings'}</h2>
                 {!loading && leagueData.length > 0 && (
                     <button onClick={handleShareStandings} className="p-2 text-gray-400 hover:text-primary transition-colors">
                         <ShareIcon className="w-5 h-5" />
@@ -173,6 +182,12 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
             )}
         </div>
 
+        {selectedLeague === 'independent-clubs' && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-xs text-blue-800">
+                <strong>Performance Tracker:</strong> This table ranks independent clubs based on verified friendly match results and standalone cup outcomes.
+            </div>
+        )}
+
         <Card className="shadow-lg overflow-hidden border border-gray-100">
             <div className={`overflow-x-auto overflow-y-auto custom-scrollbar ${maxHeight || ''}`}>
                  {loading ? (
@@ -187,8 +202,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Wins">W</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Draws">D</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Losses">L</th>
-                                <th className="px-1 sm:px-2 py-4 text-center hidden sm:table-cell" title="Goals For">GF</th>
-                                <th className="px-1 sm:px-2 py-4 text-center hidden sm:table-cell" title="Goals Against">GA</th>
                                 <th className="px-1 sm:px-2 py-4 text-center" title="Goal Difference">GD</th>
                                 <th className="px-1 sm:px-2 py-4 text-center font-black bg-primary-dark shadow-inner">Pts</th>
                                 <th className="px-2 sm:px-3 py-4 w-20 sm:w-24">Form</th>
@@ -197,19 +210,15 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                         <tbody className="divide-y">
                             {leagueData.map((team, index) => {
                                 const dirEntry = findInMap(team.name, directoryMap);
-                                const profileUrl = team.id ? `/competitions/${selectedLeague}/teams/${team.id}` : 
-                                                  (dirEntry?.teamId && dirEntry?.competitionId) ? `/competitions/${dirEntry.competitionId}/teams/${dirEntry.teamId}` : null;
-                                
-                                const posInfo = getPositionInfo(index);
+                                const profileUrl = team.id ? `/competitions/${selectedLeague}/teams/${team.id}` : null;
 
                                 return (
-                                    <tr key={team.id || team.name} className={`${posInfo?.rowBg || ''} hover:bg-gray-50/50 transition-colors group relative`}>
+                                    <tr key={team.id || team.name} className="hover:bg-gray-50/50 transition-colors group relative">
                                         <td className="px-2 sm:px-3 py-3 text-center">
                                             <div className="flex flex-col items-center justify-center">
-                                                <span className={`font-black text-gray-900 leading-none ${posInfo ? 'text-blue-900' : ''}`}>{index + 1}</span>
+                                                <span className="font-black text-gray-900 leading-none">{index + 1}</span>
                                                 <PositionIndicator change={getTrend(team.stats.form)} />
                                             </div>
-                                            {posInfo && <div className={`absolute left-0 top-0 bottom-0 w-1 ${posInfo.color}`}></div>}
                                         </td>
                                         <td className="px-2 sm:px-3 py-3">
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-1">
@@ -230,8 +239,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                                         <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.w}</td>
                                         <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.d}</td>
                                         <td className="px-1 sm:px-2 py-3 text-center text-gray-600">{team.stats.l}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center text-gray-400 hidden sm:table-cell">{team.stats.gs}</td>
-                                        <td className="px-1 sm:px-2 py-3 text-center text-gray-400 hidden sm:table-cell">{team.stats.gc}</td>
                                         <td className={`px-1 sm:px-2 py-3 text-center font-medium ${team.stats.gd > 0 ? 'text-green-600' : team.stats.gd < 0 ? 'text-red-600' : 'text-gray-400'}`}>
                                             {team.stats.gd > 0 ? `+${team.stats.gd}` : team.stats.gd}
                                         </td>
@@ -250,22 +257,6 @@ const Logs: React.FC<LogsProps> = ({ showSelector = true, defaultLeague = 'mtn-p
                     </div>
                  )}
             </div>
-            {leagueData.length > 0 && (
-                <div className="bg-gray-50 p-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100">
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                        <span className="text-[10px] font-black uppercase text-gray-400">Playoff Spot</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-600"></div>
-                        <span className="text-[10px] font-black uppercase text-gray-400">Relegation</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-green-600"></div>
-                        <span className="text-[10px] font-black uppercase text-gray-400">Promotion</span>
-                    </div>
-                </div>
-            )}
         </Card>
     </section>
   );

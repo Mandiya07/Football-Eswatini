@@ -67,7 +67,7 @@ const ClubRegistrationPage: React.FC = () => {
         { name: 'Basic', price: 0, priceStr: 'Free', features: ['Public Profile', 'Squad List', 'Fixtures & Logs'], color: 'border-gray-200' },
         { name: 'Professional', price: 120, priceStr: 'E120/mo', features: ['Admin Portal Access', 'Post Club News', 'Real-time Score Updates'], color: 'border-blue-500' },
         { name: 'Elite', price: 250, priceStr: 'E250/mo', features: ['Merchandise Store', 'Video Hub Integration', 'Priority Tech Support'], color: 'border-purple-600' },
-        { name: 'Enterprise', price: 500, priceStr: 'E500/mo', features: ['Branded Club Hub', 'Ad-Free Experience', 'Premium Analytics'], color: 'border-gray-900' },
+        { name: 'Enterprise', price: 350, priceStr: 'E350/mo', features: ['Branded Club Hub', 'Ad-Free Experience', 'Premium Analytics'], color: 'border-gray-900' },
     ];
 
     const currentTierData = tiers.find(t => t.name === selectedTier) || tiers[0];

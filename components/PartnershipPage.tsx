@@ -113,7 +113,7 @@ const PartnershipPage: React.FC = () => {
                     />
                     <PricingCard 
                         title="Enterprise" 
-                        price="E500" 
+                        price="E350" 
                         color="text-gray-900"
                         features={["All Elite Features", "Branded Club Hub (Ad-free, Club Colors)", "Premium Analytics (Sponsorship & Scouting)", "Dedicated Account Manager"]} 
                         extraAction={

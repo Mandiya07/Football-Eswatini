@@ -525,6 +525,12 @@ export const listenToCompetition = (id: string, callback: (data: Competition | u
     });
 };
 
+export const updateCompetitionMetadata = async (id: string, data: Partial<Competition>) => {
+    const docRef = doc(db, 'competitions', id);
+    // Use setDoc with merge to ensure it works even if the document wasn't fully initialized
+    await setDoc(docRef, removeUndefinedProps(data), { merge: true });
+};
+
 export const fetchAllTeams = async (): Promise<Team[]> => {
     const comps = await fetchAllCompetitions();
     return Object.values(comps).flatMap(c => c.teams || []);

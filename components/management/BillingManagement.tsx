@@ -26,7 +26,7 @@ const BillingManagement: React.FC = () => {
         'Basic': 0,
         'Professional': 120,
         'Elite': 250,
-        'Enterprise': 500
+        'Enterprise': 350
     };
 
     const currentPrice = sub ? (tierPrices[sub.tier] || 0) : 0;

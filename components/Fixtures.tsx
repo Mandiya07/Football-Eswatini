@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
@@ -192,7 +193,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     categoriesData.forEach(cat => categoryGroups.set(cat.id, { name: cat.name, order: cat.order, competitions: [] }));
                     const uncategorizedCompetitions: { value: string; name: string }[] = [];
                     allCompetitions.forEach(comp => {
-                        const item = { value: comp.id, name: comp.name };
+                        const item = { value: comp.id, name: comp.displayName || comp.name };
                         const catId = comp.categoryId;
                         if (catId && categoryGroups.has(catId)) categoryGroups.get(catId)!.competitions.push(item);
                         else uncategorizedCompetitions.push(item);
@@ -257,7 +258,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
                 <div className="flex items-center gap-4">
                     {competition?.logoUrl && <img src={competition.logoUrl} alt="" className="h-10 object-contain" />}
-                    <h2 className="text-3xl font-display font-bold">{competition?.name || 'Fixtures & Results'}</h2>
+                    <h2 className="text-3xl font-display font-bold">{competition?.displayName || competition?.name || 'Fixtures & Results'}</h2>
                 </div>
                 {showSelector && <div className="min-w-[280px]"><CollapsibleSelector value={selectedComp} onChange={setSelectedComp} options={compOptions} /></div>}
             </div>

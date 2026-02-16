@@ -12,7 +12,7 @@ import Spinner from './ui/Spinner';
 import { GoogleGenAI } from "@google/genai";
 
 const Hero: React.FC = () => {
-    const [nextMatch, setNextMatch] = useState<CompetitionFixture | null>(null);
+    const [nextMatch, setNextMatch] = useState<(CompetitionFixture & { competitionName?: string }) | null>(null);
     const [teams, setTeams] = useState<Team[]>([]);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     
@@ -49,7 +49,7 @@ const Hero: React.FC = () => {
                         });
                 };
 
-                let bestMatch: CompetitionFixture | null = null;
+                let bestMatch: (CompetitionFixture & { competitionName?: string }) | null = null;
                 let activeTeams: Team[] = [];
                 
                 const priorityIds = ['mtn-premier-league', 'national-first-division', 'uefa-champions-league', 'world-cup-qualifiers-men'];
@@ -61,7 +61,10 @@ const Hero: React.FC = () => {
                     if (comp) {
                         const upcoming = findUpcoming(comp.fixtures || []);
                         if (upcoming.length > 0) {
-                            bestMatch = upcoming[0];
+                            bestMatch = { 
+                                ...upcoming[0], 
+                                competitionName: comp.displayName || comp.name || upcoming[0].competition 
+                            };
                             activeTeams = comp.teams || [];
                             break;
                         }
@@ -234,7 +237,7 @@ const Hero: React.FC = () => {
                                     <div className="h-[1px] w-16 bg-gradient-to-l from-transparent to-white/20"></div>
                                 </div>
                             )}
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-accent">{nextMatch.competition}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-accent">{nextMatch.competitionName || nextMatch.competition}</p>
                         </div>
                     </div>
                 </div>
