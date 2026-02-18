@@ -137,10 +137,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
         if (firebaseUser) {
             const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const authorizedEmails = getAuthorizedEmails();
+            const isAuthorized = authorizedEmails.includes(firebaseUser.email?.toLowerCase() || '');
+            
             try {
                 const docSnap = await getDoc(userDocRef);
-                const authorizedEmails = getAuthorizedEmails();
-                const isAuthorized = authorizedEmails.includes(firebaseUser.email?.toLowerCase() || '');
                 
                 if (docSnap.exists()) {
                     const data = docSnap.data() as User;
@@ -165,8 +166,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     await setDoc(userDocRef, initial);
                     setUser({ id: firebaseUser.uid, ...initial } as User);
                 }
-            } catch (err) {
-                console.error("Auth state logic error:", err);
+            } catch (err: any) {
+                // RESILIENCE FIX: Handle offline error by providing a fallback shell from Auth metadata
+                if (err.message?.includes('offline') || err.code === 'unavailable') {
+                    console.debug("Firestore offline - utilizing local auth fallback");
+                    setUser({
+                        id: firebaseUser.uid,
+                        name: firebaseUser.displayName || 'User (Offline)',
+                        email: firebaseUser.email || '',
+                        avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+                        role: isAuthorized ? 'super_admin' : 'user',
+                        managedTeams: [],
+                        favoriteTeamIds: [],
+                        notificationPreferences: DEFAULT_PREFERENCES,
+                        xp: 0,
+                        level: 1
+                    });
+                } else {
+                    console.error("Auth state logic error:", err);
+                }
             }
         } else {
             setUser(null);
@@ -188,8 +206,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(prev => prev ? { ...prev, ...updatedFields } : null);
     try {
         await updateDoc(doc(db, 'users', user.id), updatedFields);
-    } catch(error) {
-        handleFirestoreError(error, 'update user profile');
+    } catch(error: any) {
+        // Only report errors if they aren't common connectivity issues
+        if (!error.message?.includes('offline') && error.code !== 'unavailable') {
+            handleFirestoreError(error, 'update user profile');
+        }
     }
   };
 

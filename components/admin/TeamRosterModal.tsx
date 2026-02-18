@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Team, Player, Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
@@ -38,15 +39,16 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
         yellowCards: '0', redCards: '0', potmWins: '0'
     });
 
+    const [currentTotals, setCurrentTotals] = useState<Player['stats'] | null>(null);
     const [transferHistory, setTransferHistory] = useState<{from: string, to: string, year: number}[]>([]);
     const [newTransfer, setNewTransfer] = useState({ from: '', to: '', year: new Date().getFullYear() });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const startEditing = useCallback((player: Player) => {
         setEditingId(player.id);
-        // Source baseline from baseStats if present, else stats
-        // Fix: Explicitly provided a default object that satisfies PlayerStats to avoid "Property does not exist on type '{}'" errors.
-        const source = player.baseStats || player.stats || {
+        
+        // Manual baseline comes from baseStats
+        const source = player.baseStats || {
             appearances: 0,
             goals: 0,
             assists: 0,
@@ -55,6 +57,10 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             cleanSheets: 0,
             potmWins: 0
         };
+
+        // Live totals come from stats (reconciled by parent)
+        setCurrentTotals(player.stats || null);
+
         setFormData({
             name: player.name || '',
             position: player.position || 'Forward',
@@ -84,6 +90,7 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
         });
         setTransferHistory([]);
         setEditingId(null);
+        setCurrentTotals(null);
         setActiveTab('basic');
         if (fileInputRef.current) fileInputRef.current.value = '';
     }, []);
@@ -255,20 +262,53 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
 
                                     {activeTab === 'technical' && (
                                         <div className="space-y-8 animate-fade-in">
+                                            {currentTotals && (
+                                                <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-2xl relative overflow-hidden">
+                                                    <div className="absolute top-0 right-0 p-6 opacity-10"><BarChartIcon className="w-24 h-24" /></div>
+                                                    <p className="text-[10px] font-black uppercase text-accent tracking-[0.3em] mb-4">Total Verified Stats (Matches + Baseline)</p>
+                                                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
+                                                        <div className="text-center">
+                                                            <p className="text-2xl font-black">{currentTotals.appearances}</p>
+                                                            <p className="text-[8px] font-bold uppercase opacity-60">App</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-2xl font-black text-accent">{currentTotals.goals}</p>
+                                                            <p className="text-[8px] font-bold uppercase opacity-60">Goals</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-2xl font-black">{currentTotals.assists}</p>
+                                                            <p className="text-[8px] font-bold uppercase opacity-60">Ast</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-2xl font-black text-yellow-400">{currentTotals.yellowCards || 0}</p>
+                                                            <p className="text-[8px] font-bold uppercase opacity-60">Yellow</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-2xl font-black text-red-500">{currentTotals.redCards || 0}</p>
+                                                            <p className="text-[8px] font-bold uppercase opacity-60">Red</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-2xl font-black text-green-400">{currentTotals.cleanSheets || 0}</p>
+                                                            <p className="text-[8px] font-bold uppercase opacity-60">CS</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex items-start gap-4">
                                                 <InfoIcon className="w-6 h-6 text-blue-600 mt-1" />
                                                 <div>
-                                                    <p className="text-sm text-blue-800 font-bold uppercase tracking-tight">Historical / Manual Baseline</p>
+                                                    <p className="text-sm text-blue-800 font-bold uppercase tracking-tight">Manual / Historical Baseline</p>
                                                     <p className="text-xs text-blue-700 leading-relaxed mt-1">Use these fields to set a starting point (e.g. goals from previous years). Matches currently in the system will be added to these baselines automatically.</p>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-6">
-                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Appearances</label><input type="number" name="appearances" value={formData.appearances} onChange={handleInputChange} className={inputClass} /></div>
-                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Goals</label><input type="number" name="goals" value={formData.goals} onChange={handleInputChange} className={inputClass} /></div>
-                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Assists</label><input type="number" name="assists" value={formData.assists} onChange={handleInputChange} className={inputClass} /></div>
-                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Clean Sheets</label><input type="number" name="cleanSheets" value={formData.cleanSheets} onChange={handleInputChange} className={inputClass} /></div>
-                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Yellow Cards</label><input type="number" name="yellowCards" value={formData.yellowCards} onChange={handleInputChange} className={inputClass} /></div>
-                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Red Cards</label><input type="number" name="redCards" value={formData.redCards} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Base Appearances</label><input type="number" name="appearances" value={formData.appearances} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Base Goals</label><input type="number" name="goals" value={formData.goals} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Base Assists</label><input type="number" name="assists" value={formData.assists} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Base Clean Sheets</label><input type="number" name="cleanSheets" value={formData.cleanSheets} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Base Yellow Cards</label><input type="number" name="yellowCards" value={formData.yellowCards} onChange={handleInputChange} className={inputClass} /></div>
+                                                <div><label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Base Red Cards</label><input type="number" name="redCards" value={formData.redCards} onChange={handleInputChange} className={inputClass} /></div>
                                             </div>
                                         </div>
                                     )}

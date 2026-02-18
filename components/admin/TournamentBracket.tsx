@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { Team } from '../../data/teams';
@@ -16,6 +17,8 @@ import TrophyIcon from '../icons/TrophyIcon';
 import { removeUndefinedProps, compressImage } from '../../services/utils';
 import CheckIcon from '../icons/CheckIcon';
 import GlobeIcon from '../icons/GlobeIcon';
+import ArrowRightIcon from '../icons/ArrowRightIcon';
+import ArrowLeftIcon from '../icons/ArrowLeftIcon';
 
 interface AdminBracketMatch {
   id: string;
@@ -85,9 +88,9 @@ const MatchCard: React.FC<{
             <div className="flex items-center gap-1 group/slot">
                 <label className="cursor-pointer group/crest relative flex-shrink-0" title="Click to upload custom crest">
                     {crestValue ? (
-                        <img src={crestValue} className="w-7 h-7 object-contain bg-white rounded shadow-sm border border-gray-100 group-hover/crest:ring-2 ring-blue-400 transition-all" alt="" />
+                        <img src={crestValue} className="w-6 h-6 object-contain bg-white rounded shadow-sm border border-gray-100 group-hover/crest:ring-2 ring-blue-400 transition-all" alt="" />
                     ) : (
-                        <div className="w-7 h-7 rounded bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center group-hover/crest:border-blue-400 transition-colors">
+                        <div className="w-6 h-6 rounded bg-gray-50 border-2 border-dashed border-gray-300 flex items-center justify-center group-hover/crest:border-blue-400 transition-colors">
                             <ImageIcon className="w-3 h-3 text-gray-400" />
                         </div>
                     )}
@@ -116,7 +119,7 @@ const MatchCard: React.FC<{
                                 onTeamSelect(match.id, slot, { id: null, name: undefined, mode: 'id', crestUrl: undefined });
                             }
                         }}
-                        className="flex-grow text-[10px] p-1 border rounded bg-white truncate"
+                        className="flex-grow text-[9px] p-0.5 border rounded bg-white truncate h-6"
                     >
                         <option value="">Select Team...</option>
                         {teams.map((t, idx) => (
@@ -128,8 +131,8 @@ const MatchCard: React.FC<{
                         type="text"
                         value={nameValue || ''}
                         onChange={e => onTeamSelect(match.id, slot, { id: null, name: e.target.value, mode: 'name', crestUrl: crestValue })}
-                        placeholder="Custom Name..."
-                        className="flex-grow text-[10px] p-1 border rounded bg-white truncate font-bold"
+                        placeholder="Name..."
+                        className="flex-grow text-[9px] p-0.5 border rounded bg-white truncate font-bold h-6"
                     />
                 )}
                 <button 
@@ -140,14 +143,14 @@ const MatchCard: React.FC<{
                         mode: mode === 'id' ? 'name' : 'id',
                         crestUrl: crestValue
                     })}
-                    className={`p-1 rounded border transition-all ${mode === 'name' ? 'bg-blue-600 text-white border-blue-700' : 'text-gray-400 hover:text-blue-600 bg-gray-50 border-transparent'}`}
+                    className={`p-0.5 rounded border transition-all ${mode === 'name' ? 'bg-blue-600 text-white border-blue-700' : 'text-gray-400 hover:text-blue-600 bg-gray-50 border-transparent'}`}
                     title={mode === 'id' ? "Enter Custom Name" : "Select From Team List"}
                 >
-                    {mode === 'id' ? <PencilIcon className="w-3 h-3" /> : <UsersIcon className="w-3 h-3" />}
+                    {mode === 'id' ? <PencilIcon className="w-2.5 h-2.5" /> : <UsersIcon className="w-2.5 h-2.5" />}
                 </button>
                 <input 
                     type="text" 
-                    className="w-8 text-center font-bold border rounded p-1" 
+                    className="w-7 text-center font-bold border rounded p-0.5 text-[10px]" 
                     value={slot === 'team1' ? match.score1 : match.score2} 
                     onChange={e => onScoreChange(match.id, slot === 'team1' ? 'score1' : 'score2', e.target.value)} 
                 />
@@ -156,34 +159,34 @@ const MatchCard: React.FC<{
     };
     
     return (
-        <div className={`bg-white border-2 rounded-xl p-3 w-64 text-xs shadow-sm transition-colors ${match.winner ? 'border-green-200 ring-2 ring-green-50' : 'border-gray-200'}`}>
-            <div className="space-y-2 mb-2 pb-2 border-b border-gray-50">
-                <div className="flex gap-2">
-                    <input type="date" className="text-[10px] p-1 border rounded w-full bg-gray-50" value={match.date || ''} onChange={e => onDateTimeChange(match.id, 'date', e.target.value)} />
-                    <input type="time" className="text-[10px] p-1 border rounded w-20 text-center bg-gray-50" value={match.time || ''} onChange={e => onDateTimeChange(match.id, 'time', e.target.value)} />
+        <div className={`bg-white border rounded-lg p-2 w-56 text-[10px] shadow-sm transition-colors ${match.winner ? 'border-green-200 ring-2 ring-green-50' : 'border-gray-200'}`}>
+            <div className="space-y-1 mb-1.5 pb-1.5 border-b border-gray-50">
+                <div className="flex gap-1">
+                    <input type="date" className="text-[9px] p-0.5 border rounded w-full bg-gray-50" value={match.date || ''} onChange={e => onDateTimeChange(match.id, 'date', e.target.value)} />
+                    <input type="time" className="text-[9px] p-0.5 border rounded w-14 text-center bg-gray-50" value={match.time || ''} onChange={e => onDateTimeChange(match.id, 'time', e.target.value)} />
                 </div>
                 <input 
                     type="text" 
-                    className="text-[10px] p-1 border rounded w-full bg-gray-50" 
+                    className="text-[9px] p-0.5 border rounded w-full bg-gray-50" 
                     value={match.venue || ''} 
                     onChange={e => onDateTimeChange(match.id, 'venue', e.target.value)} 
-                    placeholder="Venue (e.g. Somhlolo Stadium)"
+                    placeholder="Venue"
                 />
             </div>
             
-            <div className="space-y-2">
-                <div className={`rounded-md p-0.5 ${match.winner === 'team1' ? 'bg-green-50 ring-1 ring-green-200' : ''}`}>
+            <div className="space-y-1">
+                <div className={`rounded p-0.5 ${match.winner === 'team1' ? 'bg-green-50 ring-1 ring-green-200' : ''}`}>
                     {renderTeamSlot('team1')}
                 </div>
-                <div className={`rounded-md p-0.5 ${match.winner === 'team2' ? 'bg-green-50 ring-1 ring-green-200' : ''}`}>
+                <div className={`rounded p-0.5 ${match.winner === 'team2' ? 'bg-green-50 ring-1 ring-green-200' : ''}`}>
                     {renderTeamSlot('team2')}
                 </div>
             </div>
 
             {match.winner ? (
-                <button onClick={() => onResetWinner(match.id)} className="mt-3 w-full py-1 text-[10px] bg-red-50 text-red-600 rounded flex items-center justify-center gap-1 hover:bg-red-100 transition-colors"><RefreshIcon className="w-3 h-3"/> Reset Result</button>
+                <button onClick={() => onResetWinner(match.id)} className="mt-2 w-full py-0.5 text-[9px] bg-red-50 text-red-600 rounded flex items-center justify-center gap-1 hover:bg-red-100 transition-colors"><RefreshIcon className="w-2.5 h-2.5"/> Reset Result</button>
             ) : ( (match.team1Id || match.team1Name) && (match.team2Id || match.team2Name) ) && (
-                <button onClick={() => onDeclareWinner(match.id)} className="mt-3 w-full py-1.5 text-[10px] bg-blue-600 text-white rounded font-black uppercase tracking-widest shadow-md hover:bg-blue-700 transition-all">Confirm Winner</button>
+                <button onClick={() => onDeclareWinner(match.id)} className="mt-2 w-full py-1 text-[9px] bg-blue-600 text-white rounded font-black uppercase tracking-widest shadow hover:bg-blue-700 transition-all">Set Winner</button>
             )}
         </div>
     );
@@ -204,6 +207,8 @@ const TournamentBracket: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isRenaming, setIsRenaming] = useState(false);
+    
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const loadInitialData = useCallback(async () => {
         setLoading(true);
@@ -343,7 +348,6 @@ const TournamentBracket: React.FC = () => {
         try {
             const newId = tournamentName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             if (tournamentType === 'league') {
-                // Logic for league competition creation...
                 alert("League feature initialized.");
             } else {
                 const rounds = [];
@@ -377,6 +381,26 @@ const TournamentBracket: React.FC = () => {
         }
     };
 
+    const jumpToFinal = () => {
+        if (scrollContainerRef.current) {
+            const container = scrollContainerRef.current;
+            // Scroll to the absolute end of the content
+            container.scrollTo({
+                left: container.scrollWidth,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    const jumpToStart = () => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({
+                left: 0,
+                behavior: 'smooth'
+            });
+        }
+    };
+
     if (loading && existingTournaments.length === 0) return <div className="flex justify-center p-12"><Spinner /></div>;
 
     const HUB_SLOTS: { value: CupHubSlot, label: string }[] = [
@@ -389,9 +413,9 @@ const TournamentBracket: React.FC = () => {
     ];
 
     return (
-        <div className="max-w-full overflow-hidden">
-            <Card className="shadow-lg overflow-hidden border-0 max-w-full">
-                <CardContent className="p-6">
+        <div className="w-full">
+            <Card className="shadow-lg border-0 w-full overflow-hidden">
+                <CardContent className="p-4 sm:p-6 w-full">
                     {!tournament ? (
                         <div className="space-y-8 animate-fade-in">
                             <div className="flex justify-between items-center">
@@ -437,7 +461,7 @@ const TournamentBracket: React.FC = () => {
                                         <input type="text" value={tournamentName} onChange={e => setTournamentName(e.target.value)} placeholder="e.g. Malkerns Cup" className="w-full p-2 border rounded-lg text-sm" />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Hub Placement Slot (Required for Hub visibility)</label>
+                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Hub Placement Slot</label>
                                         <select value={selectedHubSlot} onChange={e => setSelectedHubSlot(e.target.value as any)} className="w-full p-2 border rounded-lg text-sm font-bold text-blue-700 bg-blue-50">
                                             <option value="">-- No Slot (Independent) --</option>
                                             {HUB_SLOTS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
@@ -463,6 +487,7 @@ const TournamentBracket: React.FC = () => {
                                             <option value={4}>4 Teams</option>
                                             <option value={8}>8 Teams</option>
                                             <option value={16}>16 Teams</option>
+                                            <option value={32}>32 Teams</option>
                                         </select>
                                     </div>
                                     <Button onClick={generateBracket} className="bg-primary text-white w-full h-11 font-bold uppercase tracking-widest shadow-xl">Build System</Button>
@@ -470,98 +495,102 @@ const TournamentBracket: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="animate-fade-in">
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
-                                <div className="flex items-center gap-6 flex-grow">
+                        <div className="animate-fade-in flex flex-col h-full w-full">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 flex-shrink-0">
+                                <div className="flex items-center gap-4 flex-grow">
                                     <label className="cursor-pointer group/cup relative flex-shrink-0">
-                                        <div className="w-20 h-20 bg-white rounded-3xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden group-hover:border-primary transition-all">
-                                            {tournament.logoUrl ? <img src={tournament.logoUrl} className="max-h-full max-w-full object-contain p-2" alt="" /> : <TrophyIcon className="w-10 h-10 text-gray-200" />}
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/cup:opacity-100 flex items-center justify-center transition-opacity"><ImageIcon className="w-6 h-6 text-white" /></div>
+                                        <div className="w-16 h-16 bg-white rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden group-hover:border-primary transition-all">
+                                            {tournament.logoUrl ? <img src={tournament.logoUrl} className="max-h-full max-w-full object-contain p-2" alt="" /> : <TrophyIcon className="w-8 h-8 text-gray-200" />}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/cup:opacity-100 flex items-center justify-center transition-opacity"><ImageIcon className="w-5 h-5 text-white" /></div>
                                         </div>
                                         <input type="file" className="hidden" accept="image/*" onChange={(e) => handleTournamentLogoUpload(e, false)} />
                                     </label>
                                     
                                     <div className="flex-grow max-w-xl">
                                         <div className="flex items-center gap-3 mb-1">
-                                            <p className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Master Bracket Editor</p>
-                                            <button onClick={() => setIsRenaming(!isRenaming)} className="text-[10px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1"><PencilIcon className="w-3 h-3"/> Rename</button>
+                                            <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest">Master Bracket Editor</p>
+                                            <button onClick={() => setIsRenaming(!isRenaming)} className="text-[9px] font-bold text-gray-400 hover:text-blue-600 flex items-center gap-1"><PencilIcon className="w-3 h-3"/> Rename</button>
                                         </div>
                                         {isRenaming ? (
                                             <div className="flex gap-2">
-                                                <input value={tournament.name} onChange={e => updateStateAndDb(prev => ({...prev, name: e.target.value}))} className="text-2xl font-black font-display uppercase w-full bg-blue-50 border border-blue-200 rounded-lg px-3 py-1 outline-none" autoFocus />
-                                                <button onClick={() => setIsRenaming(false)} className="bg-blue-600 text-white p-2 rounded-lg"><CheckIcon className="w-5 h-5"/></button>
+                                                <input value={tournament.name} onChange={e => updateStateAndDb(prev => ({...prev, name: e.target.value}))} className="text-xl font-black font-display uppercase w-full bg-blue-50 border border-blue-200 rounded-lg px-2 py-0.5 outline-none" autoFocus />
+                                                <button onClick={() => setIsRenaming(false)} className="bg-blue-600 text-white p-1.5 rounded-lg"><CheckIcon className="w-4 h-4"/></button>
                                             </div>
                                         ) : (
-                                            <h3 className="text-3xl font-black font-display text-gray-900 uppercase tracking-tight leading-none">{tournament.name}</h3>
+                                            <h3 className="text-2xl font-black font-display text-gray-900 uppercase tracking-tight leading-none">{tournament.name}</h3>
                                         )}
-                                        <div className="mt-4 flex items-center gap-4">
-                                            <label className="text-[10px] font-black uppercase text-gray-400">Hub Slot:</label>
-                                            <select 
-                                                value={tournament.hubSlot || ''} 
-                                                onChange={e => updateStateAndDb(prev => ({ ...prev, hubSlot: e.target.value as CupHubSlot || undefined }))}
-                                                className="bg-green-50 border border-green-100 rounded-lg px-3 py-1 text-[10px] font-black uppercase text-green-700 outline-none"
-                                            >
-                                                <option value="">None</option>
-                                                {HUB_SLOTS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                            </select>
-                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex gap-4 items-center">
-                                    <div className="flex flex-col items-end">
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${saving ? 'text-blue-500 animate-pulse' : 'text-green-500'}`}>
-                                            {saving ? 'Syncing...' : 'Synced'}
-                                        </span>
-                                    </div>
-                                    <Button onClick={setTournament.bind(null, null)} className="bg-gray-900 text-white h-11 px-8 font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl hover:bg-black transition-all">Close Hub</Button>
+                                <div className="flex gap-2 items-center no-print">
+                                    <button 
+                                        onClick={jumpToStart} 
+                                        className="bg-white border border-gray-200 text-gray-600 h-9 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-50 flex items-center gap-2 shadow-sm"
+                                    >
+                                        <ArrowLeftIcon className="w-3 h-3"/> Start
+                                    </button>
+                                    <button 
+                                        onClick={jumpToFinal} 
+                                        className="bg-white border border-gray-200 text-gray-600 h-9 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-50 flex items-center gap-2 shadow-sm"
+                                    >
+                                        Final <ArrowRightIcon className="w-3 h-3"/>
+                                    </button>
+                                    <Button onClick={setTournament.bind(null, null)} className="bg-gray-900 text-white h-9 px-6 font-black uppercase tracking-widest text-[9px] rounded-xl shadow-lg">Close</Button>
                                 </div>
                             </div>
                             
-                            <div className="flex gap-8 overflow-x-auto pb-8 custom-scrollbar scrollbar-hide px-2">
-                                {tournament.rounds.map((round, rIdx) => (
-                                    <div key={rIdx} className="flex flex-col gap-6 min-w-[18rem]">
-                                        <div className="bg-gray-100 py-3 rounded-2xl border border-gray-200 text-center shadow-inner">
-                                            <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em]">{round.title}</h4>
+                            <div 
+                                ref={scrollContainerRef}
+                                className="flex flex-row gap-8 overflow-x-auto pb-10 px-4 pt-4 min-h-[650px] flex-nowrap custom-scrollbar w-full relative bg-gray-50/30 rounded-[2rem] border border-gray-100 shadow-inner"
+                                style={{ scrollBehavior: 'smooth' }}
+                            >
+                                <div className="flex flex-row gap-8 min-w-max">
+                                    {tournament.rounds.map((round, rIdx) => (
+                                        <div key={rIdx} className="flex flex-col gap-4 flex-shrink-0" style={{ width: '224px' }}>
+                                            <div className="bg-white py-3 rounded-xl border border-gray-200 text-center shadow-sm sticky top-0 z-10">
+                                                <h4 className="text-[9px] font-black uppercase text-blue-600 tracking-[0.2em]">{round.title}</h4>
+                                            </div>
+                                            <div className="flex flex-col justify-around flex-grow gap-4 min-h-0">
+                                                {round.matches.map(m => (
+                                                    <MatchCard 
+                                                        key={m.id} match={m} teams={allTeams} 
+                                                        onTeamSelect={(id, slot, data) => updateStateAndDb(prev => ({
+                                                            ...prev, 
+                                                            rounds: prev.rounds.map(r => ({
+                                                                ...r, 
+                                                                matches: r.matches.map(match => match.id === id ? {
+                                                                    ...match, 
+                                                                    [`${slot}Id`]: data.id,
+                                                                    [`${slot}Name`]: data.name,
+                                                                    [`${slot}Mode`]: data.mode,
+                                                                    [`${slot}Crest`]: data.crestUrl,
+                                                                    winner: null 
+                                                                } : match)
+                                                            }))
+                                                        }))}
+                                                        onScoreChange={(id, slot, val) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => match.id === id ? {...match, [slot]: val} : match)}))}))}
+                                                        onDateTimeChange={(id, field, val) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => match.id === id ? {...match, [field]: val} : match)}))}))}
+                                                        onDeclareWinner={(id) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => {
+                                                            if (match.id !== id) return match;
+                                                            const s1 = parseInt(match.score1) || 0;
+                                                            const s2 = parseInt(match.score2) || 0;
+                                                            return { ...match, winner: s1 >= s2 ? 'team1' : 'team2' };
+                                                        })}))}))}
+                                                        onResetWinner={(id) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => id === match.id ? {...match, winner: null} : match)}))}))}
+                                                        onCrestUpload={(id, slot, base64) => updateStateAndDb(prev => ({
+                                                            ...prev,
+                                                            rounds: prev.rounds.map(r => ({
+                                                                ...r,
+                                                                matches: r.matches.map(match => match.id === id ? { ...match, [`${slot}Crest`]: base64 } : match)
+                                                            }))
+                                                        }))}
+                                                    />
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col justify-around flex-grow gap-4">
-                                            {round.matches.map(m => (
-                                                <MatchCard 
-                                                    key={m.id} match={m} teams={allTeams} 
-                                                    onTeamSelect={(id, slot, data) => updateStateAndDb(prev => ({
-                                                        ...prev, 
-                                                        rounds: prev.rounds.map(r => ({
-                                                            ...r, 
-                                                            matches: r.matches.map(match => match.id === id ? {
-                                                                ...match, 
-                                                                [`${slot}Id`]: data.id,
-                                                                [`${slot}Name`]: data.name,
-                                                                [`${slot}Mode`]: data.mode,
-                                                                [`${slot}Crest`]: data.crestUrl,
-                                                                winner: null 
-                                                            } : match)
-                                                        }))
-                                                    }))}
-                                                    onScoreChange={(id, slot, val) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => match.id === id ? {...match, [slot]: val} : match)}))}))}
-                                                    onDateTimeChange={(id, field, val) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => match.id === id ? {...match, [field]: val} : match)}))}))}
-                                                    onDeclareWinner={(id) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => {
-                                                        if (match.id !== id) return match;
-                                                        const s1 = parseInt(match.score1) || 0;
-                                                        const s2 = parseInt(match.score2) || 0;
-                                                        return { ...match, winner: s1 >= s2 ? 'team1' : 'team2' };
-                                                    })}))}))}
-                                                    onResetWinner={(id) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => id === match.id ? {...match, winner: null} : match)}))}))}
-                                                    onCrestUpload={(id, slot, base64) => updateStateAndDb(prev => ({
-                                                        ...prev,
-                                                        rounds: prev.rounds.map(r => ({
-                                                            ...r,
-                                                            matches: r.matches.map(match => match.id === id ? { ...match, [`${slot}Crest`]: base64 } : match)
-                                                        }))
-                                                    }))}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                    {/* Large buffer spacer for scrolling comfort in 32-team views */}
+                                    <div className="w-[300px] h-full flex-shrink-0"></div>
+                                </div>
                             </div>
                         </div>
                     )}

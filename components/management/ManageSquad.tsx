@@ -13,7 +13,7 @@ import UserIcon from '../icons/UserIcon';
 import PencilIcon from '../icons/PencilIcon';
 import { db } from '../../services/firebase';
 import { doc, runTransaction, setDoc, getDoc } from 'firebase/firestore';
-import { removeUndefinedProps, superNormalize } from '../../services/utils';
+import { removeUndefinedProps, superNormalize, reconcilePlayers } from '../../services/utils';
 import TeamRosterModal from '../admin/TeamRosterModal';
 
 const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ clubName, competitionId }) => {
@@ -62,8 +62,19 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
             }
 
             if (teamFound) {
-                setSquad(sortSquadByPosition(teamFound.players || []));
-                setActiveTeamObj(teamFound);
+                // RECONCILE DATA: Crucial fix to show match events in management suite
+                const currentComp = allComps[targetCompId];
+                const allMatches = [...(currentComp.fixtures || []), ...(currentComp.results || [])];
+                const reconciledTeams = reconcilePlayers(currentComp.teams || [], allMatches);
+                const reconciledTeam = reconciledTeams.find(t => superNormalize(t.name) === normClubName);
+                
+                if (reconciledTeam) {
+                    setSquad(sortSquadByPosition(reconciledTeam.players || []));
+                    setActiveTeamObj(reconciledTeam);
+                } else {
+                    setSquad(sortSquadByPosition(teamFound.players || []));
+                    setActiveTeamObj(teamFound);
+                }
                 setActiveCompId(targetCompId);
             } else {
                 // Initialize empty squad for new/independent team

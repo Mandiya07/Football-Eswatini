@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchAllCompetitions, fetchCups } from '../services/api';
@@ -64,38 +65,64 @@ const RegionDetailPage: React.FC = () => {
         'Promotion': [],
         'B Division': [],
         'Youth and Development': [],
-        'Schools': [],
+        'Schools Football': [],
         'Cups & Tournaments': []
     };
 
     allLeagues.forEach(league => {
         const name = league.name.toLowerCase();
-        const catId = league.categoryId || '';
+        const catId = (league.categoryId || '').toLowerCase();
 
+        // 1. Cups Priority
         if (league.isCup) {
             groups['Cups & Tournaments'].push(league);
-        } else if (catId === 'schools' || name.includes('school')) {
-            groups['Schools'].push(league);
-        } else if (
+            return;
+        }
+
+        // 2. Schools Football (Strict Mapping)
+        if (catId === 'schools' || name.includes('school') || name.includes('scholastic')) {
+            groups['Schools Football'].push(league);
+            return;
+        }
+
+        // 3. Youth and Development (Aggressive Detection for Juniors/Age-Tiers)
+        if (
+            catId === 'development' ||
             catId.startsWith('u') || 
-            catId.includes('development') || 
             catId.includes('grassroots') || 
             catId.includes('hardware') || 
             catId.includes('build-it') ||
+            name.includes('juniors') ||
+            name.includes('youth') ||
             name.includes('under-') ||
-            name.includes('youth')
+            name.includes('under ') ||
+            /\bu\d{2}\b/.test(name) || // Matches "U13", "U15", "U17", "U19" etc.
+            name.includes('development')
         ) {
             groups['Youth and Development'].push(league);
-        } else if (catId === 'b-division' || name.includes('b division') || name.includes('b-division')) {
-            groups['B Division'].push(league);
-        } else if (catId === 'promotion-league' || name.includes('promotion')) {
-            groups['Promotion'].push(league);
-        } else if (catId === 'regional-leagues' || name.includes('super league')) {
-            groups['Super League'].push(league);
-        } else {
-            // Fallback: If no match, put in Super League as it's the primary regional tier
-            groups['Super League'].push(league);
+            return;
         }
+
+        // 4. B Division
+        if (catId === 'b-division' || name.includes('b division') || name.includes('b-division')) {
+            groups['B Division'].push(league);
+            return;
+        }
+
+        // 5. Promotion
+        if (catId === 'promotion-league' || name.includes('promotion')) {
+            groups['Promotion'].push(league);
+            return;
+        }
+
+        // 6. Super League (Regional Top Tier)
+        if (catId === 'regional-leagues' || name.includes('super league') || name.includes('superleague')) {
+            groups['Super League'].push(league);
+            return;
+        }
+
+        // Fallback for everything else
+        groups['Super League'].push(league);
     });
 
     return groups;
@@ -124,7 +151,6 @@ const RegionDetailPage: React.FC = () => {
         </div>
 
         <div className="space-y-16 pb-20">
-            {/* Fix: Explicitly cast Object.entries to resolve TS inference error where 'items' was treated as 'unknown' */}
             {(Object.entries(categorizedData) as [string, (Competition & { id: string, isCup?: boolean })[]][]).map(([groupName, items]) => (
                 items.length > 0 && (
                     <section key={groupName} className="animate-fade-in">
@@ -133,7 +159,6 @@ const RegionDetailPage: React.FC = () => {
                             <div className="h-px bg-gray-200 flex-grow"></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {/* Fix: 'items' is now correctly typed as an array, allowing .map() */}
                             {items.map((league) => (
                                 <Link key={league.id} to={league.isCup ? `/cups?id=${league.id}` : `/region-hub/${league.id}`} className="group">
                                     <Card className="h-full hover:shadow-2xl transition-all duration-300 border border-gray-100 bg-white rounded-3xl overflow-hidden">

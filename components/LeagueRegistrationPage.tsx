@@ -64,11 +64,10 @@ const LeagueRegistrationPage: React.FC = () => {
                 if (list.length > 0) setTargetLeagueId(list[0].id);
 
                 // TIME SAVING MAPPING LOGIC
-                // Map the specific hub ID to a broad system category
                 if (fixedCategory) {
                     if (fixedCategory === 'schools') {
                         setCategory('schools'); // Schools Football
-                    } else if (fixedCategory.startsWith('u') || fixedCategory.includes('grassroots')) {
+                    } else if (fixedCategory.startsWith('u') || fixedCategory.includes('grassroots') || fixedCategory.includes('development')) {
                         setCategory('development'); // Youth and Development
                     } else {
                         setCategory(fixedCategory);
@@ -88,18 +87,18 @@ const LeagueRegistrationPage: React.FC = () => {
     const groupedCategories = useMemo(() => {
         const groups: Record<string, DBCategory[]> = {
             'Elite & National Leagues': [],
-            'Youth & Scholastic Hubs': [],
-            'Regional & Community': []
+            'Regional Tiers': [],
+            'Scholastic & Youth': []
         };
         
         allCategories.forEach(cat => {
             const id = cat.id;
             if (['national-teams', 'premier-leagues', 'national-divisions', 'international-leagues'].includes(id)) {
                 groups['Elite & National Leagues'].push(cat);
-            } else if (['schools', 'development', 'u20-elite-league', 'hub-hardware-u17-competition', 'build-it-u13-national'].includes(id)) {
-                groups['Youth & Scholastic Hubs'].push(cat);
+            } else if (['regional-leagues', 'promotion-league', 'b-division'].includes(id)) {
+                groups['Regional Tiers'].push(cat);
             } else {
-                groups['Regional & Community'].push(cat);
+                groups['Scholastic & Youth'].push(cat);
             }
         });
         return groups;
@@ -309,7 +308,7 @@ const LeagueRegistrationPage: React.FC = () => {
 
                                 <div className="pt-6">
                                     <Button type="submit" disabled={isSubmitting} className="w-full bg-primary text-white h-16 text-lg shadow-xl font-black uppercase tracking-widest rounded-3xl hover:scale-[1.01] active:scale-95 transition-all">
-                                        {isSubmitting ? <Spinner className="w-6 h-6 border-white border-2" /> : (requestType === 'create' ? `Launch ${category.replace(/-/g, ' ').toUpperCase()} Hub` : 'Submit Management Request')}
+                                        {isSubmitting ? <Spinner className="w-6 h-6 border-white border-2" /> : (requestType === 'create' ? `Launch Hub` : 'Submit Management Request')}
                                     </Button>
                                     <div className="mt-6 flex items-center justify-center gap-2 text-gray-400">
                                         <ShieldCheckIcon className="w-4 h-4" />
