@@ -1,11 +1,10 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import UploadCloudIcon from '../icons/UploadCloudIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { db } from '../../services/firebase';
-/* Added missing Firestore imports: addDoc, collection, serverTimestamp */
 import { doc, runTransaction, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { handleFirestoreError, fetchCompetition } from '../../services/api';
 import { CompetitionFixture, Player, Competition } from '../../data/teams';
@@ -52,7 +51,6 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                     setClubRoster(team?.players || []);
 
                     // Split matches
-                    const today = new Date().toISOString().split('T')[0];
                     const myMatches = (data.fixtures || []).filter(f => f.teamA === clubName || f.teamB === clubName);
                     const myResults = (data.results || []).filter(r => r.teamA === clubName || r.teamB === clubName);
 
@@ -60,7 +58,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                     setRecentMatches(myResults.sort((a,b) => b.date.localeCompare(a.date)));
                 }
             } catch (error) {
-                console.error("Error loading data", error);
+                console.error("Error loading matchday data", error);
             } finally {
                 setLoadingMatches(false);
             }
@@ -89,8 +87,8 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
 
     const handleLineupSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!activeMatchId) return alert("Select a match.");
-        if (starters.length < 11) return alert("Please select exactly 11 starters.");
+        if (!activeMatchId) return alert("Please select a match.");
+        if (starters.length < 11) return alert("A full lineup requires exactly 11 starters.");
 
         setIsSubmittingLineup(true);
         try {
@@ -118,7 +116,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                 transaction.update(docRef, { fixtures: removeUndefinedProps(updatedFixtures) });
             });
 
-            setLineupSuccess("Match team sheet submitted!");
+            setLineupSuccess("Match team sheet broadcasted successfully.");
             setTimeout(() => setLineupSuccess(''), 4000);
         } catch (error) {
             handleFirestoreError(error, 'submit lineup');
@@ -129,7 +127,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
 
     const handlePostMatchSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedMatchId) return alert("Please select a match.");
+        if (!selectedMatchId) return alert("Select a result to analyze.");
 
         setIsSubmittingPost(true);
         try {
@@ -143,7 +141,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                 submittedAt: serverTimestamp()
             });
 
-            setPostMatchSuccess("Match report submitted successfully!");
+            setPostMatchSuccess("Technical analysis submitted to the press desk.");
             setAnalysisData({ summary: '', manOfTheMatch: '', injuries: '', managerRating: '' });
             setSelectedMatchId('');
             setTimeout(() => setPostMatchSuccess(''), 4000);
@@ -158,25 +156,24 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
 
     return (
         <div className="space-y-8 animate-fade-in">
-            {/* DIGITAL TEAM SHEET SECTION */}
             <Card className="shadow-lg border-t-4 border-blue-600">
                 <CardContent className="p-6">
                     <div className="flex items-center gap-3 mb-4">
                         <ClipboardListIcon className="w-6 h-6 text-blue-600" />
                         <h3 className="text-2xl font-bold font-display text-gray-900">Digital Team Sheet</h3>
                     </div>
-                    <p className="text-gray-600 mb-6 text-sm">Select your matchday squad from your official roster.</p>
+                    <p className="text-gray-600 mb-6 text-sm">Designate your starters and substitutes for the upcoming fixture.</p>
                     
                     {lineupSuccess && (
-                        <div className="mb-6 p-3 bg-green-100 text-green-800 border border-green-200 rounded-lg flex items-center gap-2">
-                            <CheckCircleIcon className="w-5 h-5" />
-                            <span className="text-sm font-semibold">{lineupSuccess}</span>
+                        <div className="mb-6 p-4 bg-green-50 text-green-800 border border-green-200 rounded-lg flex items-center gap-3 animate-in slide-in-from-top-2">
+                            <CheckCircleIcon className="w-6 h-6" />
+                            <span className="text-sm font-bold uppercase tracking-tight">{lineupSuccess}</span>
                         </div>
                     )}
                     
                     <form onSubmit={handleLineupSubmit} className="space-y-6">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">1. Select Match</label>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Target Match</label>
                             {loadingMatches ? <Spinner className="w-5 h-5" /> : (
                                 <select 
                                     value={activeMatchId} 
@@ -184,7 +181,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                                     className={inputClass}
                                     required
                                 >
-                                    <option value="">-- Choose upcoming match --</option>
+                                    <option value="">-- Select upcoming fixture --</option>
                                     {upcomingMatches.map(m => (
                                         <option key={m.id} value={m.id}>{m.fullDate}: vs {m.teamA === clubName ? m.teamB : m.teamA}</option>
                                     ))}
@@ -192,37 +189,37 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                             )}
                         </div>
 
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                             <div className="flex justify-between items-center mb-4">
-                                <label className="block text-sm font-bold text-gray-700">2. Pick Your XI & Bench</label>
+                        <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 shadow-inner">
+                             <div className="flex justify-between items-center mb-6">
+                                <label className="block text-sm font-bold text-gray-700">Squad Selection</label>
                                 <div className="flex gap-4">
-                                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${starters.length === 11 ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>Starters: {starters.length}/11</span>
-                                    <span className="text-xs font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-700">Subs: {subs.length}</span>
+                                    <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${starters.length === 11 ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>XI: {starters.length}/11</span>
+                                    <span className="text-[10px] font-black px-3 py-1 rounded-full bg-blue-100 text-blue-700 uppercase tracking-widest">Subs: {subs.length}</span>
                                 </div>
                              </div>
 
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                  {clubRoster.map(player => (
-                                     <div key={player.id} className="flex items-center justify-between p-2 bg-white border rounded-lg hover:shadow-sm">
+                                     <div key={player.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:shadow-md transition-all group">
                                          <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                                                {player.photoUrl ? <img src={player.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-4 h-4 text-gray-400"/>}
+                                            <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden border border-slate-50 shadow-inner">
+                                                {player.photoUrl ? <img src={player.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-5 h-5 text-gray-300"/>}
                                             </div>
                                             <div>
-                                                <p className="text-xs font-bold text-gray-900">{player.name}</p>
-                                                <p className="text-[10px] text-gray-400 uppercase font-black">{player.position}</p>
+                                                <p className="text-xs font-bold text-gray-900 group-hover:text-primary transition-colors">{player.name}</p>
+                                                <p className="text-[9px] text-gray-400 uppercase font-black tracking-tighter">#{player.number || '??'} • {player.position}</p>
                                             </div>
                                          </div>
-                                         <div className="flex gap-2">
+                                         <div className="flex gap-1.5">
                                             <button 
                                                 type="button" 
                                                 onClick={() => handleTogglePlayer(player.id, 'starters')}
-                                                className={`px-3 py-1 text-[10px] font-black rounded-md border transition-all ${starters.includes(player.id) ? 'bg-green-600 text-white border-green-700' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}
+                                                className={`px-3 py-1.5 text-[9px] font-black rounded-lg border transition-all ${starters.includes(player.id) ? 'bg-green-600 text-white border-green-700 shadow-md' : 'bg-white text-gray-400 border-gray-100 hover:border-green-200'}`}
                                             >XI</button>
                                             <button 
                                                 type="button" 
                                                 onClick={() => handleTogglePlayer(player.id, 'subs')}
-                                                className={`px-3 py-1 text-[10px] font-black rounded-md border transition-all ${subs.includes(player.id) ? 'bg-blue-600 text-white border-blue-700' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}
+                                                className={`px-3 py-1.5 text-[9px] font-black rounded-lg border transition-all ${subs.includes(player.id) ? 'bg-blue-600 text-white border-blue-700 shadow-md' : 'bg-white text-gray-400 border-gray-100 hover:border-blue-200'}`}
                                             >SUB</button>
                                          </div>
                                      </div>
@@ -231,33 +228,32 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                         </div>
                         
                         <div className="text-right">
-                            <Button type="submit" className="bg-primary text-white hover:bg-primary-dark w-full md:w-auto h-12 px-10 shadow-lg" disabled={isSubmittingLineup}>
-                                {isSubmittingLineup ? <Spinner className="w-4 h-4 border-2"/> : 'Submit Match Squad'}
+                            <Button type="submit" className="bg-primary text-white hover:bg-primary-dark w-full md:w-auto h-12 px-12 shadow-xl font-black uppercase tracking-widest text-xs" disabled={isSubmittingLineup}>
+                                {isSubmittingLineup ? <Spinner className="w-4 h-4 border-white" /> : 'Confirm Selection'}
                             </Button>
                         </div>
                     </form>
                 </CardContent>
             </Card>
 
-            {/* POST-MATCH SECTION */}
             <Card className="shadow-lg border-t-4 border-green-500">
                 <CardContent className="p-6">
                     <div className="flex items-center gap-3 mb-4">
                         <BarChartIcon className="w-6 h-6 text-green-600" />
-                        <h3 className="text-2xl font-bold font-display text-gray-900">Post-Match Report</h3>
+                        <h3 className="text-2xl font-bold font-display text-gray-900">Technical Report</h3>
                     </div>
-                    <p className="text-gray-600 mb-6 text-sm">Submit technical analysis and medical updates after the game.</p>
+                    <p className="text-gray-600 mb-6 text-sm">Post-match summary for media distribution and technical archiving.</p>
 
                     {postMatchSuccess && (
-                        <div className="mb-4 p-3 bg-green-100 text-green-800 border border-green-200 rounded-lg flex items-center gap-2">
-                            <CheckCircleIcon className="w-5 h-5" />
-                            <span className="text-sm font-semibold">{postMatchSuccess}</span>
+                        <div className="mb-6 p-4 bg-green-50 text-green-800 border border-green-200 rounded-lg flex items-center gap-3 animate-in slide-in-from-top-2">
+                            <CheckCircleIcon className="w-6 h-6" />
+                            <span className="text-sm font-bold uppercase tracking-tight">{postMatchSuccess}</span>
                         </div>
                     )}
 
                     <form onSubmit={handlePostMatchSubmit} className="space-y-5">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Select Match Result</label>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Select Result</label>
                             {loadingMatches ? <Spinner className="w-5 h-5" /> : (
                                 <select 
                                     value={selectedMatchId} 
@@ -276,20 +272,20 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Technical Summary</label>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Match Narrative</label>
                             <textarea
                                 value={analysisData.summary}
                                 onChange={e => setAnalysisData({...analysisData, summary: e.target.value})}
                                 className={inputClass}
                                 rows={4}
-                                placeholder="Key tactical moments..."
+                                placeholder="Key tactical moments, substitutes impact, and general performance review..."
                                 required
                             ></textarea>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Man of the Match</label>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Star Performer</label>
                                 <input 
                                     type="text" 
                                     value={analysisData.manOfTheMatch}
@@ -299,7 +295,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Manager Rating (1-10)</label>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Management Rating (1-10)</label>
                                 <input 
                                     type="number" 
                                     value={analysisData.managerRating}
@@ -311,8 +307,8 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
                         </div>
 
                         <div className="text-right pt-2">
-                            <Button type="submit" className="bg-green-600 text-white hover:bg-green-700" disabled={isSubmittingPost || !selectedMatchId}>
-                                {isSubmittingPost ? <Spinner className="w-4 h-4 border-2"/> : 'Submit Analysis'}
+                            <Button type="submit" className="bg-green-600 text-white hover:bg-green-700 h-12 px-12 font-black uppercase tracking-widest text-xs shadow-xl" disabled={isSubmittingPost || !selectedMatchId}>
+                                {isSubmittingPost ? <Spinner className="w-4 h-4 border-white" /> : 'Log Analysis'}
                             </Button>
                         </div>
                     </form>

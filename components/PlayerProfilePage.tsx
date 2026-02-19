@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { fetchPlayerById, fetchCompetition } from '../services/api';
-import { Player, Team } from '../data/teams';
+import { fetchPlayerById, fetchCompetition, fetchAllCompetitions, fetchStandaloneMatches } from '../services/api';
+import { Player, Team, CompetitionFixture } from '../data/teams';
 import { Card, CardContent } from './ui/Card';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import ShareIcon from './icons/ShareIcon';
@@ -10,7 +11,7 @@ import BarChartIcon from './icons/BarChartIcon';
 import HistoryIcon from './icons/HistoryIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import ShieldCheckIcon from './icons/ShieldCheckIcon';
-import { reconcilePlayers } from '../services/utils';
+import { reconcilePlayers, superNormalize } from '../services/utils';
 
 const StatCard: React.FC<{ label: string; value: number | string; icon?: React.ReactNode; colorClass?: string }> = ({ label, value, icon, colorClass = "text-gray-900" }) => (
     <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center transition-all hover:shadow-md hover:border-primary/20">
@@ -38,24 +39,36 @@ const PlayerProfilePage: React.FC = () => {
         setLoading(true);
         const data = await fetchPlayerById(parseInt(playerId, 10));
         
-        if (data && data.competitionId) {
-            // RE-RECONCILE STATS FROM ALL MATCHES
-            const comp = await fetchCompetition(data.competitionId);
-            if (comp) {
-                const allMatches = [...(comp.fixtures || []), ...(comp.results || [])];
-                const reconciled = reconcilePlayers(comp.teams || [], allMatches);
-                const updatedTeam = reconciled.find(t => t.id === data.team.id);
-                const updatedPlayer = updatedTeam?.players.find(p => p.id === parseInt(playerId, 10));
-                
-                if (updatedPlayer && updatedTeam) {
-                    setPlayer(updatedPlayer);
-                    setTeam(updatedTeam);
-                    setCompetitionId(data.competitionId);
-                } else {
-                    setPlayer(data.player);
-                    setTeam(data.team);
-                    setCompetitionId(data.competitionId);
-                }
+        if (data) {
+            // RE-RECONCILE STATS FROM ALL COMPETITIONS & STANDALONE MATCHES
+            const [allComps, standalone] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchStandaloneMatches(data.team.name)
+            ]);
+
+            const normTeamName = superNormalize(data.team.name);
+            const masterMatchList: CompetitionFixture[] = [...standalone];
+
+            Object.values(allComps).forEach(hub => {
+                const hubMatches = [...(hub.fixtures || []), ...(hub.results || [])].filter(m => 
+                    superNormalize(m.teamA) === normTeamName || superNormalize(m.teamB) === normTeamName
+                );
+                masterMatchList.push(...hubMatches);
+            });
+
+            // Use the original team object as the base but apply global reconciliation
+            const reconciled = reconcilePlayers([data.team], masterMatchList);
+            const updatedTeam = reconciled[0];
+            const updatedPlayer = updatedTeam?.players.find(p => p.id === parseInt(playerId, 10));
+            
+            if (updatedPlayer && updatedTeam) {
+                setPlayer(updatedPlayer);
+                setTeam(updatedTeam);
+                setCompetitionId(data.competitionId);
+            } else {
+                setPlayer(data.player);
+                setTeam(data.team);
+                setCompetitionId(data.competitionId);
             }
         }
         setLoading(false);
@@ -176,7 +189,7 @@ const PlayerProfilePage: React.FC = () => {
                             <div className="p-2 bg-primary rounded-xl shadow-lg"><BarChartIcon className="w-6 h-6 text-white" /></div>
                             <h2 className="text-xl font-display font-black uppercase tracking-tight">Performance Analytics</h2>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Season 2024/25</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total System Record</span>
                     </div>
                     <CardContent className="p-8 bg-slate-50/30">
                          <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
@@ -207,7 +220,7 @@ const PlayerProfilePage: React.FC = () => {
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Verified Technical Data</span>
                             </div>
-                            <p className="text-[10px] text-slate-300 font-medium">Synced with Match Center</p>
+                            <p className="text-[10px] text-slate-300 font-medium">Aggregated across all competitions & friendlies</p>
                         </div>
                     </CardContent>
                 </Card>

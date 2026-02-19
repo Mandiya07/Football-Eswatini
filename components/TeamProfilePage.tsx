@@ -57,6 +57,11 @@ const TeamProfilePage: React.FC = () => {
       return HERO_IMAGES[index];
   }, [teamId]);
 
+  /**
+   * EVENT-AUTHORITATIVE PUBLIC LOADER
+   * 1. Merges metadata from all hubs.
+   * 2. Recalculates all stats from the global match feed.
+   */
   const loadData = useCallback(async () => {
       if (!teamId) {
           setLoading(false);
@@ -70,77 +75,90 @@ const TeamProfilePage: React.FC = () => {
       ]);
       setAllComps(allCompetitionsData);
 
+      // Search for the team identity
+      let teamMatch: Team | null = null;
       let resolvedCompId = competitionId;
-      let competitionData = competitionId ? allCompetitionsData[competitionId] : undefined;
-      let teamMatch = competitionData?.teams?.find(t => String(t.id) === String(teamId));
-      
-      if (!teamMatch) {
-          const globalResult = await fetchTeamByIdGlobally(teamId);
-          if (globalResult) {
-              teamMatch = globalResult.team;
-              resolvedCompId = globalResult.competitionId;
-              competitionData = allCompetitionsData[resolvedCompId];
-          }
+      const normId = String(teamId);
+
+      // 1. Direct hub check
+      if (competitionId && allCompetitionsData[competitionId]) {
+          const t = allCompetitionsData[competitionId].teams?.find(t => String(t.id) === normId);
+          if (t) teamMatch = t;
       }
 
-      if (!teamMatch) {
-          const dirEntry = directoryEntries.find(e => String(e.teamId) === String(teamId));
-          const nameToSearch = dirEntry?.name;
-          
-          if (nameToSearch) {
-              const normSearch = superNormalize(nameToSearch);
-              for (const [compId, comp] of Object.entries(allCompetitionsData)) {
-                  const match = comp.teams?.find(t => superNormalize(t.name) === normSearch);
-                  if (match) {
-                      teamMatch = match;
-                      resolvedCompId = compId;
-                      competitionData = comp;
-                      break;
-                  }
+      // 2. Global hub check (Recovery mode)
+      const teamVersions: Team[] = [];
+      Object.entries(allCompetitionsData).forEach(([compId, comp]) => {
+          const t = comp.teams?.find(t => String(t.id) === normId);
+          if (t) {
+              teamVersions.push(t);
+              if (!teamMatch) {
+                  teamMatch = t;
+                  resolvedCompId = compId;
               }
+          }
+      });
+
+      if (!teamMatch) {
+          const dirEntry = directoryEntries.find(e => String(e.teamId) === normId);
+          if (dirEntry) {
+              const normSearch = superNormalize(dirEntry.name);
+              Object.entries(allCompetitionsData).forEach(([compId, comp]) => {
+                  const t = comp.teams?.find(t => superNormalize(t.name) === normSearch);
+                  if (t) {
+                      teamVersions.push(t);
+                      if (!teamMatch) {
+                          teamMatch = t;
+                          resolvedCompId = compId;
+                      }
+                  }
+              });
           }
       }
 
       setActiveCompId(resolvedCompId || null);
 
-      if (competitionData && teamMatch) {
-          // 1. Calculate Team-Wide Standings (P, W, D, L)
-          const updatedStandings = calculateStandings(
-              competitionData.teams || [], 
-              competitionData.results || [], 
-              competitionData.fixtures || []
-          );
+      if (teamMatch) {
+          const normName = superNormalize(teamMatch.name);
+
+          // AGGREGATE ALL MATCHES IN SYSTEM
+          const masterMatchList: CompetitionFixture[] = [];
+          Object.values(allCompetitionsData).forEach(hub => {
+              const hubMatches = [...(hub.fixtures || []), ...(hub.results || [])].filter(m => 
+                  superNormalize(m.teamA) === normName || superNormalize(m.teamB) === normName
+              );
+              masterMatchList.push(...hubMatches);
+          });
+
+          const standalone = await fetchStandaloneMatches(teamMatch.name);
+          masterMatchList.push(...standalone);
           
-          // 2. RECONCILE INCIDENTS: Map match events (Goals, Cards, POTM) to players
-          const allMatchesForReconcile = [...(competitionData.fixtures || []), ...(competitionData.results || [])];
-          const reconciledTeams = reconcilePlayers(updatedStandings, allMatchesForReconcile);
+          // PERFORM EVENT-DRIVEN RECONCILIATION
+          // Calculates apps, goals, etc. purely from the match logs
+          const reconciledTeams = reconcilePlayers(teamVersions, masterMatchList);
+          const currentTeam = reconciledTeams.find(t => superNormalize(t.name) === normName);
           
-          const currentTeam = reconciledTeams.find(t => String(t.id) === String(teamMatch!.id));
+          // Calculate Standings specific to the main hub context for the overview box
+          if (resolvedCompId && allCompetitionsData[resolvedCompId]) {
+              const contextComp = allCompetitionsData[resolvedCompId];
+              const leagueStandings = calculateStandings(
+                  contextComp.teams || [], 
+                  contextComp.results || [], 
+                  contextComp.fixtures || []
+              );
+              const leagueVersion = leagueStandings.find(t => superNormalize(t.name) === normName);
+              if (currentTeam && leagueVersion) {
+                  currentTeam.stats = leagueVersion.stats;
+              }
+          }
+
           setTeam(currentTeam || null);
           setCurrentCompTeams(reconciledTeams);
 
           if (currentTeam) {
-              const normName = superNormalize(currentTeam.name);
-              
-              const officialUpcoming = (competitionData.fixtures || [])
-                  .filter(f => superNormalize(f.teamA) === normName || superNormalize(f.teamB) === normName);
-                  
-              const officialFinished = (competitionData.results || [])
-                  .filter(r => superNormalize(r.teamA) === normName || superNormalize(r.teamB) === normName);
-              
-              const standalone = await fetchStandaloneMatches(currentTeam.name);
-              
-              setTeamFixtures([...officialUpcoming, ...standalone.filter(m => m.status !== 'finished')].sort((a, b) => {
-                  const dateA = new Date(a.fullDate || 0).getTime();
-                  const dateB = new Date(b.fullDate || 0).getTime();
-                  return dateA - dateB;
-              }));
-              
-              setTeamResults([...officialFinished, ...standalone.filter(m => m.status === 'finished')].sort((a, b) => {
-                  const dateA = new Date(a.fullDate || 0).getTime();
-                  const dateB = new Date(b.fullDate || 0).getTime();
-                  return dateB - dateA;
-              }));
+              const matches = masterMatchList.filter(m => superNormalize(m.teamA) === normName || superNormalize(m.teamB) === normName);
+              setTeamFixtures(matches.filter(m => m.status !== 'finished').sort((a,b) => new Date(a.fullDate || 0).getTime() - new Date(b.fullDate || 0).getTime()));
+              setTeamResults(matches.filter(m => m.status === 'finished').sort((a,b) => new Date(b.fullDate || 0).getTime() - new Date(a.fullDate || 0).getTime()));
           }
       }
       

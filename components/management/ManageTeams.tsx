@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../services/firebase';
 import { doc, runTransaction, collection } from 'firebase/firestore';
 import { Team, Competition } from '../../data/teams';
-import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry, deleteDirectoryEntry, handleFirestoreError } from '../../services/api';
+import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry, deleteDirectoryEntry, handleFirestoreError, fetchStandaloneMatches } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -16,7 +16,7 @@ import TrophyIcon from '../icons/TrophyIcon';
 import TeamFormModal from '../admin/TeamFormModal';
 import TeamRosterModal from '../admin/TeamRosterModal';
 import TeamFixturesModal from '../admin/TeamFixturesModal';
-import { calculateStandings, removeUndefinedProps, renameTeamInMatches, superNormalize } from '../../services/utils';
+import { calculateStandings, removeUndefinedProps, renameTeamInMatches, superNormalize, reconcilePlayers } from '../../services/utils';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ManageTeams: React.FC = () => {
@@ -37,20 +37,26 @@ const ManageTeams: React.FC = () => {
     const [scheduleTeam, setScheduleTeam] = useState<Team | null>(null);
 
     const isSuperAdmin = user?.role === 'super_admin';
-    const isLeagueAdmin = user?.role === 'league_admin';
 
+    /**
+     * DISCOVERY-AWARE LOADER
+     * Fetches all competitions and runs reconciliation to ensure 
+     * discovered players are part of the visible roster list.
+     */
     const loadData = useCallback(async (refreshOnly: boolean = false) => {
         if (!refreshOnly) setLoading(true);
         try {
-            const allComps = await fetchAllCompetitions();
+            const [allComps, standaloneMatches] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchStandaloneMatches()
+            ]);
             setAllCompsData(allComps);
             
-            // Filter and sort competitions based on role
+            // 1. Filter competitions for this user
             const compList = Object.entries(allComps)
                 .filter(([id, comp]) => {
                     if (!comp || !comp.name) return false;
                     if (isSuperAdmin) return true;
-                    // Scoping for League Admins - MUST have managedLeagues array populated in user profile
                     return user?.managedLeagues?.includes(id);
                 })
                 .map(([id, comp]) => ({ id, name: comp.name! }));
@@ -58,18 +64,26 @@ const ManageTeams: React.FC = () => {
             const sortedList = compList.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             setCompetitions(sortedList);
 
-            // Determine active competition
+            // 2. Resolve Active Hub
             let activeId = selectedCompId;
             if ((!activeId || !allComps[activeId]) && sortedList.length > 0) {
                 activeId = sortedList[0].id;
                 setSelectedCompId(activeId);
             }
 
+            // 3. PERFORM GLOBAL RECONCILIATION FOR ACTIVE HUB
             if (activeId && allComps[activeId]) {
-                const teamList = (allComps[activeId].teams || [])
-                    .filter(t => t && t.name)
-                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-                setTeams(teamList);
+                // Aggregating ALL possible matches for this hub's teams
+                const hubMatches = [
+                    ...(allComps[activeId].fixtures || []), 
+                    ...(allComps[activeId].results || []),
+                    ...standaloneMatches
+                ];
+                
+                // Mirror the Roster: This ensures Discovered players appear in the Admin list.
+                const reconciledTeams = reconcilePlayers(allComps[activeId].teams || [], hubMatches);
+                
+                setTeams(reconciledTeams.sort((a, b) => a.name.localeCompare(b.name)));
             } else {
                 setTeams([]);
             }
@@ -86,14 +100,7 @@ const ManageTeams: React.FC = () => {
 
     const handleCompChange = (compId: string) => {
         setSelectedCompId(compId);
-        if (allCompsData[compId]) {
-            const teamList = (allCompsData[compId].teams || [])
-                .filter(t => t && t.name)
-                .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-            setTeams(teamList);
-        } else {
-            setTeams([]);
-        }
+        // data will be re-reconciled by the useEffect dependency on selectedCompId
     };
 
     const handleAddNew = () => {
@@ -126,6 +133,7 @@ const ManageTeams: React.FC = () => {
         const compDocRef = doc(db, 'competitions', selectedCompId);
         try {
             await runTransaction(db, async (transaction) => {
+                // Fix: Changed docRef to compDocRef
                 const compDocSnap = await transaction.get(compDocRef);
                 if (!compDocSnap.exists()) throw new Error("Competition not found");
                 const competition = compDocSnap.data() as Competition;
@@ -169,6 +177,7 @@ const ManageTeams: React.FC = () => {
 
             if (id) {
                 await runTransaction(db, async (transaction) => {
+                    // Fix: Changed docRef to compDocRef
                     const compDocSnap = await transaction.get(compDocRef);
                     if (!compDocSnap.exists()) throw new Error("Competition not found");
                     const competition = compDocSnap.data() as Competition;
@@ -205,6 +214,7 @@ const ManageTeams: React.FC = () => {
             } else {
                 // New Team Creation
                 await runTransaction(db, async (transaction) => {
+                    // Fix: Changed docRef to compDocRef
                     const compDocSnap = await transaction.get(compDocRef);
                     if (!compDocSnap.exists()) throw new Error("Competition not found");
                     const competition = compDocSnap.data() as Competition;
@@ -303,7 +313,7 @@ const ManageTeams: React.FC = () => {
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => handleManageSchedule(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Schedule"><CalendarIcon className="w-5 h-5 text-white"/></button>
                                         <button onClick={() => handleManageRoster(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Roster"><UsersIcon className="w-5 h-5 text-white"/></button>
-                                        <button onClick={() => handleEdit(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Edit"><PencilIcon className="w-4 h-4 text-white"/></button>
+                                        <button onClick={() => handleEdit(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Edit"><PencilIcon className="w-5 h-5 text-white"/></button>
                                         <button onClick={() => handleDelete(team.id)} disabled={processingId === team.id} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm" title="Delete">
                                             {processingId === team.id ? <Spinner className="w-5 h-5 border-white border-2" /> : <TrashIcon className="w-5 h-5 text-white" />}
                                         </button>

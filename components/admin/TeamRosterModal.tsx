@@ -49,16 +49,10 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
         
         // Manual baseline comes from baseStats
         const source = player.baseStats || {
-            appearances: 0,
-            goals: 0,
-            assists: 0,
-            yellowCards: 0,
-            redCards: 0,
-            cleanSheets: 0,
-            potmWins: 0
+            appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0
         };
 
-        // Live totals come from stats (reconciled by parent)
+        // Live totals come from stats (reconciled by parent before opening modal)
         setCurrentTotals(player.stats || null);
 
         setFormData({
@@ -170,8 +164,8 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             number: parseInt(formData.number, 10) || 0,
             photoUrl: formData.photoUrl,
             bio: { nationality: formData.nationality || 'Eswatini', age: parseInt(formData.age, 10) || 0, height: formData.height || '-' },
-            baseStats: manualBaseline, // Saved as baseline
-            stats: manualBaseline,      // Initial display total
+            baseStats: manualBaseline,
+            stats: manualBaseline, // Initial total, will be reconciled on next load
             transferHistory: transferHistory,
         };
         
@@ -185,8 +179,8 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
     const inputClass = "block w-full px-4 py-3 border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm outline-none bg-white transition-all";
 
     return (
-        <div className="fixed inset-0 bg-slate-900/90 z-[300] flex items-center justify-center p-0 lg:p-4 overflow-y-auto animate-fade-in" onClick={onClose}>
-            <Card className="w-full max-w-5xl min-h-screen lg:min-h-0 lg:rounded-[2.5rem] relative animate-slide-up flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 z-[300] flex items-center justify-center p-0 lg:p-4 overflow-y-auto animate-fade-in" onClick={onClose}>
+            <Card className="w-full max-w-5xl min-h-screen lg:min-h-0 lg:rounded-[2.5rem] relative animate-slide-up flex flex-col bg-white" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 z-50 bg-white/10 rounded-full p-2"><XIcon className="w-6 h-6" /></button>
                 <CardContent className="p-6 lg:p-12 flex-grow overflow-y-auto lg:overflow-visible">
                     <div className="mb-8">
@@ -265,7 +259,7 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
                                             {currentTotals && (
                                                 <div className="bg-slate-900 p-6 rounded-3xl text-white shadow-2xl relative overflow-hidden">
                                                     <div className="absolute top-0 right-0 p-6 opacity-10"><BarChartIcon className="w-24 h-24" /></div>
-                                                    <p className="text-[10px] font-black uppercase text-accent tracking-[0.3em] mb-4">Total Verified Stats (Matches + Baseline)</p>
+                                                    <p className="text-[10px] font-black uppercase text-accent tracking-[0.3em] mb-4">Total Verified Stats (System Wide + Baseline)</p>
                                                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
                                                         <div className="text-center">
                                                             <p className="text-2xl font-black">{currentTotals.appearances}</p>
@@ -299,7 +293,7 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
                                                 <InfoIcon className="w-6 h-6 text-blue-600 mt-1" />
                                                 <div>
                                                     <p className="text-sm text-blue-800 font-bold uppercase tracking-tight">Manual / Historical Baseline</p>
-                                                    <p className="text-xs text-blue-700 leading-relaxed mt-1">Use these fields to set a starting point (e.g. goals from previous years). Matches currently in the system will be added to these baselines automatically.</p>
+                                                    <p className="text-xs text-blue-700 leading-relaxed mt-1">Set a starting point (e.g. legacy goals). Match events from ALL competition hubs are automatically added to these baselines.</p>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-6">
