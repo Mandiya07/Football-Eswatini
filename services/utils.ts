@@ -1,3 +1,4 @@
+
 import { Team, CompetitionFixture, MatchEvent, Player, PlayerStats } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 
@@ -64,66 +65,50 @@ export const findInMap = (name: string, map: Map<string, DirectoryEntity>): Dire
 };
 
 /**
- * MASTER PLAYER RECONCILIATION ENGINE (v12.0 - ADDITIVE PERSISTENCE)
- * This engine guarantees that every manually added player is kept, 
- * while match events are used to calculate their live stats.
+ * MASTER PLAYER RECONCILIATION ENGINE (v14.0 - CONTEXT AWARE)
+ * @param mode 'career' (includes manual baselines) or 'competition' (purely from match logs)
  */
-export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixture[]): Team[] => {
+export const reconcilePlayers = (
+    baseTeams: Team[], 
+    allMatches: CompetitionFixture[], 
+    mode: 'career' | 'competition' = 'career'
+): Team[] => {
     const teamsMap = new Map<string, Team>();
     
-    // 1. INITIALIZE TEAMS FROM ALL SOURCES
+    // 1. INITIALIZE TEAMS & ROSTERS
     baseTeams.forEach(incoming => {
         const normName = superNormalize(incoming.name);
-        let masterTeam = teamsMap.get(normName);
-        if (!masterTeam) {
-            masterTeam = JSON.parse(JSON.stringify(incoming));
-            teamsMap.set(normName, masterTeam!);
-        } else {
-            // Restore rich data (Bios/Photos)
-            if (incoming.crestUrl && !masterTeam.crestUrl?.includes('api.dicebear')) masterTeam.crestUrl = incoming.crestUrl;
+        if (!teamsMap.has(normName)) {
+            const masterTeam = JSON.parse(JSON.stringify(incoming)) as Team;
             
-            (incoming.players || []).forEach(newP => {
-                const existingIdx = masterTeam!.players.findIndex(p => p.id === newP.id || superNormalize(p.name) === superNormalize(newP.name));
-                if (existingIdx === -1) {
-                    masterTeam!.players.push(newP);
-                } else {
-                    // Update metadata for existing players (keep photos, etc.)
-                    const p = masterTeam!.players[existingIdx];
-                    if (newP.photoUrl && (!p.photoUrl || p.photoUrl.includes('dicebear'))) p.photoUrl = newP.photoUrl;
-                    if (newP.bio?.age && !p.bio?.age) p.bio = newP.bio;
-                }
+            // Reset stats for calculation
+            masterTeam.players = (masterTeam.players || []).map(p => {
+                // If competition mode, start from zero. If career mode, start from baseStats.
+                const base = mode === 'competition' ? null : p.baseStats;
+                return {
+                    ...p,
+                    stats: { 
+                        appearances: Number(base?.appearances || 0),
+                        goals: Number(base?.goals || 0),
+                        assists: Number(base?.assists || 0),
+                        yellowCards: Number(base?.yellowCards || 0),
+                        redCards: Number(base?.redCards || 0),
+                        cleanSheets: Number(base?.cleanSheets || 0),
+                        potmWins: Number(base?.potmWins || 0)
+                    }
+                };
             });
+            teamsMap.set(normName, masterTeam);
         }
-    });
-
-    // 2. PREPARE STATS (Reset for calculation but KEEP manual baselines)
-    teamsMap.forEach(team => {
-        team.players = (team.players || []).map(p => {
-            const base = p.baseStats || { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 };
-            return {
-                ...p,
-                stats: { 
-                    appearances: Number(base.appearances || 0),
-                    goals: Number(base.goals || 0),
-                    assists: Number(base.assists || 0),
-                    yellowCards: Number(base.yellowCards || 0),
-                    redCards: Number(base.redCards || 0),
-                    cleanSheets: Number(base.cleanSheets || 0),
-                    potmWins: Number(base.potmWins || 0)
-                }
-            };
-        });
     });
 
     const playerMatchRegistry = new Map<number, Set<string>>();
 
-    // Helper to find or STABLY CREATE a discovered player
+    // Robust Player Finder: Matches by ID or Normalized Name
     const getOrCreatePlayer = (team: Team, playerName?: string, playerID?: number): Player | null => {
         if (!playerName && !playerID) return null;
         const normName = playerName ? superNormalize(playerName) : '';
         
-        // Priority 1: Match by ID
-        // Priority 2: Match by Normalized Name
         let p = team.players.find(tp => 
             (playerID && tp.id === playerID) || 
             (normName && superNormalize(tp.name) === normName)
@@ -147,20 +132,24 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
         return p!;
     };
 
-    // 3. SCAN ALL UNIQUE MATCH LOGS
+    // 2. FILTER UNIQUE MATCHES (Most recent status takes precedence)
     const uniqueMatches = new Map<string, CompetitionFixture>();
     allMatches.forEach(m => {
         const sortedTeams = [superNormalize(m.teamA), superNormalize(m.teamB)].sort();
         const key = `${sortedTeams[0]}-${sortedTeams[1]}-${m.fullDate || m.date}`;
-        if (!uniqueMatches.has(key) || m.status === 'finished') uniqueMatches.set(key, m);
+        // If we see the same match again, prefer the 'finished' or 'live' version over 'scheduled'
+        if (!uniqueMatches.has(key) || m.status === 'finished' || (m.status === 'live' && uniqueMatches.get(key)?.status !== 'finished')) {
+            uniqueMatches.set(key, m);
+        }
     });
 
+    // 3. AGGREGATE EVENTS
     uniqueMatches.forEach(match => {
         const matchKey = `${superNormalize(match.teamA)}-${superNormalize(match.teamB)}-${match.fullDate || match.date}`;
         const teamA = teamsMap.get(superNormalize(match.teamA));
         const teamB = teamsMap.get(superNormalize(match.teamB));
 
-        // Lineups
+        // Lineups Attribution
         ['teamA', 'teamB'].forEach(side => {
             const t = side === 'teamA' ? teamA : teamB;
             const scoreAgainst = side === 'teamA' ? (match.scoreB || 0) : (match.scoreA || 0);
@@ -184,14 +173,27 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
             });
         });
 
-        // Events
+        // Event-Based Attribution (Goals, Cards)
         if (match.events) {
             match.events.forEach(e => {
-                const t = teamsMap.get(superNormalize(e.teamName || ''));
+                const type = String(e.type || '').toLowerCase();
+                if (!type || type === 'info') return;
+
+                // ATTRUBUTION HEURISTIC:
+                // 1. Try provided teamName
+                // 2. If missing/invalid, check which team the player belongs to
+                let t = teamsMap.get(superNormalize(e.teamName || ''));
+                
+                if (!t && teamA && teamB) {
+                    const normSearch = e.playerName ? superNormalize(e.playerName) : '';
+                    const inA = teamA.players.some(p => (e.playerID && p.id === e.playerID) || (normSearch && superNormalize(p.name) === normSearch));
+                    t = inA ? teamA : teamB;
+                }
+
                 if (!t) return;
+
                 const p = getOrCreatePlayer(t, e.playerName, e.playerID);
                 if (p) {
-                    const type = String(e.type || '').toLowerCase();
                     if (type === 'goal') p.stats.goals += 1;
                     if (type === 'assist') p.stats.assists += 1;
                     if (type.includes('yellow')) p.stats.yellowCards = (p.stats.yellowCards || 0) + 1;
@@ -200,9 +202,14 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
             });
         }
 
-        // POTM
+        // MVP Attribution
         if (match.playerOfTheMatch) {
-            const t = teamsMap.get(superNormalize(match.playerOfTheMatch.teamName));
+            let t = teamsMap.get(superNormalize(match.playerOfTheMatch.teamName || ''));
+            if (!t && teamA && teamB) {
+                const normSearch = superNormalize(match.playerOfTheMatch.name);
+                const inA = teamA.players.some(p => (match.playerOfTheMatch?.playerID && p.id === match.playerOfTheMatch.playerID) || superNormalize(p.name) === normSearch);
+                t = inA ? teamA : teamB;
+            }
             if (t) {
                 const p = getOrCreatePlayer(t, match.playerOfTheMatch.name, match.playerOfTheMatch.playerID);
                 if (p) p.stats.potmWins = (p.stats.potmWins || 0) + 1;
@@ -214,8 +221,10 @@ export const reconcilePlayers = (baseTeams: Team[], allMatches: CompetitionFixtu
 };
 
 export const aggregateGoalsFromEvents = (fixtures: CompetitionFixture[] = [], results: CompetitionFixture[] = [], teams: Team[] = []): ScorerRecord[] => {
-    const reconciledTeams = reconcilePlayers(teams, [...fixtures, ...results]);
+    // CRITICAL: Force 'competition' mode to ensure Golden Boot is season-specific, not career-total.
+    const reconciledTeams = reconcilePlayers(teams, [...fixtures, ...results], 'competition');
     const scorers: ScorerRecord[] = [];
+    
     reconciledTeams.forEach(t => {
         t.players?.forEach(p => {
             if (p.stats && (p.stats.goals > 0 || (p.stats.potmWins || 0) > 0)) {
@@ -231,6 +240,8 @@ export const aggregateGoalsFromEvents = (fixtures: CompetitionFixture[] = [], re
             }
         });
     });
+    
+    // Sort primarily by goals, then by potm/score tiebreaker
     return scorers.sort((a, b) => (b.goals !== a.goals) ? b.goals - a.goals : b.score - a.score);
 };
 
@@ -304,10 +315,6 @@ export const compressImage = (file: File, maxWidth: number, quality: number): Pr
     });
 };
 
-/**
- * RE-RECONCILIATION HELPER: RENAME TEAM IN MATCH RECORDS
- * Fix: Implemented renameTeamInMatches to resolve import error in ManageTeams.tsx
- */
 export const renameTeamInMatches = (matches: CompetitionFixture[], oldName: string, newName: string): CompetitionFixture[] => {
     const normOld = superNormalize(oldName);
     return (matches || []).map(m => {
@@ -318,10 +325,6 @@ export const renameTeamInMatches = (matches: CompetitionFixture[], oldName: stri
     });
 };
 
-/**
- * GROUP-STAGE STANDINGS CALCULATOR
- * Fix: Implemented calculateGroupStandings to resolve import error in TournamentView.tsx
- */
 export const calculateGroupStandings = (teams: Team[], matches: CompetitionFixture[]): Team[] => {
     const groupTeamNames = new Set(teams.map(t => superNormalize(t.name)));
     const groupMatches = (matches || []).filter(m => 
