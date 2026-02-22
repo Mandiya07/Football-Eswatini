@@ -34,6 +34,7 @@ export const db = initializeFirestore(app, {
   ssl: true,
   experimentalForceLongPolling: true,
   experimentalAutoDetectLongPolling: false,
-  useFetchStreams: false,
-  ignoreUndefinedProperties: true
-});
+  ignoreUndefinedProperties: true,
+  // @ts-ignore - useFetchStreams is valid but might not be in the current type definition
+  useFetchStreams: false
+} as any);

@@ -1,11 +1,11 @@
 {
-  "name": "Football Eswatini News",
-  "short_name": "FE News",
-  "description": "A modern, responsive web application displaying the latest football news, fixtures, league logs, and special features for Football Eswatini.",
-  "start_url": ".",
+  "name": "Football Eswatini",
+  "short_name": "Football ESW",
+  "description": "The official digital home of Eswatini Football. News, fixtures, logs and more.",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e40af",
-  "theme_color": "#1e40af",
+  "background_color": "#002B7F",
+  "theme_color": "#002B7F",
   "icons": [
     {
       "src": "assets/icon-192.png",

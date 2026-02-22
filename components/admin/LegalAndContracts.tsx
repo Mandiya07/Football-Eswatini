@@ -332,7 +332,7 @@ const DocumentRenderer: React.FC<{ type: DocType; fields: FormFields }> = ({ typ
                             <p className="mt-12">Yours Sincerely,</p>
                             <div className="mt-2">
                                 <p className="font-black text-primary">Communications Department</p>
-                                <p className="text-gray-500 font-medium italic">Football Eswatini News Platform</p>
+                                <p className="text-gray-500 font-medium italic">Football Eswatini Platform</p>
                             </div>
                         </div>
                     </div>

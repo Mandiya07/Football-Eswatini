@@ -12,7 +12,7 @@ const About: React.FC = () => {
                     </h1>
                     <div className="space-y-6 text-gray-700 leading-relaxed">
                         <p>
-                            <strong>Football Eswatini News</strong> is the premier online destination for everything related to football in the Kingdom of Eswatini. We are a passionate team of journalists, analysts, and football enthusiasts dedicated to providing timely, accurate, and engaging coverage of the beautiful game in our nation.
+                            <strong>Football Eswatini</strong> is the premier online destination for everything related to football in the Kingdom of Eswatini. We are a passionate team of journalists, analysts, and football enthusiasts dedicated to providing timely, accurate, and engaging coverage of the beautiful game in our nation.
                         </p>
                         <h2 className="text-2xl font-bold font-display text-blue-700 pt-4 border-t border-gray-200">
                             Our Mission

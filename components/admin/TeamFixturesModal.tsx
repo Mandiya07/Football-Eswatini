@@ -94,7 +94,7 @@ const TeamFixturesModal: React.FC<TeamFixturesModalProps> = ({ isOpen, onClose, 
         }
     };
 
-    const handleDeleteFixture = async (id: number) => {
+    const handleDeleteFixture = async (id: number | string) => {
         if (!window.confirm("Delete this fixture?")) return;
         setIsSubmitting(true);
         try {

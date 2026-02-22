@@ -65,7 +65,7 @@ self.addEventListener('push', event => {
     const data = event.data.json();
     console.log('Push received:', data);
 
-    const title = data.title || 'Football Eswatini News';
+    const title = data.title || 'Football Eswatini';
     const options = {
       body: data.body || 'Something new happened!',
       icon: 'assets/icon-192.png',

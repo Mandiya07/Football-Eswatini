@@ -41,7 +41,7 @@ const PredictionResult: React.FC<{ match: PredictableMatch }> = ({ match }) => {
     );
 };
 
-const PredictionButtons: React.FC<{ match: PredictableMatch; onPredict: (matchId: number, prediction: 'teamA' | 'draw' | 'teamB') => void }> = ({ match, onPredict }) => {
+const PredictionButtons: React.FC<{ match: PredictableMatch; onPredict: (matchId: number | string, prediction: 'teamA' | 'draw' | 'teamB') => void }> = ({ match, onPredict }) => {
     return (
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <Button 
@@ -87,7 +87,7 @@ const MatchPredictor: React.FC = () => {
         loadMatches();
     }, []);
 
-    const handlePrediction = (matchId: number, prediction: 'teamA' | 'draw' | 'teamB') => {
+    const handlePrediction = (matchId: number | string, prediction: 'teamA' | 'draw' | 'teamB') => {
         setMatches(prev => prev.map(m => 
             m.id === matchId ? { ...m, userPrediction: prediction, isSimulating: true } : m
         ));

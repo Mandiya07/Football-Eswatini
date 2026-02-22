@@ -65,11 +65,16 @@ const LiveUpdatesPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'live' | 'upcoming' | 'results'>('live');
     const [expandedMatches, setExpandedMatches] = useState<Set<string | number>>(new Set());
+    const [notifiedMatches, setNotifiedMatches] = useState<Set<string | number>>(new Set());
     
     const emptyMap = useMemo(() => new Map<string, DirectoryEntity>(), []);
 
     useEffect(() => {
         setLoading(true);
+        // Load notified matches from local storage
+        const saved = localStorage.getItem('notified_matches');
+        if (saved) setNotifiedMatches(new Set(JSON.parse(saved)));
+
         const unsubscribeComps = listenToAllCompetitions((allCompetitions) => {
             const active: { fixture: CompetitionFixture, competitionName: string, competitionId: string }[] = [];
             const upcoming: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
@@ -124,6 +129,21 @@ const LiveUpdatesPage: React.FC = () => {
         if (next.has(id)) next.delete(id);
         else next.add(id);
         setExpandedMatches(next);
+    };
+
+    const toggleNotification = (id: string | number) => {
+        const next = new Set(notifiedMatches);
+        if (next.has(id)) {
+            next.delete(id);
+        } else {
+            if (Notification.permission !== 'granted') {
+                alert('Please enable notifications in the "Live Alerts" section or your browser settings.');
+                return;
+            }
+            next.add(id);
+        }
+        setNotifiedMatches(next);
+        localStorage.setItem('notified_matches', JSON.stringify(Array.from(next)));
     };
 
     const liveMatches = useMemo(() => {
@@ -264,6 +284,15 @@ const LiveUpdatesPage: React.FC = () => {
                                 {upcomingMatches.length > 0 ? upcomingMatches.map(({ fixture, competitionId, competitionName }) => (
                                     <div key={`${competitionId}-${fixture.id}`} className="group bg-white rounded-3xl p-2 border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 relative">
                                         <div className="absolute top-0 right-8 z-10 bg-blue-600 text-white text-[10px] font-black px-3 py-1 rounded-b-xl shadow-lg uppercase tracking-widest">{competitionName}</div>
+                                        <div className="absolute bottom-4 right-4 z-10">
+                                            <button 
+                                                onClick={() => toggleNotification(fixture.id)}
+                                                className={`p-2 rounded-full transition-all ${notifiedMatches.has(fixture.id) ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400 hover:bg-primary/10 hover:text-primary'}`}
+                                                title={notifiedMatches.has(fixture.id) ? 'Alerts Enabled' : 'Notify Me'}
+                                            >
+                                                {notifiedMatches.has(fixture.id) ? <CheckCircleIcon className="w-5 h-5" /> : <BellIcon className="w-5 h-5" />}
+                                            </button>
+                                        </div>
                                         <FixtureItem fixture={fixture} isExpanded={false} onToggleDetails={() => {}} teams={[]} onDeleteFixture={() => {}} isDeleting={false} directoryMap={emptyMap} competitionId={competitionId} />
                                     </div>
                                 )) : <p className="text-center text-gray-500 py-12">No upcoming matches scheduled.</p>}

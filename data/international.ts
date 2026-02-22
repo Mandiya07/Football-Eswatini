@@ -27,6 +27,152 @@ export interface HybridTournament {
 
 export const internationalData: HybridTournament[] = [
     {
+        id: 'caf-confederations-cup',
+        name: 'CAF Confederations Cup 2025/26',
+        description: "Africa's secondary club competition. Follow the journey of the continent's elite clubs through the group stages to the knockout finals.",
+        logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/0/05/CAF_Confederation_Cup_%282024%29.svg/1200px-CAF_Confederation_Cup_%282024%29.svg.png',
+        type: 'hybrid',
+        categoryId: 'international-leagues',
+        teams: [
+            { name: 'USM Alger', crestUrl: 'https://via.placeholder.com/64/CC0000/FFFFFF?text=USM' },
+            { name: 'Olympic Safi', crestUrl: 'https://via.placeholder.com/64/0000FF/FFFFFF?text=OCS' },
+            { name: 'Djoliba AC', crestUrl: 'https://via.placeholder.com/64/FF0000/FFFF00?text=DAC' },
+            { name: 'FC San Pedro', crestUrl: 'https://via.placeholder.com/64/FFA500/000000?text=FCS' },
+            { name: 'Maniema Union', crestUrl: 'https://via.placeholder.com/64/FFFF00/000000?text=MUN' },
+            { name: 'Nairobi United', crestUrl: 'https://via.placeholder.com/64/008000/FFFFFF?text=NUN' },
+            { name: 'Wydad Casablanca', crestUrl: 'https://via.placeholder.com/64/FF0000/FFFFFF?text=WAC' },
+            { name: 'Azam FC', crestUrl: 'https://via.placeholder.com/64/00008B/FFFFFF?text=AZM' },
+            { name: 'CR Belouizdad', crestUrl: 'https://via.placeholder.com/64/FF0000/FFFFFF?text=CRB' },
+            { name: 'AS Otohô', crestUrl: 'https://via.placeholder.com/64/0000FF/FFFFFF?text=ASO' },
+            { name: 'Stellenbosch', crestUrl: 'https://via.placeholder.com/64/800000/FFFFFF?text=SFC' },
+            { name: 'Singida Black Stars SC', crestUrl: 'https://via.placeholder.com/64/000000/FFFFFF?text=SBS' },
+            { name: 'Al-Masry', crestUrl: 'https://via.placeholder.com/64/008000/FFFFFF?text=ALM' },
+            { name: 'ZESCO United', crestUrl: 'https://via.placeholder.com/64/FFA500/000000?text=ZES' },
+            { name: 'Zamalek SC', crestUrl: 'https://via.placeholder.com/64/FFFFFF/FF0000?text=ZAM' },
+            { name: 'Kaizer Chiefs', crestUrl: 'https://via.placeholder.com/64/FFD700/000000?text=KZC' }
+        ],
+        groups: [
+            { name: 'Group A', teamNames: ['USM Alger', 'Olympic Safi', 'Djoliba AC', 'FC San Pedro'] },
+            { name: 'Group B', teamNames: ['Maniema Union', 'Nairobi United', 'Wydad Casablanca', 'Azam FC'] },
+            { name: 'Group C', teamNames: ['CR Belouizdad', 'AS Otohô', 'Stellenbosch', 'Singida Black Stars SC'] },
+            { name: 'Group D', teamNames: ['Al-Masry', 'ZESCO United', 'Zamalek SC', 'Kaizer Chiefs'] }
+        ],
+        matches: [
+            {
+                id: 'caf-match-1',
+                teamA: 'Al-Masry',
+                teamB: 'ZESCO United',
+                scoreA: 2,
+                scoreB: 0,
+                fullDate: '2026-02-14',
+                date: '14',
+                day: 'SAT',
+                time: '18:00',
+                status: 'finished',
+                matchday: 6,
+                venue: 'Port Said Stadium'
+            },
+            {
+                id: 'caf-match-2',
+                teamA: 'Zamalek SC',
+                teamB: 'Kaizer Chiefs',
+                scoreA: 2,
+                scoreB: 1,
+                fullDate: '2026-02-14',
+                date: '14',
+                day: 'SAT',
+                time: '20:00',
+                status: 'finished',
+                matchday: 6,
+                venue: 'Cairo International Stadium'
+            },
+            {
+                id: 'caf-match-3',
+                teamA: 'USM Alger',
+                teamB: 'Olympic Safi',
+                scoreA: 0,
+                scoreB: 0,
+                fullDate: '2026-02-14',
+                date: '14',
+                day: 'SAT',
+                time: '19:00',
+                status: 'finished',
+                matchday: 6,
+                venue: 'Stade Omar Hamadi'
+            },
+            {
+                id: 'caf-match-4',
+                teamA: 'Maniema Union',
+                teamB: 'Nairobi United',
+                scoreA: 3,
+                scoreB: 0,
+                fullDate: '2026-02-15',
+                date: '15',
+                day: 'SUN',
+                time: '15:00',
+                status: 'finished',
+                matchday: 6,
+                venue: 'Stade Joseph Kabila'
+            },
+            {
+                id: 'caf-match-5',
+                teamA: 'Wydad Casablanca',
+                teamB: 'Azam FC',
+                scoreA: 2,
+                scoreB: 0,
+                fullDate: '2026-02-15',
+                date: '15',
+                day: 'SUN',
+                time: '19:00',
+                status: 'finished',
+                matchday: 6,
+                venue: 'Stade Mohamed V'
+            },
+            {
+                id: 'caf-match-6',
+                teamA: 'Djoliba AC',
+                teamB: 'FC San Pedro',
+                scoreA: 4,
+                scoreB: 0,
+                fullDate: '2026-02-15',
+                date: '15',
+                day: 'SUN',
+                time: '16:00',
+                status: 'finished',
+                matchday: 6,
+                venue: 'Stade Modibo Kéïta'
+            },
+            {
+                id: 'caf-match-7',
+                teamA: 'CR Belouizdad',
+                teamB: 'AS Otohô',
+                scoreA: 2,
+                scoreB: 1,
+                fullDate: '2026-02-15',
+                date: '15',
+                day: 'SUN',
+                time: '20:00',
+                status: 'finished',
+                matchday: 6,
+                venue: 'Stade du 5 Juillet'
+            },
+            {
+                id: 'caf-match-8',
+                teamA: 'Stellenbosch',
+                teamB: 'Singida Black Stars SC',
+                scoreA: 0,
+                scoreB: 0,
+                fullDate: '2026-02-15',
+                date: '15',
+                day: 'SUN',
+                time: '15:30',
+                status: 'finished',
+                matchday: 6,
+                venue: 'Danie Craven Stadium'
+            }
+        ]
+    },
+    {
         id: 'uefa-champions-league',
         name: 'UEFA Champions League 2025-26',
         description: "The new 36-team league phase. All clubs are ranked in a single league table. Each team plays 8 matches against 8 different opponents to determine who advances to the knockout rounds.",
@@ -82,7 +228,14 @@ export const internationalData: HybridTournament[] = [
                 ] 
             }
         ],
-        matches: []
+        matches: [
+            { id: 'ucl-m1', teamA: 'Manchester City', teamB: 'Inter Milan', scoreA: 0, scoreB: 0, fullDate: '2025-09-18', date: '18', day: 'WED', time: '21:00', status: 'finished', matchday: 1 },
+            { id: 'ucl-m2', teamA: 'Real Madrid', teamB: 'VfB Stuttgart', scoreA: 3, scoreB: 1, fullDate: '2025-09-17', date: '17', day: 'TUE', time: '21:00', status: 'finished', matchday: 1 },
+            { id: 'ucl-m3', teamA: 'AC Milan', teamB: 'Liverpool', scoreA: 1, scoreB: 3, fullDate: '2025-09-17', date: '17', day: 'TUE', time: '21:00', status: 'finished', matchday: 1 },
+            { id: 'ucl-m4', teamA: 'Arsenal', teamB: 'Paris Saint-Germain', scoreA: 2, scoreB: 0, fullDate: '2025-10-01', date: '01', day: 'WED', time: '21:00', status: 'finished', matchday: 2 },
+            { id: 'ucl-m5', teamA: 'Barcelona', teamB: 'Bayern München', scoreA: 4, scoreB: 1, fullDate: '2025-10-23', date: '23', day: 'WED', time: '21:00', status: 'finished', matchday: 3 },
+            { id: 'ucl-m6', teamA: 'Liverpool', teamB: 'Bayer Leverkusen', scoreA: 4, scoreB: 0, fullDate: '2025-11-05', date: '05', day: 'WED', time: '21:00', status: 'finished', matchday: 4 }
+        ]
     }
 ];
 
@@ -109,7 +262,9 @@ export const youthHybridData: HybridTournament[] = [
             { name: 'Manzini Region', teamNames: ['Sifundzani High School', 'Salesian High School', 'Manzini Nazarene High'] },
             { name: 'Southern Regions', teamNames: ['Evelyn Baring High', 'St. Francis High'] }
         ],
-        matches: [],
+        matches: [
+            { id: 'school-m1', teamA: 'Waterford Kamhlaba', teamB: 'Mbabane Central High', scoreA: 2, scoreB: 1, fullDate: '2025-10-10', date: '10', day: 'FRI', time: '14:00', status: 'finished', matchday: 1 }
+        ],
         bracketId: 'instacash-schools-tournament'
     },
     {
@@ -131,6 +286,8 @@ export const youthHybridData: HybridTournament[] = [
             { name: 'Pool A', teamNames: ['Mbabane Future Stars', 'Siteki Pros U-13', 'Eagles Nest Academy'] },
             { name: 'Pool B', teamNames: ['Manzini Youngsters', 'Nhlangano Football Kids', 'Simunye Colts'] }
         ],
-        matches: []
+        matches: [
+            { id: 'u13-m1', teamA: 'Mbabane Future Stars', teamB: 'Siteki Pros U-13', scoreA: 1, scoreB: 1, fullDate: '2025-11-20', date: '20', day: 'THU', time: '09:00', status: 'finished', matchday: 1 }
+        ]
     }
 ];

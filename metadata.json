@@ -1,5 +1,5 @@
 {
-  "name": "Football Eswatini News",
+  "name": "Football Eswatini",
   "description": "A modern, responsive web application displaying the latest football news, fixtures, league logs, and special features for Football Eswatini.",
   "requestFramePermissions": [
     "camera",

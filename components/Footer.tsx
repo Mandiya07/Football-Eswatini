@@ -88,8 +88,8 @@ const Footer: React.FC = () => {
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-white/30 font-black uppercase tracking-widest">
             <p>&copy; {new Date().getFullYear()} Football Eswatini. All Rights Reserved.</p>
             <div className="flex gap-6">
-                <Link to="/about" className="hover:text-white transition-colors">Privacy</Link>
-                <Link to="/about" className="hover:text-white transition-colors">Terms</Link>
+                <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+                <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
             </div>
         </div>
       </div>

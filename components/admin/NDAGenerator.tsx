@@ -123,7 +123,7 @@ const NDAGenerator: React.FC = () => {
                     </p>
 
                     <p>
-                        <strong>Football Eswatini News (App)</strong>, represented by its administration/owners, with its principal place of business in Eswatini (hereinafter referred to as the "Disclosing Party");
+                        <strong>Football Eswatini (App)</strong>, represented by its administration/owners, with its principal place of business in Eswatini (hereinafter referred to as the "Disclosing Party");
                     </p>
 
                     <p style={{ textAlign: 'center', fontWeight: 'bold', margin: '10px 0' }}>AND</p>

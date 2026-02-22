@@ -200,7 +200,7 @@ const EWFAPartnershipPage: React.FC = () => {
                 </div>
 
                 <footer className="mt-20 pt-10 border-t border-gray-200 text-center text-[10px] font-black uppercase text-gray-400 tracking-widest">
-                    Football Eswatini News Digital Platform &copy; 2024
+                    Football Eswatini Digital Platform &copy; 2024
                 </footer>
             </div>
         </div>

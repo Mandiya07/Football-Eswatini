@@ -9,6 +9,12 @@ const PushNotificationsManager: React.FC = () => {
     const [permission, setPermission] = useState<NotificationPermission>('default');
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [subscription, setSubscription] = useState<PushSubscription | null>(null);
+    const [preferences, setPreferences] = useState({
+        goals: true,
+        results: true,
+        news: true,
+        transfers: false
+    });
 
     useEffect(() => {
         if (!('Notification' in window) || !('serviceWorker' in navigator)) {
@@ -26,7 +32,18 @@ const PushNotificationsManager: React.FC = () => {
             });
         });
 
+        // Load preferences from local storage
+        const savedPrefs = localStorage.getItem('notification_preferences');
+        if (savedPrefs) {
+            setPreferences(JSON.parse(savedPrefs));
+        }
     }, []);
+
+    const savePreferences = (newPrefs: typeof preferences) => {
+        setPreferences(newPrefs);
+        localStorage.setItem('notification_preferences', JSON.stringify(newPrefs));
+        // In a real app, you would also update this on your backend
+    };
 
     const requestPermissionAndSubscribe = async () => {
         if (!('Notification' in window)) {
@@ -45,14 +62,21 @@ const PushNotificationsManager: React.FC = () => {
     const subscribeUser = async () => {
         try {
             const registration = await navigator.serviceWorker.ready;
-            // In a real app, a VAPID public key from your server would be required here.
+            // In a real app, you would use a VAPID public key here
+            // const vapidPublicKey = '...';
+            // const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+            
             const sub = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
+                // applicationServerKey: convertedVapidKey
             });
+            
             console.log('User is subscribed:', sub);
             setIsSubscribed(true);
             setSubscription(sub);
-            // In a real app, you would send this 'sub' object to your backend to store.
+            
+            // MOCK: Send subscription to backend
+            console.log('Sending subscription to backend...', sub);
         } catch (error) {
             console.error('Failed to subscribe the user: ', error);
         }
@@ -60,55 +84,93 @@ const PushNotificationsManager: React.FC = () => {
     
     const sendTestNotification = () => {
         navigator.serviceWorker.ready.then(registration => {
-            registration.showNotification('Test Notification!', {
-                body: 'If you see this, notifications are working.',
-                icon: '/assets/icon-192.png'
+            registration.showNotification('Sihlangu Hub Alert!', {
+                body: 'Goal! Mbabane Swallows 1 - 0 Young Buffaloes (15\')',
+                icon: '/assets/icon-192.png',
+                badge: '/assets/icon-192.png',
+                vibrate: [200, 100, 200],
+                tag: 'goal-alert',
+                data: {
+                    url: '/live-updates'
+                }
             });
         });
     }
 
+    const togglePreference = (key: keyof typeof preferences) => {
+        savePreferences({ ...preferences, [key]: !preferences[key] });
+    };
+
     const renderContent = () => {
         if (permission === 'denied') {
             return (
-                <div className="flex items-center gap-2 text-red-700 text-sm">
-                    <XCircleIcon className="w-5 h-5" />
+                <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl border border-red-100">
+                    <XCircleIcon className="w-6 h-6 text-red-600" />
                     <div>
-                        <p className="font-semibold">Notifications Blocked</p>
-                        <p className="text-xs">Please enable them in your browser settings.</p>
+                        <p className="font-black text-red-900 text-sm uppercase">Notifications Blocked</p>
+                        <p className="text-xs text-red-700">Please enable them in your browser settings to stay updated.</p>
                     </div>
                 </div>
             );
         }
+
         if (isSubscribed) {
              return (
-                <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 text-green-700 text-sm">
-                        <CheckCircleIcon className="w-5 h-5" />
-                        <p className="font-semibold">Push Notifications Enabled</p>
+                <div className="space-y-6">
+                    <div className="flex items-center gap-3 p-4 bg-green-50 rounded-2xl border border-green-100">
+                        <CheckCircleIcon className="w-6 h-6 text-green-600" />
+                        <p className="font-black text-green-900 text-sm uppercase">Alerts are Active</p>
                     </div>
-                    <Button onClick={sendTestNotification} className="w-full bg-gray-200 text-gray-800 text-xs">
-                        Send a Test Notification
+
+                    <div className="space-y-3">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Alert Preferences</h3>
+                        <div className="grid grid-cols-1 gap-2">
+                            {Object.entries(preferences).map(([key, value]) => (
+                                <button 
+                                    key={key}
+                                    onClick={() => togglePreference(key as keyof typeof preferences)}
+                                    className={`flex justify-between items-center p-3 rounded-xl border transition-all ${value ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-gray-50 border-gray-100 text-gray-400'}`}
+                                >
+                                    <span className="text-xs font-bold uppercase tracking-tight">{key} Alerts</span>
+                                    <div className={`w-8 h-4 rounded-full relative transition-colors ${value ? 'bg-primary' : 'bg-gray-300'}`}>
+                                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${value ? 'left-4.5' : 'left-0.5'}`}></div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <Button onClick={sendTestNotification} variant="outline" className="w-full h-12 text-xs font-black uppercase tracking-widest border-gray-200">
+                        Send Test Alert
                     </Button>
                 </div>
             );
         }
+
         return (
-            <Button onClick={requestPermissionAndSubscribe} className="w-full bg-blue-600 text-white hover:bg-blue-700">
-                Enable Push Notifications
-            </Button>
+            <div className="text-center">
+                <p className="text-sm text-gray-600 mb-6 leading-relaxed">Never miss a goal. Get instant alerts for your favorite teams and competitions directly on your device.</p>
+                <Button onClick={requestPermissionAndSubscribe} className="w-full h-14 bg-primary text-white rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-transform">
+                    Enable Live Alerts
+                </Button>
+            </div>
         );
     }
 
     if (!('Notification' in window)) return null;
 
     return (
-        <Card className="shadow-lg">
-            <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                    <BellIcon className="w-6 h-6 text-blue-600" />
-                    <h2 className="text-xl font-bold font-display">Push Notifications</h2>
+        <Card className="shadow-2xl border-0 overflow-hidden rounded-[2rem]">
+            <CardContent className="p-8">
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-primary/10 rounded-2xl">
+                        <BellIcon className="w-8 h-8 text-primary" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black font-display text-gray-900 leading-none mb-1">Live Score Alerts</h2>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary opacity-60">Real-time Notifications</p>
+                    </div>
                 </div>
-                <p className="text-sm text-gray-600 mb-4">Get notified about goals, results, and breaking news right on your device.</p>
                 {renderContent()}
             </CardContent>
         </Card>
