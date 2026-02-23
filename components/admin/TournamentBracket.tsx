@@ -275,12 +275,10 @@ const TournamentBracket: React.FC = () => {
     };
 
     const updateStateAndDb = (updater: (prev: AdminTournament) => AdminTournament) => {
-        setTournament(prev => {
-            if (!prev) return null;
-            const updated = updater(prev);
-            updateInDb(updated);
-            return updated;
-        });
+        if (!tournament) return;
+        const updated = updater(tournament);
+        setTournament(updated);
+        updateInDb(updated);
     };
 
     const handleTournamentLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isNewForm: boolean = false) => {

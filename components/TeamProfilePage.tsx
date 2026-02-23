@@ -28,13 +28,13 @@ import { FixtureItem } from './Fixtures';
 
 const HERO_IMAGES = [
     "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2000&auto=format&fit=crop", // Stadium
-    "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=2000&auto=format&fit=crop", // Ball on grass
-    "https://images.unsplash.com/photo-1522778119026-d647f0565c79?q=80&w=2000&auto=format&fit=crop", // Player
-    "https://images.unsplash.com/photo-1517466787929-bc90951d64b8?q=80&w=2000&auto=format&fit=crop", // Match action
-    "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?q=80&w=2000&auto=format&fit=crop", // Goal net
-    "https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=2000&auto=format&fit=crop", // Football field
-    "https://images.unsplash.com/photo-1510563800743-aed236490d08?q=80&w=2000&auto=format&fit=crop", // Stadium lights
-    "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?q=80&w=2000&auto=format&fit=crop"  // Close up ball
+    "https://images.unsplash.com/photo-1556056504-5c7696c4c28d?q=80&w=2000&auto=format&fit=crop", // Ball
+    "https://images.unsplash.com/photo-1518091043644-c1d4457512c6?q=80&w=2000&auto=format&fit=crop", // Player
+    "https://images.unsplash.com/photo-1511886929837-354d827aae26?q=80&w=2000&auto=format&fit=crop", // Crowd
+    "https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=2000&auto=format&fit=crop", // Goal
+    "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?q=80&w=2000&auto=format&fit=crop", // Boots
+    "https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=2000&auto=format&fit=crop", // Pitch
+    "https://images.unsplash.com/photo-1517466787929-bc90951d64b8?q=80&w=2000&auto=format&fit=crop"  // Action
 ];
 
 const TeamProfilePage: React.FC = () => {
