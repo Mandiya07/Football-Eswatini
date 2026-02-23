@@ -16,8 +16,8 @@ interface MatchSummary {
     id: string;
     home: string;
     away: string;
-    scoreA?: number;
-    scoreB?: number;
+    scoreA?: string | number;
+    scoreB?: string | number;
     date: string;
     time?: string;
     competition: string;
@@ -131,10 +131,17 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
                                 return comp.teams?.find(t => superNormalize(t.name) === superNormalize(name))?.crestUrl;
                             };
 
+                            const parseScoreVal = (val: any): string | number | undefined => {
+                                if (val === undefined || val === null || val === '') return undefined;
+                                if (typeof val === 'string' && val.includes('(')) return val;
+                                const n = Number(val);
+                                return isNaN(n) ? val : n;
+                            };
+
                             rawMatches.push({
                                 id: String(m.id),
                                 home: m.teamA, away: m.teamB,
-                                scoreA: m.scoreA, scoreB: m.scoreB,
+                                scoreA: parseScoreVal(m.scoreA), scoreB: parseScoreVal(m.scoreB),
                                 date: m.fullDate || m.date || '', 
                                 time: m.time,
                                 competition: comp.displayName || comp.name,

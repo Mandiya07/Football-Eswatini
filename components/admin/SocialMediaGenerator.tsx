@@ -28,8 +28,8 @@ interface SocialMatch {
     teamB: string;
     teamACrest?: string;
     teamBCrest?: string;
-    scoreA?: number;
-    scoreB?: number;
+    scoreA?: string | number;
+    scoreB?: string | number;
     date: string;
     fullDate?: string;
     time?: string;
@@ -118,10 +118,12 @@ const SocialMediaGenerator: React.FC = () => {
                 return undefined;
             };
 
-            const parseVal = (val: any): number | undefined => {
+            const parseVal = (val: any): string | number | undefined => {
                 if (val === undefined || val === null || val === '') return undefined;
+                // If it contains parentheses, it's a penalty score, keep as string
+                if (typeof val === 'string' && val.includes('(')) return val;
                 const n = Number(val);
-                return isNaN(n) ? undefined : n;
+                return isNaN(n) ? val : n;
             };
 
             if (selectedOption?.isCup) {
@@ -283,10 +285,18 @@ const SocialMediaGenerator: React.FC = () => {
             const response = await ai.models.generateContent({ 
                 model: 'gemini-3-flash-preview', 
                 contents: prompt,
-                config: isWeeklySummary ? { 
-                    responseMimeType: "application/json",
-                    systemInstruction: "You are a professional and accurate football journalist."
-                } : undefined
+                config: { 
+                    responseMimeType: isWeeklySummary ? "application/json" : "text/plain",
+                    systemInstruction: `You are a professional social media manager and football journalist for Football Eswatini. 
+                    Your goal is to generate engaging, accurate, and high-energy content for sports fans.
+                    
+                    CRITICAL: 
+                    - Always recognize penalty scores in the format "1(4)". This means 1 goal in regular time and 4 in penalties.
+                    - If a match was decided on penalties, mention the drama and the shootout result.
+                    - Use Eswatini-specific slang or references where appropriate (e.g., "Sihlangu", "Kingdom of Eswatini").
+                    - Use emojis effectively for social media.
+                    - Keep it professional yet passionate.`
+                }
             });
 
             if (isWeeklySummary) {

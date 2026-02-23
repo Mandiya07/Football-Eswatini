@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import TournamentBracketDisplay from './TournamentBracketDisplay';
 import { Tournament, cupData as localCupData } from '../data/cups';
-import { fetchCups, fetchDirectoryEntries, fetchAllCompetitions } from '../services/api';
+import { listenToCups, listenToDirectory, listenToAllCompetitions } from '../services/api';
 import SectionLoader from './SectionLoader';
 import InfoIcon from './icons/InfoIcon';
 import { Card, CardContent } from './ui/Card';
@@ -22,77 +22,101 @@ const CupsPage: React.FC = () => {
   const [selectedCupId, setSelectedCupId] = useState<string | null>(null);
 
   useEffect(() => {
+    let unsubscribeCups: (() => void) | undefined;
+    let unsubscribeDir: (() => void) | undefined;
+    let unsubscribeComps: (() => void) | undefined;
+
     const loadData = async () => {
       setLoading(true);
-      try {
-          const [fetchedCups, dirEntries, allCompetitions] = await Promise.all([
-              fetchCups(),
-              fetchDirectoryEntries(),
-              fetchAllCompetitions()
-          ]);
+      
+      let fetchedCups: Tournament[] = [];
+      let dirEntries: any[] = [];
+      let allCompetitions: any = {};
 
-          const dirMap = new Map();
-          dirEntries.forEach(e => dirMap.set(superNormalize(e.name), e));
+      const syncState = () => {
+        if (!fetchedCups.length) return;
 
-          const allGlobalTeams = Object.values(allCompetitions).flatMap(c => c.teams || []);
+        const dirMap = new Map();
+        dirEntries.forEach(e => dirMap.set(superNormalize(e.name), e));
 
-          const hydratedCups = (fetchedCups || []).map((cup: any) => {
-              const hydratedRounds = (cup.rounds || []).map((round: any) => ({
-                  title: round.title,
-                  matches: (round.matches || []).map((m: any) => {
-                      const mAny = m as any;
-                      const t1Name = mAny.team1Name !== undefined ? mAny.team1Name : (mAny.team1?.name || 'TBD');
-                      const t2Name = mAny.team2Name !== undefined ? mAny.team2Name : (mAny.team2?.name || 'TBD');
+        const allGlobalTeams = Object.values(allCompetitions).flatMap((c: any) => c.teams || []);
 
-                      const resolveCrest = (name: string, explicitCrest?: string) => {
-                          if (!name || name.trim().toUpperCase() === 'TBD') return '';
-                          if (explicitCrest && explicitCrest.trim().length > 0) return explicitCrest;
-                          const dirMatch = findInMap(name, dirMap);
-                          if (dirMatch?.crestUrl) return dirMatch.crestUrl;
-                          const teamMatch = allGlobalTeams.find(t => superNormalize(t.name) === superNormalize(name));
-                          return teamMatch?.crestUrl || '';
-                      };
+        const hydratedCups = (fetchedCups || []).map((cup: any) => {
+          const hydratedRounds = (cup.rounds || []).map((round: any) => ({
+            title: round.title,
+            matches: (round.matches || []).map((m: any) => {
+              const mAny = m as any;
+              const t1Name = mAny.team1Name !== undefined ? mAny.team1Name : (mAny.team1?.name || 'TBD');
+              const t2Name = mAny.team2Name !== undefined ? mAny.team2Name : (mAny.team2?.name || 'TBD');
 
-                      return {
-                          ...m,
-                          id: m.id || `match-${Math.random()}`,
-                          team1: {
-                              name: t1Name || 'TBD',
-                              crestUrl: resolveCrest(t1Name, mAny.team1Crest || mAny.team1?.crestUrl),
-                              score: (mAny.score1 !== undefined && mAny.score1 !== '') ? mAny.score1 : (mAny.team1?.score !== undefined ? mAny.team1.score : '-')
-                          },
-                          team2: {
-                              name: t2Name || 'TBD',
-                              crestUrl: resolveCrest(t2Name, mAny.team2Crest || mAny.team2?.crestUrl),
-                              score: (mAny.score2 !== undefined && mAny.score2 !== '') ? mAny.score2 : (mAny.team2?.score !== undefined ? mAny.team2.score : '-')
-                          },
-                          winner: m.winner || null,
-                          venue: m.venue || '',
-                          date: m.date || '',
-                          time: m.time || ''
-                      };
-                  })
-              }));
-              return { ...cup, rounds: hydratedRounds };
-          });
-          
-          setCups(hydratedCups);
+              const resolveCrest = (name: string, explicitCrest?: string) => {
+                if (!name || name.trim().toUpperCase() === 'TBD') return '';
+                if (explicitCrest && explicitCrest.trim().length > 0) return explicitCrest;
+                const dirMatch = findInMap(name, dirMap);
+                if (dirMatch?.crestUrl) return dirMatch.crestUrl;
+                const teamMatch = allGlobalTeams.find((t: any) => superNormalize(t.name) === superNormalize(name));
+                return teamMatch?.crestUrl || '';
+              };
 
-          const urlCupId = searchParams.get('id');
-          if (urlCupId) {
-              const found = hydratedCups.find(c => c.id === urlCupId);
-              if (found) {
-                  setSelectedCupId(urlCupId);
-                  setCurrentView('bracket');
-              }
+              return {
+                ...m,
+                id: m.id || `match-${Math.random()}`,
+                team1: {
+                  name: t1Name || 'TBD',
+                  crestUrl: resolveCrest(t1Name, mAny.team1Crest || mAny.team1?.crestUrl),
+                  score: (mAny.score1 !== undefined && mAny.score1 !== '') ? mAny.score1 : (mAny.team1?.score !== undefined ? mAny.team1.score : '-')
+                },
+                team2: {
+                  name: t2Name || 'TBD',
+                  crestUrl: resolveCrest(t2Name, mAny.team2Crest || mAny.team2?.crestUrl),
+                  score: (mAny.score2 !== undefined && mAny.score2 !== '') ? mAny.score2 : (mAny.team2?.score !== undefined ? mAny.team2.score : '-')
+                },
+                winner: m.winner || null,
+                venue: m.venue || '',
+                date: m.date || '',
+                time: m.time || ''
+              };
+            })
+          }));
+          return { ...cup, rounds: hydratedRounds };
+        });
+        
+        setCups(hydratedCups);
+
+        const urlCupId = searchParams.get('id');
+        if (urlCupId) {
+          const found = hydratedCups.find(c => c.id === urlCupId);
+          if (found) {
+            setSelectedCupId(urlCupId);
+            setCurrentView('bracket');
           }
-      } catch (e) {
-          console.error("Failed to load tournaments", e);
-      } finally {
-          setLoading(false);
-      }
+        }
+        setLoading(false);
+      };
+
+      unsubscribeCups = listenToCups((data) => {
+        fetchedCups = data;
+        syncState();
+      });
+
+      unsubscribeDir = listenToDirectory((data) => {
+        dirEntries = data;
+        syncState();
+      });
+
+      unsubscribeComps = listenToAllCompetitions((data) => {
+        allCompetitions = data;
+        syncState();
+      });
     };
+
     loadData();
+
+    return () => {
+      if (unsubscribeCups) unsubscribeCups();
+      if (unsubscribeDir) unsubscribeDir();
+      if (unsubscribeComps) unsubscribeComps();
+    };
   }, [searchParams]);
 
   const handleCupSelect = (id: string) => setSearchParams({ id });

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import Markdown from 'react-markdown';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import SparklesIcon from './icons/SparklesIcon';
@@ -8,6 +9,7 @@ import SendIcon from './icons/SendIcon';
 import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
 import GlobeIcon from './icons/GlobeIcon';
+import ImageIcon from './icons/ImageIcon';
 import { fetchAllCompetitions, fetchNews } from '../services/api';
 import Spinner from './ui/Spinner';
 import TrendingUpIcon from './icons/TrendingUpIcon';
@@ -23,6 +25,7 @@ interface ChatMessage {
   text: string;
   feedback?: 'good' | 'bad';
   sources?: { uri: string; title: string }[];
+  imageUrl?: string;
 }
 
 const AIAssistantPage: React.FC = () => {
@@ -33,6 +36,7 @@ const AIAssistantPage: React.FC = () => {
   }]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState<number | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   if (!isLoggedIn || user?.role !== 'super_admin') {
@@ -77,8 +81,9 @@ const AIAssistantPage: React.FC = () => {
       
       CONSTRAINTS:
       1. USE SITE CONTEXT: Ground your writing in the provided rankings, results, and upcoming matches.
-      2. ZERO FABRICATION: If specific match events (scorers, cards) are not in the context, do not make them up. Focus on the mathematical impact on the standings instead.
-      3. DEPTH: Articles must be long-form (at least 500 words) with descriptive headers.
+      2. PENALTY SCORES: Recognize scores like "1(4)" as 1 goal in regular time and 4 in a penalty shootout. If a match went to penalties, emphasize the drama.
+      3. ZERO FABRICATION: If specific match events (scorers, cards) are not in the context, do not make them up. Focus on the mathematical impact on the standings instead.
+      4. DEPTH: Articles must be long-form (at least 500 words) with descriptive headers.
       
       SITE CONTEXT DATA SOURCE:
       ${JSON.stringify(siteContext, null, 1)}`;
@@ -87,14 +92,13 @@ const AIAssistantPage: React.FC = () => {
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // Use Search Grounding for current external events (e.g. Sihlangu FIFA rankings)
       const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
           contents: text,
           config: {
               systemInstruction,
               tools: [{ googleSearch: {} }],
-              thinkingConfig: { thinkingBudget: 0 },
+              thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
               temperature: 0.7
           }
       });
@@ -112,6 +116,47 @@ const AIAssistantPage: React.FC = () => {
       setChatHistory([...newHistory, { role: 'model', text: `Drafting Error: ${error.message}` }]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateImage = async (index: number, prompt: string) => {
+    if (isGeneratingImage !== null) return;
+    setIsGeneratingImage(index);
+    
+    try {
+      if (!process.env.API_KEY) throw new Error("API Key Missing");
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [{ text: `A professional, high-quality sports journalism editorial illustration for an article titled: "${prompt.split('\n')[0]}". Style: Cinematic, dramatic lighting, vibrant colors, related to Eswatini football.` }]
+        },
+        config: {
+          imageConfig: { aspectRatio: "16:9" }
+        }
+      });
+
+      let imageUrl = '';
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+
+      if (imageUrl) {
+        setChatHistory(prev => {
+          const next = [...prev];
+          next[index] = { ...next[index], imageUrl };
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error("Image Gen Error:", error);
+      alert("Failed to generate image.");
+    } finally {
+      setIsGeneratingImage(null);
     }
   };
 
@@ -158,7 +203,14 @@ const AIAssistantPage: React.FC = () => {
                     {chatHistory.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[90%] p-6 rounded-2xl ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-gray-50 text-gray-800 rounded-tl-none border border-gray-200 shadow-sm'}`}>
-                                <div className="prose prose-sm md:prose-base max-w-none text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.text}</div>
+                                {msg.imageUrl && (
+                                    <div className="mb-6 rounded-xl overflow-hidden shadow-lg border border-gray-200">
+                                        <img src={msg.imageUrl} alt="Article Header" className="w-full h-auto object-cover" />
+                                    </div>
+                                )}
+                                <div className="markdown-body prose prose-sm md:prose-base max-w-none text-sm md:text-base leading-relaxed">
+                                    <Markdown>{msg.text}</Markdown>
+                                </div>
                                 {msg.sources && msg.sources.length > 0 && (
                                     <div className="mt-6 pt-4 border-t border-gray-200">
                                         <p className="text-[10px] font-black uppercase text-gray-400 mb-2">Grounding Sources:</p>
@@ -176,6 +228,20 @@ const AIAssistantPage: React.FC = () => {
                                         <button onClick={() => { navigator.clipboard.writeText(msg.text); alert("Draft copied!"); }} className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-indigo-600 transition-colors">
                                             <CopyIcon className="w-4 h-4" /> Copy Draft
                                         </button>
+                                        {!msg.imageUrl && (
+                                            <button 
+                                                onClick={() => handleGenerateImage(i, msg.text)} 
+                                                disabled={isGeneratingImage !== null}
+                                                className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-indigo-600 transition-colors disabled:opacity-50"
+                                            >
+                                                {isGeneratingImage === i ? (
+                                                    <Spinner className="w-3 h-3 border-indigo-600" />
+                                                ) : (
+                                                    <ImageIcon className="w-4 h-4" />
+                                                )}
+                                                Generate Cover
+                                            </button>
+                                        )}
                                         <div className="flex gap-3">
                                             <button className="text-gray-400 hover:text-green-600 transition-colors"><ThumbsUpIcon className="w-5 h-5"/></button>
                                             <button className="text-gray-400 hover:text-red-600 transition-colors"><ThumbsDownIcon className="w-5 h-5"/></button>

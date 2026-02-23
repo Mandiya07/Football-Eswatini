@@ -16,7 +16,7 @@ type DocCategory = 'proposals' | 'contracts' | 'letters' | 'legal';
 
 type DocType = 
     | 'NDA' 
-    | 'PROPOSAL_TEAM' | 'PROPOSAL_ADVERTISER' | 'PROPOSAL_SPONSOR' 
+    | 'PROPOSAL_TEAM' | 'PROPOSAL_ADVERTISER' | 'PROPOSAL_SPONSOR' | 'PROPOSAL_EU'
     | 'CONTRACT_TEAM' | 'CONTRACT_ADVERTISER' | 'CONTRACT_SPONSOR'
     | 'LETTER_SPONSORSHIP' | 'LETTER_INTRO' | 'LETTER_EWFA' | 'LETTER_FINANCE_SPON' | 'LETTER_RFA_COLLAB'
     | 'LETTER_DELTAPAY';
@@ -67,6 +67,7 @@ const LegalAndContracts: React.FC = () => {
         { type: 'PROPOSAL_TEAM', label: 'Team Onboarding Pitch', category: 'proposals', icon: ShieldCheckIcon },
         { type: 'PROPOSAL_ADVERTISER', label: 'Advertising Proposal', category: 'proposals', icon: MegaphoneIcon },
         { type: 'PROPOSAL_SPONSOR', label: 'Sponsorship Strategy', category: 'proposals', icon: BriefcaseIcon },
+        { type: 'PROPOSAL_EU', label: 'EU Funding Proposal', category: 'proposals', icon: GlobeIcon },
         { type: 'CONTRACT_TEAM', label: 'Club Service Agreement', category: 'contracts', icon: FileTextIcon },
         { type: 'CONTRACT_ADVERTISER', label: 'Ad Placement Contract', category: 'contracts', icon: MegaphoneIcon },
         { type: 'CONTRACT_SPONSOR', label: 'Sponsorship Agreement', category: 'contracts', icon: BriefcaseIcon },
@@ -233,6 +234,58 @@ const DocumentRenderer: React.FC<{ type: DocType; fields: FormFields }> = ({ typ
     const subTitle = "text-xl font-black uppercase underline decoration-primary decoration-2 underline-offset-4 mb-8 text-gray-900 leading-tight";
 
     switch (type) {
+        case 'PROPOSAL_EU':
+            return (
+                <>
+                    <Header />
+                    <div className="p-12 flex-grow font-serif">
+                        <div className="mb-10">
+                            <p className="font-bold mb-4">{formattedDate}</p>
+                            <p>To,</p>
+                            <p className="font-black uppercase text-gray-900">The Delegation of the European Union to Eswatini</p>
+                            <p className="font-bold text-gray-900">Mbabane Office Park</p>
+                            <p className="text-gray-600">Mbabane, Eswatini</p>
+                        </div>
+                        
+                        <h2 className={subTitle}>
+                            SUBJECT: REQUEST FOR FINANCIAL ASSISTANCE FOR DIGITAL INFRASTRUCTURE AND STARTUP OPERATIONS OF "FOOTBALL ESWATINI"
+                        </h2>
+                        
+                        <div className={bodyStyle}>
+                            <p>Dear Sir/Madam,</p>
+                            <p>I am writing to formally submit a proposal for financial assistance regarding the initial setup and operational sustainability of <strong>Football Eswatini</strong>, a comprehensive digital gateway dedicated to the growth and professionalization of football within the Kingdom of Eswatini.</p>
+                            <p>Football Eswatini is designed to serve as the unified digital infrastructure for the nation's most beloved sport. Our platform provides real-time match tracking, league management, youth development spotlights, and a community hub that connects fans, players, and administrators across all four regions of the Kingdom.</p>
+                            
+                            <p className="font-bold uppercase text-sm tracking-widest mt-8">Funding Requirements</p>
+                            <p>To ensure the long-term viability and official standing of this initiative, we are seeking support for the following critical areas:</p>
+                            
+                            <ul className="list-disc pl-8 space-y-3">
+                                <li><strong>Business Registration & Legal Compliance:</strong> Formalizing the entity as a registered non-profit or social enterprise to ensure transparency and governance. (Est: €1,200)</li>
+                                <li><strong>Domain Acquisition & Multi-year Hosting:</strong> Securing the official .sz domain and high-performance cloud hosting. (Est: €2,500 / 3 years)</li>
+                                <li><strong>Cloud Infrastructure & Real-time Data Services:</strong> Implementation of robust database systems and API integrations for live score updates. (Est: €4,800 / year)</li>
+                                <li><strong>Initial Operational Costs:</strong> Essential hardware, connectivity, and administrative expenses for the first 24 months. (Est: €12,000)</li>
+                            </ul>
+
+                            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 my-8">
+                                <p className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Total Funding Request (Initial Phase)</p>
+                                <p className="text-3xl font-black text-primary">€20,500</p>
+                            </div>
+
+                            <p>The European Union's support would not only facilitate the birth of a technological tool but would actively contribute to the <strong>Digital Transformation</strong> of Eswatini's sports sector. By providing visibility to youth and women's leagues, we aim to foster talent discovery and community cohesion.</p>
+                            
+                            <p>We would welcome the opportunity to discuss this proposal in further detail or provide a live demonstration of the platform's current capabilities.</p>
+                            
+                            <p className="mt-12">Yours Faithfully,</p>
+                            <div className="mt-2">
+                                <p className="font-black text-primary">The Project Lead</p>
+                                <p className="text-gray-500 font-medium italic">Football Eswatini Initiative</p>
+                            </div>
+                        </div>
+                    </div>
+                    <Footer refCode={`FE-EU-FUNDING-PROP`} />
+                </>
+            );
+
         case 'LETTER_DELTAPAY':
             return (
                 <>

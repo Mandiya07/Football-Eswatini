@@ -164,48 +164,48 @@ const Hero: React.FC = () => {
                     </div>
 
                     <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20 mb-16 px-4">
-                        <div className="flex flex-col items-center group flex-1">
-                            <div className="w-40 h-40 md:w-56 md:h-56 mb-8 bg-white/5 backdrop-blur-md rounded-[2.5rem] p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:rotate-2 group-hover:border-white/30">
+                        <div className="flex flex-col items-center group flex-1 w-full">
+                            <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 mb-6 sm:mb-8 bg-white/5 backdrop-blur-md rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:rotate-2 group-hover:border-white/30">
                                 {crestA ? (
-                                    <img src={crestA} alt="" className="max-w-full max-h-full object-contain drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]"/>
-                                ) : (
-                                    <div className="text-6xl font-black text-white/10">{nextMatch.teamA?.charAt(0)}</div>
-                                )}
+                                     <img src={crestA} alt="" className="max-w-full max-h-full object-contain drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]"/>
+                                 ) : (
+                                     <div className="text-6xl font-black text-white/10">{nextMatch.teamA?.charAt(0)}</div>
+                                 )}
                             </div>
-                            <h2 className="text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60">
+                            <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 text-center">
                                 {nextMatch.teamA}
                             </h2>
                         </div>
 
-                        <div className="flex flex-col items-center justify-center py-8">
+                        <div className="flex flex-col items-center justify-center py-4 lg:py-8">
                             {isLiveMode ? (
                                 <div className="relative group">
                                     <div className="absolute -inset-10 bg-red-600/20 rounded-full blur-[80px] animate-pulse"></div>
-                                    <div className="relative bg-white/10 backdrop-blur-3xl px-12 py-6 rounded-[2rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/30">
-                                        <div className="text-7xl md:text-[8rem] font-black tracking-tighter leading-none flex items-center">
+                                    <div className="relative bg-white/10 backdrop-blur-3xl px-8 sm:px-12 py-4 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/30">
+                                        <div className="text-5xl sm:text-7xl md:text-[8rem] font-black tracking-tighter leading-none flex items-center">
                                             <span>{nextMatch.scoreA ?? 0}</span>
-                                            <span className="text-red-600 mx-4 animate-pulse">:</span>
+                                            <span className="text-red-600 mx-2 sm:mx-4 animate-pulse">:</span>
                                             <span>{nextMatch.scoreB ?? 0}</span>
                                         </div>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center">
-                                    <div className="text-6xl md:text-[9rem] font-black italic text-transparent bg-clip-text bg-gradient-to-b from-accent via-yellow-400 to-yellow-700 drop-shadow-2xl leading-none scale-90 lg:scale-100">VS</div>
-                                    <div className="mt-4 h-1.5 w-32 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full opacity-50 shadow-[0_0_20px_rgba(253,185,19,0.4)]"></div>
+                                    <div className="text-5xl sm:text-6xl md:text-[9rem] font-black italic text-transparent bg-clip-text bg-gradient-to-b from-accent via-yellow-400 to-yellow-700 drop-shadow-2xl leading-none scale-90 lg:scale-100">VS</div>
+                                    <div className="mt-2 sm:mt-4 h-1 sm:h-1.5 w-24 sm:w-32 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full opacity-50 shadow-[0_0_20px_rgba(253,185,19,0.4)]"></div>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex flex-col items-center group flex-1">
-                            <div className="w-40 h-40 md:w-56 md:h-56 mb-8 bg-white/5 backdrop-blur-md rounded-[2.5rem] p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:scale-110 group-hover:-rotate-2 group-hover:border-white/30">
+                        <div className="flex flex-col items-center group flex-1 w-full">
+                            <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 mb-6 sm:mb-8 bg-white/5 backdrop-blur-md rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:-rotate-2 group-hover:border-white/30">
                                 {crestB ? (
                                     <img src={crestB} alt="" className="max-w-full max-h-full object-contain drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]"/>
                                 ) : (
                                     <div className="text-6xl font-black text-white/10">{nextMatch.teamB?.charAt(0)}</div>
                                 )}
                             </div>
-                            <h2 className="text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60">
+                            <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 text-center">
                                 {nextMatch.teamB}
                             </h2>
                         </div>
@@ -243,20 +243,20 @@ const Hero: React.FC = () => {
                 </div>
             ) : (
                 <div className="animate-in fade-in slide-in-from-bottom-12 duration-1000">
-                    <h1 className="text-7xl md:text-[11rem] font-black font-display tracking-tighter leading-none mb-10 select-none">
+                    <h1 className="text-5xl sm:text-7xl md:text-[11rem] font-black font-display tracking-tighter leading-none mb-6 sm:mb-10 select-none">
                         THE GAME <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent via-yellow-400 to-accent bg-[length:200%_auto] animate-marquee drop-shadow-[0_0_30px_rgba(253,185,19,0.3)]">LIVES HERE</span>
                     </h1>
-                    <p className="text-xl md:text-2xl text-white/60 max-w-3xl mx-auto font-medium leading-relaxed tracking-wide italic">
+                    <p className="text-lg sm:text-xl md:text-2xl text-white/60 max-w-3xl mx-auto font-medium leading-relaxed tracking-wide italic px-4">
                         "Uniting the Kingdom through the pulse of Eswatini football."
                     </p>
                 </div>
             )}
             
-            <div className="mt-20 flex flex-wrap justify-center gap-6">
-                <Link to="/fixtures" className="group bg-accent text-primary-dark font-black py-5 px-12 rounded-2xl hover:bg-yellow-400 transition-all hover:scale-105 shadow-[0_20px_60px_rgba(253,185,19,0.3)] uppercase text-[10px] tracking-[0.2em] flex items-center gap-3">
+            <div className="mt-12 sm:mt-20 flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 px-4">
+                <Link to="/fixtures" className="group bg-accent text-primary-dark font-black py-4 sm:py-5 px-8 sm:px-12 rounded-2xl hover:bg-yellow-400 transition-all hover:scale-105 shadow-[0_20px_60px_rgba(253,185,19,0.3)] uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-3">
                     MATCH SCHEDULE <ArrowRightIcon className="w-4 h-4 text-primary-dark transition-transform group-hover:translate-x-1" />
                 </Link>
-                <Link to="/live-updates" className="group bg-transparent border-2 border-white/40 text-white font-black py-5 px-12 rounded-2xl hover:bg-white/10 transition-all hover:scale-105 uppercase text-[10px] tracking-[0.2em] shadow-2xl flex items-center gap-3">
+                <Link to="/live-updates" className="group bg-transparent border-2 border-white/40 text-white font-black py-4 sm:py-5 px-8 sm:px-12 rounded-2xl hover:bg-white/10 transition-all hover:scale-105 uppercase text-[10px] tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3">
                     MATCH CENTER <RadioIcon className="w-4 h-4 text-accent" />
                 </Link>
             </div>

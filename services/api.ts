@@ -608,6 +608,18 @@ export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
     } catch (error) { return mockDirectoryData; }
 };
 
+export const listenToDirectory = (callback: (entries: DirectoryEntity[]) => void): (() => void) => {
+    return onSnapshot(collection(db, 'directory'), (snapshot) => {
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DirectoryEntity));
+        const dbNames = new Set(dbItems.map(i => i.name.toLowerCase().trim()));
+        const fallbacks = mockDirectoryData.filter(i => !dbNames.has(i.name.toLowerCase().trim()));
+        callback([...dbItems, ...fallbacks]);
+    }, (error) => {
+        handleFirestoreError(error, 'listen to directory');
+        callback(mockDirectoryData);
+    });
+};
+
 export const addDirectoryEntry = async (entry: Omit<DirectoryEntity, 'id'>) => { await addDoc(collection(db, 'directory'), entry); };
 export const updateDirectoryEntry = async (id: string, data: Partial<DirectoryEntity>) => { await updateDoc(doc(db, 'directory', id), data); };
 export const deleteDirectoryEntry = async (id: string) => { await deleteDoc(doc(db, 'directory', id)); };
@@ -788,6 +800,24 @@ export const fetchCups = async (): Promise<Tournament[]> => {
     } catch { return []; }
 };
 
+export const listenToCups = (callback: (cups: Tournament[]) => void): (() => void) => {
+    return onSnapshot(collection(db, 'cups'), (snapshot) => {
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Tournament)));
+    }, (error) => {
+        handleFirestoreError(error, 'listen to cups');
+        callback([]);
+    });
+};
+
+export const listenToCup = (id: string, callback: (cup: Tournament | undefined) => void): (() => void) => {
+    return onSnapshot(doc(db, 'cups', id), (snap) => {
+        callback(snap.exists() ? { id: snap.id, ...snap.data() } as Tournament : undefined);
+    }, (error) => {
+        handleFirestoreError(error, `listen to cup ${id}`);
+        callback(undefined);
+    });
+};
+
 export const addCup = async (data: Omit<Tournament, 'id'>) => { await addDoc(collection(db, 'cups'), data); };
 export const updateCup = async (id: string, data: Partial<Tournament>) => { await updateDoc(doc(db, 'cups', id), data); };
 export const deleteCup = async (id: string) => { await deleteDoc(doc(db, 'cups', id)); };
@@ -797,6 +827,18 @@ export const fetchHybridTournaments = async (): Promise<HybridTournament[]> => {
         const snapshot = await getDocs(collection(db, 'hybrid_tournaments'));
         return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as HybridTournament));
     } catch (error) { return internationalData; }
+};
+
+export const listenToHybridTournaments = (callback: (tournaments: HybridTournament[]) => void): (() => void) => {
+    return onSnapshot(collection(db, 'hybrid_tournaments'), (snapshot) => {
+        const dbItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as HybridTournament));
+        const dbIds = new Set(dbItems.map(i => i.id));
+        const fallbacks = internationalData.filter(i => !dbIds.has(i.id));
+        callback([...dbItems, ...fallbacks]);
+    }, (error) => {
+        handleFirestoreError(error, 'listen to hybrid tournaments');
+        callback(internationalData);
+    });
 };
 
 export const addHybridTournament = async (data: Omit<HybridTournament, 'id'>) => { await addDoc(collection(db, 'hybrid_tournaments'), data); };

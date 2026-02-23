@@ -18,6 +18,7 @@ import AdBanner from './AdBanner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import Button from './ui/Button';
 import ChevronDownIcon from './icons/ChevronDownIcon';
+import BellIcon from './icons/BellIcon';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
     switch (type) {

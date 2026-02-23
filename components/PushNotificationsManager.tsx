@@ -84,7 +84,7 @@ const PushNotificationsManager: React.FC = () => {
     
     const sendTestNotification = () => {
         navigator.serviceWorker.ready.then(registration => {
-            registration.showNotification('Sihlangu Hub Alert!', {
+            const options: NotificationOptions & { vibrate?: number[] } = {
                 body: 'Goal! Mbabane Swallows 1 - 0 Young Buffaloes (15\')',
                 icon: '/assets/icon-192.png',
                 badge: '/assets/icon-192.png',
@@ -93,7 +93,8 @@ const PushNotificationsManager: React.FC = () => {
                 data: {
                     url: '/live-updates'
                 }
-            });
+            };
+            registration.showNotification('Sihlangu Hub Alert!', options);
         });
     }
 

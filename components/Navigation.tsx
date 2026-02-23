@@ -88,8 +88,8 @@ const Navigation: React.FC = () => {
           <div className="container mx-auto px-4">
             <div className="flex items-center h-20">
               <div className="flex items-center h-full">
-                <NavLink to="/" className="flex-shrink-0 mr-8 xl:mr-12 transition-transform hover:scale-105 active:scale-95">
-                  <Logo className="h-9 xl:h-10 w-auto" />
+                <NavLink to="/" className="flex-shrink-0 mr-4 sm:mr-8 xl:mr-12 transition-transform hover:scale-105 active:scale-95">
+                  <Logo className="h-7 sm:h-9 xl:h-10 w-auto" />
                 </NavLink>
                 
                 <nav className="hidden lg:flex items-center h-full overflow-x-auto scrollbar-hide">
@@ -188,27 +188,38 @@ const Navigation: React.FC = () => {
         </div>
 
         {isOpen && (
-          <div className="lg:hidden fixed inset-0 z-[130] bg-[#002B7F] animate-fade-in flex flex-col">
+          <div className="lg:hidden fixed inset-0 z-[130] bg-[#002B7F] animate-in fade-in slide-in-from-right duration-300 flex flex-col">
              <div className="flex justify-between items-center p-6 border-b border-white/10">
-                <Logo className="h-10 w-auto" />
-                <button onClick={() => setIsOpen(false)} className="text-white p-2"><XIcon className="w-8 h-8" /></button>
+                <Logo className="h-8 w-auto" />
+                <button onClick={() => setIsOpen(false)} className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"><XIcon className="w-7 h-7" /></button>
              </div>
-             <nav className="flex flex-col p-6 gap-3 overflow-y-auto flex-grow custom-scrollbar">
+             <nav className="flex flex-col p-6 gap-2 overflow-y-auto flex-grow custom-scrollbar">
                 {navItems.map((item) => (
                   <NavLink 
                     key={item.name} 
                     to={item.to} 
-                    className={({ isActive }) => `px-6 py-4 text-xl font-black rounded-2xl transition-all ${isActive ? 'bg-white text-primary shadow-2xl scale-[1.02]' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
+                    className={({ isActive }) => `px-6 py-3.5 text-lg font-black rounded-2xl transition-all ${isActive ? 'bg-white text-primary shadow-2xl scale-[1.02]' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
                   >
                     {item.name}
                   </NavLink>
                 ))}
              </nav>
-             <div className="p-8 border-t border-white/5">
-                {!isLoggedIn && (
-                  <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="w-full h-16 rounded-2xl bg-accent text-primary-dark font-black text-lg shadow-2xl">
+             <div className="p-6 border-t border-white/5 bg-[#001F5C]">
+                {!isLoggedIn ? (
+                  <Button onClick={() => { setIsOpen(false); openAuthModal(); }} className="w-full h-14 rounded-2xl bg-accent text-primary-dark font-black text-base shadow-2xl active:scale-95 transition-transform">
                       Sign In / Join Hub
                   </Button>
+                ) : (
+                  <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+                    <img src={user?.avatar} alt="" className="w-12 h-12 rounded-full border-2 border-accent" />
+                    <div className="flex-grow min-w-0">
+                      <p className="font-black text-white truncate">{user?.name}</p>
+                      <p className="text-[10px] text-accent font-black uppercase tracking-widest">{user?.role?.replace('_', ' ')}</p>
+                    </div>
+                    <button onClick={logout} className="p-2 text-red-400 hover:text-red-300">
+                      <LogOutIcon className="w-6 h-6" />
+                    </button>
+                  </div>
                 )}
              </div>
           </div>

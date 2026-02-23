@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { Team } from '../../data/teams';
-import { fetchAllCompetitions, fetchCups, deleteCup, handleFirestoreError, fetchCategories, Category } from '../../services/api';
+import { fetchAllCompetitions, listenToCups, deleteCup, handleFirestoreError, fetchCategories, Category } from '../../services/api';
 import { Tournament as DisplayTournament, CupHubSlot } from '../../data/cups';
 import Spinner from '../ui/Spinner';
 import { doc, setDoc } from 'firebase/firestore';
@@ -14,7 +14,7 @@ import PencilIcon from '../icons/PencilIcon';
 import UsersIcon from '../icons/UsersIcon';
 import ImageIcon from '../icons/ImageIcon';
 import TrophyIcon from '../icons/TrophyIcon';
-import { removeUndefinedProps, compressImage } from '../../services/utils';
+import { removeUndefinedProps, compressImage, parseScore } from '../../services/utils';
 import CheckIcon from '../icons/CheckIcon';
 import GlobeIcon from '../icons/GlobeIcon';
 import ArrowRightIcon from '../icons/ArrowRightIcon';
@@ -213,13 +213,11 @@ const TournamentBracket: React.FC = () => {
     const loadInitialData = useCallback(async () => {
         setLoading(true);
         try {
-            const [allComps, dbCups, cats] = await Promise.all([
+            const [allComps, cats] = await Promise.all([
                 fetchAllCompetitions(), 
-                fetchCups(),
                 fetchCategories()
             ]);
             setCategories(cats);
-            setExistingTournaments(dbCups || []);
             
             const allTeamsList = Object.values(allComps)
                 .flatMap(c => c.teams || [])
@@ -236,7 +234,17 @@ const TournamentBracket: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        let unsubscribeCups: (() => void) | undefined;
+        
         loadInitialData();
+        
+        unsubscribeCups = listenToCups((dbCups) => {
+            setExistingTournaments(dbCups || []);
+        });
+
+        return () => {
+            if (unsubscribeCups) unsubscribeCups();
+        };
     }, [loadInitialData]);
 
     const updateInDb = async (updated: AdminTournament) => {
@@ -310,7 +318,7 @@ const TournamentBracket: React.FC = () => {
                     return {
                         id: String(m.id),
                         round: rIdx + 1,
-                        matchInRound: 0,
+                        matchInRound: mAny.matchInRound || 0,
                         team1Id: t1Id,
                         team2Id: t2Id,
                         team1Name: t1Name,
@@ -373,7 +381,6 @@ const TournamentBracket: React.FC = () => {
                 await setDoc(doc(db, 'cups', newId), newT);
                 setTournament(newT);
             }
-            await loadInitialData();
             setTournamentName('');
             setNewTournamentLogo('');
         } finally {
@@ -571,9 +578,16 @@ const TournamentBracket: React.FC = () => {
                                                         onDateTimeChange={(id, field, val) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => match.id === id ? {...match, [field]: val} : match)}))}))}
                                                         onDeclareWinner={(id) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => {
                                                             if (match.id !== id) return match;
-                                                            const s1 = parseInt(match.score1) || 0;
-                                                            const s2 = parseInt(match.score2) || 0;
-                                                            return { ...match, winner: s1 >= s2 ? 'team1' : 'team2' };
+                                                            const p1 = parseScore(match.score1);
+                                                            const p2 = parseScore(match.score2);
+                                                            
+                                                            let winner: 'team1' | 'team2' = 'team1';
+                                                            if (p1.main > p2.main) winner = 'team1';
+                                                            else if (p2.main > p1.main) winner = 'team2';
+                                                            else if (p1.pens > p2.pens) winner = 'team1';
+                                                            else if (p2.pens > p1.pens) winner = 'team2';
+                                                            
+                                                            return { ...match, winner };
                                                         })}))}))}
                                                         onResetWinner={(id) => updateStateAndDb(prev => ({...prev, rounds: prev.rounds.map(r => ({...r, matches: r.matches.map(match => id === match.id ? {...match, winner: null} : match)}))}))}
                                                         onCrestUpload={(id, slot, base64) => updateStateAndDb(prev => ({

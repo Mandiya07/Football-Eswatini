@@ -135,24 +135,24 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
 
     return (
         <div className="bg-white p-0 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 rounded-b-xl border-t border-gray-200 shadow-inner">
-            <div className="bg-slate-900 text-white p-6 text-center border-b border-white/10">
+            <div className="bg-slate-900 text-white p-4 sm:p-6 text-center border-b border-white/10">
                 <div className="flex flex-col items-center gap-2">
-                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-0.5 rounded-full ${isLive ? 'bg-red-600 animate-pulse' : 'bg-gray-700'}`}>
+                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] px-3 py-0.5 rounded-full ${isLive ? 'bg-red-600 animate-pulse' : 'bg-gray-700'}`}>
                         {fixture.status === 'scheduled' ? 'Scheduled' : fixture.status?.toUpperCase() || 'Match Center'}
                         {isLive && ` • ${fixture.liveMinute || '0'}'`}
                     </span>
                     
                     {showScore && (
-                        <div className="flex items-center gap-8 my-2">
-                            <div className="text-right flex-1"><p className="text-xl font-bold truncate max-w-[150px]">{fixture.teamA}</p></div>
-                            <div className="bg-white/10 px-6 py-2 rounded-xl border border-white/10">
-                                <span className="text-4xl font-black tabular-nums tracking-tighter text-accent">{fixture.scoreA ?? 0} : {fixture.scoreB ?? 0}</span>
+                        <div className="flex items-center justify-center gap-3 sm:gap-8 my-2 w-full max-w-md mx-auto">
+                            <div className="text-right flex-1 min-w-0"><p className="text-sm sm:text-xl font-bold truncate">{fixture.teamA}</p></div>
+                            <div className="bg-white/10 px-4 sm:px-6 py-1.5 sm:py-2 rounded-xl border border-white/10 flex-shrink-0">
+                                <span className="text-2xl sm:text-4xl font-black tabular-nums tracking-tighter text-accent">{fixture.scoreA ?? 0} : {fixture.scoreB ?? 0}</span>
                             </div>
-                            <div className="text-left flex-1"><p className="text-xl font-bold truncate max-w-[150px]">{fixture.teamB}</p></div>
+                            <div className="text-left flex-1 min-w-0"><p className="text-sm sm:text-xl font-bold truncate">{fixture.teamB}</p></div>
                         </div>
                     )}
                     
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">{fixture.fullDate} • {fixture.time}</p>
+                    <p className="text-[9px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1 sm:mt-2">{fixture.fullDate} • {fixture.time}</p>
                 </div>
             </div>
 
@@ -224,14 +224,14 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                 )}
 
                 {activeSection === 'chat' && (
-                    <div className="flex flex-col h-[450px] animate-in fade-in duration-500">
+                    <div className="flex flex-col h-[400px] sm:h-[450px] animate-in fade-in duration-500">
                         <div className="flex-grow overflow-y-auto space-y-4 mb-4 pr-2 custom-scrollbar">
                             {comments.length > 0 ? comments.map((comment) => (
-                                <div key={comment.id} className={`flex gap-3 ${comment.userId === user?.id ? 'flex-row-reverse' : ''}`}>
-                                    <img src={comment.userAvatar} className="w-8 h-8 rounded-full border border-gray-200 shadow-sm" alt="" />
-                                    <div className={`max-w-[80%] p-4 rounded-2xl text-sm ${comment.userId === user?.id ? 'bg-primary text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200 shadow-sm'}`}>
+                                <div key={comment.id} className={`flex gap-2 sm:gap-3 ${comment.userId === user?.id ? 'flex-row-reverse' : ''}`}>
+                                    <img src={comment.userAvatar} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-200 shadow-sm" alt="" />
+                                    <div className={`max-w-[85%] sm:max-w-[80%] p-3 sm:p-4 rounded-2xl text-sm ${comment.userId === user?.id ? 'bg-primary text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200 shadow-sm'}`}>
                                         <div className="flex justify-between items-center gap-4 mb-1"><span className="font-black text-[9px] uppercase opacity-70 tracking-widest">{comment.userName}</span></div>
-                                        <p className="leading-relaxed font-medium">{comment.text}</p>
+                                        <p className="leading-relaxed font-medium text-xs sm:text-sm">{comment.text}</p>
                                     </div>
                                 </div>
                             )) : (
@@ -239,8 +239,8 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                             )}
                             <div ref={chatEndRef} />
                         </div>
-                        <form onSubmit={handleCommentSubmit} className="flex gap-3 bg-gray-50 p-2 rounded-2xl border border-gray-200">
-                            <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={isLoggedIn ? "Say something..." : "Log in to join the chat"} disabled={!isLoggedIn} className="flex-grow bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"/>
+                        <form onSubmit={handleCommentSubmit} className="flex gap-2 sm:gap-3 bg-gray-50 p-2 rounded-2xl border border-gray-200">
+                            <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={isLoggedIn ? "Say something..." : "Log in to join the chat"} disabled={!isLoggedIn} className="flex-grow bg-white border border-gray-200 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-primary outline-none shadow-sm"/>
                             <Button type="submit" disabled={!isLoggedIn || !newComment.trim() || isSubmittingComment} className="bg-primary text-white p-2 rounded-xl hover:scale-105 transition-transform disabled:opacity-50 shadow-md flex-shrink-0">
                                 {isSubmittingComment ? <Spinner className="w-5 h-5 border-2" /> : <SendIcon className="w-5 h-5" />}
                             </Button>

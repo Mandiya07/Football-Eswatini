@@ -11,7 +11,7 @@ import TrophyIcon from './icons/TrophyIcon';
 import UsersIcon from './icons/UsersIcon';
 import CalendarIcon from './icons/CalendarIcon';
 import BracketIcon from './icons/BracketIcon';
-import { fetchCups, fetchDirectoryEntries } from '../services/api';
+import { listenToCup, listenToDirectory } from '../services/api';
 import { Tournament } from '../data/cups';
 import Spinner from './ui/Spinner';
 import InfoIcon from './icons/InfoIcon';
@@ -73,20 +73,17 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
     const isUCL = tournament.id === 'uefa-champions-league';
 
     useEffect(() => {
-        const loadBracketAndDir = async () => {
-            setLoadingBracket(true);
-            try {
-                const [allCups, dirEntries] = await Promise.all([
-                    fetchCups(),
-                    fetchDirectoryEntries()
-                ]);
+        let unsubscribeCup: (() => void) | undefined;
+        
+        const unsubscribeDir = listenToDirectory((dirEntries) => {
+            const dMap = new Map();
+            dirEntries.forEach(e => dMap.set(e.name.trim().toLowerCase(), e));
+            setDirectoryMap(dMap);
 
-                const dMap = new Map();
-                dirEntries.forEach(e => dMap.set(e.name.trim().toLowerCase(), e));
-                setDirectoryMap(dMap);
-
-                if (tournament.bracketId) {
-                    const foundCup = allCups.find(c => c.id === tournament.bracketId);
+            if (tournament.bracketId) {
+                setLoadingBracket(true);
+                if (unsubscribeCup) unsubscribeCup();
+                unsubscribeCup = listenToCup(tournament.bracketId, (foundCup) => {
                     if (foundCup) {
                         const hydratedRounds = foundCup.rounds.map(round => ({
                             ...round,
@@ -107,16 +104,17 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
                         }));
                         setLinkedBracket({ ...foundCup, rounds: hydratedRounds });
                     }
-                } else if (tournament.bracket) {
-                    setLinkedBracket(tournament.bracket);
-                }
-            } catch (e) {
-                console.error("Failed to load tournament metadata", e);
-            } finally {
-                setLoadingBracket(false);
+                    setLoadingBracket(false);
+                });
+            } else if (tournament.bracket) {
+                setLinkedBracket(tournament.bracket);
             }
+        });
+
+        return () => {
+            unsubscribeDir();
+            if (unsubscribeCup) unsubscribeCup();
         };
-        loadBracketAndDir();
     }, [tournament.bracketId, tournament.bracket, tournament.teams]);
 
     const allTeamsObj: Team[] = useMemo(() => {

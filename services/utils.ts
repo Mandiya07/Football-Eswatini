@@ -12,6 +12,20 @@ export interface ScorerRecord {
     score: number;
 }
 
+export const parseScore = (s: string | number | undefined | null) => {
+    if (s === undefined || s === null || s === '') return { main: 0, pens: 0 };
+    const clean = String(s).replace(/\s+/g, '');
+    const match = clean.match(/^(\d+)(?:\((\d+)\))?$/);
+    if (!match) {
+        const n = parseInt(clean);
+        return { main: isNaN(n) ? 0 : n, pens: 0 };
+    }
+    return {
+        main: parseInt(match[1]) || 0,
+        pens: parseInt(match[2]) || 0
+    };
+};
+
 export const superNormalize = (s: string) => {
     if (!s) return '';
     return s.toLowerCase()
