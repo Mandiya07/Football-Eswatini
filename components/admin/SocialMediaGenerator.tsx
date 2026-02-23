@@ -232,15 +232,27 @@ const SocialMediaGenerator: React.FC = () => {
         setIsGenerating(true);
         setPublishSuccess(false);
         try {
-            const allComps = await fetchAllCompetitions();
-            const currentComp = allComps[selectedLeagueId];
+            const [allComps, allCups] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchCups()
+            ]);
             
-            let standingsContext = "N/A (Cup format)";
-            if (currentComp) {
-                const standings = calculateStandings(currentComp.teams || [], currentComp.results || [], currentComp.fixtures || []);
-                standingsContext = standings.slice(0, 10).map((t, i) => 
-                    `${i+1}. ${t.name} (P:${t.stats.p}, GD:${t.stats.gd}, PTS:${t.stats.pts}, Form: ${t.stats.form})`
-                ).join('; ');
+            const selectedOption = allLeagues.find(l => l.id === selectedLeagueId);
+            let standingsContext = "N/A (Tournament/Cup format)";
+            
+            if (selectedOption && !selectedOption.isCup) {
+                const currentComp = allComps[selectedLeagueId];
+                if (currentComp) {
+                    const standings = calculateStandings(currentComp.teams || [], currentComp.results || [], currentComp.fixtures || []);
+                    standingsContext = standings.slice(0, 10).map((t, i) => 
+                        `${i+1}. ${t.name} (P:${t.stats.p}, GD:${t.stats.gd}, PTS:${t.stats.pts}, Form: ${t.stats.form})`
+                    ).join('; ');
+                }
+            } else if (selectedOption?.isCup) {
+                const cup = allCups.find(c => c.id === selectedLeagueId);
+                if (cup) {
+                    standingsContext = `Tournament Bracket: ${cup.name}. Rounds: ${cup.rounds.map(r => r.title).join(', ')}.`;
+                }
             }
 
             const matchesToSummarize = rawMatches.filter(m => selectedMatchIds.includes(m.id));

@@ -6,7 +6,7 @@ import Spinner from '../ui/Spinner';
 import SparklesIcon from '../icons/SparklesIcon';
 import FilmIcon from '../icons/FilmIcon';
 import RefreshIcon from '../icons/RefreshIcon';
-import { fetchAllCompetitions, fetchDirectoryEntries } from '../../services/api';
+import { fetchAllCompetitions, fetchDirectoryEntries, fetchCups, fetchAllTeams } from '../../services/api';
 import { superNormalize, findInMap } from '../../services/utils';
 import { DirectoryEntity } from '../../data/directory';
 import DownloadIcon from '../icons/DownloadIcon';
@@ -35,7 +35,7 @@ interface RecapGeneratorModalProps {
 
 const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClose }) => {
     const [step, setStep] = useState<1 | 2 | 3>(1);
-    const [competitions, setCompetitions] = useState<{ id: string, name: string }[]>([]);
+    const [competitions, setCompetitions] = useState<{ id: string, name: string, isCup: boolean }[]>([]);
     const [selectedCompIds, setSelectedCompIds] = useState<string[]>([]);
     const [mode, setMode] = useState<'results' | 'fixtures'>('results');
     const [startDate, setStartDate] = useState(() => {
@@ -60,12 +60,21 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
 
     useEffect(() => {
         const loadComps = async () => {
-            const all = await fetchAllCompetitions();
-            const list = Object.entries(all)
-                .map(([id, c]) => ({ id, name: c.name }))
+            const [all, cups] = await Promise.all([
+                fetchAllCompetitions(),
+                fetchCups()
+            ]);
+            
+            const leagueList = Object.entries(all)
+                .map(([id, c]) => ({ id, name: c.name, isCup: false }))
                 .sort((a, b) => a.name.localeCompare(b.name));
-            setCompetitions(list);
-            if (list.length > 0) setSelectedCompIds([list[0].id]);
+            
+            const cupList = cups.map(c => ({ id: c.id, name: c.name, isCup: true }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            const combined = [...leagueList, ...cupList];
+            setCompetitions(combined);
+            if (combined.length > 0) setSelectedCompIds([combined[0].id]);
         };
         loadComps();
     }, []);
@@ -101,9 +110,11 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
         setStatusText("Gathering Assets...");
 
         try {
-            const [allCompsData, dirEntries] = await Promise.all([
+            const [allCompsData, dirEntries, allCups, allGlobalTeams] = await Promise.all([
                 fetchAllCompetitions(),
-                fetchDirectoryEntries()
+                fetchDirectoryEntries(),
+                fetchCups(),
+                fetchAllTeams()
             ]);
 
             const dirMap = new Map<string, DirectoryEntity>();
@@ -115,44 +126,90 @@ const RecapGeneratorModal: React.FC<RecapGeneratorModalProps> = ({ isOpen, onClo
             const endTs = new Date(endDate).getTime();
 
             const rawMatches: MatchSummary[] = [];
+            
+            const parseScoreVal = (val: any): string | number | undefined => {
+                if (val === undefined || val === null || val === '') return undefined;
+                if (typeof val === 'string' && val.includes('(')) return val;
+                const n = Number(val);
+                return isNaN(n) ? val : n;
+            };
+
+            const getCrest = (name: string, compTeams?: any[]) => {
+                if (!name || name === 'TBD') return undefined;
+                const dirEntry = findInMap(name, dirMap);
+                if (dirEntry?.crestUrl) return dirEntry.crestUrl;
+                return compTeams?.find(t => superNormalize(t.name) === superNormalize(name))?.crestUrl;
+            };
+
             selectedCompIds.forEach(compId => {
-                const comp = allCompsData[compId];
-                if (!comp) return;
-                
-                const source = mode === 'results' ? comp.results : comp.fixtures;
-                if (source) {
-                    source.forEach(m => {
-                        const mDate = new Date(m.fullDate || m.date).getTime();
-                        if (mDate >= startTs && mDate <= (endTs + 86400000)) {
-                            const getCrest = (name: string) => {
-                                if (!name) return undefined;
-                                const dirEntry = findInMap(name, dirMap);
-                                if (dirEntry?.crestUrl) return dirEntry.crestUrl;
-                                return comp.teams?.find(t => superNormalize(t.name) === superNormalize(name))?.crestUrl;
-                            };
+                const isCup = competitions.find(c => c.id === compId)?.isCup;
 
-                            const parseScoreVal = (val: any): string | number | undefined => {
-                                if (val === undefined || val === null || val === '') return undefined;
-                                if (typeof val === 'string' && val.includes('(')) return val;
-                                const n = Number(val);
-                                return isNaN(n) ? val : n;
-                            };
+                if (isCup) {
+                    const cup = allCups.find(c => c.id === compId);
+                    if (cup) {
+                        cup.rounds.forEach(round => {
+                            round.matches.forEach(m => {
+                                const mAny = m as any;
+                                const mDate = new Date(m.date).getTime();
+                                if (mDate >= startTs && mDate <= (endTs + 86400000)) {
+                                    let t1Name = mAny.team1Name || m.team1?.name || mAny.teamA || 'TBD';
+                                    let t2Name = mAny.team2Name || m.team2?.name || mAny.teamB || 'TBD';
+                                    const t1Id = mAny.team1Id || m.team1?.id;
+                                    const t2Id = mAny.team2Id || m.team2?.id;
 
-                            rawMatches.push({
-                                id: String(m.id),
-                                home: m.teamA, away: m.teamB,
-                                scoreA: parseScoreVal(m.scoreA), scoreB: parseScoreVal(m.scoreB),
-                                date: m.fullDate || m.date || '', 
-                                time: m.time,
-                                competition: comp.displayName || comp.name,
-                                competitionLogoUrl: comp.logoUrl,
-                                teamACrest: getCrest(m.teamA),
-                                teamBCrest: getCrest(m.teamB),
-                                venue: m.venue,
-                                matchday: m.matchday
+                                    if (t1Name === 'TBD' && t1Id) {
+                                        const lookup = allGlobalTeams.find(t => String(t.id) === String(t1Id));
+                                        if (lookup) t1Name = lookup.name;
+                                    }
+                                    if (t2Name === 'TBD' && t2Id) {
+                                        const lookup = allGlobalTeams.find(t => String(t.id) === String(t2Id));
+                                        if (lookup) t2Name = lookup.name;
+                                    }
+
+                                    const s1 = parseScoreVal(mAny.score1 ?? m.team1?.score ?? mAny.scoreA);
+                                    const s2 = parseScoreVal(mAny.score2 ?? m.team2?.score ?? mAny.scoreB);
+
+                                    rawMatches.push({
+                                        id: `${compId}-${m.id}`,
+                                        home: t1Name, away: t2Name,
+                                        scoreA: s1, scoreB: s2,
+                                        date: m.date || '',
+                                        time: m.time,
+                                        competition: `${cup.name} (${round.title})`,
+                                        competitionLogoUrl: (cup as any).logoUrl,
+                                        teamACrest: mAny.team1Crest || m.team1?.crestUrl || getCrest(t1Name),
+                                        teamBCrest: mAny.team2Crest || m.team2?.crestUrl || getCrest(t2Name),
+                                        venue: m.venue
+                                    });
+                                }
                             });
-                        }
-                    });
+                        });
+                    }
+                } else {
+                    const comp = allCompsData[compId];
+                    if (!comp) return;
+                    
+                    const source = mode === 'results' ? comp.results : comp.fixtures;
+                    if (source) {
+                        source.forEach(m => {
+                            const mDate = new Date(m.fullDate || m.date).getTime();
+                            if (mDate >= startTs && mDate <= (endTs + 86400000)) {
+                                rawMatches.push({
+                                    id: String(m.id),
+                                    home: m.teamA, away: m.teamB,
+                                    scoreA: parseScoreVal(m.scoreA), scoreB: parseScoreVal(m.scoreB),
+                                    date: m.fullDate || m.date || '', 
+                                    time: m.time,
+                                    competition: comp.displayName || comp.name,
+                                    competitionLogoUrl: comp.logoUrl,
+                                    teamACrest: getCrest(m.teamA, comp.teams),
+                                    teamBCrest: getCrest(m.teamB, comp.teams),
+                                    venue: m.venue,
+                                    matchday: m.matchday
+                                });
+                            }
+                        });
+                    }
                 }
             });
 
