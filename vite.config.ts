@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
     define: {
       // Direct literal replacements for process.env access
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY || ''),
       
       // Prioritize Environment Variable > User Provided Default
       'process.env.FOOTBALL_DATA_API_KEY': JSON.stringify(env.FOOTBALL_DATA_API_KEY || env.VITE_FOOTBALL_DATA_API_KEY || FOOTBALL_DATA_DEFAULT),

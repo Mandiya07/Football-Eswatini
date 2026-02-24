@@ -274,11 +274,22 @@ const TournamentBracket: React.FC = () => {
         }
     };
 
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     const updateStateAndDb = (updater: (prev: AdminTournament) => AdminTournament) => {
-        if (!tournament) return;
-        const updated = updater(tournament);
-        setTournament(updated);
-        updateInDb(updated);
+        setTournament(prev => {
+            if (!prev) return null;
+            const updated = updater(prev);
+            
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+            saveTimeoutRef.current = setTimeout(() => {
+                updateInDb(updated);
+            }, 500);
+            
+            return updated;
+        });
     };
 
     const handleTournamentLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isNewForm: boolean = false) => {

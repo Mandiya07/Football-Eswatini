@@ -39,7 +39,9 @@ const AIAssistantPage: React.FC = () => {
   const [isGeneratingImage, setIsGeneratingImage] = useState<number | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  if (!isLoggedIn || user?.role !== 'super_admin') {
+  const isAuthorized = user?.role === 'super_admin' || user?.role === 'journalist';
+
+  if (!isLoggedIn || !isAuthorized) {
       return <Navigate to="/" replace />;
   }
 
@@ -75,7 +77,7 @@ const AIAssistantPage: React.FC = () => {
       };
 
       const systemInstruction = `You are a world-class investigative sports journalist for 'Football Eswatini'. 
-      Your objective is to write authoritative, engaging, and highly accurate articles about football in the Kingdom.
+      Your objective is to write authoritative, engaging, and highly accurate articles about football in the Kingdom of Eswatini.
       
       TONE: Professional, sophisticated, yet accessible. Avoid clichés.
       
@@ -84,13 +86,15 @@ const AIAssistantPage: React.FC = () => {
       2. PENALTY SCORES: Recognize scores like "1(4)" as 1 goal in regular time and 4 in a penalty shootout. If a match went to penalties, emphasize the drama.
       3. ZERO FABRICATION: If specific match events (scorers, cards) are not in the context, do not make them up. Focus on the mathematical impact on the standings instead.
       4. DEPTH: Articles must be long-form (at least 500 words) with descriptive headers.
+      5. LOCAL CONTEXT: Mention specific venues like Somhlolo Stadium or Mavuso Sports Centre when relevant.
       
       SITE CONTEXT DATA SOURCE:
       ${JSON.stringify(siteContext, null, 1)}`;
 
-      if (!process.env.API_KEY) throw new Error("API Key Missing");
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error("Gemini API Key is not configured in the environment.");
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       
       const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
@@ -105,9 +109,13 @@ const AIAssistantPage: React.FC = () => {
 
       const textOutput = response.text || 'Synthesis failed.';
       const sources: { uri: string; title: string }[] = [];
-      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+      const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+      const chunks = groundingMetadata?.groundingChunks;
+      
       if (chunks) {
-          chunks.forEach((chunk: any) => { if (chunk.web) sources.push({ uri: chunk.web.uri, title: chunk.web.title }); });
+          chunks.forEach((chunk: any) => { 
+              if (chunk.web) sources.push({ uri: chunk.web.uri, title: chunk.web.title }); 
+          });
       }
 
       setChatHistory([...newHistory, { role: 'model', text: textOutput, sources }]);
@@ -124,8 +132,9 @@ const AIAssistantPage: React.FC = () => {
     setIsGeneratingImage(index);
     
     try {
-      if (!process.env.API_KEY) throw new Error("API Key Missing");
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error("Gemini API Key Missing");
+      const ai = new GoogleGenAI({ apiKey });
       
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
@@ -138,10 +147,13 @@ const AIAssistantPage: React.FC = () => {
       });
 
       let imageUrl = '';
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-          break;
+      const candidate = response.candidates?.[0];
+      if (candidate?.content?.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.inlineData) {
+            imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            break;
+          }
         }
       }
 
