@@ -19,18 +19,21 @@ interface PositionedMatch extends BracketMatch {
     parentPoints: { x: number; y: number }[];
 }
 
-const MatchCard: React.FC<{ match: BracketMatch; style: React.CSSProperties }> = ({ match, style }) => {
+const MatchCard: React.FC<{ match: any; style: React.CSSProperties }> = ({ match, style }) => {
     const team1 = match.team1;
     const team2 = match.team2;
 
-    const team1Name = team1?.name || 'TBD';
-    const team2Name = team2?.name || 'TBD';
+    const team1Name = match.team1Name || team1?.name || 'TBD';
+    const team2Name = match.team2Name || team2?.name || 'TBD';
     
-    const crest1 = team1?.crestUrl;
-    const crest2 = team2?.crestUrl;
+    const crest1 = match.team1Crest || team1?.crestUrl;
+    const crest2 = match.team2Crest || team2?.crestUrl;
     
-    const score1 = (team1?.score !== undefined && team1.score !== '') ? team1.score : '-';
-    const score2 = (team2?.score !== undefined && team2.score !== '') ? team2.score : '-';
+    const score1Raw = match.score1 !== undefined ? match.score1 : team1?.score;
+    const score2Raw = match.score2 !== undefined ? match.score2 : team2?.score;
+
+    const score1 = (score1Raw !== undefined && score1Raw !== '') ? score1Raw : '-';
+    const score2 = (score2Raw !== undefined && score2Raw !== '') ? score2Raw : '-';
 
     const isWinner1 = match.winner === 'team1';
     const isWinner2 = match.winner === 'team2';

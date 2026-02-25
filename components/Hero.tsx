@@ -163,49 +163,49 @@ const Hero: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-20 mb-16 px-4">
+                    <div className="flex flex-row items-center justify-center gap-2 sm:gap-8 lg:gap-20 mb-8 sm:mb-16 px-2 sm:px-4">
                         <div className="flex flex-col items-center group flex-1 w-full">
-                            <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 mb-6 sm:mb-8 bg-white/5 backdrop-blur-md rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:rotate-2 group-hover:border-white/30">
+                            <div className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-56 lg:h-56 mb-4 sm:mb-8 bg-white/5 backdrop-blur-md rounded-[1rem] sm:rounded-[2.5rem] p-3 sm:p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:rotate-2 group-hover:border-white/30">
                                 {crestA ? (
                                      <img src={crestA} alt="" className="max-w-full max-h-full object-contain drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]"/>
                                  ) : (
-                                     <div className="text-6xl font-black text-white/10">{nextMatch.teamA?.charAt(0)}</div>
+                                     <div className="text-3xl sm:text-6xl font-black text-white/10">{nextMatch.teamA?.charAt(0)}</div>
                                  )}
                             </div>
-                            <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 text-center">
+                            <h2 className="text-sm sm:text-3xl md:text-4xl lg:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 text-center line-clamp-2">
                                 {nextMatch.teamA}
                             </h2>
                         </div>
 
-                        <div className="flex flex-col items-center justify-center py-4 lg:py-8">
+                        <div className="flex flex-col items-center justify-center py-2 lg:py-8 shrink-0">
                             {isLiveMode ? (
                                 <div className="relative group">
-                                    <div className="absolute -inset-10 bg-red-600/20 rounded-full blur-[80px] animate-pulse"></div>
-                                    <div className="relative bg-white/10 backdrop-blur-3xl px-8 sm:px-12 py-4 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/30">
-                                        <div className="text-5xl sm:text-7xl md:text-[8rem] font-black tracking-tighter leading-none flex items-center">
+                                    <div className="absolute -inset-4 sm:-inset-10 bg-red-600/20 rounded-full blur-[40px] sm:blur-[80px] animate-pulse"></div>
+                                    <div className="relative bg-white/10 backdrop-blur-3xl px-4 sm:px-12 py-2 sm:py-6 rounded-[1rem] sm:rounded-[2rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-1 ring-white/30">
+                                        <div className="text-3xl sm:text-5xl md:text-7xl lg:text-[8rem] font-black tracking-tighter leading-none flex items-center">
                                             <span>{nextMatch.scoreA ?? 0}</span>
-                                            <span className="text-red-600 mx-2 sm:mx-4 animate-pulse">:</span>
+                                            <span className="text-red-600 mx-1 sm:mx-4 animate-pulse">:</span>
                                             <span>{nextMatch.scoreB ?? 0}</span>
                                         </div>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center">
-                                    <div className="text-5xl sm:text-6xl md:text-[9rem] font-black italic text-transparent bg-clip-text bg-gradient-to-b from-accent via-yellow-400 to-yellow-700 drop-shadow-2xl leading-none scale-90 lg:scale-100">VS</div>
-                                    <div className="mt-2 sm:mt-4 h-1 sm:h-1.5 w-24 sm:w-32 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full opacity-50 shadow-[0_0_20px_rgba(253,185,19,0.4)]"></div>
+                                    <div className="text-2xl sm:text-5xl md:text-6xl lg:text-[9rem] font-black italic text-transparent bg-clip-text bg-gradient-to-b from-accent via-yellow-400 to-yellow-700 drop-shadow-2xl leading-none scale-90 lg:scale-100">VS</div>
+                                    <div className="mt-1 sm:mt-4 h-0.5 sm:h-1.5 w-12 sm:w-32 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full opacity-50 shadow-[0_0_20px_rgba(253,185,19,0.4)]"></div>
                                 </div>
                             )}
                         </div>
 
                         <div className="flex flex-col items-center group flex-1 w-full">
-                            <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 mb-6 sm:mb-8 bg-white/5 backdrop-blur-md rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:-rotate-2 group-hover:border-white/30">
+                            <div className="w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 lg:w-56 lg:h-56 mb-4 sm:mb-8 bg-white/5 backdrop-blur-md rounded-[1rem] sm:rounded-[2.5rem] p-3 sm:p-8 flex items-center justify-center shadow-2xl border border-white/10 transition-all duration-700 group-hover:scale-110 group-hover:-rotate-2 group-hover:border-white/30">
                                 {crestB ? (
                                     <img src={crestB} alt="" className="max-w-full max-h-full object-contain drop-shadow-[0_10px_30px_rgba(255,255,255,0.2)]"/>
                                 ) : (
-                                    <div className="text-6xl font-black text-white/10">{nextMatch.teamB?.charAt(0)}</div>
+                                    <div className="text-3xl sm:text-6xl font-black text-white/10">{nextMatch.teamB?.charAt(0)}</div>
                                 )}
                             </div>
-                            <h2 className="text-3xl sm:text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 text-center">
+                            <h2 className="text-sm sm:text-3xl md:text-4xl lg:text-6xl font-display font-black uppercase leading-none tracking-tighter drop-shadow-2xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 text-center line-clamp-2">
                                 {nextMatch.teamB}
                             </h2>
                         </div>

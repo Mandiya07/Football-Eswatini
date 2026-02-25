@@ -320,6 +320,11 @@ const TournamentBracket: React.FC = () => {
     };
 
     const handleEditExisting = (t: DisplayTournament) => {
+        if (saveTimeoutRef.current && latestTournamentRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+            updateInDb(latestTournamentRef.current);
+        }
+        
         const adminT: AdminTournament = {
             id: t.id,
             name: t.name,
@@ -562,7 +567,13 @@ const TournamentBracket: React.FC = () => {
                                     >
                                         Final <ArrowRightIcon className="w-3 h-3"/>
                                     </button>
-                                    <Button onClick={setTournament.bind(null, null)} className="bg-gray-900 text-white h-9 px-6 font-black uppercase tracking-widest text-[9px] rounded-xl shadow-lg">Close</Button>
+                                    <Button onClick={() => {
+                                        if (saveTimeoutRef.current && latestTournamentRef.current) {
+                                            clearTimeout(saveTimeoutRef.current);
+                                            updateInDb(latestTournamentRef.current);
+                                        }
+                                        setTournament(null);
+                                    }} className="bg-gray-900 text-white h-9 px-6 font-black uppercase tracking-widest text-[9px] rounded-xl shadow-lg">Close</Button>
                                 </div>
                             </div>
                             

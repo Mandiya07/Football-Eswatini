@@ -61,11 +61,11 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
                 </div>
             </div>
             <div className="grid grid-cols-[1fr_auto_1fr] items-center text-center gap-3">
-                <TeamLink teamName={match.teamA} teamId={match.teamAId} crestUrl={match.teamACrest} justification="start" />
+                <TeamLink teamName={match.teamA} teamId={match.teamAId} crestUrl={match.teamACrest} justification="end" />
                 <div className="bg-slate-50 px-2.5 py-1.5 rounded-lg min-w-[65px] border border-slate-100 shadow-inner">
                     {match.status === 'scheduled' ? <p className="font-black text-[10px] text-slate-700">{timeLeft || match.time}</p> : <p className="font-black text-xl text-primary tabular-nums tracking-tighter">{match.scoreA ?? 0} - {match.scoreB ?? 0}</p>}
                 </div>
-                <TeamLink teamName={match.teamB} teamId={match.teamBId} crestUrl={match.teamBCrest} justification="end" />
+                <TeamLink teamName={match.teamB} teamId={match.teamBId} crestUrl={match.teamBCrest} justification="start" />
             </div>
         </div>
     );

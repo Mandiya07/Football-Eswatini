@@ -133,7 +133,7 @@ const Navigation: React.FC = () => {
                 </button>
 
                 {isLoggedIn ? (
-                  <div className="relative" ref={userMenuRef}>
+                  <div className="relative hidden lg:block" ref={userMenuRef}>
                     <button 
                       onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                       className="w-10 h-10 rounded-full border-2 border-white/20 hover:border-accent transition-all overflow-hidden shadow-lg hover:scale-105"
@@ -174,7 +174,7 @@ const Navigation: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  <Button variant="accent" size="sm" onClick={openAuthModal} className="h-9 px-4 rounded-xl text-[10px] tracking-widest shadow-xl">
+                  <Button variant="accent" size="sm" onClick={openAuthModal} className="hidden lg:flex h-9 px-4 rounded-xl text-[10px] tracking-widest shadow-xl">
                     Sign In
                   </Button>
                 )}
