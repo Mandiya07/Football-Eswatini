@@ -247,6 +247,15 @@ const TournamentBracket: React.FC = () => {
         };
     }, [loadInitialData]);
 
+    useEffect(() => {
+        return () => {
+            if (saveTimeoutRef.current && latestTournamentRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                updateInDb(latestTournamentRef.current);
+            }
+        };
+    }, []);
+
     const updateInDb = async (updated: AdminTournament) => {
         if (!updated.id) return;
         setSaving(true);
@@ -275,21 +284,24 @@ const TournamentBracket: React.FC = () => {
     };
 
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const latestTournamentRef = useRef<AdminTournament | null>(null);
 
     const updateStateAndDb = (updater: (prev: AdminTournament) => AdminTournament) => {
         setTournament(prev => {
-            if (!prev) return null;
+            if (!prev) return prev;
             const updated = updater(prev);
-            
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
-            saveTimeoutRef.current = setTimeout(() => {
-                updateInDb(updated);
-            }, 500);
-            
+            latestTournamentRef.current = updated;
             return updated;
         });
+        
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+        saveTimeoutRef.current = setTimeout(() => {
+            if (latestTournamentRef.current) {
+                updateInDb(latestTournamentRef.current);
+            }
+        }, 1000);
     };
 
     const handleTournamentLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isNewForm: boolean = false) => {
