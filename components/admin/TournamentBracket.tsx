@@ -49,6 +49,7 @@ interface AdminTournament {
     categoryId?: string;
     type?: 'bracket' | 'league';
     hubSlot?: CupHubSlot;
+    customCrests?: Record<string, string>;
 }
 
 const MatchCard: React.FC<{
@@ -65,7 +66,7 @@ const MatchCard: React.FC<{
     const handleCrestFileChange = async (e: React.ChangeEvent<HTMLInputElement>, slot: 'team1' | 'team2') => {
         if (e.target.files && e.target.files[0]) {
             try {
-                const base64 = await compressImage(e.target.files[0], 120, 0.6);
+                const base64 = await compressImage(e.target.files[0], 80, 0.4);
                 onCrestUpload(match.id, slot, base64);
             } catch (err) {
                 console.error("Crest upload failed", err);
@@ -260,9 +261,26 @@ const TournamentBracket: React.FC = () => {
         if (!updated.id) return;
         setSaving(true);
         try {
+            // Deduplication Strategy: Move all base64 crests to a top-level map to save space
+            const customCrests: Record<string, string> = { ...(updated.customCrests || {}) };
+            
             const cleanedRounds = updated.rounds.map(r => ({
                 title: r.title,
-                matches: r.matches.map(m => removeUndefinedProps({ ...m }))
+                matches: r.matches.map(m => {
+                    const matchCopy = { ...m };
+                    
+                    // If team has a custom base64 crest, move it to the map and remove from match
+                    if (matchCopy.team1Crest?.startsWith('data:') && matchCopy.team1Name) {
+                        customCrests[matchCopy.team1Name] = matchCopy.team1Crest;
+                        delete matchCopy.team1Crest;
+                    }
+                    if (matchCopy.team2Crest?.startsWith('data:') && matchCopy.team2Name) {
+                        customCrests[matchCopy.team2Name] = matchCopy.team2Crest;
+                        delete matchCopy.team2Crest;
+                    }
+                    
+                    return removeUndefinedProps(matchCopy);
+                })
             }));
 
             const docRef = doc(db, "cups", updated.id);
@@ -273,14 +291,15 @@ const TournamentBracket: React.FC = () => {
                 logoUrl: updated.logoUrl || null,
                 categoryId: updated.categoryId || null,
                 type: updated.type || 'bracket',
-                hubSlot: updated.hubSlot || null
+                hubSlot: updated.hubSlot || null,
+                customCrests: Object.keys(customCrests).length > 0 ? customCrests : null
             };
             
             await setDoc(docRef, payload, { merge: true });
-            console.log("Tournament saved successfully:", updated.id);
+            console.log("Tournament saved successfully (Deduplicated):", updated.id);
         } catch (err) {
             console.error("Save failed:", err);
-            alert(`CRITICAL ERROR: Failed to save tournament changes. ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`CRITICAL ERROR: Failed to save tournament changes. This usually happens when the tournament is too large (over 1MB). I have implemented deduplication to help, but try using smaller images if this persists. \n\nError: ${err instanceof Error ? err.message : 'Unknown error'}`);
             handleFirestoreError(err, 'update bracket in db');
         } finally { 
             setSaving(false); 
@@ -311,7 +330,7 @@ const TournamentBracket: React.FC = () => {
     const handleTournamentLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isNewForm: boolean = false) => {
         if (e.target.files && e.target.files[0]) {
             try {
-                const base64 = await compressImage(e.target.files[0], 400, 0.7);
+                const base64 = await compressImage(e.target.files[0], 200, 0.5);
                 if (isNewForm) {
                     setNewTournamentLogo(base64);
                 } else if (tournament) {
@@ -329,13 +348,17 @@ const TournamentBracket: React.FC = () => {
             updateInDb(latestTournamentRef.current);
         }
         
+        const tAny = t as any;
+        const customCrests = tAny.customCrests || {};
+
         const adminT: AdminTournament = {
             id: t.id,
             name: t.name,
             logoUrl: t.logoUrl,
-            categoryId: (t as any).categoryId || '',
-            type: (t as any).type || 'bracket',
+            categoryId: tAny.categoryId || '',
+            type: tAny.type || 'bracket',
             hubSlot: t.hubSlot,
+            customCrests: customCrests,
             rounds: (t.rounds || []).map((r, rIdx) => ({
                 title: r.title || `Round ${rIdx + 1}`,
                 matches: (r.matches || []).map(m => {
@@ -363,6 +386,10 @@ const TournamentBracket: React.FC = () => {
                         t2Name = allTeams.find(at => at.id === t2Id)?.name;
                     }
 
+                    // Hydrate crests from the deduplicated map if they aren't in the match
+                    const t1Crest = mAny.team1Crest || m.team1?.crestUrl || (t1Name ? customCrests[t1Name] : undefined);
+                    const t2Crest = mAny.team2Crest || m.team2?.crestUrl || (t2Name ? customCrests[t2Name] : undefined);
+
                     // Robust extraction of scores
                     const s1 = mAny.score1 !== undefined ? String(mAny.score1) : (m.team1?.score !== undefined ? String(m.team1.score) : '');
                     const s2 = mAny.score2 !== undefined ? String(mAny.score2) : (m.team2?.score !== undefined ? String(m.team2.score) : '');
@@ -375,8 +402,8 @@ const TournamentBracket: React.FC = () => {
                         team2Id: t2Id,
                         team1Name: t1Name,
                         team2Name: t2Name,
-                        team1Crest: mAny.team1Crest || m.team1?.crestUrl,
-                        team2Crest: mAny.team2Crest || m.team2?.crestUrl,
+                        team1Crest: t1Crest,
+                        team2Crest: t2Crest,
                         team1Mode: mAny.team1Mode || (t1Name ? 'name' : 'id'),
                         team2Mode: mAny.team2Mode || (t2Name ? 'name' : 'id'),
                         score1: s1,
