@@ -261,12 +261,12 @@ const TournamentBracket: React.FC = () => {
         setSaving(true);
         try {
             const cleanedRounds = updated.rounds.map(r => ({
-                ...r,
+                title: r.title,
                 matches: r.matches.map(m => removeUndefinedProps({ ...m }))
             }));
 
             const docRef = doc(db, "cups", updated.id);
-            await setDoc(docRef, {
+            const payload = {
                 id: updated.id,
                 name: updated.name,
                 rounds: cleanedRounds,
@@ -274,9 +274,13 @@ const TournamentBracket: React.FC = () => {
                 categoryId: updated.categoryId || null,
                 type: updated.type || 'bracket',
                 hubSlot: updated.hubSlot || null
-            }, { merge: true });
+            };
+            
+            await setDoc(docRef, payload, { merge: true });
+            console.log("Tournament saved successfully:", updated.id);
         } catch (err) {
             console.error("Save failed:", err);
+            alert(`CRITICAL ERROR: Failed to save tournament changes. ${err instanceof Error ? err.message : 'Unknown error'}`);
             handleFirestoreError(err, 'update bracket in db');
         } finally { 
             setSaving(false); 
@@ -332,17 +336,39 @@ const TournamentBracket: React.FC = () => {
             categoryId: (t as any).categoryId || '',
             type: (t as any).type || 'bracket',
             hubSlot: t.hubSlot,
-            rounds: t.rounds.map((r, rIdx) => ({
-                title: r.title,
-                matches: r.matches.map(m => {
+            rounds: (t.rounds || []).map((r, rIdx) => ({
+                title: r.title || `Round ${rIdx + 1}`,
+                matches: (r.matches || []).map(m => {
                     const mAny = m as any;
-                    const t1Id = m.team1?.id || mAny.team1Id || null;
-                    const t2Id = m.team2?.id || mAny.team2Id || null;
-                    const t1Name = mAny.team1Name || m.team1?.name || (t1Id ? allTeams.find(at => at.id === t1Id)?.name : undefined);
-                    const t2Name = mAny.team2Name || m.team2?.name || (t2Id ? allTeams.find(at => at.id === t2Id)?.name : undefined);
+                    
+                    // Robust extraction of team IDs (handling 0 as valid)
+                    let t1Id: number | null = null;
+                    if (m.team1?.id !== undefined && m.team1.id !== null) t1Id = m.team1.id;
+                    else if (mAny.team1Id !== undefined && mAny.team1Id !== null) t1Id = mAny.team1Id;
+                    
+                    let t2Id: number | null = null;
+                    if (m.team2?.id !== undefined && m.team2.id !== null) t2Id = m.team2.id;
+                    else if (mAny.team2Id !== undefined && mAny.team2Id !== null) t2Id = mAny.team2Id;
+
+                    // Robust extraction of team names (handling empty string as valid)
+                    let t1Name = mAny.team1Name;
+                    if (t1Name === undefined || t1Name === null) t1Name = m.team1?.name;
+                    if ((t1Name === undefined || t1Name === null) && t1Id !== null) {
+                        t1Name = allTeams.find(at => at.id === t1Id)?.name;
+                    }
+                    
+                    let t2Name = mAny.team2Name;
+                    if (t2Name === undefined || t2Name === null) t2Name = m.team2?.name;
+                    if ((t2Name === undefined || t2Name === null) && t2Id !== null) {
+                        t2Name = allTeams.find(at => at.id === t2Id)?.name;
+                    }
+
+                    // Robust extraction of scores
+                    const s1 = mAny.score1 !== undefined ? String(mAny.score1) : (m.team1?.score !== undefined ? String(m.team1.score) : '');
+                    const s2 = mAny.score2 !== undefined ? String(mAny.score2) : (m.team2?.score !== undefined ? String(m.team2.score) : '');
                     
                     return {
-                        id: String(m.id),
+                        id: String(m.id || `R${rIdx+1}-M${Math.random().toString(36).substr(2, 5)}`),
                         round: rIdx + 1,
                         matchInRound: mAny.matchInRound || 0,
                         team1Id: t1Id,
@@ -353,11 +379,13 @@ const TournamentBracket: React.FC = () => {
                         team2Crest: mAny.team2Crest || m.team2?.crestUrl,
                         team1Mode: mAny.team1Mode || (t1Name ? 'name' : 'id'),
                         team2Mode: mAny.team2Mode || (t2Name ? 'name' : 'id'),
-                        score1: String(mAny.score1 !== undefined ? mAny.score1 : (m.team1?.score !== undefined ? m.team1.score : '')),
-                        score2: String(mAny.score2 !== undefined ? mAny.score2 : (m.team2?.score !== undefined ? m.team2.score : '')),
+                        score1: s1,
+                        score2: s2,
                         winner: m.winner || null,
                         nextMatchId: mAny.nextMatchId || null,
-                        date: m.date, time: m.time, venue: m.venue
+                        date: m.date || '', 
+                        time: m.time || '', 
+                        venue: m.venue || ''
                     };
                 })
             }))
