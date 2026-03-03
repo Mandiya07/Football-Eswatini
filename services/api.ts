@@ -1219,3 +1219,34 @@ export const fetchContactInquiries = async (): Promise<ContactInquiry[]> => {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContactInquiry));
 };
+
+// Podcast Functions
+export const fetchPodcasts = async (): Promise<any[]> => {
+    try {
+        const q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error("Fetch podcasts failed:", error);
+        return [];
+    }
+};
+
+export const listenToPodcasts = (callback: (podcasts: any[]) => void): (() => void) => {
+    const q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+        callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+        handleFirestoreError(error, 'listen to podcasts');
+        callback([]);
+    });
+};
+
+export const addPodcast = async (data: any) => {
+    await addDoc(collection(db, 'podcasts'), { ...data, createdAt: serverTimestamp() });
+};
+
+export const deletePodcast = async (id: string) => {
+    await deleteDoc(doc(db, 'podcasts', id));
+};
+

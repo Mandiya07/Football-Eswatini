@@ -10,6 +10,7 @@ import WhistleIcon from './icons/WhistleIcon';
 import WomanIcon from './icons/WomanIcon';
 import NationalTeamIcon from './icons/NationalTeamIcon';
 import VoteIcon from './icons/VoteIcon';
+import RadioIcon from './icons/RadioIcon';
 import UsersIcon from './icons/UsersIcon';
 
 const tiles = [
@@ -72,6 +73,12 @@ const tiles = [
     href: '/interactive',
     Icon: VoteIcon,
     color: 'text-indigo-600',
+  },
+  {
+    name: 'AI Podcast',
+    href: '/podcasts',
+    Icon: RadioIcon,
+    color: 'text-purple-600',
   },
 ];
 

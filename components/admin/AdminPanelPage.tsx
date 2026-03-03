@@ -26,6 +26,7 @@ import UserManagement from './UserManagement';
 import InquiryManagement from './InquiryManagement';
 import AdminInsights from './AdminInsights';
 import MerchantSettings from './MerchantSettings';
+import AdminPodcasts from './AdminPodcasts';
 
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import GitMergeIcon from '../icons/GitMergeIcon';
@@ -64,7 +65,7 @@ const YouthManagement = lazy(() => import('./YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'users' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance' | 'inquiries' | 'insights' | 'finance';
+type AdminTab = 'approvals' | 'users' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance' | 'inquiries' | 'insights' | 'finance' | 'podcasts';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
@@ -112,6 +113,7 @@ const AdminPanelPage: React.FC = () => {
       case 'maintenance': return <MaintenanceTools />;
       case 'insights': return <AdminInsights />;
       case 'finance': return <MerchantSettings />;
+      case 'podcasts': return <AdminPodcasts />;
       default: return null;
     }
   };
@@ -153,6 +155,7 @@ const AdminPanelPage: React.FC = () => {
                     <div className="space-y-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Strategy & AI</h4>
                         <TabButton tabName="insights" label="AI Daily Insights" Icon={SparklesIcon} className="bg-indigo-600 text-white hover:bg-indigo-700" />
+                        <TabButton tabName="podcasts" label="AI Podcasts" Icon={MicIcon} className="bg-emerald-600 text-white hover:bg-emerald-700" />
                         
                         <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Finance</h4>
                         <TabButton tabName="finance" label="Merchant & Payouts" Icon={CreditCardIcon} className="bg-green-600 text-white hover:bg-green-700" />

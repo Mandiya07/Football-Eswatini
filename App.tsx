@@ -72,6 +72,7 @@ const JournalistPortalPage = lazy(() => import('./components/JournalistPortalPag
 // Fix: Corrected variable name by removing space to resolve "Cannot find name 'UmbuluziPitchPage'" error on line 169
 const UmbuluziPitchPage = lazy(() => import('./components/UmbuluziPitchPage'));
 const ManageTeamsPage = lazy(() => import('./components/data-management/ManageTeamsPage'));
+const PodcastsPage = lazy(() => import('./components/PodcastsPage'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./components/TermsOfService'));
 
@@ -159,6 +160,7 @@ const App: React.FC = () => {
                   <Route path="/memory-lane" element={<MemoryLanePage />} />
                   <Route path="/team-yam" element={<TeamYamPage />} />
                   <Route path="/exclusive" element={<ExclusivePage />} />
+                  <Route path="/podcasts" element={<PodcastsPage />} />
                   <Route path="/data-management" element={<DataManagementPage />} />
                   <Route path="/data-management/teams" element={<ManageTeamsPage />} />
                   <Route path="/data-management/bulk-import" element={<BulkImportPage />} />

@@ -14,7 +14,8 @@ const AIDailyBriefing: React.FC = () => {
     const [error, setError] = useState(false);
 
     const generateBriefing = async () => {
-        if (!process.env.API_KEY) return;
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+        if (!apiKey) return;
         
         setIsLoading(true);
         setError(false);
@@ -37,7 +38,7 @@ const AIDailyBriefing: React.FC = () => {
             const topTeams = standings.slice(0, 3).map(t => `${t.name} (${t.stats.pts}pts)`).join(', ');
             const upcoming = premierLeague?.fixtures?.slice(0, 3).map(f => `${f.teamA} vs ${f.teamB}`).join(', ');
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey });
             const prompt = `You are the Football Eswatini Digital Voice. Summarize the state of football in Eswatini today.
             CONTEXT:
             - Recent News Headlines: ${newsContext}
