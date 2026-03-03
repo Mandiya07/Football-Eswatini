@@ -4,7 +4,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { fetchNews, listenToAllCompetitions, listenToCups, addPodcast, listenToPodcasts, deletePodcast } from '../../services/api';
-import { calculateStandings, compressImage } from '../../services/utils';
+import { calculateStandings, compressImage, pcmToWav } from '../../services/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import Spinner from '../ui/Spinner';
 import MicIcon from '../icons/MicIcon';
@@ -26,7 +26,7 @@ const AdminPodcasts: React.FC = () => {
     const [topics, setTopics] = useState<string[]>([]);
     const [newTopic, setNewTopic] = useState('');
     const [transcript, setTranscript] = useState('');
-    const [audioBase64, setAudioBase64] = useState<string | null>(null);
+    const [audioDataUri, setAudioDataUri] = useState<string | null>(null);
     const [coverArt, setCoverArt] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +86,7 @@ const AdminPodcasts: React.FC = () => {
             const ai = new GoogleGenAI({ apiKey });
             
             // 2. Generate Script First
-            const scriptPrompt = `Generate a podcast script between Sipho (host) and Thandi (analyst) about Eswatini football.
+            const scriptPrompt = `Generate a podcast script between Sipho (a male host) and Thandi (a female analyst) about Eswatini football.
             
             CONTEXT:
             - News: ${newsContext}
@@ -95,6 +95,11 @@ const AdminPodcasts: React.FC = () => {
             - Upcoming: ${upcomingMatches}
             - Tournaments: ${tournamentInfo}
             - User Topics: ${topics.join(', ')}
+            
+            STYLE & TONE:
+            - Warm, energetic Southern African podcast style.
+            - Include common, simple SiSwati greetings or exclamations (e.g., "Sawubona", "Yebo", "Eish", "Ngiyabonga", "Sho").
+            - IMPORTANT: To ensure the AI voice pronounces them correctly, stick to very simple SiSwati words, or spell them phonetically so an English TTS engine won't butcher them.
             
             FORMAT:
             Sipho: [Text]
@@ -111,30 +116,45 @@ const AdminPodcasts: React.FC = () => {
             setTranscript(generatedScript);
 
             // 3. Generate Audio from Script
-            const ttsPrompt = `TTS the following conversation:
+            const ttsPrompt = `TTS the following conversation between Sipho (male) and Thandi (female). Please speak with a warm, energetic Southern African cadence and accent:
+            
             ${generatedScript}`;
 
             const ttsResponse = await ai.models.generateContent({
                 model: "gemini-2.5-flash-preview-tts",
                 contents: [{ parts: [{ text: ttsPrompt }] }],
                 config: {
-                    responseModalities: [Modality.AUDIO],
+                    responseModalities: ["AUDIO" as any],
                     speechConfig: {
                         multiSpeakerVoiceConfig: {
                             speakerVoiceConfigs: [
-                                { speaker: 'Sipho', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-                                { speaker: 'Thandi', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } }
+                                { speaker: 'Sipho', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } }, // Male voice
+                                { speaker: 'Thandi', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } // Female voice
                             ]
                         }
                     }
                 }
             });
 
-            const base64 = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-            if (base64) {
-                setAudioBase64(base64);
+            const audioPart = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+            if (audioPart?.data) {
+                const mimeType = audioPart.mimeType || '';
+                let finalBase64 = audioPart.data;
+                let finalMime = mimeType || 'audio/wav';
+
+                // Gemini TTS often returns raw PCM data. We need to wrap it in a WAV header for the browser to play it.
+                if (mimeType.includes('pcm') || mimeType === '') {
+                    try {
+                        finalBase64 = pcmToWav(audioPart.data, 24000);
+                        finalMime = 'audio/wav';
+                    } catch (e) {
+                        console.error("PCM to WAV conversion failed", e);
+                    }
+                }
+                
+                setAudioDataUri(`data:${finalMime};base64,${finalBase64}`);
             } else {
-                throw new Error("Failed to generate audio.");
+                throw new Error("Failed to generate audio data.");
             }
 
         } catch (err) {
@@ -146,7 +166,7 @@ const AdminPodcasts: React.FC = () => {
     };
 
     const handlePublish = async () => {
-        if (!title || !audioBase64 || !transcript) {
+        if (!title || !audioDataUri || !transcript) {
             alert("Title, audio, and transcript are required.");
             return;
         }
@@ -157,7 +177,7 @@ const AdminPodcasts: React.FC = () => {
                 title,
                 topics,
                 transcript,
-                audioUrl: `data:audio/wav;base64,${audioBase64}`,
+                audioUrl: audioDataUri,
                 coverArtUrl: coverArt,
                 author: user?.name || 'Admin'
             });
@@ -166,7 +186,7 @@ const AdminPodcasts: React.FC = () => {
             setTitle('');
             setTopics([]);
             setTranscript('');
-            setAudioBase64(null);
+            setAudioDataUri(null);
             setCoverArt(null);
             alert("Podcast published successfully!");
         } catch (err) {
@@ -278,10 +298,10 @@ const AdminPodcasts: React.FC = () => {
                                     />
                                 </div>
 
-                                {audioBase64 && (
+                                {audioDataUri && (
                                     <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
                                         <label className="text-[10px] font-black uppercase text-blue-600 tracking-widest mb-2 block">Audio Preview</label>
-                                        <audio src={`data:audio/wav;base64,${audioBase64}`} controls className="w-full h-10" />
+                                        <audio src={audioDataUri} controls className="w-full h-10" />
                                     </div>
                                 )}
 

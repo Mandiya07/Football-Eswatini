@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { listenToPodcasts } from '../services/api';
+import { listenToPodcasts, fetchPodcastAudio } from '../services/api';
 import { Card, CardContent } from './ui/Card';
 import SectionLoader from './SectionLoader';
 import RadioIcon from './icons/RadioIcon';
@@ -15,6 +15,8 @@ const PodcastsPage: React.FC = () => {
     const [podcasts, setPodcasts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedPodcast, setSelectedPodcast] = useState<any | null>(null);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const [loadingAudio, setLoadingAudio] = useState(false);
     const [showTranscript, setShowTranscript] = useState(false);
     const [copied, setCopied] = useState(false);
 
@@ -27,6 +29,19 @@ const PodcastsPage: React.FC = () => {
             }
         });
         return () => unsub();
+    }, [selectedPodcast]);
+
+    useEffect(() => {
+        const loadAudio = async () => {
+            if (selectedPodcast) {
+                setLoadingAudio(true);
+                setAudioUrl(null);
+                const fullAudio = await fetchPodcastAudio(selectedPodcast.id);
+                setAudioUrl(fullAudio);
+                setLoadingAudio(false);
+            }
+        };
+        loadAudio();
     }, [selectedPodcast]);
 
     const handleShare = async (p: any) => {
@@ -143,11 +158,22 @@ const PodcastsPage: React.FC = () => {
                                         </div>
 
                                         <div className="mt-12 p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
-                                            <audio 
-                                                src={selectedPodcast.audioUrl} 
-                                                controls 
-                                                className="w-full h-12"
-                                            />
+                                            {loadingAudio ? (
+                                                <div className="flex items-center justify-center h-12 gap-3 text-slate-400">
+                                                    <div className="w-5 h-5 border-2 border-slate-300 border-t-primary rounded-full animate-spin"></div>
+                                                    <span className="text-xs font-bold uppercase tracking-widest">Loading Audio...</span>
+                                                </div>
+                                            ) : audioUrl ? (
+                                                <audio 
+                                                    src={audioUrl} 
+                                                    controls 
+                                                    className="w-full h-12"
+                                                />
+                                            ) : (
+                                                <div className="text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+                                                    Audio not available
+                                                </div>
+                                            )}
                                         </div>
 
                                         <AnimatePresence>

@@ -12,6 +12,52 @@ export interface ScorerRecord {
     score: number;
 }
 
+export const pcmToWav = (pcmBase64: string, sampleRate: number = 24000): string => {
+    const binaryString = window.atob(pcmBase64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // Create WAV header
+    const wavBuffer = new ArrayBuffer(44 + len);
+    const view = new DataView(wavBuffer);
+    
+    const writeString = (view: DataView, offset: number, string: string) => {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    };
+    
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + len, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); // 1 channel (mono)
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, len, true);
+    
+    // Copy PCM data
+    const wavBytes = new Uint8Array(wavBuffer);
+    wavBytes.set(bytes, 44);
+    
+    let binary = '';
+    // Process in chunks to avoid call stack size limits
+    const chunkSize = 8192;
+    for (let i = 0; i < wavBytes.length; i += chunkSize) {
+        const chunk = wavBytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+    }
+    return window.btoa(binary);
+};
+
 export const parseScore = (s: string | number | undefined | null) => {
     if (s === undefined || s === null || s === '') return { main: 0, pens: 0 };
     const clean = String(s).replace(/\s+/g, '');

@@ -1243,10 +1243,53 @@ export const listenToPodcasts = (callback: (podcasts: any[]) => void): (() => vo
 };
 
 export const addPodcast = async (data: any) => {
-    await addDoc(collection(db, 'podcasts'), { ...data, createdAt: serverTimestamp() });
+    const { audioUrl, ...rest } = data;
+    const docRef = await addDoc(collection(db, 'podcasts'), { ...rest, createdAt: serverTimestamp() });
+    
+    if (audioUrl) {
+        const chunkSize = 800000; // 800KB chunks to stay under 1MB limit
+        let index = 0;
+        for (let i = 0; i < audioUrl.length; i += chunkSize) {
+            await setDoc(doc(db, `podcasts/${docRef.id}/audio_chunks`, `chunk_${index}`), {
+                index: index,
+                data: audioUrl.substring(i, i + chunkSize)
+            });
+            index++;
+        }
+    }
+};
+
+export const fetchPodcastAudio = async (podcastId: string): Promise<string | null> => {
+    try {
+        const q = query(collection(db, `podcasts/${podcastId}/audio_chunks`), orderBy('index', 'asc'));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) return null;
+        
+        let fullAudio = '';
+        snapshot.forEach(d => {
+            fullAudio += d.data().data;
+        });
+        return fullAudio;
+    } catch (error) {
+        console.error("Fetch podcast audio failed:", error);
+        return null;
+    }
 };
 
 export const deletePodcast = async (id: string) => {
-    await deleteDoc(doc(db, 'podcasts', id));
+    try {
+        const q = query(collection(db, `podcasts/${id}/audio_chunks`));
+        const snapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        snapshot.forEach(d => {
+            batch.delete(d.ref);
+        });
+        batch.delete(doc(db, 'podcasts', id));
+        await batch.commit();
+    } catch (error) {
+        console.error("Delete podcast failed:", error);
+        // Fallback to just deleting the document if batch fails
+        await deleteDoc(doc(db, 'podcasts', id));
+    }
 };
 
