@@ -162,21 +162,15 @@ const BulkImportFixtures: React.FC = () => {
                     scoreB: { type: Type.NUMBER },
                     status: { type: Type.STRING, enum: ['scheduled', 'finished', 'postponed', 'cancelled', 'abandoned', 'suspended'] },
                     venue: { type: Type.STRING },
-                    confidenceScores: {
-                        type: Type.OBJECT,
-                        properties: {
-                            teamA: { type: Type.NUMBER }, teamB: { type: Type.NUMBER }, fullDate: { type: Type.NUMBER },
-                            time: { type: Type.NUMBER }, scoreA: { type: Type.NUMBER }, scoreB: { type: Type.NUMBER },
-                            venue: { type: Type.NUMBER }, status: { type: Type.NUMBER }
-                        }
-                    }
+                    confidenceScore: { type: Type.NUMBER, description: "Overall confidence in this extraction from 0.0 to 1.0" }
                 },
                 required: ['teamA', 'teamB', 'fullDate']
             }
         };
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+            const ai = new GoogleGenAI({ apiKey });
             
             const contents = fileBase64 ? {
                 parts: [
@@ -191,11 +185,28 @@ const BulkImportFixtures: React.FC = () => {
                 config: { responseMimeType: 'application/json', responseSchema } 
             });
 
-            const parsedData = JSON.parse(response.text || '[]');
+            let parsedData = [];
+            try {
+                parsedData = JSON.parse(response.text || '[]');
+            } catch (parseError) {
+                console.warn("JSON parse failed, attempting to recover truncated JSON...", parseError);
+                const text = (response.text || '').trim();
+                const lastValidEnd = text.lastIndexOf('}');
+                if (lastValidEnd !== -1) {
+                    const fixedText = text.substring(0, lastValidEnd + 1) + ']';
+                    try {
+                        parsedData = JSON.parse(fixedText);
+                        console.log(`Successfully recovered ${parsedData.length} items from truncated JSON.`);
+                    } catch (e) {
+                        throw new Error("Failed to parse AI response even after recovery attempt.");
+                    }
+                } else {
+                    throw new Error("Invalid JSON format returned by AI.");
+                }
+            }
 
             const processedData: ParsedFixture[] = parsedData.map((item: any, index: number) => {
-                const scores = Object.values(item.confidenceScores || {}).map(v => typeof v === 'number' ? v : 0.3);
-                const overallConfidence = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0.5;
+                const overallConfidence = typeof item.confidenceScore === 'number' ? item.confidenceScore : 0.8;
                 const warnings: string[] = [];
 
                 const normalizedTeamA = normalizeTeamName(item.teamA, officialTeamNames);
