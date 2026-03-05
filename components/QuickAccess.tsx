@@ -74,12 +74,6 @@ const tiles = [
     Icon: VoteIcon,
     color: 'text-indigo-600',
   },
-  {
-    name: 'AI Podcast',
-    href: '/podcasts',
-    Icon: RadioIcon,
-    color: 'text-purple-600',
-  },
 ];
 
 const QuickAccess: React.FC = () => {

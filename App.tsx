@@ -15,7 +15,6 @@ import PlayerProfilePage from './components/PlayerProfilePage';
 import AuthModal from './components/AuthModal';
 import { useAuth } from './contexts/AuthContext';
 import DataManagementPage from './components/DataManagementPage';
-import SystemToolbar from './components/SystemToolbar';
 import RefreshPage from './components/RefreshPage';
 import NotFound from './components/NotFound';
 
@@ -79,32 +78,14 @@ const TermsOfService = lazy(() => import('./components/TermsOfService'));
 
 const App: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal } = useAuth();
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
   
   return (
     <HashRouter>
-      <div className={`min-h-screen transition-all duration-500 ${isPreviewMode ? 'bg-slate-300 py-10' : 'bg-eswatini-pattern'}`}>
+      <div className="min-h-screen bg-eswatini-pattern">
         
-        <div className={`transition-all duration-700 mx-auto bg-white flex flex-col ${
-          isPreviewMode 
-          ? 'w-[390px] h-[844px] rounded-[3.5rem] shadow-[0_0_0_12px_#1e293b,0_25px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden relative border-[1px] border-white/20' 
-          : 'min-h-screen w-full'
-        }`}>
+        <div className="min-h-screen w-full bg-white flex flex-col">
           
-          {isPreviewMode && (
-            <div className="h-10 bg-black flex justify-between items-center px-8 flex-shrink-0 z-[1000]">
-              <span className="text-white text-[10px] font-bold">9:41</span>
-              <div className="w-24 h-6 bg-black rounded-full border border-white/5 flex items-center justify-center">
-                 <div className="w-10 h-1 bg-white/20 rounded-full"></div>
-              </div>
-              <div className="flex gap-1.5 items-center">
-                <div className="w-3 h-3 border border-white/30 rounded-sm"></div>
-                <div className="w-3 h-3 bg-white rounded-full"></div>
-              </div>
-            </div>
-          )}
-
-          <div className={`${isPreviewMode ? 'overflow-y-auto custom-scrollbar flex-grow' : 'flex flex-col min-h-screen'}`}>
+          <div className="flex flex-col min-h-screen">
             <Navigation />
             <main className="flex-grow">
               <Suspense fallback={<div className="p-8 text-center">Loading Page...</div>}>
@@ -180,19 +161,9 @@ const App: React.FC = () => {
             </main>
             <Footer />
           </div>
-
-          {isPreviewMode && (
-             <div className="h-8 bg-black flex justify-center items-center flex-shrink-0 z-[1000]">
-                <div className="w-32 h-1 bg-white/20 rounded-full"></div>
-             </div>
-          )}
         </div>
 
         <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
-        <SystemToolbar 
-          isPreviewActive={isPreviewMode} 
-          onTogglePreview={() => setIsPreviewMode(!isPreviewMode)} 
-        />
       </div>
     </HashRouter>
   );

@@ -17,7 +17,7 @@ const Hero: React.FC = () => {
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     
     const [backgroundImage, setBackgroundImage] = useState<string>(
-        localStorage.getItem('fe_hero_bg') || "https://images.unsplash.com/photo-1553126736-a8332206f250?q=80&w=2050&auto=format&fit=crop"
+        localStorage.getItem('fe_hero_bg') || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2076&auto=format&fit=crop"
     );
     const [isGenerating, setIsGenerating] = useState(false);
 
