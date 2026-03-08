@@ -164,32 +164,49 @@ export const reconcilePlayers = (
 
     const playerMatchRegistry = new Map<number, Set<string>>();
 
-    // Robust Player Finder: Matches by ID or Normalized Name
+    // Robust Player Finder: Matches by ID or Normalized Name globally first, then locally
     const getOrCreatePlayer = (team: Team, playerName?: string, playerID?: number): Player | null => {
         if (!playerName && !playerID) return null;
         const normName = playerName ? superNormalize(playerName) : '';
         
-        let p = team.players.find(tp => 
-            (playerID && tp.id === playerID) || 
-            (normName && superNormalize(tp.name) === normName)
-        );
+        let globalPlayer: Player | undefined;
         
-        if (!p) {
-            const stableId = playerID || (playerName ? generateStableId(playerName) : Date.now());
-            p = {
-                id: stableId,
-                name: playerName || `Player ${playerID}`,
-                position: 'Forward',
-                number: 0,
-                photoUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${playerName || playerID}`,
-                bio: { nationality: 'Eswatini', age: 21, height: '-' },
-                stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 },
-                transferHistory: [],
-                isDiscovered: true 
-            } as any;
-            team.players.push(p!);
+        // 1. Global Search (Pass 1): Exact ID match
+        if (playerID) {
+            for (const t of teamsMap.values()) {
+                globalPlayer = t.players.find(tp => tp.id === playerID);
+                if (globalPlayer) break;
+            }
         }
-        return p!;
+
+        // 2. Global Search (Pass 2): Name match (Fallback for transfers where old ID was deleted)
+        if (!globalPlayer && normName) {
+            for (const t of teamsMap.values()) {
+                globalPlayer = t.players.find(tp => superNormalize(tp.name) === normName);
+                if (globalPlayer) break;
+            }
+        }
+
+        if (globalPlayer) {
+            return globalPlayer;
+        }
+        
+        // 3. Local Creation: If not found anywhere, create in the team where the event occurred
+        const stableId = playerID || (playerName ? generateStableId(playerName) : Date.now());
+        const newPlayer: Player = {
+            id: stableId,
+            name: playerName || `Player ${playerID}`,
+            position: 'Forward',
+            number: 0,
+            photoUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${playerName || playerID}`,
+            bio: { nationality: 'Eswatini', age: 21, height: '-' },
+            stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 },
+            transferHistory: [],
+            isDiscovered: true 
+        } as any;
+        team.players.push(newPlayer);
+        
+        return newPlayer;
     };
 
     // 2. FILTER UNIQUE MATCHES (Most recent status takes precedence)

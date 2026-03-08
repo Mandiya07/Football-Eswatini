@@ -17,7 +17,6 @@ import CheckIcon from '../icons/CheckIcon';
 
 const AdminPodcasts: React.FC = () => {
     const { user } = useAuth();
-    const [isGenerating, setIsGenerating] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [podcasts, setPodcasts] = useState<any[]>([]);
     
@@ -46,14 +45,17 @@ const AdminPodcasts: React.FC = () => {
         }
     };
 
-    const generatePodcastContent = async () => {
+    const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+    const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+
+    const generateScript = async () => {
         const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
         if (!apiKey) {
             setError("Gemini API Key is not configured in the environment.");
             return;
         }
 
-        setIsGenerating(true);
+        setIsGeneratingScript(true);
         setError(null);
 
         try {
@@ -107,34 +109,86 @@ const AdminPodcasts: React.FC = () => {
             
             Keep it under 200 words. Make it engaging.`;
 
-            const scriptResponse = await ai.models.generateContent({
-                model: "gemini-3-flash-preview",
-                contents: scriptPrompt,
-            });
+            const generateScriptWithRetry = async (retries = 3, delay = 2000): Promise<any> => {
+                try {
+                    return await ai.models.generateContent({
+                        model: "gemini-3-flash-preview",
+                        contents: scriptPrompt,
+                    });
+                } catch (error: any) {
+                    if (retries > 0 && (error.message?.includes('503') || error.status === 503 || error.message?.includes('UNAVAILABLE'))) {
+                        console.warn(`Script generation failed with 503. Retrying... (${retries} left)`);
+                        await new Promise(res => setTimeout(res, delay));
+                        return generateScriptWithRetry(retries - 1, delay * 2);
+                    }
+                    throw error;
+                }
+            };
+
+            const scriptResponse = await generateScriptWithRetry();
 
             const generatedScript = scriptResponse.text || "";
             setTranscript(generatedScript);
 
+        } catch (err) {
+            console.error("Script generation failed:", err);
+            setError(`Script generation failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        } finally {
+            setIsGeneratingScript(false);
+        }
+    };
+
+    const generateAudio = async () => {
+        if (!transcript) {
+            setError("Please provide a transcript first.");
+            return;
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+        if (!apiKey) {
+            setError("Gemini API Key is not configured in the environment.");
+            return;
+        }
+
+        setIsGeneratingAudio(true);
+        setError(null);
+
+        try {
+            const ai = new GoogleGenAI({ apiKey });
+
             // 3. Generate Audio from Script
             const ttsPrompt = `TTS the following conversation between Sipho (male) and Thandi (female). Please speak with a warm, energetic Southern African cadence and accent:
             
-            ${generatedScript}`;
+            ${transcript}`;
 
-            const ttsResponse = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-tts",
-                contents: [{ parts: [{ text: ttsPrompt }] }],
-                config: {
-                    responseModalities: ["AUDIO" as any],
-                    speechConfig: {
-                        multiSpeakerVoiceConfig: {
-                            speakerVoiceConfigs: [
-                                { speaker: 'Sipho', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } }, // Male voice
-                                { speaker: 'Thandi', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } // Female voice
-                            ]
+            const generateWithRetry = async (retries = 3, delay = 2000): Promise<any> => {
+                try {
+                    return await ai.models.generateContent({
+                        model: "gemini-2.5-flash-preview-tts",
+                        contents: [{ parts: [{ text: ttsPrompt }] }],
+                        config: {
+                            responseModalities: ["AUDIO" as any],
+                            speechConfig: {
+                                multiSpeakerVoiceConfig: {
+                                    speakerVoiceConfigs: [
+                                        { speaker: 'Sipho', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } }, // Male voice
+                                        { speaker: 'Thandi', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } // Female voice
+                                    ]
+                                }
+                            }
                         }
+                    });
+                } catch (error: any) {
+                    if (retries > 0 && (error.message?.includes('503') || error.status === 503 || error.message?.includes('UNAVAILABLE'))) {
+                        console.warn(`Podcast generation failed with 503. Retrying... (${retries} left)`);
+                        await new Promise(res => setTimeout(res, delay));
+                        return generateWithRetry(retries - 1, delay * 2);
                     }
+                    throw error;
                 }
-            });
+            };
+
+            const ttsResponse = await generateWithRetry();
 
             const audioPart = ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData;
             if (audioPart?.data) {
@@ -161,7 +215,7 @@ const AdminPodcasts: React.FC = () => {
             console.error("Podcast generation failed:", err);
             setError(`Podcast generation failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
         } finally {
-            setIsGenerating(false);
+            setIsGeneratingAudio(false);
         }
     };
 
@@ -279,32 +333,41 @@ const AdminPodcasts: React.FC = () => {
                             </div>
 
                             <Button 
-                                onClick={generatePodcastContent} 
-                                disabled={isGenerating}
+                                onClick={generateScript} 
+                                disabled={isGeneratingScript}
                                 className="w-full bg-primary text-white h-12 font-black uppercase tracking-widest text-xs shadow-lg flex items-center justify-center gap-2"
                             >
-                                {isGenerating ? <><Spinner className="w-4 h-4 border-white" /> Generating Script & Audio...</> : <><RadioIcon className="w-4 h-4" /> Generate with AI</>}
+                                {isGeneratingScript ? <><Spinner className="w-4 h-4 border-white" /> Generating Script...</> : <><RadioIcon className="w-4 h-4" /> Generate Script with AI</>}
                             </Button>
                         </div>
 
-                        {transcript && (
-                            <div className="space-y-4 pt-4 border-t border-gray-100 animate-fade-in">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1 block">AI Generated Script</label>
-                                    <textarea 
-                                        value={transcript}
-                                        onChange={e => setTranscript(e.target.value)}
-                                        className="w-full h-40 p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-medium leading-relaxed"
-                                    />
+                        <div className="space-y-4 pt-4 border-t border-gray-100 animate-fade-in">
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1 block">Podcast Transcript / Script</label>
+                                <textarea 
+                                    value={transcript}
+                                    onChange={e => setTranscript(e.target.value)}
+                                    placeholder="Write your podcast script here, or use AI to generate one..."
+                                    className="w-full h-40 p-3 bg-gray-50 border border-gray-100 rounded-xl text-xs font-medium leading-relaxed"
+                                />
+                            </div>
+
+                            <Button 
+                                onClick={generateAudio} 
+                                disabled={isGeneratingAudio || !transcript}
+                                className="w-full bg-indigo-600 text-white h-12 font-black uppercase tracking-widest text-xs shadow-lg flex items-center justify-center gap-2"
+                            >
+                                {isGeneratingAudio ? <><Spinner className="w-4 h-4 border-white" /> Generating Audio...</> : <><MicIcon className="w-4 h-4" /> Generate Audio from Script</>}
+                            </Button>
+
+                            {audioDataUri && (
+                                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                                    <label className="text-[10px] font-black uppercase text-blue-600 tracking-widest mb-2 block">Audio Preview</label>
+                                    <audio src={audioDataUri} controls className="w-full h-10" />
                                 </div>
+                            )}
 
-                                {audioDataUri && (
-                                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                                        <label className="text-[10px] font-black uppercase text-blue-600 tracking-widest mb-2 block">Audio Preview</label>
-                                        <audio src={audioDataUri} controls className="w-full h-10" />
-                                    </div>
-                                )}
-
+                            {audioDataUri && (
                                 <Button 
                                     onClick={handlePublish} 
                                     disabled={isPublishing}
@@ -312,8 +375,8 @@ const AdminPodcasts: React.FC = () => {
                                 >
                                     {isPublishing ? <Spinner className="w-4 h-4 border-white" /> : <><CheckIcon className="w-4 h-4" /> Publish Episode</>}
                                 </Button>
-                            </div>
-                        )}
+                            )}
+                        </div>
 
                         {error && <p className="text-red-500 text-[10px] font-bold text-center">{error}</p>}
                     </CardContent>
