@@ -108,30 +108,30 @@ const ScoutingPage: React.FC = () => {
                         <div>
                             <label htmlFor="filter-region" className="block text-sm font-medium text-gray-700 mb-1">Region</label>
                             <select id="filter-region" value={filterRegion} onChange={e => setFilterRegion(e.target.value as any)} className={inputClass}>
-                                <option value="all">All Regions</option>
-                                <option value="Hhohho">Hhohho</option>
-                                <option value="Manzini">Manzini</option>
-                                <option value="Lubombo">Lubombo</option>
-                                <option value="Shiselweni">Shiselweni</option>
+                                <option key="all" value="all">All Regions</option>
+                                <option key="hhohho" value="Hhohho">Hhohho</option>
+                                <option key="manzini" value="Manzini">Manzini</option>
+                                <option key="lubombo" value="Lubombo">Lubombo</option>
+                                <option key="shiselweni" value="Shiselweni">Shiselweni</option>
                             </select>
                         </div>
                          <div>
                             <label htmlFor="filter-position" className="block text-sm font-medium text-gray-700 mb-1">Position</label>
                             <select id="filter-position" value={filterPosition} onChange={e => setFilterPosition(e.target.value as any)} className={inputClass}>
-                                <option value="all">All Positions</option>
-                                <option value="Goalkeeper">Goalkeeper</option>
-                                <option value="Defender">Defender</option>
-                                <option value="Midfielder">Midfielder</option>
-                                <option value="Forward">Forward</option>
+                                <option key="all" value="all">All Positions</option>
+                                <option key="goalkeeper" value="Goalkeeper">Goalkeeper</option>
+                                <option key="defender" value="Defender">Defender</option>
+                                <option key="midfielder" value="Midfielder">Midfielder</option>
+                                <option key="forward" value="Forward">Forward</option>
                             </select>
                         </div>
                         <div>
                             <label htmlFor="filter-age" className="block text-sm font-medium text-gray-700 mb-1">Age Group</label>
                             <select id="filter-age" value={filterAgeGroup} onChange={e => setFilterAgeGroup(e.target.value as any)} className={inputClass}>
-                                <option value="all">All Ages</option>
-                                <option value="U-17">U-17</option>
-                                <option value="U-20">U-20</option>
-                                <option value="Senior">Senior</option>
+                                <option key="all" value="all">All Ages</option>
+                                <option key="u17" value="U-17">U-17</option>
+                                <option key="u20" value="U-20">U-20</option>
+                                <option key="senior" value="Senior">Senior</option>
                             </select>
                         </div>
                     </CardContent>
@@ -145,7 +145,7 @@ const ScoutingPage: React.FC = () => {
                                 onClick={() => setSelectedPlayer(player)}
                                 className={`w-full text-left p-3 rounded-lg border-2 transition-colors duration-200 flex items-center gap-4 ${selectedPlayer?.id === player.id ? 'bg-blue-100 border-blue-400' : 'bg-white hover:bg-gray-50 border-gray-200'}`}
                             >
-                                <img src={player.photoUrl} alt={player.name} className="w-12 h-12 rounded-full object-cover" />
+                                <img src={player.photoUrl || 'https://via.placeholder.com/150?text=Player'} alt={player.name} className="w-12 h-12 rounded-full object-cover" />
                                 <div>
                                     <p className="font-bold text-gray-800">{player.name}</p>
                                     <p className="text-xs text-gray-500">{player.age} yrs &bull; {player.position}</p>

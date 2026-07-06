@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { Team, Competition } from '../../data/teams';
-import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry } from '../../services/api';
+import { fetchAllCompetitions, updateDirectoryEntry, fetchDirectoryEntries, addDirectoryEntry, handleFirestoreError, OperationType } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
@@ -17,14 +17,26 @@ import TeamRosterModal from './TeamRosterModal';
 import TeamFixturesModal from './TeamFixturesModal';
 import { calculateStandings, removeUndefinedProps } from '../../services/utils';
 import { Region, DirectoryEntity } from '../../data/directory';
+import ConfirmationModal from '../ui/ConfirmationModal';
+import { useDataCache } from '../../contexts/DataCacheContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ManageTeams: React.FC = () => {
+    const { user } = useAuth();
+    const { competitions: allCompsCache } = useDataCache();
     const [allCompsData, setAllCompsData] = useState<Record<string, Competition>>({});
     const [competitions, setCompetitions] = useState<{ id: string, name: string }[]>([]);
-    const [selectedCompId, setSelectedCompId] = useState('mtn-premier-league');
+    const [selectedCompId, setSelectedCompId] = useState('');
+    
+    const isSuperAdmin = user?.role === 'super_admin';
+    const managedLeagues = user?.managedLeagues || [];
+
     const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
-    const [processingId, setProcessingId] = useState<number | null>(null);
+    const [processingId, setProcessingId] = useState<string | null>(null);
+    const [confirmDeleteTeam, setConfirmDeleteTeam] = useState<Team | null>(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
@@ -37,12 +49,16 @@ const ManageTeams: React.FC = () => {
     const loadData = useCallback(async (refreshOnly: boolean = false) => {
         if (!refreshOnly) setLoading(true);
         try {
-            const allComps = await fetchAllCompetitions();
+            const allComps = allCompsCache;
             setAllCompsData(allComps);
             
             // Defensive mapping and sorting for competitions
             const compList = Object.entries(allComps)
-                .filter(([_, comp]) => comp && comp.name)
+                .filter(([id, comp]) => {
+                    if (!comp || !comp.name) return false;
+                    if (isSuperAdmin) return true;
+                    return managedLeagues.includes(id);
+                })
                 .map(([id, comp]) => ({ id, name: comp.name! }));
 
             const sortedList = compList.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -50,9 +66,14 @@ const ManageTeams: React.FC = () => {
 
             // Determine active competition
             let activeId = selectedCompId;
-            if (!allComps[activeId] && sortedList.length > 0) {
-                activeId = sortedList[0].id;
-                setSelectedCompId(activeId);
+            if (!allComps[activeId] || (!isSuperAdmin && !managedLeagues.includes(activeId))) {
+                if (sortedList.length > 0) {
+                    activeId = sortedList[0].id;
+                    setSelectedCompId(activeId);
+                } else {
+                    activeId = '';
+                    setSelectedCompId('');
+                }
             }
 
             if (allComps[activeId]) {
@@ -64,11 +85,11 @@ const ManageTeams: React.FC = () => {
                 setTeams([]);
             }
         } catch (error) {
-            console.error("Failed to load teams data:", error);
+            handleFirestoreError(error, OperationType.GET, 'competitions');
         } finally {
             setLoading(false);
         }
-    }, [selectedCompId]);
+    }, [selectedCompId, allCompsCache]);
     
     useEffect(() => {
         loadData();
@@ -106,12 +127,9 @@ const ManageTeams: React.FC = () => {
         setIsFixturesModalOpen(true);
     };
 
-    const handleDelete = async (teamId: number) => {
-        if (!window.confirm("Are you sure you want to delete this team? Standings will be recalculated.")) {
-            return;
-        }
-
+    const handleDelete = async (teamId: string) => {
         setProcessingId(teamId);
+        setIsSubmitting(true);
         const compDocRef = doc(db, 'competitions', selectedCompId);
         try {
             await runTransaction(db, async (transaction) => {
@@ -139,31 +157,65 @@ const ManageTeams: React.FC = () => {
                 transaction.update(compDocRef, removeUndefinedProps({ teams: recalculatedTeams, fixtures: updatedFixtures, results: updatedResults }));
             });
             
+            setConfirmDeleteTeam(null);
             await loadData(true);
         } catch (error) {
-            console.error("Error deleting team:", error);
-            alert("Failed to delete team.");
+            handleFirestoreError(error, OperationType.DELETE, `competitions/${selectedCompId}/teams/${teamId}`);
         } finally {
             setProcessingId(null);
+            setIsSubmitting(false);
         }
     };
 
-    const handleSaveTeam = async (data: any, id?: number, addToDir: boolean = false) => {
+    const handleSaveTeam = async (data: any, id?: string, addToDir: boolean = false) => {
         setLoading(true);
         setIsFormModalOpen(false);
+        setIsSubmitting(true);
         try {
             const compDocRef = doc(db, 'competitions', selectedCompId);
+            let savedTeamId = id;
             if (id) {
                 await runTransaction(db, async (transaction) => {
                     const compDocSnap = await transaction.get(compDocRef);
                     if (!compDocSnap.exists()) throw new Error("Competition not found");
                     const competition = compDocSnap.data() as Competition;
+                    
+                    const oldTeam = (competition.teams || []).find(t => t.id === id);
+                    const oldName = oldTeam?.name || '';
+                    const newName = data.name;
+                    
                     const updatedCompTeams = (competition.teams || []).map(t => t.id === id ? { ...t, ...data } : t);
-                    transaction.update(compDocRef, removeUndefinedProps({ teams: updatedCompTeams }));
+                    
+                    // If the name changed, update fixtures and results
+                    let updatedFixtures = competition.fixtures || [];
+                    let updatedResults = competition.results || [];
+                    let finalTeams = updatedCompTeams;
+                    
+                    if (oldName && newName && oldName !== newName) {
+                        updatedFixtures = updatedFixtures.map(f => ({
+                            ...f,
+                            teamA: f.teamA === oldName ? newName : f.teamA,
+                            teamB: f.teamB === oldName ? newName : f.teamB
+                        }));
+                        
+                        updatedResults = updatedResults.map(r => ({
+                            ...r,
+                            teamA: r.teamA === oldName ? newName : r.teamA,
+                            teamB: r.teamB === oldName ? newName : r.teamB
+                        }));
+                        
+                        finalTeams = calculateStandings(updatedCompTeams, updatedResults);
+                    }
+                    
+                    transaction.update(compDocRef, removeUndefinedProps({ 
+                        teams: finalTeams,
+                        fixtures: updatedFixtures,
+                        results: updatedResults
+                    }));
                 });
             } else {
-                const maxId = teams.reduce((max, team) => Math.max(max, team.id), 0);
-                const newTeamId = maxId > 0 ? maxId + 1 : 1;
+                const newTeamId = String(Date.now());
+                savedTeamId = newTeamId;
                 await runTransaction(db, async (transaction) => {
                     const compDocSnap = await transaction.get(compDocRef);
                     if (!compDocSnap.exists()) throw new Error("Competition not found");
@@ -173,17 +225,64 @@ const ManageTeams: React.FC = () => {
                         name: data.name,
                         crestUrl: data.crestUrl || '',
                         players: [], fixtures: [], results: [], staff: [],
-                        stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' }
+                        stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+                        shortName: data.name.substring(0, 3).toUpperCase(),
+                        logo: data.crestUrl || '',
+                        primaryColor: '#000000',
+                        secondaryColor: '#FFFFFF',
+                        founded: 1900,
+                        stadium: 'TBD',
+                        city: 'TBD',
+                        coach: 'TBD'
                     };
                     const updatedCompTeams = [...(competition.teams || []), newTeam];
                     transaction.update(compDocRef, { teams: updatedCompTeams });
                 });
             }
             await loadData(true);
+            
+            if (addToDir && savedTeamId) {
+                try {
+                    const dirEntries = await fetchDirectoryEntries();
+                    // Find an existing entry for this team.
+                    const existingEntryId = Object.keys(dirEntries).find(key => {
+                        const entry = dirEntries[key];
+                        return entry.teamId === savedTeamId && entry.competitionId === selectedCompId;
+                    });
+                    
+                    const dirData: Partial<DirectoryEntity> = {
+                        name: data.name,
+                        crestUrl: data.crestUrl || '',
+                        logo: data.crestUrl || '',
+                        contact: data.socialMedia ? { website: data.socialMedia.website } : {}
+                    };
+
+                    if (existingEntryId) {
+                        await updateDirectoryEntry(existingEntryId, dirData);
+                    } else {
+                        // Creating a new directory entry for existing team if not found
+                        await addDirectoryEntry({
+                            name: data.name,
+                            type: 'club',
+                            description: `Professional football club competing in Eswatini.`,
+                            contact: data.socialMedia ? { website: data.socialMedia.website } : {},
+                            logo: data.crestUrl || '',
+                            crestUrl: data.crestUrl || '',
+                            category: 'Club',
+                            teamId: savedTeamId,
+                            competitionId: selectedCompId,
+                            region: 'National'
+                        });
+                    }
+                } catch (dirErr) {
+                    console.error("Failed to sync with directory:", dirErr);
+                }
+            }
         } catch (error) {
-            console.error("Save team failed", error);
+            handleFirestoreError(error, id ? OperationType.UPDATE : OperationType.CREATE, id ? `competitions/${selectedCompId}/teams/${id}` : `competitions/${selectedCompId}/teams`);
         } finally {
             setLoading(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -227,7 +326,7 @@ const ManageTeams: React.FC = () => {
                                         <button onClick={() => handleManageSchedule(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Schedule"><CalendarIcon className="w-5 h-5 text-white"/></button>
                                         <button onClick={() => handleManageRoster(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Roster"><UsersIcon className="w-5 h-5 text-white"/></button>
                                         <button onClick={() => handleEdit(team)} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm" title="Edit"><PencilIcon className="w-5 h-5 text-white"/></button>
-                                        <button onClick={() => handleDelete(team.id)} disabled={processingId === team.id} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm" title="Delete">
+                                        <button onClick={() => { setConfirmDeleteTeam(team); setShowConfirmModal(true); }} disabled={processingId === team.id} className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm" title="Delete">
                                             {processingId === team.id ? <Spinner className="w-5 h-5 border-white border-2" /> : <TrashIcon className="w-5 h-5 text-white" />}
                                         </button>
                                     </div>
@@ -238,6 +337,18 @@ const ManageTeams: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
+
+            {showConfirmModal && confirmDeleteTeam && (
+                <ConfirmationModal
+                    isOpen={showConfirmModal}
+                    onClose={() => { setShowConfirmModal(false); setConfirmDeleteTeam(null); }}
+                    onConfirm={() => handleDelete(confirmDeleteTeam.id)}
+                    title="Delete Team"
+                    message={`Are you sure you want to delete ${confirmDeleteTeam.name}? Standings will be recalculated. This action cannot be undone.`}
+                    confirmText={isSubmitting ? 'Deleting...' : 'Delete'}
+                    variant="danger"
+                />
+            )}
             
             {isFormModalOpen && <TeamFormModal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} onSave={handleSaveTeam} team={editingTeam} competitionId={selectedCompId} />}
             {isRosterModalOpen && rosterTeam && <TeamRosterModal isOpen={isRosterModalOpen} onClose={() => setIsRosterModalOpen(false)} onSave={() => loadData(true)} team={rosterTeam} competitionId={selectedCompId} />}

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
-import { addLiveUpdate, listenToAllCompetitions, handleFirestoreError, LiveUpdate } from '../../services/api';
+import { addLiveUpdate, handleFirestoreError, LiveUpdate } from '../../services/api';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { GoogleGenAI, Type } from '@google/genai';
 import SparklesIcon from '../icons/SparklesIcon';
@@ -14,8 +14,10 @@ import { removeUndefinedProps, calculateStandings } from '../../services/utils';
 import PlayIcon from '../icons/PlayIcon';
 import ClockIcon from '../icons/ClockIcon';
 import RadioIcon from '../icons/RadioIcon';
+import { useDataCache } from '../../contexts/DataCacheContext';
 
 const LiveUpdatesEntry: React.FC = () => {
+    const { competitions: allCompsCache } = useDataCache();
     const [formData, setFormData] = useState<{
         fixture_id: string;
         competition: string;
@@ -51,37 +53,32 @@ const LiveUpdatesEntry: React.FC = () => {
     const [loadingMatches, setLoadingMatches] = useState(true);
 
     useEffect(() => {
-        setLoadingMatches(true);
-        const unsubscribe = listenToAllCompetitions((allComps) => {
-            const matches: { fixture: CompetitionFixture, compName: string, compId: string }[] = [];
-            const today = new Date();
+        const matches: { fixture: CompetitionFixture, compName: string, compId: string }[] = [];
+        const today = new Date();
 
-            Object.entries(allComps).forEach(([compId, comp]) => {
-                if (comp.fixtures) {
-                    comp.fixtures.forEach(f => {
-                        const matchDate = new Date(f.fullDate + 'T' + (f.time || '15:00'));
-                        const diffHours = (today.getTime() - matchDate.getTime()) / (1000 * 60 * 60);
-                        
-                        // Show if live, suspended or within 72 hour window
-                        if (f.status === 'live' || f.status === 'suspended' || (diffHours < 72 && diffHours > -72)) {
-                            matches.push({ fixture: f, compName: comp.name, compId: compId });
-                        }
-                    });
-                }
-            });
-            
-            matches.sort((a, b) => {
-                if (a.fixture.status === 'live' && b.fixture.status !== 'live') return -1;
-                if (b.fixture.status === 'live' && a.fixture.status !== 'live') return 1;
-                return new Date(a.fixture.fullDate || '').getTime() - new Date(b.fixture.fullDate || '').getTime();
-            });
-
-            setTodaysMatches(matches);
-            setLoadingMatches(false);
+        Object.entries(allCompsCache).forEach(([compId, comp]) => {
+            if (comp.fixtures) {
+                comp.fixtures.forEach(f => {
+                    const matchDate = new Date(f.fullDate + 'T' + (f.time || '15:00'));
+                    const diffHours = (today.getTime() - matchDate.getTime()) / (1000 * 60 * 60);
+                    
+                    // Show if live, suspended or within 72 hour window
+                    if (f.status === 'live' || f.status === 'suspended' || (diffHours < 72 && diffHours > -72)) {
+                        matches.push({ fixture: f, compName: comp.name, compId: compId });
+                    }
+                });
+            }
+        });
+        
+        matches.sort((a, b) => {
+            if (a.fixture.status === 'live' && b.fixture.status !== 'live') return -1;
+            if (b.fixture.status === 'live' && a.fixture.status !== 'live') return 1;
+            return new Date(a.fixture.fullDate || '').getTime() - new Date(b.fixture.fullDate || '').getTime();
         });
 
-        return () => unsubscribe();
-    }, []);
+        setTodaysMatches(matches);
+        setLoadingMatches(false);
+    }, [allCompsCache]);
 
     const handleSelectMatch = (match: { fixture: CompetitionFixture, compName: string, compId: string }) => {
         setFormData(prev => ({
@@ -132,7 +129,7 @@ const LiveUpdatesEntry: React.FC = () => {
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const response = await ai.models.generateContent({ 
-                model: 'gemini-3-flash-preview', 
+                model: 'gemini-3.5-flash', 
                 contents: prompt, 
                 config: { responseMimeType: 'application/json', responseSchema } 
             });
@@ -278,7 +275,8 @@ const LiveUpdatesEntry: React.FC = () => {
                     events: [...(f.events || []), newEvent]
                 };
                 
-                transaction.update(docRef, { fixtures: removeUndefinedProps(fixtures) });
+                const updatedTeams = calculateStandings(comp.teams || [], comp.results || [], fixtures);
+                transaction.update(docRef, removeUndefinedProps({ fixtures, teams: updatedTeams }));
             });
 
             console.log("DEBUG: Transaction success.");

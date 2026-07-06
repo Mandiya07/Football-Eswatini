@@ -190,7 +190,7 @@ const CommunityEventCard: React.FC<{
                             {comments.length > 0 ? (
                                 comments.map(comment => (
                                     <div key={comment.id} className="flex gap-2 text-xs">
-                                        <img src={comment.userAvatar} alt="" className="w-6 h-6 rounded-full flex-shrink-0" />
+                                        <img src={comment.userAvatar || 'https://via.placeholder.com/150?text=Avatar'} alt="" className="w-6 h-6 rounded-full flex-shrink-0" />
                                         <div className="bg-gray-50 p-2 rounded-lg flex-grow">
                                             <div className="flex justify-between items-baseline mb-0.5">
                                                 <span className="font-bold text-gray-800">{comment.userName}</span>
@@ -628,13 +628,13 @@ const CommunityHub: React.FC = () => {
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-500 mb-1">Event Type *</label>
                                                 <select name="eventType" value={formData.eventType} onChange={handleInputChange} className={inputClass}>
-                                                    <option>Knockout</option>
-                                                    <option>League</option>
-                                                    <option>Festival</option>
-                                                    <option>Charity</option>
-                                                    <option>Trial</option>
-                                                    <option>Workshop</option>
-                                                    <option>Other</option>
+                                                    <option key="knockout">Knockout</option>
+                                                    <option key="league">League</option>
+                                                    <option key="festival">Festival</option>
+                                                    <option key="charity">Charity</option>
+                                                    <option key="trial">Trial</option>
+                                                    <option key="workshop">Workshop</option>
+                                                    <option key="other">Other</option>
                                                 </select>
                                             </div>
                                             <div>

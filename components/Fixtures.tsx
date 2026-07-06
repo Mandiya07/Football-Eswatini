@@ -18,6 +18,7 @@ import { calculateStandings, removeUndefinedProps, findInMap } from '../services
 import Button from './ui/Button';
 import CollapsibleSelector from './ui/CollapsibleSelector';
 import ClockIcon from './icons/ClockIcon';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 interface FixturesProps {
     showSelector?: boolean;
@@ -34,9 +35,10 @@ interface FixtureItemProps {
     isDeleting: boolean;
     directoryMap: Map<string, DirectoryEntity>;
     competitionId: string;
+    currentTeamName?: string;
 }
 
-export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, isExpanded, onToggleDetails, teams, onDeleteFixture, isDeleting, directoryMap, competitionId }) => {
+export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, isExpanded, onToggleDetails, teams, onDeleteFixture, isDeleting, directoryMap, competitionId, currentTeamName }) => {
     const [copied, setCopied] = useState(false);
     const { user } = useAuth();
     const [displayMinute, setDisplayMinute] = useState<string | number>(fixture.liveMinute || 0);
@@ -112,11 +114,13 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 
     const isScoreVisible = fixture.status === 'live' || fixture.status === 'finished' || (fixture.status === 'abandoned' && fixture.scoreA !== undefined);
 
-    const renderTeamName = (name: string, linkProps: { type: string, url: string }) => {
-        if (linkProps.type === 'profile' || linkProps.type === 'directory') {
-            return <Link to={linkProps.url} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 hover:underline hover:text-primary transition-colors text-sm sm:text-base truncate block w-full">{name}</Link>;
-        }
-        return <p className="font-semibold text-gray-800 truncate text-sm sm:text-base block w-full">{name}</p>;
+    const renderTeamName = (name: string, linkProps: { type: string, url: string }, isHome: boolean, isAway: boolean) => {
+        const badge = isHome ? ' (H)' : isAway ? ' (A)' : '';
+        const element = linkProps.type === 'profile' || linkProps.type === 'directory' ? 
+            <Link to={linkProps.url} onClick={(e) => e.stopPropagation()} className="font-semibold text-gray-800 hover:underline hover:text-primary transition-colors text-sm sm:text-base truncate block w-full">{name}{badge}</Link>
+            : <p className="font-semibold text-gray-800 truncate text-sm sm:text-base block w-full">{name}{badge}</p>;
+        
+        return element;
     };
 
     return (
@@ -129,7 +133,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                 </div>
                 <div className="flex-grow grid grid-cols-[1fr_auto_1fr] items-center text-center gap-2">
                     <div className="flex justify-end items-center gap-2 pr-1 overflow-hidden w-full text-right">
-                         {renderTeamName(fixture.teamA, teamALink)}
+                         {renderTeamName(fixture.teamA, teamALink, fixture.teamA === currentTeamName, false)}
                          {crestA && <img src={crestA} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm border border-gray-100" />}
                     </div>
                     {isScoreVisible ? (
@@ -150,7 +154,7 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
                     )}
                     <div className="flex justify-start items-center gap-2 pl-1 overflow-hidden w-full text-left">
                         {crestB && <img src={crestB} alt="" loading="lazy" className="w-6 h-6 object-contain flex-shrink-0 bg-white rounded-sm shadow-sm border border-gray-100" />}
-                        {renderTeamName(fixture.teamB, teamBLink)}
+                        {renderTeamName(fixture.teamB, teamBLink, false, fixture.teamB === currentTeamName)}
                     </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -164,13 +168,32 @@ export const FixtureItem: React.FC<FixtureItemProps> = React.memo(({ fixture, is
 });
 
 const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompetition = 'mtn-premier-league', maxHeight }) => {
+    const { competitions: allComps } = useDataCache();
     const [selectedComp, setSelectedComp] = useState(defaultCompetition);
+    const [compTypeFilter, setCompTypeFilter] = useState<'all' | 'league' | 'cup'>('all');
     const [activeTab, setActiveTab] = useState<'fixtures' | 'results'>('fixtures');
-    const [competition, setCompetition] = useState<Competition | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [expandedFixtureId, setExpandedFixtureId] = useState<number | string | null>(null);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
-    const [compOptions, setCompOptions] = useState<{ label: string, options: { value: string; name: string; }[] }[]>([]);
+    const [compOptions, setCompOptions] = useState<{ label: string, options: { value: string; name: string; type?: 'league' | 'cup' }[] }[]>([]);
+
+    const competition = useMemo(() => {
+        console.log("Fixtures - Data Check:", { selectedComp, allKeys: Object.keys(allComps) });
+        return allComps[selectedComp] || null;
+    }, [selectedComp, allComps]);
+
+    const filteredCompOptions = useMemo(() => {
+        if (compTypeFilter === 'all') return compOptions;
+        return compOptions
+            .map(group => ({
+                ...group,
+                options: group.options.filter(opt => {
+                    const comp = allComps[opt.value];
+                    return comp?.competitionType === compTypeFilter;
+                })
+            }))
+            .filter(group => group.options.length > 0);
+    }, [compOptions, compTypeFilter, allComps]);
 
     useEffect(() => {
         if (defaultCompetition) setSelectedComp(defaultCompetition);
@@ -179,24 +202,31 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
     useEffect(() => {
         const loadMetadata = async () => {
              try {
-                const [entries, allCompetitionsData, categoriesData] = await Promise.all([
+                const [entries, categoriesData] = await Promise.all([
                     fetchDirectoryEntries(),
-                    fetchAllCompetitions(),
                     fetchCategories()
                 ]);
                 const map = new Map<string, DirectoryEntity>();
                 entries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
                 setDirectoryMap(map);
                 if (showSelector) {
-                    const allCompetitions = Object.entries(allCompetitionsData).map(([id, comp]) => ({ id, ...(comp as Competition) })).filter(comp => comp.name);
-                    const categoryGroups = new Map<string, { name: string; order: number; competitions: { value: string; name: string }[] }>();
+                    const allCompetitionsList = Object.entries(allComps).map(([id, comp]) => ({ id, ...(comp as Competition) })).filter(comp => comp.name);
+                    const categoryGroups = new Map<string, { name: string; order: number; competitions: { value: string; name: string, type?: 'league' | 'cup' }[] }>();
                     categoriesData.forEach(cat => categoryGroups.set(cat.id, { name: cat.name, order: cat.order, competitions: [] }));
-                    const uncategorizedCompetitions: { value: string; name: string }[] = [];
-                    allCompetitions.forEach(comp => {
-                        const item = { value: comp.id, name: comp.displayName || comp.name };
+                    const uncategorizedCompetitions: { value: string; name: string, type?: 'league' | 'cup' }[] = [];
+                    allCompetitionsList.forEach(comp => {
+                        const item = { value: comp.id, name: comp.displayName || comp.name, type: comp.competitionType };
                         const catId = comp.categoryId;
-                        if (catId && categoryGroups.has(catId)) categoryGroups.get(catId)!.competitions.push(item);
-                        else uncategorizedCompetitions.push(item);
+                        if (catId) {
+                            if (categoryGroups.has(catId)) {
+                                categoryGroups.get(catId)!.competitions.push(item);
+                            } else {
+                                const fallbackName = catId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                                categoryGroups.set(catId, { name: fallbackName, order: 999, competitions: [item] });
+                            }
+                        } else {
+                            uncategorizedCompetitions.push(item);
+                        }
                     });
                     const finalOptions = Array.from(categoryGroups.values()).filter(group => group.competitions.length > 0).sort((a, b) => a.order - b.order).map(group => ({ label: group.name, options: group.competitions.sort((a, b) => (a.name || '').localeCompare(b.name || '')) }));
                     if (uncategorizedCompetitions.length > 0) finalOptions.push({ label: "Other Leagues", options: uncategorizedCompetitions.sort((a, b) => (a.name || '').localeCompare(b.name || '')) });
@@ -205,17 +235,7 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
              } catch (error) {}
         };
         loadMetadata();
-    }, [showSelector]);
-
-    useEffect(() => {
-        if (!selectedComp) return;
-        setLoading(true);
-        const unsubscribe = listenToCompetition(selectedComp, async (data) => {
-            setCompetition(data || null);
-            setLoading(false);
-        });
-        return () => unsubscribe();
-    }, [selectedComp, activeTab]);
+    }, [showSelector, allComps]);
 
     const groupedData = useMemo(() => {
         if (!competition) return [];
@@ -260,7 +280,20 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                     {competition?.logoUrl && <img src={competition.logoUrl} alt="" className="h-10 object-contain" />}
                     <h2 className="text-3xl font-display font-bold">{competition?.displayName || competition?.name || 'Fixtures & Results'}</h2>
                 </div>
-                {showSelector && <div className="min-w-[280px]"><CollapsibleSelector value={selectedComp} onChange={setSelectedComp} options={compOptions} /></div>}
+                {showSelector && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <select
+                            value={compTypeFilter}
+                            onChange={(e) => setCompTypeFilter(e.target.value as 'all' | 'league' | 'cup')}
+                            className="text-xs font-bold bg-white border border-gray-300 rounded-lg px-2 py-2"
+                        >
+                            <option value="all">All</option>
+                            <option value="league">Leagues</option>
+                            <option value="cup">Cups</option>
+                        </select>
+                        <div className="min-w-[200px]"><CollapsibleSelector value={selectedComp} onChange={setSelectedComp} options={filteredCompOptions} /></div>
+                    </div>
+                )}
             </div>
             <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg w-fit mb-6 shadow-inner">
                 <button onClick={() => setActiveTab('fixtures')} className={`px-6 py-2 text-xs font-bold rounded-md transition-all ${activeTab === 'fixtures' ? 'bg-primary text-white shadow' : 'text-gray-600 hover:text-primary'}`}>Upcoming</button>
@@ -272,8 +305,8 @@ const Fixtures: React.FC<FixturesProps> = ({ showSelector = true, defaultCompeti
                         <div key={group.title} className="mb-8">
                             <h3 className="text-sm font-black uppercase text-gray-400 mb-3 tracking-widest pl-2 border-l-4 border-accent">{group.title}</h3>
                             <Card className="divide-y overflow-hidden shadow-md">
-                                {group.fixtures.map(f => (
-                                    <FixtureItem key={f.id} fixture={f} isExpanded={expandedFixtureId === f.id} onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === f.id ? null : f.id)} teams={competition?.teams || []} onDeleteFixture={() => {}} isDeleting={false} directoryMap={directoryMap} competitionId={selectedComp} />
+                                {group.fixtures.map((f, index) => (
+                                    <FixtureItem key={`${f.id}-${index}`} fixture={f} isExpanded={expandedFixtureId === f.id} onToggleDetails={() => setExpandedFixtureId(expandedFixtureId === f.id ? null : f.id)} teams={competition?.teams || []} onDeleteFixture={() => {}} isDeleting={false} directoryMap={directoryMap} competitionId={selectedComp} />
                                 ))}
                             </Card>
                         </div>

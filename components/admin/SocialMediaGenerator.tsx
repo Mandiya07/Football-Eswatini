@@ -9,7 +9,7 @@ import RefreshIcon from '../icons/RefreshIcon';
 import PhotoIcon from '../icons/PhotoIcon';
 import FilmIcon from '../icons/FilmIcon';
 import { fetchAllCompetitions, fetchDirectoryEntries, fetchCups, fetchAllTeams } from '../../services/api';
-import { superNormalize, findInMap, calculateStandings } from '../../services/utils';
+import { superNormalize, findInMap, calculateStandings, makePlain, safeJSONStringify } from '../../services/utils';
 import RecapGeneratorModal from './RecapGeneratorModal';
 import { DirectoryEntity } from '../../data/directory';
 import { MatchEvent, Team } from '../../data/teams';
@@ -295,7 +295,7 @@ const SocialMediaGenerator: React.FC = () => {
             }
             
             const response = await ai.models.generateContent({ 
-                model: 'gemini-3-flash-preview', 
+                model: 'gemini-3.5-flash', 
                 contents: prompt,
                 config: { 
                     responseMimeType: isWeeklySummary ? "application/json" : "text/plain",
@@ -313,7 +313,18 @@ const SocialMediaGenerator: React.FC = () => {
 
             if (isWeeklySummary) {
                 const articleData = JSON.parse(response.text || "{}");
-                setGeneratedCaptions([JSON.stringify(articleData)]); 
+                console.log("articleData type:", typeof articleData);
+                console.log("articleData:", safeJSONStringify(articleData, null, 2));
+                
+                let captionsString = "";
+                try {
+                    captionsString = safeJSONStringify(articleData);
+                } catch (e) {
+                    console.error("Error stringifying captions:", e);
+                    captionsString = safeJSONStringify({ title: articleData?.title || "Error", content: "Serialization failed" });
+                }
+                
+                setGeneratedCaptions([captionsString]); 
             } else {
                 setGeneratedCaptions(response.text?.split('---').map(s => s.trim()).filter(Boolean) || [response.text || '']);
             }
@@ -332,7 +343,7 @@ const SocialMediaGenerator: React.FC = () => {
             const article = JSON.parse(generatedCaptions[0]);
             const slug = article.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             
-            await addDoc(collection(db, 'news'), {
+            await addDoc(collection(db, 'news'), makePlain({
                 title: article.title,
                 summary: article.summary,
                 content: article.content,
@@ -341,7 +352,7 @@ const SocialMediaGenerator: React.FC = () => {
                 date: new Date().toISOString(),
                 createdAt: serverTimestamp(),
                 url: `/news/${slug}-${Date.now()}`
-            });
+            }));
             
             setPublishSuccess(true);
             setGeneratedCaptions([]);

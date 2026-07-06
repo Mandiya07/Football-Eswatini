@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, NotificationPreferences } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import { NotificationPreferences } from '../types/auth';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import TeamSelector from './TeamSelector';
@@ -37,7 +38,7 @@ const ProfileSetupPage: React.FC = () => {
     const [name, setName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
     const [avatar, setAvatar] = useState(user?.avatar || '');
-    const [favoriteTeamIds, setFavoriteTeamIds] = useState(user?.favoriteTeamIds || []);
+    const [favoriteTeamIds, setFavoriteTeamIds] = useState<string[]>(user?.favoriteTeamIds as string[] || []);
     
     const [notifications, setNotifications] = useState<NotificationPreferences>(
         user?.notificationPreferences || { matchAlerts: true, news: true, announcements: true }
@@ -96,7 +97,7 @@ const ProfileSetupPage: React.FC = () => {
                             <h2 className="text-2xl font-bold font-display mb-6">Personal Information</h2>
                             <div className="flex flex-col sm:flex-row items-center gap-6">
                                 <div className="relative group">
-                                    <img src={avatar} alt="User avatar" className="w-24 h-24 rounded-full" />
+                                    <img src={avatar || 'https://via.placeholder.com/150?text=Avatar'} alt="User avatar" className="w-24 h-24 rounded-full" />
                                     <label htmlFor="avatar-upload" className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                                         <PencilIcon className="w-6 h-6" />
                                         <input type="file" id="avatar-upload" className="sr-only" onChange={handleAvatarFileChange} accept="image/*" />
@@ -119,7 +120,7 @@ const ProfileSetupPage: React.FC = () => {
                     <Card className="shadow-lg">
                         <CardContent className="p-8">
                             <h2 className="text-2xl font-bold font-display mb-4">My Favorite Teams</h2>
-                            <TeamSelector selectedTeamIds={favoriteTeamIds} onSelectionChange={setFavoriteTeamIds} />
+                            <TeamSelector selectedTeamIds={favoriteTeamIds} onSelectionChange={(ids) => setFavoriteTeamIds(ids)} />
                         </CardContent>
                     </Card>
 

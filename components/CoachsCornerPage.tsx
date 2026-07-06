@@ -20,7 +20,7 @@ const ArticleCard: React.FC<{ content: CoachingContent }> = ({ content }) => {
     return (
         <Card className="group transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full">
             <div className="relative overflow-hidden">
-                <img src={content.imageUrl} alt={content.title} loading="lazy" className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img src={content.imageUrl || 'https://via.placeholder.com/400?text=Article'} alt={content.title} loading="lazy" className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" />
                 <span className="absolute top-2 left-2 bg-white/80 backdrop-blur-sm text-blue-800 text-xs font-bold px-2 py-1 rounded-full">{content.type}</span>
             </div>
             <CardContent className="flex flex-col flex-grow p-4">
@@ -46,7 +46,7 @@ const GuestColumnCard: React.FC<{ content: CoachingContent }> = ({ content }) =>
             <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row items-start gap-6">
                     <div className="flex-shrink-0 text-center">
-                        <img src={author.photoUrl} alt={author.name} className="w-24 h-24 rounded-full border-4 border-white shadow-md mx-auto" />
+                        <img src={author.photoUrl || 'https://via.placeholder.com/150?text=Coach'} alt={author.name} className="w-24 h-24 rounded-full border-4 border-white shadow-md mx-auto" />
                         <h4 className="font-bold mt-2">{author.name}</h4>
                         <p className="text-xs text-gray-500">{author.credentials}</p>
                     </div>
@@ -107,7 +107,7 @@ const CoachsCornerPage: React.FC = () => {
                                 <h2 className="text-2xl font-display font-bold mb-4 flex items-center gap-2"><ClipboardIcon className="w-6 h-6 text-primary" /> Featured Analysis</h2>
                                 <Card className="shadow-xl overflow-hidden">
                                     <div className="grid grid-cols-1 md:grid-cols-2">
-                                        <img src={featuredContent.imageUrl} alt={featuredContent.title} className="w-full h-64 md:h-full object-cover" />
+                                        <img src={featuredContent.imageUrl || 'https://via.placeholder.com/800?text=Featured'} alt={featuredContent.title} className="w-full h-64 md:h-full object-cover" />
                                         <div className="p-8 flex flex-col justify-center">
                                             <span className="text-sm font-bold uppercase tracking-wider text-primary">{featuredContent.type}</span>
                                             <h3 className="text-3xl font-display font-bold mt-2 mb-3">{featuredContent.title}</h3>
@@ -141,11 +141,14 @@ const CoachsCornerPage: React.FC = () => {
                                         const video: Video = {
                                             id: content.id,
                                             title: content.title,
-                                            description: content.summary,
-                                            thumbnailUrl: content.thumbnailUrl!,
-                                            videoUrl: content.videoUrl!,
-                                            duration: content.duration!,
-                                            category: 'fan', // placeholder
+                                            description: content.summary || content.description,
+                                            thumbnail: content.thumbnailUrl || content.imageUrl || '',
+                                            thumbnailUrl: content.thumbnailUrl,
+                                            videoUrl: content.videoUrl || '',
+                                            date: content.date,
+                                            duration: content.duration || '0:00',
+                                            category: 'coaching',
+                                            views: 0
                                         };
                                         return <VideoCard key={content.id} video={video} onPlay={handlePlayVideo} />
                                     })}

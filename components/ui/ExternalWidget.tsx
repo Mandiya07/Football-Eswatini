@@ -33,6 +33,7 @@ const ExternalWidget: React.FC<ExternalWidgetProps> = ({ type, source, container
     }, [type, source]);
 
     if (type === 'iframe') {
+        if (!source) return null;
         return (
             <div className={`w-full overflow-hidden rounded-xl border border-gray-100 shadow-sm ${className}`} style={{ height }}>
                 <iframe

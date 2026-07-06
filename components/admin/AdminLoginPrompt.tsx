@@ -13,7 +13,12 @@ const AdminLoginPrompt: React.FC = () => {
   const [isElevating, setIsElevating] = useState(false);
 
   // Parse authorized emails from string
-  const authorizedEmails = (process.env.ADMIN_EMAIL || 'admin@footballeswatini.com')
+  let envVal = 'admin@footballeswatini.com';
+  try {
+      envVal = import.meta.env.VITE_ADMIN_EMAIL || 'admin@footballeswatini.com';
+  } catch (e) {}
+  
+  const authorizedEmails = envVal
     .toLowerCase()
     .split(',')
     .map(e => e.trim());

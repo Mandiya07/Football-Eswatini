@@ -6,9 +6,11 @@ export interface ScorerRecord {
     name: string;
     teamName: string;
     goals: number;
+    assists?: number;
+    appearances?: number;
     potmWins: number;
     crestUrl: string;
-    playerId: number;
+    playerId: string;
     score: number;
 }
 
@@ -79,14 +81,80 @@ export const superNormalize = (s: string) => {
         .trim();
 };
 
-export const generateStableId = (name: string): number => {
+/**
+ * Deep clones an object while handling circular references by replacing them with "[Circular]".
+ */
+export const makePlain = (obj: any, seen: WeakSet<any> = new WeakSet()): any => {
+    // Return primitives directly
+    if (obj === null || typeof obj !== 'object') return obj;
+
+    // Handle circular references early
+    if (seen.has(obj)) return "[Circular]";
+    seen.add(obj);
+
+    // Handle Dates and other standard types
+    if (obj instanceof Date) return obj.toISOString();
+    if (obj instanceof Map) return Array.from(obj.entries()).map(([k, v]) => [k, makePlain(v, seen)]);
+    if (obj instanceof Set) return Array.from(obj).map(item => makePlain(item, seen));
+
+    // Only process plain objects or arrays.
+    // If it's a non-plain object (like a complex class instance from Firebase), 
+    // try to convert to a plain object or return a string description.
+    
+    // Check if it's an array
+    if (Array.isArray(obj)) {
+        return obj.map(item => makePlain(item, seen));
+    }
+
+    // Attempt to convert to a plain object by copying properties
+    // This ignores prototype properties.
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+        const val = obj[key];
+        // Skip functions and internal-looking properties
+        if (typeof val === 'function') continue;
+        
+        // Always safe stringify values that look like Firestore internal objects
+        // We match by checking if constructor name is small and obfuscated 
+        // to catch other SDK objects or we just let recursive makePlain handle it
+        if (typeof val === 'object' && val !== null && val.constructor && val.constructor.name !== 'Object' && val.constructor.name !== 'Array') {
+            newObj[key] = `[Object: ${val.constructor.name}]`;
+        } else {
+            newObj[key] = makePlain(val, seen);
+        }
+    }
+    return newObj;
+};
+
+export const safeJSONStringify = (obj: any, replacer?: (this: any, key: string, value: any) => any, space?: string | number): string => {
+    const seen = new WeakSet();
+    const circularReplacer = (key: string, value: any) => {
+        if (typeof value === "object" && value !== null) {
+            if (seen.has(value)) {
+                return "[Circular]";
+            }
+            seen.add(value);
+        }
+        return replacer ? replacer.call(this, key, value) : value;
+    };
+    
+    try {
+        // Use makePlain first to sanitize for JSON.stringify, then use replacer for double safety
+        return JSON.stringify(makePlain(obj), circularReplacer, space);
+    } catch (e) {
+        console.error("safeJSONStringify final failure:", e);
+        return JSON.stringify({ error: "Serialization failed" });
+    }
+};
+
+export const generateStableId = (name: string): string => {
     let hash = 0;
     const str = superNormalize(name);
     for (let i = 0; i < str.length; i++) {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
         hash |= 0;
     }
-    return Math.abs(hash);
+    return String(Math.abs(hash));
 };
 
 export const normalizeTeamName = (rawName: string, officialNames: string[]): string | null => {
@@ -139,10 +207,24 @@ export const reconcilePlayers = (
     baseTeams.forEach(incoming => {
         const normName = superNormalize(incoming.name);
         if (!teamsMap.has(normName)) {
-            const masterTeam = JSON.parse(JSON.stringify(incoming)) as Team;
+            // Manual deep clone to avoid circular structure errors with JSON.stringify
+            const masterTeam: Team = {
+                ...incoming,
+                stats: { ...incoming.stats },
+                players: (incoming.players || []).map(p => ({
+                    ...p,
+                    bio: p.bio,
+                    baseStats: p.baseStats ? { ...p.baseStats } : undefined,
+                    stats: { ...p.stats },
+                    transferHistory: (p.transferHistory || []).map(t => ({ ...t }))
+                })),
+                fixtures: (incoming.fixtures || []).map(f => ({ ...f })),
+                results: (incoming.results || []).map(r => ({ ...r })),
+                staff: (incoming.staff || []).map(s => ({ ...s }))
+            };
             
             // Reset stats for calculation
-            masterTeam.players = (masterTeam.players || []).map(p => {
+            masterTeam.players = masterTeam.players.map(p => {
                 // If competition mode, start from zero. If career mode, start from baseStats.
                 const base = mode === 'competition' ? null : p.baseStats;
                 return {
@@ -162,10 +244,10 @@ export const reconcilePlayers = (
         }
     });
 
-    const playerMatchRegistry = new Map<number, Set<string>>();
+    const playerMatchRegistry = new Map<string, Set<string>>();
 
     // Robust Player Finder: Matches by ID or Normalized Name globally first, then locally
-    const getOrCreatePlayer = (team: Team, playerName?: string, playerID?: number): Player | null => {
+    const getOrCreatePlayer = (team: Team, playerName?: string, playerID?: string | number): Player | null => {
         if (!playerName && !playerID) return null;
         const normName = playerName ? superNormalize(playerName) : '';
         
@@ -173,8 +255,9 @@ export const reconcilePlayers = (
         
         // 1. Global Search (Pass 1): Exact ID match
         if (playerID) {
+            const searchId = String(playerID);
             for (const t of teamsMap.values()) {
-                globalPlayer = t.players.find(tp => tp.id === playerID);
+                globalPlayer = t.players.find(tp => String(tp.id) === searchId);
                 if (globalPlayer) break;
             }
         }
@@ -192,14 +275,16 @@ export const reconcilePlayers = (
         }
         
         // 3. Local Creation: If not found anywhere, create in the team where the event occurred
-        const stableId = playerID || (playerName ? generateStableId(playerName) : Date.now());
+        const stableId = playerID ? String(playerID) : (playerName ? generateStableId(playerName) : String(Date.now()));
         const newPlayer: Player = {
             id: stableId,
             name: playerName || `Player ${playerID}`,
             position: 'Forward',
             number: 0,
             photoUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${playerName || playerID}`,
-            bio: { nationality: 'Eswatini', age: 21, height: '-' },
+            nationality: 'Eswatini',
+            age: 21,
+            height: '-',
             stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 },
             transferHistory: [],
             isDiscovered: true 
@@ -297,6 +382,13 @@ export const reconcilePlayers = (
     return Array.from(teamsMap.values());
 };
 
+export const getCompCategory = (id: string, name?: string): 'women' | 'youth' | 'senior' => {
+    const s = `${id} ${name || ''}`.toLowerCase();
+    if (s.includes('women') || s.includes('ewfa')) return 'women';
+    if (s.includes('youth') || s.match(/u\d{2}/) || s.includes('schools') || s.includes('girls') || s.includes('boys')) return 'youth';
+    return 'senior';
+};
+
 export const aggregateGoalsFromEvents = (fixtures: CompetitionFixture[] = [], results: CompetitionFixture[] = [], teams: Team[] = []): ScorerRecord[] => {
     // CRITICAL: Force 'competition' mode to ensure Golden Boot is season-specific, not career-total.
     const reconciledTeams = reconcilePlayers(teams, [...fixtures, ...results], 'competition');
@@ -327,8 +419,119 @@ export const calculateStandings = (teams: Team[], results: CompetitionFixture[],
     teams.forEach(team => {
         standingsMap.set(superNormalize(team.name), {
             ...team,
-            stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' }
+            stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
+            players: team.players ? [...team.players] : []
         });
+    });
+
+    // Synchronize player rosters from match events & Player of the Match awards to prevent duplicates
+    const allMatches = [...results, ...fixtures];
+    allMatches.forEach(match => {
+        // 1. Synchronize player list from Match Events
+        if (match.events && Array.isArray(match.events)) {
+            match.events.forEach(e => {
+                if (!e.playerName) return;
+                const pName = e.playerName.trim();
+                if (!pName) return;
+
+                // Determine or guess the team name for the player event
+                let tName = e.teamName;
+                
+                // If teamName is missing, attempt to resolve via description or global roster presence
+                if (!tName) {
+                    const descLower = e.description ? e.description.toLowerCase() : '';
+                    const normA = superNormalize(match.teamA);
+                    const normB = superNormalize(match.teamB);
+                    
+                    const containsA = descLower.includes(match.teamA.toLowerCase()) || descLower.includes(normA);
+                    const containsB = descLower.includes(match.teamB.toLowerCase()) || descLower.includes(normB);
+                    
+                    if (containsA && !containsB) {
+                        tName = match.teamA;
+                    } else if (containsB && !containsA) {
+                        tName = match.teamB;
+                    } else {
+                        const normPName = superNormalize(pName);
+                        const teamAObj = standingsMap.get(normA);
+                        const teamBObj = standingsMap.get(normB);
+                        const inA = teamAObj && (teamAObj.players || []).some(p => superNormalize(p.name) === normPName);
+                        const inB = teamBObj && (teamBObj.players || []).some(p => superNormalize(p.name) === normPName);
+                        
+                        if (inA && !inB) {
+                            tName = match.teamA;
+                        } else if (inB && !inA) {
+                            tName = match.teamB;
+                        } else {
+                            tName = match.teamA; // Default fallback to home team
+                        }
+                    }
+                }
+
+                const normTeam = superNormalize(tName);
+                const teamObj = standingsMap.get(normTeam);
+                if (!teamObj) return;
+
+                const pId = e.playerID ? String(e.playerID) : generateStableId(pName);
+                const normPName = superNormalize(pName);
+                if (!teamObj.players) teamObj.players = [];
+                const playerExists = teamObj.players.some(p => 
+                    superNormalize(p.name) === normPName || String(p.id) === pId
+                );
+
+                if (!playerExists) {
+                    const newPlayer: Player = {
+                        id: pId,
+                        name: pName,
+                        position: 'Forward',
+                        number: 0,
+                        photoUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${pName}`,
+                        nationality: 'Eswatini',
+                        age: 21,
+                        height: '-',
+                        stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 },
+                        baseStats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 },
+                        transferHistory: []
+                    };
+                    teamObj.players.push(newPlayer);
+                }
+            });
+        }
+
+        // 2. Synchronize player list from Player of the Match awards
+        if (match.playerOfTheMatch && match.playerOfTheMatch.name) {
+            const potm = match.playerOfTheMatch;
+            const pName = potm.name.trim();
+            if (pName) {
+                const tName = potm.teamName || match.teamA;
+                const normTeam = superNormalize(tName);
+                const teamObj = standingsMap.get(normTeam);
+                if (teamObj) {
+                    const pId = potm.playerID ? String(potm.playerID) : generateStableId(pName);
+                    const normPName = superNormalize(pName);
+                    if (!teamObj.players) teamObj.players = [];
+                    const playerExists = teamObj.players.some(p => 
+                        superNormalize(p.name) === normPName || String(p.id) === pId
+                    );
+
+                    if (!playerExists) {
+                        const newPlayer: Player = {
+                            id: pId,
+                            name: pName,
+                            position: 'Forward',
+                            number: 0,
+                            photoUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${pName}`,
+                            nationality: 'Eswatini',
+                            age: 21,
+                            height: '-',
+                            stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 },
+                            baseStats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0, potmWins: 0 },
+                            transferHistory: []
+                        };
+                        teamObj.players.push(newPlayer);
+                    }
+                }
+            }
+        }
     });
 
     const uniqueMatches = new Map<string, CompetitionFixture>();
@@ -400,6 +603,36 @@ export const renameTeamInMatches = (matches: CompetitionFixture[], oldName: stri
         if (superNormalize(m.teamB) === normOld) updated.teamB = newName;
         return updated;
     });
+};
+
+export const safeLocalStorage = {
+    getItem: (key: string) => {
+        try { return localStorage.getItem(key); } catch (e) { return null; }
+    },
+    setItem: (key: string, value: string) => {
+        try { localStorage.setItem(key, value); } catch (e) {}
+    },
+    removeItem: (key: string) => {
+        try { localStorage.removeItem(key); } catch (e) {}
+    },
+    clear: () => {
+        try { localStorage.clear(); } catch (e) {}
+    }
+};
+
+export const safeSessionStorage = {
+    getItem: (key: string) => {
+        try { return sessionStorage.getItem(key); } catch (e) { return null; }
+    },
+    setItem: (key: string, value: string) => {
+        try { sessionStorage.setItem(key, value); } catch (e) {}
+    },
+    removeItem: (key: string) => {
+        try { sessionStorage.removeItem(key); } catch (e) {}
+    },
+    clear: () => {
+        try { sessionStorage.clear(); } catch (e) {}
+    }
 };
 
 export const calculateGroupStandings = (teams: Team[], matches: CompetitionFixture[]): Team[] => {

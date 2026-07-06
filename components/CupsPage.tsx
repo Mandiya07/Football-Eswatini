@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import TournamentBracketDisplay from './TournamentBracketDisplay';
 import { Tournament, cupData as localCupData } from '../data/cups';
-import { listenToCups, listenToDirectory, listenToAllCompetitions } from '../services/api';
+import { listenToCups, listenToDirectory } from '../services/api';
 import SectionLoader from './SectionLoader';
 import InfoIcon from './icons/InfoIcon';
 import { Card, CardContent } from './ui/Card';
@@ -11,10 +11,12 @@ import MapPinIcon from './icons/MapPinIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import { superNormalize, findInMap } from '../services/utils';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 type ViewState = 'hub' | 'ingwenyama-hub' | 'bracket';
 
 const CupsPage: React.FC = () => {
+  const { competitions: allComps } = useDataCache();
   const [searchParams, setSearchParams] = useSearchParams();
   const [cups, setCups] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,14 +26,13 @@ const CupsPage: React.FC = () => {
   useEffect(() => {
     let unsubscribeCups: (() => void) | undefined;
     let unsubscribeDir: (() => void) | undefined;
-    let unsubscribeComps: (() => void) | undefined;
 
     const loadData = async () => {
       setLoading(true);
       
       let fetchedCups: Tournament[] = [];
       let dirEntries: any[] = [];
-      let allCompetitions: any = {};
+      let allCompetitions: any = allComps;
 
       const syncState = () => {
         if (!fetchedCups.length) return;
@@ -64,12 +65,12 @@ const CupsPage: React.FC = () => {
                 team1: {
                   name: t1Name || 'TBD',
                   crestUrl: resolveCrest(t1Name, mAny.team1Crest || mAny.team1?.crestUrl),
-                  score: (mAny.score1 !== undefined && mAny.score1 !== '') ? mAny.score1 : (mAny.team1?.score !== undefined ? mAny.team1.score : '-')
+                  score: (mAny.score1 !== undefined && String(mAny.score1) !== '') ? mAny.score1 : (mAny.team1?.score !== undefined ? mAny.team1.score : '-')
                 },
                 team2: {
                   name: t2Name || 'TBD',
                   crestUrl: resolveCrest(t2Name, mAny.team2Crest || mAny.team2?.crestUrl),
-                  score: (mAny.score2 !== undefined && mAny.score2 !== '') ? mAny.score2 : (mAny.team2?.score !== undefined ? mAny.team2.score : '-')
+                  score: (mAny.score2 !== undefined && String(mAny.score2) !== '') ? mAny.score2 : (mAny.team2?.score !== undefined ? mAny.team2.score : '-')
                 },
                 winner: m.winner || null,
                 venue: m.venue || '',
@@ -103,11 +104,6 @@ const CupsPage: React.FC = () => {
         dirEntries = data;
         syncState();
       });
-
-      unsubscribeComps = listenToAllCompetitions((data) => {
-        allCompetitions = data;
-        syncState();
-      });
     };
 
     loadData();
@@ -115,9 +111,8 @@ const CupsPage: React.FC = () => {
     return () => {
       if (unsubscribeCups) unsubscribeCups();
       if (unsubscribeDir) unsubscribeDir();
-      if (unsubscribeComps) unsubscribeComps();
     };
-  }, [searchParams]);
+  }, [searchParams, allComps]);
 
   const handleCupSelect = (id: string) => setSearchParams({ id });
 

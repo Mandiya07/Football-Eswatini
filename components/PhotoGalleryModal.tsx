@@ -13,14 +13,16 @@ interface PhotoGalleryModalProps {
 const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({ album, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
 
+    const images = album.imageUrls || album.photos || [];
+
     const goToPrevious = () => {
         const isFirstSlide = currentIndex === 0;
-        const newIndex = isFirstSlide ? album.imageUrls.length - 1 : currentIndex - 1;
+        const newIndex = isFirstSlide ? images.length - 1 : currentIndex - 1;
         setCurrentIndex(newIndex);
     };
 
     const goToNext = () => {
-        const isLastSlide = currentIndex === album.imageUrls.length - 1;
+        const isLastSlide = currentIndex === images.length - 1;
         const newIndex = isLastSlide ? 0 : currentIndex + 1;
         setCurrentIndex(newIndex);
     };
@@ -60,7 +62,7 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({ album, onClose })
 
         <div className="absolute top-4 left-4 text-white z-[310]">
             <h2 id="gallery-title" className="text-xl font-bold">{album.title}</h2>
-            <p className="text-sm">{currentIndex + 1} / {album.imageUrls.length}</p>
+            <p className="text-sm">{currentIndex + 1} / {images.length}</p>
         </div>
 
         <button 
@@ -79,11 +81,13 @@ const PhotoGalleryModal: React.FC<PhotoGalleryModalProps> = ({ album, onClose })
         </button>
 
         <div className="relative w-full h-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
-            <img 
-                src={album.imageUrls[currentIndex]} 
-                alt={`Image ${currentIndex + 1} from ${album.title}`}
-                className="max-h-[90vh] max-w-[90vw] object-contain"
-            />
+            {images.length > 0 && (
+                <img 
+                    src={images[currentIndex]} 
+                    alt={`Image ${currentIndex + 1} from ${album.title}`}
+                    className="max-h-[90vh] max-w-[90vw] object-contain"
+                />
+            )}
         </div>
     </div>
   );

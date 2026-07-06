@@ -11,6 +11,9 @@ import ShoppingCartIcon from './icons/ShoppingCartIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import GlobeIcon from './icons/GlobeIcon';
 import { Card } from './ui/Card';
+import ShieldCheckIcon from './icons/ShieldCheckIcon';
+import SparklesIcon from './icons/SparklesIcon';
+import { safeLocalStorage } from '../services/utils';
 
 // Lazy load components that are below the fold
 const SponsorSpotlight = lazy(() => import('./SponsorSpotlight'));
@@ -26,14 +29,14 @@ const Home: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    if (isLoggedIn && !localStorage.getItem('onboardingComplete')) {
+    if (isLoggedIn && !safeLocalStorage.getItem('onboardingComplete')) {
         const timer = setTimeout(() => setShowOnboarding(true), 500);
         return () => clearTimeout(timer);
     }
   }, [isLoggedIn]);
 
   const handleOnboardingFinish = () => {
-      localStorage.setItem('onboardingComplete', 'true');
+      safeLocalStorage.setItem('onboardingComplete', 'true');
       setShowOnboarding(false);
   };
 
@@ -42,6 +45,21 @@ const Home: React.FC = () => {
       {showOnboarding && <OnboardingModal onClose={handleOnboardingFinish} />}
       <Hero />
       
+      {/* Official App Sponsor Bar */}
+      <div className="bg-[#002B7F] py-3 border-y border-white/10 uppercase font-black text-center relative overflow-hidden group">
+          <div className="container mx-auto px-4 flex items-center justify-center gap-2 sm:gap-6 text-white group-hover:scale-[1.01] transition-transform">
+              <span className="text-[10px] sm:text-xs tracking-[0.3em] opacity-60 hidden md:block">Strategic Partnership</span>
+              <div className="bg-white/10 p-1 rounded-lg border border-white/10 flex items-center gap-2 px-3">
+                  <ShieldCheckIcon className="w-4 h-4 text-accent" />
+                  <span className="text-[10px] sm:text-xs tracking-widest">Sponsored by EFA</span>
+              </div>
+              <span className="text-[10px] sm:text-xs tracking-[0.3em] opacity-60 flex items-center gap-2">
+                  Keeping High-Depth Soccer Free for Fans <SparklesIcon className="w-3 h-3 text-accent" />
+              </span>
+          </div>
+          <div className="absolute top-0 right-0 h-full w-32 bg-gradient-to-l from-accent/10 to-transparent pointer-events-none"></div>
+      </div>
+
       <div className="relative z-40 bg-white">
         <LiveScoreboard />
       </div>
@@ -62,24 +80,24 @@ const Home: React.FC = () => {
             <NewsSection limit={3} />
         </Suspense>
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-            <div className="lg:col-span-8 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            <div className="space-y-8">
                 <div className="flex items-center justify-between">
                     <h2 className="text-3xl font-display font-black text-slate-900 uppercase tracking-tighter">Match Schedule</h2>
-                    <a href="#/fixtures" className="text-white font-black text-[11px] uppercase tracking-widest bg-primary px-4 py-2 rounded-full shadow-md hover:bg-primary-dark transition-colors">View All &rarr;</a>
+                    <Link to="/fixtures" className="text-white font-black text-[11px] uppercase tracking-widest bg-primary px-4 py-2 rounded-full shadow-md hover:bg-primary-dark transition-colors">View All &rarr;</Link>
                 </div>
                 <Suspense fallback={<SectionLoader />}>
-                    <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="max-h-[600px]" />
+                    <Fixtures showSelector={false} defaultCompetition="mtn-premier-league" maxHeight="h-[600px]" />
                 </Suspense>
             </div>
             
-            <div className="lg:col-span-4 space-y-8">
+            <div className="space-y-8">
                 <div className="flex items-center justify-between">
                     <h2 className="text-3xl font-display font-black text-slate-900 uppercase tracking-tighter">Leagues</h2>
-                    <a href="#/logs" className="text-white font-black text-[11px] uppercase tracking-widest bg-primary px-4 py-2 rounded-full shadow-md hover:bg-primary-dark transition-colors">Tables &rarr;</a>
+                    <Link to="/logs" className="text-white font-black text-[11px] uppercase tracking-widest bg-primary px-4 py-2 rounded-full shadow-md hover:bg-primary-dark transition-colors">Tables &rarr;</Link>
                 </div>
                 <Suspense fallback={<SectionLoader />}>
-                    <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="max-h-[600px]" />
+                    <Logs showSelector={false} defaultLeague="mtn-premier-league" maxHeight="h-[600px]" />
                 </Suspense>
                 
                 <div className="pt-6">

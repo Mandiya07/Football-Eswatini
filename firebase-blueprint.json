@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "competition": {
+      "title": "Competition",
+      "description": "A football competition or league hub.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "teams": { "type": "array" },
+        "fixtures": { "type": "array" },
+        "logs": { "type": "array" }
+      },
+      "required": ["name"]
+    },
+    "news": {
+      "title": "News Item",
+      "description": "A news article or update.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "date": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["title", "content", "date"]
+    },
+    "efa_communication": {
+      "title": "EFA Communication",
+      "description": "Official notices and communications from the EFA.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "summary": { "type": "string" },
+        "contentUrl": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["title", "category", "summary", "date"]
+    },
+    "efa_statistics": {
+      "title": "EFA Statistics",
+      "description": "Aggregated statistics for national football tracking.",
+      "type": "object",
+      "properties": {
+        "registeredPlayers": { "type": "number" },
+        "activeCoaches": { "type": "number" },
+        "eliteReferees": { "type": "number" },
+        "youthAcademies": { "type": "number" },
+        "regionalDistribution": { "type": "object" },
+        "lastUpdated": { "type": "string" }
+      }
+    },
+    "crm_lead": {
+      "title": "CRM Sales Lead",
+      "description": "A customer lead in the CRM pipeline for football subscription sales.",
+      "type": "object",
+      "properties": {
+        "clubName": { "type": "string" },
+        "contactName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "region": { "type": "string", "enum": ["Hhohho", "Manzini", "Lubombo", "Shiselweni", "Other"] },
+        "status": { "type": "string", "enum": ["lead", "contacted", "proposal_sent", "negotiation", "won", "lost"] },
+        "subscriptionTier": { "type": "string", "enum": ["basic", "premium", "press", "advertising"] },
+        "dealValue": { "type": "number" },
+        "notes": { "type": "string" },
+        "tasks": { "type": "array" },
+        "activities": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["clubName", "contactName", "status", "subscriptionTier", "dealValue"]
+    }
+  },
+  "firestore": {
+    "/competitions/{compId}": {
+      "schema": "competition",
+      "description": "A collection of competitions."
+    },
+    "/news/{newsId}": {
+      "schema": "news",
+      "description": "A collection of news items."
+    },
+    "/efa_communications/{commId}": {
+      "schema": "efa_communication",
+      "description": "A collection of official EFA communications."
+    },
+    "/efa_stats/national": {
+      "schema": "efa_statistics",
+      "description": "National level statistics tracked by EFA."
+    },
+    "/crm_leads/{leadId}": {
+      "schema": "crm_lead",
+      "description": "A collection of CRM client leads and active subscription deals."
+    }
+  }
+}

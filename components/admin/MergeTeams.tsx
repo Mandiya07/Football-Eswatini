@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
+import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, OperationType } from '../../services/api';
 import { Team, Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -15,9 +15,9 @@ const MergeTeams: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [mergeConfirmation, setMergeConfirmation] = useState<{ team1: Team, team2: Team } | null>(null);
-  const [primaryTeamId, setPrimaryTeamId] = useState<number | null>(null);
+  const [primaryTeamId, setPrimaryTeamId] = useState<string | null>(null);
   
   const loadInitialData = async () => {
       setLoading(true);
@@ -75,7 +75,7 @@ const MergeTeams: React.FC = () => {
       }
   };
 
-  const handleSelect = (teamId: number) => {
+  const handleSelect = (teamId: string) => {
     setSelected(prev => {
       if (prev.includes(teamId)) {
         return prev.filter(id => id !== teamId);
@@ -164,7 +164,7 @@ const MergeTeams: React.FC = () => {
         setSelected([]);
         handleCompChange(selectedCompId);
     } catch (error) {
-        handleFirestoreError(error, 'merge teams');
+        handleFirestoreError(error, OperationType.WRITE, `competitions/${selectedCompId}`);
     } finally {
         setSubmitting(false);
     }
@@ -224,7 +224,7 @@ const MergeTeams: React.FC = () => {
                   className={`flex items-center gap-4 p-2 rounded-lg cursor-pointer transition-all ${selected.includes(team.id) ? 'bg-blue-100 border-blue-300' : 'bg-white border-transparent hover:bg-gray-50'} border-2`}
                 >
                   <input type="checkbox" checked={selected.includes(team.id)} readOnly className="h-4 w-4 rounded text-blue-600" />
-                  <img src={team.crestUrl} alt="" className="w-8 h-8 object-contain" />
+                  <img src={team.crestUrl || 'https://via.placeholder.com/150?text=Team'} alt="" className="w-8 h-8 object-contain" />
                   <span className="font-bold text-sm text-gray-800">{team.name}</span>
                 </div>
               )) : <p className="text-center text-gray-500 py-4">No teams found.</p>}

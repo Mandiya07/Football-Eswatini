@@ -5,6 +5,7 @@ import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
 import { compressImage } from '../../services/utils';
+import AdminPreviewModal from './AdminPreviewModal';
 
 interface NewsFormModalProps {
     isOpen: boolean;
@@ -25,6 +26,8 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
         url: '',
     });
     const [imageProcessing, setImageProcessing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     const availableCategories = [
         'National', 
@@ -88,13 +91,14 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             setImageProcessing(true);
+            setError(null);
             try {
                 // Compress image to ensure it's under Firestore limit (1000px max width, 0.7 quality)
                 const compressedBase64 = await compressImage(file, 1000, 0.7);
                 setFormData(prev => ({ ...prev, image: compressedBase64 }));
             } catch (error) {
                 console.error("Error compressing image:", error);
-                alert("Failed to process image. Please try another file.");
+                setError("Failed to process image. Please try another file.");
             } finally {
                 setImageProcessing(false);
             }
@@ -103,8 +107,9 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
         if (formData.categories.length === 0) {
-            alert("Please select at least one category.");
+            setError("Please select at least one category.");
             return;
         }
 
@@ -148,6 +153,12 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
                     <h2 id="news-form-title" className="text-2xl font-bold font-display mb-6">
                         {article ? 'Edit Article' : 'Create New Article'}
                     </h2>
+
+                    {error && (
+                        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md text-sm">
+                            {error}
+                        </div>
+                    )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
@@ -199,12 +210,22 @@ const NewsFormModal: React.FC<NewsFormModalProps> = ({ isOpen, onClose, onSave, 
                         </div>
 
                         <div className="flex justify-end gap-2 pt-4">
+                            <Button type="button" variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => setIsPreviewOpen(true)}>
+                                Preview News Card
+                            </Button>
                             <Button type="button" onClick={onClose} className="bg-gray-200 text-gray-800">Cancel</Button>
                             <Button type="submit" className="bg-primary text-white hover:bg-primary-dark" disabled={imageProcessing}>Save Article</Button>
                         </div>
                     </form>
                 </CardContent>
             </Card>
+
+            <AdminPreviewModal 
+                isOpen={isPreviewOpen}
+                onClose={() => setIsPreviewOpen(false)}
+                type="news"
+                data={formData}
+            />
         </div>
     );
 };

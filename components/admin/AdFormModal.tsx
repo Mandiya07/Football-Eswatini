@@ -4,6 +4,7 @@ import { Ad } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
+import { AD_PLACEMENT_SPECS } from '../AdBanner';
 
 interface AdFormModalProps {
     isOpen: boolean;
@@ -14,6 +15,8 @@ interface AdFormModalProps {
 
 const AdFormModal: React.FC<AdFormModalProps> = ({ isOpen, onClose, onSave, placement }) => {
     const [formData, setFormData] = useState<Ad>({ imageUrl: '', link: '', altText: '' });
+
+    const spec = AD_PLACEMENT_SPECS[placement?.id];
 
     useEffect(() => {
         if (placement) {
@@ -53,7 +56,17 @@ const AdFormModal: React.FC<AdFormModalProps> = ({ isOpen, onClose, onSave, plac
             <Card className="w-full max-w-2xl mb-8 relative animate-slide-up" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800" aria-label="Close form"><XIcon className="w-6 h-6" /></button>
                 <CardContent className="p-8">
-                    <h2 className="text-2xl font-bold font-display mb-6">Edit Ad: {placement.name}</h2>
+                    <div className="mb-6">
+                        <h2 className="text-2xl font-bold font-display text-slate-900">Edit Ad: {placement.name}</h2>
+                        {spec && (
+                            <div className="mt-2 flex items-center gap-2">
+                                <span className="text-xs text-slate-500 font-medium">Recommended size:</span>
+                                <span className="inline-block text-[11px] font-bold font-mono px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-100">
+                                    {spec.dimensions}
+                                </span>
+                            </div>
+                        )}
+                    </div>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700 mb-1">Image URL or Upload</label>

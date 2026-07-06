@@ -1,5 +1,5 @@
 
-import React, { useState, lazy } from 'react';
+import React, { useState, useEffect, lazy } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminLoginPrompt from './AdminLoginPrompt';
 import ApprovalQueue from './ApprovalQueue';
@@ -27,6 +27,8 @@ import InquiryManagement from './InquiryManagement';
 import AdminInsights from './AdminInsights';
 import MerchantSettings from './MerchantSettings';
 import AdminPodcasts from './AdminPodcasts';
+import ConnectionDiagnostics from './ConnectionDiagnostics';
+import NationalTeamsManagement from './NationalTeamsManagement';
 
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import GitMergeIcon from '../icons/GitMergeIcon';
@@ -65,13 +67,23 @@ const YouthManagement = lazy(() => import('./YouthManagement'));
 const SocialMediaGenerator = lazy(() => import('./SocialMediaGenerator'));
 const TeamCrestManager = lazy(() => import('./TeamCrestManager'));
 
-type AdminTab = 'approvals' | 'users' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance' | 'inquiries' | 'insights' | 'finance' | 'podcasts';
+type AdminTab = 'approvals' | 'users' | 'news' | 'shop' | 'scouting' | 'directory' | 'videos' | 'ads' | 'create' | 'merge' | 'standings' | 'tournament' | 'categories' | 'reset' | 'teams' | 'live' | 'matches' | 'seed' | 'youth' | 'features' | 'referees' | 'social' | 'crests' | 'community' | 'contracts' | 'international' | 'maintenance' | 'inquiries' | 'insights' | 'finance' | 'podcasts' | 'diagnostics' | 'national_teams';
 
 const AdminPanelPage: React.FC = () => {
   const { isLoggedIn, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<AdminTab>('approvals');
 
-  if (!isLoggedIn || user?.role !== 'super_admin') {
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isLeagueAdmin = user?.role === 'league_admin';
+  const isRefereeAdmin = user?.role === 'referee_admin';
+  const [activeTab, setActiveTab] = useState<AdminTab>(isRefereeAdmin ? 'referees' : isSuperAdmin ? 'approvals' : 'tournament');
+
+  useEffect(() => {
+    if (isRefereeAdmin) {
+      setActiveTab('referees');
+    }
+  }, [isRefereeAdmin]);
+
+  if (!isLoggedIn || (!isSuperAdmin && !isLeagueAdmin && !isRefereeAdmin)) {
     return (
       <div className="bg-gray-50 py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
@@ -114,6 +126,8 @@ const AdminPanelPage: React.FC = () => {
       case 'insights': return <AdminInsights />;
       case 'finance': return <MerchantSettings />;
       case 'podcasts': return <AdminPodcasts />;
+      case 'diagnostics': return <ConnectionDiagnostics />;
+      case 'national_teams': return <NationalTeamsManagement />;
       default: return null;
     }
   };
@@ -153,52 +167,87 @@ const AdminPanelPage: React.FC = () => {
             <div className="flex flex-col md:flex-row gap-8 items-start">
                 <aside className="w-full md:w-64 flex-shrink-0">
                     <div className="space-y-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Strategy & AI</h4>
-                        <TabButton tabName="insights" label="AI Daily Insights" Icon={SparklesIcon} className="bg-indigo-600 text-white hover:bg-indigo-700" />
-                        <TabButton tabName="podcasts" label="AI Podcasts" Icon={MicIcon} className="bg-emerald-600 text-white hover:bg-emerald-700" />
-                        
-                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Finance</h4>
-                        <TabButton tabName="finance" label="Merchant & Payouts" Icon={CreditCardIcon} className="bg-green-600 text-white hover:bg-green-700" />
-                        <TabButton tabName="inquiries" label="Partner Inquiries" Icon={BriefcaseIcon} className="bg-blue-600 text-white hover:bg-blue-700" />
+                        {isRefereeAdmin ? (
+                            <>
+                                <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Referee Hub</h4>
+                                <TabButton tabName="referees" label="Referees" Icon={WhistleIcon} />
+                            </>
+                        ) : (
+                            <>
+                                {isSuperAdmin && (
+                                    <>
+                                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-2">Strategy & AI</h4>
+                                        <TabButton tabName="insights" label="AI Daily Insights" Icon={SparklesIcon} className="bg-indigo-600 text-white hover:bg-indigo-700" />
+                                        <TabButton tabName="podcasts" label="AI Podcasts" Icon={MicIcon} className="bg-emerald-600 text-white hover:bg-emerald-700" />
+                                        
+                                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Finance</h4>
+                                        <TabButton tabName="finance" label="Merchant & Payouts" Icon={CreditCardIcon} className="bg-green-600 text-white hover:bg-green-700" />
+                                        <TabButton tabName="inquiries" label="Partner Inquiries" Icon={BriefcaseIcon} className="bg-blue-600 text-white hover:bg-blue-700" />
+                                        <TabButton tabName="diagnostics" label="System Diagnostics" Icon={DatabaseIcon} className="bg-red-600 text-white hover:bg-red-700" />
+                                    </>
+                                )}
 
-                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Content</h4>
-                        <TabButton tabName="news" label="News" Icon={NewspaperIcon} />
-                        <TabButton tabName="social" label="Social Gen" Icon={ShareIcon} className="bg-purple-600 text-white hover:bg-purple-700" />
-                        <TabButton tabName="shop" label="Shop Items" Icon={TagIcon} />
-                        <TabButton tabName="features" label="Features Content" Icon={SparklesIcon} />
-                        <TabButton tabName="scouting" label="Scouting" Icon={BinocularsIcon} />
-                        <TabButton tabName="youth" label="Youth Page" Icon={YouthIcon} />
-                        <TabButton tabName="referees" label="Referees" Icon={WhistleIcon} />
-                        <TabButton tabName="directory" label="Directory" Icon={BookIcon} />
-                        <TabButton tabName="crests" label="Logos & Crests" Icon={ImageIcon} />
-                        <TabButton tabName="videos" label="Videos" Icon={FilmIcon} />
-                        <TabButton tabName="ads" label="Ad Management" Icon={MegaphoneIcon} />
+                                <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Content</h4>
+                                {isSuperAdmin && (
+                                    <>
+                                        <TabButton tabName="news" label="News" Icon={NewspaperIcon} />
+                                        <TabButton tabName="social" label="Social Gen" Icon={ShareIcon} className="bg-purple-600 text-white hover:bg-purple-700" />
+                                        <TabButton tabName="shop" label="Shop Items" Icon={TagIcon} />
+                                        <TabButton tabName="features" label="Features Content" Icon={SparklesIcon} />
+                                        <TabButton tabName="scouting" label="Scouting" Icon={BinocularsIcon} />
+                                        <TabButton tabName="youth" label="Youth Page" Icon={YouthIcon} />
+                                        <TabButton tabName="referees" label="Referees" Icon={WhistleIcon} />
+                                        <TabButton tabName="directory" label="Directory" Icon={BookIcon} />
+                                        <TabButton tabName="crests" label="Logos & Crests" Icon={ImageIcon} />
+                                        <TabButton tabName="videos" label="Videos" Icon={FilmIcon} />
+                                        <TabButton tabName="ads" label="Ad Management" Icon={MegaphoneIcon} />
+                                    </>
+                                )}
+                                
+                                {(isSuperAdmin || isLeagueAdmin) && (
+                                    <>
+                                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
+                                        {isSuperAdmin && (
+                                            <>
+                                                <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
+                                                <TabButton tabName="users" label="User Permissions" Icon={ShieldIcon} />
+                                                <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
+                                                <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
+                                                <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
+                                            </>
+                                        )}
+                                        <TabButton tabName="national_teams" label="National Teams Hub" Icon={GlobeIcon} />
+                                        <TabButton tabName="international" label="Hybrid & Int. Hubs" Icon={GlobeIcon} />
+                                        {isSuperAdmin && (
+                                            <>
+                                                <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
+                                                <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
+                                                <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />
+                                                <TabButton tabName="merge" label="Merge Teams" Icon={GitMergeIcon} />
+                                                <TabButton tabName="standings" label="Recalculate Logs" Icon={RefreshIcon} />
+                                            </>
+                                        )}
+                                        <TabButton tabName="tournament" label="Tournament Bracket" Icon={BracketIcon} />
+                                    </>
+                                )}
 
-                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">Moderation & Data</h4>
-                        <TabButton tabName="approvals" label="Approval Queue" Icon={CheckCircleIcon} />
-                        <TabButton tabName="users" label="User Permissions" Icon={ShieldIcon} />
-                        <TabButton tabName="community" label="Community Events" Icon={UsersIcon} />
-                        <TabButton tabName="live" label="Live Updates Entry" Icon={RadioIcon} />
-                        <TabButton tabName="matches" label="Manage Matches" Icon={CalendarIcon} />
-                        <TabButton tabName="international" label="Hybrid & Int. Hubs" Icon={GlobeIcon} />
-                        <TabButton tabName="create" label="Create Entities" Icon={DatabaseIcon} />
-                        <TabButton tabName="categories" label="Manage Categories" Icon={LayersIcon} />
-                        <TabButton tabName="teams" label="Manage Teams" Icon={UsersIcon} />
-                        <TabButton tabName="merge" label="Merge Teams" Icon={GitMergeIcon} />
-                        <TabButton tabName="standings" label="Recalculate Logs" Icon={RefreshIcon} />
-                        <TabButton tabName="tournament" label="Tournament Bracket" Icon={BracketIcon} />
+                                {isSuperAdmin && (
+                                    <>
+                                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">System</h4>
+                                        <TabButton tabName="maintenance" label="Maintenance" Icon={SettingsIcon} className="bg-blue-600 text-white hover:bg-blue-700" />
+                                        <TabButton tabName="contracts" label="Legal & Contracts" Icon={ScaleIcon} />
 
-                        <h4 className="font-bold text-xs uppercase text-gray-400 px-4 pt-4">System</h4>
-                        <TabButton tabName="maintenance" label="Maintenance" Icon={SettingsIcon} className="bg-blue-600 text-white hover:bg-blue-700" />
-                        <TabButton tabName="contracts" label="Legal & Contracts" Icon={ScaleIcon} />
-
-                        <div className="!mt-6 pt-4 border-t border-red-200">
-                            <h4 className="font-bold text-xs uppercase text-red-600 px-4">Danger Zone</h4>
-                             <div className="p-2 space-y-2">
-                                <TabButton tabName="seed" label="Seed Database" Icon={DatabaseIcon} className="bg-green-600 hover:bg-green-700 text-white" />
-                                <TabButton tabName="reset" label="Reset All Competition Data" Icon={AlertTriangleIcon} className="bg-red-600 hover:bg-red-700 text-white" />
-                            </div>
-                        </div>
+                                        <div className="!mt-6 pt-4 border-t border-red-200">
+                                            <h4 className="font-bold text-xs uppercase text-red-600 px-4">Danger Zone</h4>
+                                            <div className="p-2 space-y-2">
+                                                <TabButton tabName="seed" label="Seed Database" Icon={DatabaseIcon} className="bg-green-600 hover:bg-green-700 text-white" />
+                                                <TabButton tabName="reset" label="Reset All Competition Data" Icon={AlertTriangleIcon} className="bg-red-600 hover:bg-red-700 text-white" />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        )}
                     </div>
                 </aside>
                 <main className="flex-grow w-full">

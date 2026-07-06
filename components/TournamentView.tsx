@@ -121,8 +121,16 @@ const TournamentView: React.FC<TournamentViewProps> = ({ tournament }) => {
         return (tournament.teams || []).map((ct: ConfigTeam) => {
             const dirCrest = findInMap(ct.name, directoryMap)?.crestUrl;
             return {
-                id: ct.dbId || Math.random(),
+                id: String(Math.random()),
                 name: ct.name,
+                shortName: ct.name.substring(0, 3).toUpperCase(),
+                logo: dirCrest || ct.crestUrl || '',
+                primaryColor: '#000000',
+                secondaryColor: '#FFFFFF',
+                stadium: 'TBD',
+                city: 'TBD',
+                coach: 'TBD',
+                founded: 1900,
                 crestUrl: dirCrest || ct.crestUrl,
                 stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' },
                 players: [], fixtures: [], results: [], staff: []

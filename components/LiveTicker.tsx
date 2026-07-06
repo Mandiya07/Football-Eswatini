@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { listenToAllCompetitions, fetchNews, fetchCommunityEvents } from '../services/api';
+import { fetchNews, fetchCommunityEvents } from '../services/api';
 import { CompetitionFixture } from '../data/teams';
 import { NewsItem } from '../data/news';
 import { CommunityEvent } from '../services/api';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 type TickerItem = 
     | { type: 'match'; data: CompetitionFixture }
@@ -12,6 +13,7 @@ type TickerItem =
     | { type: 'cta'; text: string; link: string };
 
 const LiveTicker: React.FC = () => {
+    const { competitions: allComps } = useDataCache();
     const [items, setItems] = useState<TickerItem[]>([]);
 
     useEffect(() => {
@@ -69,30 +71,26 @@ const LiveTicker: React.FC = () => {
             setItems(combined);
         };
 
-        const unsubscribeMatches = listenToAllCompetitions((allComps) => {
-            const allMatches: CompetitionFixture[] = [];
-            Object.entries(allComps).forEach(([compId, comp]) => {
-                const compLabel = comp.displayName || comp.name;
-                if (comp.fixtures) {
-                    comp.fixtures.forEach(f => {
-                        allMatches.push({ ...f, competition: compLabel });
-                    });
-                }
-                if (comp.results) {
-                    comp.results.forEach(r => {
-                        allMatches.push({ ...r, competition: compLabel });
-                    });
-                }
-            });
-            matches = allMatches;
-            updateTicker();
+        const allMatches: CompetitionFixture[] = [];
+        Object.entries(allComps).forEach(([compId, comp]) => {
+            const compLabel = comp.displayName || comp.name;
+            if (comp.fixtures) {
+                comp.fixtures.forEach(f => {
+                    allMatches.push({ ...f, competition: compLabel });
+                });
+            }
+            if (comp.results) {
+                comp.results.forEach(r => {
+                    allMatches.push({ ...r, competition: compLabel });
+                });
+            }
         });
+        matches = allMatches;
 
         fetchNews().then(data => { news = data; updateTicker(); });
         fetchCommunityEvents().then(data => { community = data; updateTicker(); });
 
-        return () => unsubscribeMatches();
-    }, []);
+    }, [allComps]);
 
     if (items.length === 0) return null;
 

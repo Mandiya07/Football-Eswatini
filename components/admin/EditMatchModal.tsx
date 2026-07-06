@@ -72,7 +72,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
     }, [activeRoster, newEvent.playerName]);
 
     const combinedRoster = useMemo(() => {
-        const list: { name: string; teamName: string; playerID: number }[] = [];
+        const list: { name: string; teamName: string; playerID: string }[] = [];
         if (teamAObj) {
             teamAObj.players?.forEach(p => list.push({ name: p.name, teamName: teamAObj.name, playerID: p.id }));
         }
@@ -148,8 +148,7 @@ const EditMatchModal: React.FC<EditMatchModalProps> = ({ isOpen, onClose, onSave
             setFormData(prev => ({ ...prev, playerOfTheMatch: undefined }));
             return;
         }
-        const [playerIDStr, teamName] = val.split('|');
-        const playerID = parseInt(playerIDStr);
+        const [playerID, teamName] = val.split('|');
         const player = combinedRoster.find(p => p.playerID === playerID);
         if (player) {
             setFormData(prev => ({

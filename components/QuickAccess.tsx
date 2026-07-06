@@ -12,6 +12,7 @@ import NationalTeamIcon from './icons/NationalTeamIcon';
 import VoteIcon from './icons/VoteIcon';
 import RadioIcon from './icons/RadioIcon';
 import UsersIcon from './icons/UsersIcon';
+import ShieldCheckIcon from './icons/ShieldCheckIcon';
 
 const tiles = [
   {

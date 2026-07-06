@@ -180,7 +180,7 @@ const BulkImportFixtures: React.FC = () => {
             } : prompt;
 
             const response = await ai.models.generateContent({ 
-                model: 'gemini-3-flash-preview', 
+                model: 'gemini-3.5-flash', 
                 contents: contents, 
                 config: { responseMimeType: 'application/json', responseSchema } 
             });
@@ -296,7 +296,7 @@ const BulkImportFixtures: React.FC = () => {
                 const newItems = itemsToSave.map(pf => {
                      const date = new Date(`${pf.fullDate}T${pf.time || '00:00'}`);
                      const fixtureData: Partial<CompetitionFixture> = {
-                        id: Date.now() + pf.tempId,
+                        id: String(Date.now() + pf.tempId),
                         matchday: parseInt(matchday, 10),
                         teamA: pf.normalizedTeamA!,
                         teamB: pf.normalizedTeamB!,

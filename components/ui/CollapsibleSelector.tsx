@@ -47,9 +47,9 @@ const CollapsibleSelector: React.FC<CollapsibleSelectorProps> = ({ value, onChan
                                 
                                 {expandedGroup === group.label && (
                                     <div className="mt-1 space-y-0.5 animate-fade-in pl-1">
-                                        {group.options.map((opt) => (
+                                        {group.options.map((opt, index) => (
                                             <button
-                                                key={opt.value}
+                                                key={`${opt.value}-${index}`}
                                                 onClick={() => handleSelect(opt.value)}
                                                 className={`w-full text-left px-4 py-2 text-sm rounded-md transition-colors ${value === opt.value ? 'bg-primary text-white font-bold' : 'text-gray-700 hover:bg-blue-50'}`}
                                             >

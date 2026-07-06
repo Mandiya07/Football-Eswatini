@@ -48,9 +48,11 @@ const TeamYamPage: React.FC = () => {
             await addTeamYamVideo({
                 ...uploadForm,
                 thumbnailUrl: `https://via.placeholder.com/600x400/002B7F/FFFFFF?text=${uploadForm.teamName}`,
+                thumbnail: `https://via.placeholder.com/600x400/002B7F/FFFFFF?text=${uploadForm.teamName}`,
                 uploadedBy: user.name,
                 date: new Date().toISOString().split('T')[0],
-                likes: 0
+                category: 'highlight',
+                duration: '0:00'
             });
             setIsUploadModalOpen(false);
             setUploadForm({ title: '', description: '', teamName: '', videoUrl: '' });
@@ -68,10 +70,13 @@ const TeamYamPage: React.FC = () => {
             id: teamVideo.id,
             title: teamVideo.title,
             description: teamVideo.description,
+            thumbnail: teamVideo.thumbnailUrl,
             thumbnailUrl: teamVideo.thumbnailUrl,
             videoUrl: teamVideo.videoUrl,
+            date: teamVideo.date,
             duration: '0:00', // Placeholder
-            category: 'fan'
+            category: 'fan',
+            views: 0
         };
         setSelectedVideo(video);
     };
@@ -112,7 +117,7 @@ const TeamYamPage: React.FC = () => {
                                 onClick={() => handlePlayVideo(video)}
                             >
                                 <div className="relative h-48 overflow-hidden bg-gray-200">
-                                    <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                    <img src={video.thumbnailUrl || 'https://via.placeholder.com/400?text=Video'} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                                         <PlayIcon className="w-12 h-12 text-white opacity-80 group-hover:opacity-100 transition-opacity" />
                                     </div>

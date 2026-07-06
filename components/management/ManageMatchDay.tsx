@@ -6,7 +6,7 @@ import UploadCloudIcon from '../icons/UploadCloudIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { db } from '../../services/firebase';
 import { doc, runTransaction, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { handleFirestoreError, fetchCompetition } from '../../services/api';
+import { handleFirestoreError, fetchCompetition, OperationType } from '../../services/api';
 import { CompetitionFixture, Player, Competition } from '../../data/teams';
 import Spinner from '../ui/Spinner';
 import ClipboardListIcon from '../icons/ClipboardListIcon';
@@ -22,8 +22,8 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
     
     // Lineup State
     const [activeMatchId, setActiveMatchId] = useState('');
-    const [starters, setStarters] = useState<number[]>([]);
-    const [subs, setSubs] = useState<number[]>([]);
+    const [starters, setStarters] = useState<string[]>([]);
+    const [subs, setSubs] = useState<string[]>([]);
     const [upcomingMatches, setUpcomingMatches] = useState<CompetitionFixture[]>([]);
     const [isSubmittingLineup, setIsSubmittingLineup] = useState(false);
     const [lineupSuccess, setLineupSuccess] = useState('');
@@ -66,7 +66,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
         loadInitial();
     }, [clubName]);
 
-    const handleTogglePlayer = (playerId: number, listType: 'starters' | 'subs') => {
+    const handleTogglePlayer = (playerId: string, listType: 'starters' | 'subs') => {
         if (listType === 'starters') {
             if (starters.includes(playerId)) {
                 setStarters(prev => prev.filter(id => id !== playerId));
@@ -119,7 +119,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
             setLineupSuccess("Match team sheet broadcasted successfully.");
             setTimeout(() => setLineupSuccess(''), 4000);
         } catch (error) {
-            handleFirestoreError(error, 'submit lineup');
+            handleFirestoreError(error, OperationType.UPDATE, 'competitions');
         } finally {
             setIsSubmittingLineup(false);
         }
@@ -146,7 +146,7 @@ const ManageMatchDay: React.FC<{ clubName: string }> = ({ clubName }) => {
             setSelectedMatchId('');
             setTimeout(() => setPostMatchSuccess(''), 4000);
         } catch (error) {
-            handleFirestoreError(error, 'submit match report');
+            handleFirestoreError(error, OperationType.CREATE, 'matchReports');
         } finally {
             setIsSubmittingPost(false);
         }

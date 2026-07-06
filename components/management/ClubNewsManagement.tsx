@@ -8,7 +8,7 @@ import PlusCircleIcon from '../icons/PlusCircleIcon';
 import ShareIcon from '../icons/ShareIcon';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { handleFirestoreError } from '../../services/api';
+import { handleFirestoreError, OperationType } from '../../services/api';
 import { compressImage } from '../../services/utils';
 
 const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
@@ -66,7 +66,7 @@ const ClubNewsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
             setPublishedUrl(newUrl);
             setFormData({ title: '', summary: '', content: '', imageUrl: '' });
         } catch (error) {
-            handleFirestoreError(error, 'publish club news');
+            handleFirestoreError(error, OperationType.CREATE, 'news');
         } finally {
             setIsSubmitting(false);
         }

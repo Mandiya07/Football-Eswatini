@@ -26,7 +26,7 @@ const ManageTeams: React.FC = () => {
     const [selectedCompId, setSelectedCompId] = useState('');
     const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
-    const [processingId, setProcessingId] = useState<number | null>(null);
+    const [processingId, setProcessingId] = useState<string | null>(null);
     
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
@@ -124,7 +124,7 @@ const ManageTeams: React.FC = () => {
         setIsFixturesModalOpen(true);
     };
 
-    const handleDelete = async (teamId: number) => {
+    const handleDelete = async (teamId: string) => {
         if (!window.confirm("Are you sure you want to delete this team? Standings will be recalculated.")) {
             return;
         }
@@ -167,7 +167,7 @@ const ManageTeams: React.FC = () => {
         }
     };
 
-    const handleSaveTeam = async (data: any, id?: number, addToDir: boolean = false) => {
+    const handleSaveTeam = async (data: any, id?: string, addToDir: boolean = false) => {
         if (!selectedCompId) return;
         setLoading(true);
         setIsFormModalOpen(false);
@@ -220,12 +220,20 @@ const ManageTeams: React.FC = () => {
                     const competition = compDocSnap.data() as Competition;
                     
                     const currentTeams = competition.teams || [];
-                    const maxId = currentTeams.reduce((max, team) => Math.max(max, team.id), 0);
-                    const newTeamId = maxId > 0 ? maxId + 1 : 1;
+                    const maxId = currentTeams.reduce((max, team) => Math.max(max, parseInt(team.id) || 0), 0);
+                    const newTeamId = String(maxId + 1);
                     
                     const newTeam: Team = {
                         id: newTeamId,
                         name: teamName,
+                        shortName: teamName.substring(0, 3).toUpperCase(),
+                        logo: data.crestUrl || '',
+                        primaryColor: '#000000',
+                        secondaryColor: '#FFFFFF',
+                        stadium: 'TBD',
+                        city: 'TBD',
+                        coach: 'TBD',
+                        founded: 1900,
                         crestUrl: data.crestUrl || '',
                         players: [], fixtures: [], results: [], staff: [],
                         stats: { p: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, gd: 0, pts: 0, form: '' }

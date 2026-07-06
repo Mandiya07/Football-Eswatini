@@ -45,6 +45,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, title }) => {
     return null; 
   };
 
+  if (!src) {
+    return null;
+  }
+
   const embedUrl = getEmbedUrl(src);
 
   if (embedUrl) {

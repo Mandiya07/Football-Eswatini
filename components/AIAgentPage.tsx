@@ -88,7 +88,7 @@ const AIAgentPage: React.FC = () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
             const sessionPromise = ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+                model: 'gemini-3.1-flash-live-preview',
                 callbacks: {
                     onopen: () => {
                         setStatus('listening');

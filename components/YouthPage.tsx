@@ -75,6 +75,7 @@ const YouthPage: React.FC = () => {
       if (id.includes('u19')) return <TrophyIcon className="w-8 h-8 text-indigo-400" />;
       if (id.includes('u17')) return <TrophyIcon className="w-8 h-8 text-blue-400" />;
       if (id.includes('u15')) return <TrophyIcon className="w-8 h-8 text-teal-400" />;
+      if (id.includes('u13')) return <TrophyIcon className="w-8 h-8 text-red-500" />;
       if (id === 'schools') return <SchoolIcon className="w-8 h-8 text-orange-600" />;
       return <GlobeIcon className="w-8 h-8 text-blue-600" />;
   };

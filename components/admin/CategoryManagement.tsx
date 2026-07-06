@@ -7,6 +7,7 @@ import {
     updateCategory, 
     fetchAllCompetitions, 
     handleFirestoreError,
+    OperationType,
     fetchRegionConfigs,
     updateRegionConfig,
     RegionConfig,
@@ -15,6 +16,7 @@ import {
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
+import ConfirmationModal from '../ui/ConfirmationModal';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import ImageIcon from '../icons/ImageIcon';
@@ -47,6 +49,8 @@ const CategoryManagement: React.FC = () => {
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
     const [isCompModalOpen, setIsCompModalOpen] = useState(false);
     const [editingEntity, setEditingEntity] = useState<EntitySummary | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     
     // Forms
     const [catForm, setCatForm] = useState({ name: '', order: 100, logoUrl: '' });
@@ -98,7 +102,7 @@ const CategoryManagement: React.FC = () => {
             }));
 
             setEntities([...compArray, ...cupArray].sort((a,b) => (a.name || '').localeCompare(b.name || '')));
-        } catch (err) { handleFirestoreError(err, 'load categories'); }
+        } catch (err) { handleFirestoreError(err, OperationType.GET, 'categories'); }
         finally { setLoading(false); }
     };
 
@@ -132,10 +136,14 @@ const CategoryManagement: React.FC = () => {
     };
 
     const handleUpdateRegionDesc = async (regionId: string, desc: string) => {
-        const region = regions.find(r => r.id === regionId);
-        if (region) {
-            await updateRegionConfig(regionId.toLowerCase(), { ...region, description: desc });
-            setRegions(prev => prev.map(r => r.id === regionId ? { ...r, description: desc } : r));
+        try {
+            const region = regions.find(r => r.id === regionId);
+            if (region) {
+                await updateRegionConfig(regionId.toLowerCase(), { ...region, description: desc });
+                setRegions(prev => prev.map(r => r.id === regionId ? { ...r, description: desc } : r));
+            }
+        } catch (error) {
+            handleFirestoreError(error, OperationType.UPDATE, `regionConfigs/${regionId.toLowerCase()}`);
         }
     };
 
@@ -161,18 +169,19 @@ const CategoryManagement: React.FC = () => {
             }
             setIsCatModalOpen(false);
             loadData();
-        } catch (err) { handleFirestoreError(err, 'save category'); }
+        } catch (err) { handleFirestoreError(err, OperationType.WRITE, editingCategory ? `categories/${editingCategory.id}` : 'categories'); }
         finally { setIsSubmitting(false); }
     };
 
-    const handleDeleteCategory = async (id: string) => {
-        if (!window.confirm("Delete this category? Any linked items will become uncategorized.")) return;
-        setIsSubmitting(true);
+    const handleDeleteCategory = async () => {
+        if (!confirmDeleteId) return;
+        setIsDeleting(true);
         try {
-            await deleteCategory(id);
+            await deleteCategory(confirmDeleteId);
+            setConfirmDeleteId(null);
             loadData();
-        } catch(err) { handleFirestoreError(err, 'delete category'); }
-        finally { setIsSubmitting(false); }
+        } catch(err) { handleFirestoreError(err, OperationType.DELETE, `categories/${confirmDeleteId}`); }
+        finally { setIsDeleting(false); }
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'cat' | 'comp') => {
@@ -215,7 +224,7 @@ const CategoryManagement: React.FC = () => {
             await updateDoc(docRef, removeUndefinedProps(dataToSave));
             setIsCompModalOpen(false);
             loadData();
-        } catch (err) { handleFirestoreError(err, 'save entity'); }
+        } catch (err) { handleFirestoreError(err, OperationType.UPDATE, `${editingEntity.isCup ? 'cups' : 'competitions'}/${editingEntity.id}`); }
         finally { setIsSubmitting(false); }
     };
 
@@ -305,7 +314,7 @@ const CategoryManagement: React.FC = () => {
                                             </div>
                                             <div className="flex gap-2">
                                                 <button onClick={() => openCatModal(cat)} className="p-2 text-blue-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-blue-100"><PencilIcon className="w-4 h-4"/></button>
-                                                <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 text-red-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-red-100"><TrashIcon className="w-4 h-4"/></button>
+                                                <button onClick={() => setConfirmDeleteId(cat.id)} className="p-2 text-red-600 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-red-100"><TrashIcon className="w-4 h-4"/></button>
                                             </div>
                                         </div>
                                         <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -349,6 +358,16 @@ const CategoryManagement: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
+
+            <ConfirmationModal 
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteCategory}
+                title="Delete Category"
+                message="Are you sure you want to delete this category? Any linked items will become uncategorized."
+                confirmText="Delete"
+                variant="danger"
+            />
 
             {isCatModalOpen && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsCatModalOpen(false)}>

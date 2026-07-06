@@ -1,9 +1,10 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { app, db } from '../services/firebase';
+import { app, db, auth } from '../services/firebase';
 import { 
-    getAuth,
     onAuthStateChanged, 
+    signInWithPopup,
+    GoogleAuthProvider,
     signInWithEmailAndPassword, 
     createUserWithEmailAndPassword, 
     signOut,
@@ -11,12 +12,14 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import Spinner from '../components/ui/Spinner';
-import { handleFirestoreError } from '../services/api';
-
-const auth = getAuth(app);
+import { handleFirestoreError } from '../services/firebase';
+import { makePlain } from '../services/utils';
 
 const getAuthorizedEmails = () => {
-    const envVal = process.env.ADMIN_EMAIL || 'admin@footballeswatini.com';
+    let envVal = 'admin@footballeswatini.com';
+    try {
+        envVal = import.meta.env.VITE_ADMIN_EMAIL || 'admin@footballeswatini.com';
+    } catch (e) {}
     return envVal.toLowerCase().split(',').map(e => e.trim());
 };
 
@@ -46,11 +49,11 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
-  role: 'user' | 'club_admin' | 'league_admin' | 'super_admin' | 'journalist';
+  role: 'user' | 'club_admin' | 'league_admin' | 'super_admin' | 'journalist' | 'referee_admin';
   club?: string;
   managedTeams: ManagedTeam[]; // Support for multiple divisions
   managedLeagues?: string[]; 
-  favoriteTeamIds: number[];
+  favoriteTeamIds: string[];
   notificationPreferences: NotificationPreferences;
   subscription?: SubscriptionInfo;
   xp: number; 
@@ -62,6 +65,7 @@ export interface User {
       accreditations: string[];
       portfolioCount: number;
   };
+  canAccessEFADashboard: boolean;
 }
 
 export type LoginCredentials = { email: string; password?: string; };
@@ -74,6 +78,7 @@ interface AuthContextType {
   openAuthModal: () => void;
   closeAuthModal: () => void;
   login: (credentials: LoginCredentials) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   signup: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => void;
   updateUser: (updatedFields: Partial<User>) => void;
@@ -98,6 +103,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signup = async (credentials: RegisterCredentials) => {
+    if (!auth) throw new Error("Authentication is not available in this environment.");
     const userCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password!);
     const firebaseUser = userCredential.user;
     
@@ -113,13 +119,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         notificationPreferences: DEFAULT_PREFERENCES,
         managedTeams: [],
         xp: 0,
-        level: 1
+        level: 1,
+        canAccessEFADashboard: false
     };
 
     try {
-        await setDoc(doc(db, "users", firebaseUser.uid), newUserProfile);
-    } catch (error) {
-        console.warn("Firestore error during signup:", error);
+        if (db) {
+            await setDoc(doc(db, "users", firebaseUser.uid), makePlain(newUserProfile));
+        } else {
+            console.warn("Firestore not initialized, skipping setDoc");
+        }
+    } catch (error: any) {
+        console.warn("Firestore error during signup:", { message: error.message, code: error.code });
     }
     setUser({ id: firebaseUser.uid, ...newUserProfile });
     closeAuthModal();
@@ -134,64 +145,93 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
+    // Robustness: Add a timeout to force loading to false if Firebase hangs
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn("AuthProvider startup timeout hit. Forcing loading state to false.");
+        setLoading(false);
+      }
+    }, 10000); // 10 seconds should be plenty
+
+    if (!auth) {
+        setLoading(false);
+        clearTimeout(timeoutId);
+        return;
+    }
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-        if (firebaseUser) {
-            const userDocRef = doc(db, 'users', firebaseUser.uid);
-            const authorizedEmails = getAuthorizedEmails();
-            const isAuthorized = authorizedEmails.includes(firebaseUser.email?.toLowerCase() || '');
-            
-            try {
-                const docSnap = await getDoc(userDocRef);
-                
-                if (docSnap.exists()) {
-                    const data = docSnap.data() as User;
-                    if (isAuthorized && data.role !== 'super_admin') {
-                         await updateDoc(userDocRef, { role: 'super_admin' });
-                         setUser({ id: firebaseUser.uid, ...data, role: 'super_admin' });
-                    } else {
-                         setUser({ id: firebaseUser.uid, ...data, managedTeams: data.managedTeams || [] } as User);
+        try {
+            if (firebaseUser) {
+                if (db) {
+                    const userDocRef = doc(db, 'users', firebaseUser.uid);
+                    const authorizedEmails = getAuthorizedEmails();
+                    const isAuthorized = authorizedEmails.includes(firebaseUser.email?.toLowerCase() || '');
+                    
+                    try {
+                        // Try to get cached doc first to show something immediately if offline
+                        const docSnap = await getDoc(userDocRef);
+                        
+                        if (docSnap.exists()) {
+                            const data = docSnap.data() as User;
+                            if (isAuthorized && data.role !== 'super_admin') {
+                                 await updateDoc(userDocRef, { role: 'super_admin' });
+                                 setUser({ id: firebaseUser.uid, ...data, role: 'super_admin' });
+                            } else {
+                                 setUser({ id: firebaseUser.uid, ...data, managedTeams: data.managedTeams || [] } as User);
+                            }
+                        } else {
+                            const initial: Omit<User, 'id'> = {
+                                name: firebaseUser.displayName || 'Administrator',
+                                email: firebaseUser.email!,
+                                avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+                                role: isAuthorized ? 'super_admin' : 'user',
+                                favoriteTeamIds: [],
+                                managedTeams: [],
+                                notificationPreferences: DEFAULT_PREFERENCES,
+                                xp: 0,
+                                level: 1,
+                                canAccessEFADashboard: false
+                            };
+                            await setDoc(userDocRef, initial);
+                            setUser({ id: firebaseUser.uid, ...initial } as User);
+                        }
+                    } catch (err: any) {
+                        console.warn("User profile fetch failed (possible offline mode):", { message: err.message, code: err.code });
+                        // Fallback to minimal user info from auth object
+                        setUser({
+                            id: firebaseUser.uid,
+                            name: firebaseUser.displayName || 'User',
+                            email: firebaseUser.email || '',
+                            avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+                            role: isAuthorized ? 'super_admin' : 'user',
+                            managedTeams: [],
+                            favoriteTeamIds: [],
+                            notificationPreferences: DEFAULT_PREFERENCES,
+                            xp: 0,
+                            level: 1,
+                            canAccessEFADashboard: false
+                        });
                     }
                 } else {
-                    const initial: Omit<User, 'id'> = {
-                        name: firebaseUser.displayName || 'Administrator',
-                        email: firebaseUser.email!,
-                        avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
-                        role: isAuthorized ? 'super_admin' : 'user',
-                        favoriteTeamIds: [],
-                        managedTeams: [],
-                        notificationPreferences: DEFAULT_PREFERENCES,
-                        xp: 0,
-                        level: 1
-                    };
-                    await setDoc(userDocRef, initial);
-                    setUser({ id: firebaseUser.uid, ...initial } as User);
+                     console.warn("Firestore not initialized, skipping Firestore user fetch");
                 }
-            } catch (err: any) {
-                // RESILIENCE FIX: Handle offline error by providing a fallback shell from Auth metadata
-                if (err.message?.includes('offline') || err.code === 'unavailable') {
-                    console.debug("Firestore offline - utilizing local auth fallback");
-                    setUser({
-                        id: firebaseUser.uid,
-                        name: firebaseUser.displayName || 'User (Offline)',
-                        email: firebaseUser.email || '',
-                        avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
-                        role: isAuthorized ? 'super_admin' : 'user',
-                        managedTeams: [],
-                        favoriteTeamIds: [],
-                        notificationPreferences: DEFAULT_PREFERENCES,
-                        xp: 0,
-                        level: 1
-                    });
-                } else {
-                    console.error("Auth state logic error:", err);
-                }
+            } else {
+                setUser(null);
             }
-        } else {
-            setUser(null);
+        } catch (globalErr: any) {
+            console.error("Critical error in auth state transition:", { 
+                message: globalErr?.message || String(globalErr), 
+                // Don't log full stack/object to avoid circular references
+            });
+        } finally {
+            setLoading(false);
+            clearTimeout(timeoutId);
         }
-        setLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const addXP = async (amount: number) => {
@@ -205,7 +245,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
     setUser(prev => prev ? { ...prev, ...updatedFields } : null);
     try {
-        await updateDoc(doc(db, 'users', user.id), updatedFields);
+        if (db) {
+            await updateDoc(doc(db, 'users', user.id), makePlain(updatedFields));
+        } else {
+            console.warn("Firestore not initialized, skipping updateDoc");
+        }
     } catch(error: any) {
         // Only report errors if they aren't common connectivity issues
         if (!error.message?.includes('offline') && error.code !== 'unavailable') {
@@ -215,15 +259,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const login = async (credentials: LoginCredentials) => {
+    if (!auth) throw new Error("Authentication is not available in this environment.");
     await signInWithEmailAndPassword(auth, credentials.email, credentials.password!);
     closeAuthModal();
   };
 
+  const loginWithGoogle = async () => {
+    if (!auth) throw new Error("Authentication is not available in this environment.");
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    closeAuthModal();
+  };
+
   const logout = async () => {
+    if (!auth) return;
     await signOut(auth);
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center"><Spinner /></div>;
+  // if (loading) return <div className="h-screen flex items-center justify-center"><Spinner /></div>;
 
   return (
     <AuthContext.Provider value={{ 
@@ -233,6 +286,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         openAuthModal, 
         closeAuthModal, 
         login, 
+        loginWithGoogle,
         signup, 
         logout, 
         updateUser,

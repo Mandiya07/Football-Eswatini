@@ -29,7 +29,7 @@ const ClubSocialMedia: React.FC<{ clubName: string }> = ({ clubName }) => {
             const fullPrompt = `You are the social media manager for ${clubName}. Create a catchy, engaging ${platform} post based on this context: "${prompt}". Use emojis, relevant hashtags for Eswatini football, and keep it professional but exciting for fans.`;
             
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 contents: fullPrompt,
             });
             setGeneratedContent(response.text || "Failed to generate content.");

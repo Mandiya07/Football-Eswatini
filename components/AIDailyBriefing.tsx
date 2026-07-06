@@ -2,13 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Card, CardContent } from './ui/Card';
-import { fetchNews, listenToAllCompetitions } from '../services/api';
+import { fetchNews } from '../services/api';
 import { calculateStandings } from '../services/utils';
 import SparklesIcon from './icons/SparklesIcon';
 import Spinner from './ui/Spinner';
 import RefreshIcon from './icons/RefreshIcon';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const AIDailyBriefing: React.FC = () => {
+    const { competitions: allComps } = useDataCache();
     const [briefing, setBriefing] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -20,18 +22,9 @@ const AIDailyBriefing: React.FC = () => {
         setIsLoading(true);
         setError(false);
         try {
-            // Wait for one data emission from competitions listener
-            const [news, comps] = await Promise.all([
-                fetchNews(),
-                new Promise<any>((resolve) => {
-                    const unsub = listenToAllCompetitions((data) => {
-                        unsub();
-                        resolve(data);
-                    });
-                })
-            ]);
+            const news = await fetchNews();
 
-            const premierLeague = comps['mtn-premier-league'];
+            const premierLeague = allComps['mtn-premier-league'];
             const standings = premierLeague ? calculateStandings(premierLeague.teams || [], premierLeague.results || [], premierLeague.fixtures || []) : [];
             
             const newsContext = news.slice(0, 5).map(n => n.title).join(', ');
@@ -48,7 +41,7 @@ const AIDailyBriefing: React.FC = () => {
             GOAL: Write a high-energy, concise daily summary (max 60 words). Focus on key matches and momentum. Be professional and supportive of the Kingdom's football.`;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3.5-flash',
                 contents: prompt,
             });
 

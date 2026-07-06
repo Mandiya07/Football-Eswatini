@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchHybridTournaments, addHybridTournament, updateHybridTournament, deleteHybridTournament, handleFirestoreError } from '../../services/api';
+import { fetchHybridTournaments, addHybridTournament, updateHybridTournament, deleteHybridTournament, handleFirestoreError, OperationType } from '../../services/api';
 import { HybridTournament } from '../../data/international';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -9,12 +9,14 @@ import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import GlobeIcon from '../icons/GlobeIcon';
 import HybridTournamentFormModal from './HybridTournamentFormModal';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const HybridTournamentManagement: React.FC = () => {
     const [tournaments, setTournaments] = useState<HybridTournament[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<HybridTournament | null>(null);
+    const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -43,12 +45,18 @@ const HybridTournamentManagement: React.FC = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm("Delete this international tournament? This action cannot be undone.")) return;
+        setDeleteConfirm(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirm) return;
         try {
-            await deleteHybridTournament(id);
+            await deleteHybridTournament(deleteConfirm);
             loadData();
         } catch (error) {
-            handleFirestoreError(error, 'delete hybrid tournament');
+            handleFirestoreError(error, OperationType.DELETE, `hybridTournaments/${deleteConfirm}`);
+        } finally {
+            setDeleteConfirm(null);
         }
     };
 
@@ -62,7 +70,7 @@ const HybridTournamentManagement: React.FC = () => {
             setIsModalOpen(false);
             loadData();
         } catch (error) {
-            handleFirestoreError(error, 'save hybrid tournament');
+            handleFirestoreError(error, id ? OperationType.UPDATE : OperationType.CREATE, `hybridTournaments/${id || 'new'}`);
             alert("Failed to save tournament.");
         }
     };
@@ -129,6 +137,14 @@ const HybridTournamentManagement: React.FC = () => {
                 </CardContent>
             </Card>
             {isModalOpen && <HybridTournamentFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSave} tournament={editingItem} />}
+            <ConfirmationModal 
+                isOpen={!!deleteConfirm}
+                onClose={() => setDeleteConfirm(null)}
+                onConfirm={confirmDelete}
+                title="Delete Tournament"
+                message="Delete this international tournament? This action cannot be undone."
+                confirmText="Delete"
+            />
         </>
     );
 };

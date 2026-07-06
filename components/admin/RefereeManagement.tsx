@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchRefereesData, updateRefereesData, handleFirestoreError } from '../../services/api';
+import { fetchRefereesData, updateRefereesData, handleFirestoreError, OperationType } from '../../services/api';
 import { Referee, Rule } from '../../data/referees';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -13,10 +13,11 @@ import RefereeFormModal from './RefereeFormModal';
 import StarIcon from '../icons/StarIcon';
 import SparklesIcon from '../icons/SparklesIcon';
 import { GoogleGenAI, Type } from "@google/genai";
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const RefereeManagement: React.FC = () => {
     const [referees, setReferees] = useState<Referee[]>([]);
-    const [rule, setRule] = useState<Rule>({ id: '', title: '', summary: '', explanation: '' });
+    const [rule, setRule] = useState<Rule>({ id: '', title: '', summary: '', explanation: '', category: 'General' });
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -24,6 +25,8 @@ const RefereeManagement: React.FC = () => {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingReferee, setEditingReferee] = useState<Referee | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     const loadData = async () => {
         setLoading(true);
@@ -53,9 +56,10 @@ const RefereeManagement: React.FC = () => {
     };
 
     const handleDeleteReferee = async (id: string) => {
-        if (!window.confirm("Delete this referee profile?")) return;
         const updatedReferees = referees.filter(r => r.id !== id);
         await saveData(updatedReferees, rule);
+        setConfirmDeleteId(null);
+        setShowConfirmModal(false);
     };
 
     const handleSaveReferee = async (data: Partial<Referee>, id?: string) => {
@@ -95,7 +99,7 @@ const RefereeManagement: React.FC = () => {
             const prompt = "Act as a senior FIFA Referee Instructor. Generate a 'Football Rule of the Week' educational entry. Choose a specific law (e.g., handball, offside, DOGSO, VAR protocols). Provide a title, a concise 1-sentence summary, and a detailed 3-paragraph explanation suitable for players and fans. Return as a clean JSON object.";
             
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-3.5-flash',
                 contents: prompt,
                 config: {
                     responseMimeType: "application/json",
@@ -133,7 +137,7 @@ const RefereeManagement: React.FC = () => {
             setReferees(updatedReferees);
             setRule(updatedRule);
         } catch (error) {
-            handleFirestoreError(error, 'save referee data');
+            handleFirestoreError(error, OperationType.WRITE, 'referees_data');
         } finally {
             setIsSubmitting(false);
         }
@@ -235,7 +239,7 @@ const RefereeManagement: React.FC = () => {
                                 </div>
                                 <div className="flex gap-2 self-end sm:self-center">
                                     <Button onClick={() => handleEditReferee(referee)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center"><PencilIcon className="w-4 h-4" /></Button>
-                                    <Button onClick={() => handleDeleteReferee(referee.id)} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center"><TrashIcon className="w-4 h-4" /></Button>
+                                    <Button onClick={() => { setConfirmDeleteId(referee.id); setShowConfirmModal(true); }} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center"><TrashIcon className="w-4 h-4" /></Button>
                                 </div>
                             </div>
                         ))}
@@ -243,6 +247,18 @@ const RefereeManagement: React.FC = () => {
                     </div>
                 </CardContent>
             </Card>
+
+            {showConfirmModal && confirmDeleteId && (
+                <ConfirmationModal
+                    isOpen={showConfirmModal}
+                    onClose={() => { setShowConfirmModal(false); setConfirmDeleteId(null); }}
+                    onConfirm={() => handleDeleteReferee(confirmDeleteId)}
+                    title="Delete Referee"
+                    message="Are you sure you want to delete this referee profile? This action cannot be undone."
+                    confirmText={isSubmitting ? 'Deleting...' : 'Delete'}
+                    variant="danger"
+                />
+            )}
 
             {isModalOpen && (
                 <RefereeFormModal 

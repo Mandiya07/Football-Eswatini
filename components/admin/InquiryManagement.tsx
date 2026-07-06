@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchSponsorRequests, fetchAdvertiserRequests, fetchContactInquiries, handleFirestoreError, SponsorRequest, AdvertiserRequest, ContactInquiry } from '../../services/api';
+import { fetchSponsorRequests, fetchAdvertiserRequests, fetchContactInquiries, handleFirestoreError, OperationType, SponsorRequest, AdvertiserRequest, ContactInquiry } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Spinner from '../ui/Spinner';
 import BriefcaseIcon from '../icons/BriefcaseIcon';
@@ -29,7 +29,7 @@ const InquiryManagement: React.FC = () => {
             setAdvertisers(adData.sort((a,b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0)));
             setContacts(contactData);
         } catch (error) {
-            console.error(error);
+            handleFirestoreError(error, OperationType.GET, 'inquiries');
         } finally {
             setLoading(false);
         }

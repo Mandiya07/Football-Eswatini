@@ -47,7 +47,7 @@ const SponsorSpotlight: React.FC = () => {
                                 <MegaphoneIcon className="w-5 h-5 text-blue-600" />
                                 <h3 className="text-sm font-bold uppercase tracking-wider text-blue-600">Sponsor of the Week</h3>
                             </div>
-                            <img src={sponsor.logoUrl} alt={`${sponsor.name} logo`} className="h-16 md:h-20 object-contain" />
+                            <img src={sponsor.logoUrl || sponsor.logo || 'https://via.placeholder.com/150?text=Sponsor'} alt={`${sponsor.name} logo`} className="h-16 md:h-20 object-contain" />
                         </div>
                         <div className="border-l-0 md:border-l-2 border-gray-200 pl-0 md:pl-8 flex-grow text-center md:text-left">
                             <p className="text-gray-600 text-sm md:text-base">{sponsor.description}</p>

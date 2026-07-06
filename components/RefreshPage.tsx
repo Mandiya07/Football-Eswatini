@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Spinner from './ui/Spinner';
 import ShieldIcon from './icons/ShieldIcon';
+import { safeLocalStorage, safeSessionStorage } from '../services/utils';
 
 const RefreshPage: React.FC = () => {
     const [status, setStatus] = useState('Initiating emergency purge...');
@@ -13,8 +14,8 @@ const RefreshPage: React.FC = () => {
             try {
                 // 1. Clear Storage
                 setStatus('Clearing local session data...');
-                localStorage.clear();
-                sessionStorage.clear();
+                safeLocalStorage.clear();
+                safeSessionStorage.clear();
                 
                 // 2. Clear Caches
                 setStatus('Invalidating old asset cache...');

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
@@ -10,7 +10,7 @@ import ThumbsUpIcon from './icons/ThumbsUpIcon';
 import ThumbsDownIcon from './icons/ThumbsDownIcon';
 import GlobeIcon from './icons/GlobeIcon';
 import ImageIcon from './icons/ImageIcon';
-import { fetchAllCompetitions, fetchNews } from '../services/api';
+import { fetchNews } from '../services/api';
 import Spinner from './ui/Spinner';
 import TrendingUpIcon from './icons/TrendingUpIcon';
 import NewspaperIcon from './icons/NewspaperIcon';
@@ -18,7 +18,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import CopyIcon from './icons/CopyIcon';
 import FileTextIcon from './icons/FileTextIcon';
-import { calculateStandings } from '../services/utils';
+import ShieldCheckIcon from './icons/ShieldCheckIcon';
+import { calculateStandings, makePlain, safeJSONStringify } from '../services/utils';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -29,6 +31,7 @@ interface ChatMessage {
 }
 
 const AIAssistantPage: React.FC = () => {
+  const { competitions: allComps } = useDataCache();
   const { user, isLoggedIn } = useAuth();
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([{
       role: 'model',
@@ -41,13 +44,13 @@ const AIAssistantPage: React.FC = () => {
 
   const isAuthorized = user?.role === 'super_admin' || user?.role === 'journalist';
 
-  if (!isLoggedIn || !isAuthorized) {
-      return <Navigate to="/" replace />;
-  }
-
   useEffect(() => {
     chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
   }, [chatHistory]);
+
+  if (!isLoggedIn || !isAuthorized) {
+      return <Navigate to="/" replace />;
+  }
 
   const handleSendMessage = async (customMessage?: string) => {
     const text = customMessage || inputValue;
@@ -59,23 +62,22 @@ const AIAssistantPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const [news, comps] = await Promise.all([
-          fetchNews(),
-          fetchAllCompetitions()
-      ]);
+      const news = await fetchNews();
 
-      const premierLeague = comps['mtn-premier-league'];
+      const premierLeague = allComps['mtn-premier-league'];
       const standings = premierLeague ? calculateStandings(premierLeague.teams || [], premierLeague.results || [], premierLeague.fixtures || []) : [];
 
       const siteContext = {
           currentTime: new Date().toISOString(),
           recentNews: news.slice(0, 10).map(n => ({ title: n.title, date: n.date, summary: n.summary })),
-          activeLeagues: Object.entries(comps).map(([id, c]) => ({ id, name: c.name, teamCount: c.teams?.length || 0 })),
+          activeLeagues: Object.entries(allComps).map(([id, c]) => ({ id, name: c.name, teamCount: c.teams?.length || 0 })),
           premierLeagueStandings: standings.slice(0, 12).map(t => ({ name: t.name, points: t.stats.pts, form: t.stats.form, played: t.stats.p, gd: t.stats.gd })),
           recentResults: premierLeague?.results?.slice(0, 5).map(r => `${r.teamA} ${r.scoreA}-${r.scoreB} ${r.teamB} (Matchday ${r.matchday})`),
           upcomingFixtures: premierLeague?.fixtures?.slice(0, 5).map(f => `${f.teamA} vs ${f.teamB} (${f.fullDate})`)
       };
 
+      const cleanSiteContext = makePlain(siteContext);
+      
       const systemInstruction = `You are a world-class investigative sports journalist for 'Football Eswatini'. 
       Your objective is to write authoritative, engaging, and highly accurate articles about football in the Kingdom of Eswatini.
       
@@ -89,7 +91,7 @@ const AIAssistantPage: React.FC = () => {
       5. LOCAL CONTEXT: Mention specific venues like Somhlolo Stadium or Mavuso Sports Centre when relevant.
       
       SITE CONTEXT DATA SOURCE:
-      ${JSON.stringify(siteContext, null, 1)}`;
+      ${safeJSONStringify(cleanSiteContext, null, 1)}`;
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) throw new Error("Gemini API Key is not configured in the environment.");
@@ -97,12 +99,11 @@ const AIAssistantPage: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey });
       
       const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-3.5-flash',
           contents: text,
           config: {
               systemInstruction,
               tools: [{ googleSearch: {} }],
-              thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
               temperature: 0.7
           }
       });
@@ -120,7 +121,7 @@ const AIAssistantPage: React.FC = () => {
 
       setChatHistory([...newHistory, { role: 'model', text: textOutput, sources }]);
     } catch (error: any) {
-      console.error("AI Error:", error);
+      console.error("AI Error:", { message: error.message, code: error.code });
       setChatHistory([...newHistory, { role: 'model', text: `Drafting Error: ${error.message}` }]);
     } finally {
       setIsLoading(false);
@@ -141,9 +142,6 @@ const AIAssistantPage: React.FC = () => {
         contents: {
           parts: [{ text: `A professional, high-quality sports journalism editorial illustration for an article titled: "${prompt.split('\n')[0]}". Style: Cinematic, dramatic lighting, vibrant colors, related to Eswatini football.` }]
         },
-        config: {
-          imageConfig: { aspectRatio: "16:9" }
-        }
       });
 
       let imageUrl = '';
@@ -164,8 +162,8 @@ const AIAssistantPage: React.FC = () => {
           return next;
         });
       }
-    } catch (error) {
-      console.error("Image Gen Error:", error);
+    } catch (error: any) {
+      console.error("Image Gen Error:", { message: error.message, code: error.code });
       alert("Failed to generate image.");
     } finally {
       setIsGeneratingImage(null);
@@ -183,6 +181,16 @@ const AIAssistantPage: React.FC = () => {
                     <div>
                         <h1 className="text-2xl font-display font-extrabold text-gray-900">Elite Article Development AI</h1>
                         <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Journalism & Analysis Suite</p>
+                    </div>
+                </div>
+                {/* EFA Sponsorship Branding */}
+                <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-[#002B7F]/5 border border-[#002B7F]/10 rounded-2xl">
+                    <div className="w-8 h-8 bg-white p-1 rounded-lg shadow-sm">
+                        <ShieldCheckIcon className="w-full h-full text-[#002B7F]" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase text-gray-400 leading-tight">Official Partner</p>
+                        <p className="text-xs font-black text-[#002B7F] tracking-tight uppercase">Eswatini Football Association</p>
                     </div>
                 </div>
             </div>

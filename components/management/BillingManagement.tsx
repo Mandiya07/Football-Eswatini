@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { useAuth, SubscriptionInfo } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { SubscriptionInfo } from '../../types/auth';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';

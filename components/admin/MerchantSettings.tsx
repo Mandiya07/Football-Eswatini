@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
-import { fetchMerchantConfig, updateMerchantConfig, MerchantConfig, fetchMerchantBalance, MerchantBalance } from '../../services/api';
+import { fetchMerchantConfig, updateMerchantConfig, MerchantConfig, fetchMerchantBalance, MerchantBalance, handleFirestoreError, OperationType } from '../../services/api';
 import PhoneIcon from '../icons/PhoneIcon';
 import CreditCardIcon from '../icons/CreditCardIcon';
 import ShieldCheckIcon from '../icons/ShieldCheckIcon';
@@ -73,7 +73,7 @@ const MerchantSettings: React.FC = () => {
             setSuccess(true);
             setTimeout(() => setSuccess(false), 3000);
         } catch (error) {
-            alert("Failed to save merchant settings.");
+            handleFirestoreError(error, OperationType.WRITE, 'merchant_config');
         } finally {
             setIsSaving(false);
         }

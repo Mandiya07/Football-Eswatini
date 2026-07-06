@@ -23,8 +23,8 @@ const PollBar: React.FC<{ label: string; percentage: number; color: string }> = 
 );
 
 const PlayerOfTheMonth: React.FC = () => {
-    const [votedPlayerId, setVotedPlayerId] = useState<number | null>(null);
-    const [pollResults, setPollResults] = useState<Record<number, number>>({});
+    const [votedPlayerId, setVotedPlayerId] = useState<string | null>(null);
+    const [pollResults, setPollResults] = useState<Record<string, number>>({});
     const [candidates, setCandidates] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -47,25 +47,31 @@ const PlayerOfTheMonth: React.FC = () => {
                     const team = competition.teams?.find(t => t.name === scorer.teamName);
                     const player = team?.players.find(p => p.id === scorer.playerId || p.name === scorer.name);
                     
-                    return {
-                        ...player,
-                        id: scorer.playerId || Math.random(),
+                    const candidate: Player = {
+                        id: scorer.playerId || String(Math.random()),
                         name: scorer.name,
+                        number: player?.number || 0,
+                        position: player?.position || 'Forward',
+                        age: player?.age || 20,
+                        nationality: player?.nationality || 'Eswatini',
                         club: scorer.teamName,
                         photoUrl: player?.photoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${scorer.name}`,
-                        position: player?.position || 'Forward',
                         stats: {
-                            ...player?.stats,
                             goals: scorer.goals,
+                            assists: scorer.assists || 0,
+                            yellowCards: 0,
+                            redCards: 0,
+                            appearances: scorer.appearances || 0,
                             potmWins: scorer.potmWins
                         }
-                    } as Player;
+                    };
+                    return candidate;
                 });
 
                 setCandidates(topPerformers);
                 
                 // Initialize clean results
-                const initialResults: Record<number, number> = {};
+                const initialResults: Record<string, number> = {};
                 topPerformers.forEach((p) => {
                     initialResults[p.id] = 0;
                 });
@@ -81,7 +87,7 @@ const PlayerOfTheMonth: React.FC = () => {
     }, []);
 
 
-    const handleVote = (playerId: number) => {
+    const handleVote = (playerId: string) => {
         if (votedPlayerId) return;
         setVotedPlayerId(playerId);
         setPollResults(prevResults => {

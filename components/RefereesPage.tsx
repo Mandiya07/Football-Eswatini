@@ -16,7 +16,7 @@ const RefereeProfileCard: React.FC<{ referee: Referee, isSpotlight?: boolean }> 
             <Card className="shadow-2xl border-2 border-yellow-400 bg-gradient-to-br from-gray-50 to-yellow-50">
                 <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row">
-                        <img src={referee.photoUrl} alt={referee.name} className="w-full md:w-2/5 h-64 md:h-auto object-cover" />
+                        <img src={referee.photoUrl || 'https://via.placeholder.com/300?text=Referee'} alt={referee.name} className="w-full md:w-2/5 h-64 md:h-auto object-cover" />
                         <div className="p-6 flex flex-col">
                              <div className="flex items-center gap-3">
                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${levelColor}`}>{referee.level}</span>
@@ -40,7 +40,7 @@ const RefereeProfileCard: React.FC<{ referee: Referee, isSpotlight?: boolean }> 
 
     return (
         <Card className="flex flex-col sm:flex-row overflow-hidden transition-shadow duration-300 hover:shadow-lg">
-            <img src={referee.photoUrl} alt={referee.name} className="w-full sm:w-1/3 h-48 sm:h-auto object-cover" />
+            <img src={referee.photoUrl || 'https://via.placeholder.com/300?text=Referee'} alt={referee.name} className="w-full sm:w-1/3 h-48 sm:h-auto object-cover" />
             <CardContent className="p-4 flex flex-col">
                 <div>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${levelColor}`}>{referee.level}</span>

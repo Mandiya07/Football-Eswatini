@@ -1,35 +1,51 @@
-export interface BracketMatchTeam {
-    id?: number;
-    name: string;
-    score?: number | string;
-    crestUrl?: string;
-}
 
 export interface BracketMatch {
-    id: number | string;
-    team1: BracketMatchTeam;
-    team2: BracketMatchTeam;
-    winner?: 'team1' | 'team2' | null;
-    date?: string;
-    time?: string;
-    venue?: string;
+  id: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  homeScore?: number;
+  awayScore?: number;
+  date: string;
+  status: string;
+  team1?: {
+    id?: string | number;
+    name: string;
+    crestUrl: string;
+    score: string | number;
+  };
+  team2?: {
+    id?: string | number;
+    name: string;
+    crestUrl: string;
+    score: string | number;
+  };
+  winner?: string | null;
+  venue?: string;
+  time?: string;
 }
 
-export interface BracketRound {
-    title: string;
-    matches: BracketMatch[];
+export interface CupHubSlot {
+  id: string;
+  name: string;
+  type: string;
 }
-
-export type CupHubSlot = 'national' | 'trade-fair' | 'hhohho' | 'manzini' | 'lubombo' | 'shiselweni';
 
 export interface Tournament {
-    id: string;
+  id: string;
+  name: string;
+  type: 'cup' | 'tournament';
+  season: string;
+  teams: string[];
+  fixtures: string[];
+  results: string[];
+  hubSlot?: string;
+  rounds?: {
     name: string;
-    logoUrl?: string;
-    rounds: BracketRound[];
-    categoryId?: string;
-    type?: 'bracket' | 'league';
-    hubSlot?: CupHubSlot; // New property for UI mapping
+    matches: BracketMatch[];
+    title?: string;
+  }[];
+  logoUrl?: string;
+  categoryId?: string;
 }
 
 export const cupData: Tournament[] = [];

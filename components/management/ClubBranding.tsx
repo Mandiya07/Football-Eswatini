@@ -14,7 +14,7 @@ import TrophyIcon from '../icons/TrophyIcon';
 import GlobeAltIcon from '../icons/GlobeIcon'; // Re-use globe for hub
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { handleFirestoreError, fetchCompetition, fetchAllCompetitions } from '../../services/api';
+import { handleFirestoreError, fetchCompetition, fetchAllCompetitions, OperationType } from '../../services/api';
 import { removeUndefinedProps, superNormalize } from '../../services/utils';
 import { Competition, Team, TeamSocialMedia } from '../../data/teams';
 import { useAuth } from '../../contexts/AuthContext';
@@ -163,7 +163,7 @@ const ClubBranding: React.FC<{ clubName: string; currentCompetitionId: string }>
             });
             setSuccessMessage("Club Identity updated successfully!");
         } catch (error) {
-            handleFirestoreError(error, 'update branding');
+            handleFirestoreError(error, OperationType.UPDATE, 'competitions');
         } finally {
             setIsSubmitting(false);
         }

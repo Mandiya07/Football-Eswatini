@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { CommunityEvent, fetchAllCommunityEvents, updateCommunityEventStatus, deleteCommunityEvent, handleFirestoreError } from '../../services/api';
+import { CommunityEvent, fetchAllCommunityEvents, updateCommunityEventStatus, deleteCommunityEvent, handleFirestoreError, OperationType } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
+import ConfirmationModal from '../ui/ConfirmationModal';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import XIcon from '../icons/XIcon';
 import TrashIcon from '../icons/TrashIcon';
@@ -12,12 +13,19 @@ import CalendarIcon from '../icons/CalendarIcon';
 const CommunityEventManagement: React.FC = () => {
     const [events, setEvents] = useState<CommunityEvent[]>([]);
     const [loading, setLoading] = useState(true);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const loadEvents = async () => {
         setLoading(true);
-        const data = await fetchAllCommunityEvents();
-        setEvents(data);
-        setLoading(false);
+        try {
+            const data = await fetchAllCommunityEvents();
+            setEvents(data);
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, 'community_events');
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -29,18 +37,21 @@ const CommunityEventManagement: React.FC = () => {
             await updateCommunityEventStatus(id, status);
             loadEvents();
         } catch (error) {
-            handleFirestoreError(error, 'update event status');
+            handleFirestoreError(error, OperationType.UPDATE, `community_events/${id}`);
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (window.confirm("Delete this event?")) {
-            try {
-                await deleteCommunityEvent(id);
-                loadEvents();
-            } catch (error) {
-                handleFirestoreError(error, 'delete event');
-            }
+    const handleDelete = async () => {
+        if (!confirmDeleteId) return;
+        setIsDeleting(true);
+        try {
+            await deleteCommunityEvent(confirmDeleteId);
+            setConfirmDeleteId(null);
+            loadEvents();
+        } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `community_events/${confirmDeleteId}`);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -77,7 +88,7 @@ const CommunityEventManagement: React.FC = () => {
                                             <Button onClick={() => handleStatusChange(event.id, 'approved')} className="bg-green-600 text-white h-8 px-3 text-xs flex items-center gap-1">
                                                 <CheckCircleIcon className="w-4 h-4" /> Approve
                                             </Button>
-                                            <Button onClick={() => handleDelete(event.id)} className="bg-red-600 text-white h-8 px-3 text-xs flex items-center gap-1">
+                                            <Button onClick={() => setConfirmDeleteId(event.id)} className="bg-red-600 text-white h-8 px-3 text-xs flex items-center gap-1">
                                                 <XIcon className="w-4 h-4" /> Reject
                                             </Button>
                                         </div>
@@ -102,7 +113,7 @@ const CommunityEventManagement: React.FC = () => {
                                             {event.date} • {event.venue}
                                         </div>
                                     </div>
-                                    <Button onClick={() => handleDelete(event.id)} className="bg-gray-100 text-red-600 hover:bg-red-50 h-8 w-8 p-0 flex items-center justify-center rounded">
+                                    <Button onClick={() => setConfirmDeleteId(event.id)} className="bg-gray-100 text-red-600 hover:bg-red-50 h-8 w-8 p-0 flex items-center justify-center rounded">
                                         <TrashIcon className="w-4 h-4" />
                                     </Button>
                                 </div>
@@ -110,6 +121,16 @@ const CommunityEventManagement: React.FC = () => {
                         </div>
                     )}
                 </div>
+
+                <ConfirmationModal 
+                    isOpen={!!confirmDeleteId}
+                    onClose={() => setConfirmDeleteId(null)}
+                    onConfirm={handleDelete}
+                    title="Delete Event"
+                    message="Are you sure you want to delete this event?"
+                    confirmText="Delete"
+                    variant="danger"
+                />
             </CardContent>
         </Card>
     );

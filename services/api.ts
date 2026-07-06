@@ -1,10 +1,11 @@
 
 import { Team, Player, CompetitionFixture, MatchEvent, Competition } from '../data/teams';
 import { NewsItem, newsData } from '../data/news';
-import { app, db } from './firebase';
+import { app, db, handleFirestoreError, OperationType } from './firebase';
 import { collection, getDocs, doc, getDoc, query, orderBy, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, runTransaction, deleteField, writeBatch, where, serverTimestamp, limit, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
 import { Product, products as mockProducts } from '../data/shop';
 import { ScoutedPlayer, scoutingData as mockScoutingData } from '../data/scouting';
+import { makePlain } from './utils';
 import { DirectoryEntity, directoryData as mockDirectoryData } from '../data/directory';
 import { Video, videoData as mockVideoData } from '../data/videos';
 import { YouthLeague, youthData as mockYouthData } from '../data/youth';
@@ -19,7 +20,7 @@ import { User, ManagedTeam } from '../contexts/AuthContext';
 import { ExclusiveItem, TeamYamVideo, initialExclusiveContent, initialTeamYamVideos } from '../data/features';
 import { internationalData, youthHybridData, HybridTournament } from '../data/international';
 
-export { type Competition, type HybridTournament }; 
+export { type Competition, type HybridTournament, OperationType, handleFirestoreError }; 
 export { type ExclusiveItem, type TeamYamVideo }; 
 
 export interface StandaloneMatch extends CompetitionFixture {
@@ -93,6 +94,66 @@ const fetchWithRetry = async (url: string, options: RequestInit, retries = 3, ba
         }
         throw err;
     }
+};
+
+export interface EFACommunication {
+    id: string;
+    title: string;
+    category: string;
+    date: string;
+    summary: string;
+    content?: string;
+    fileUrl?: string;
+    iconType?: 'file' | 'shield' | 'building' | 'megaphone';
+    timestamp?: any;
+}
+
+export const fetchEFACommunications = async (): Promise<EFACommunication[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'efa_communications'));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EFACommunication));
+        return sortByLatest(dbItems);
+    } catch { return []; }
+};
+
+export const addEFACommunication = async (data: Omit<EFACommunication, 'id'>) => {
+    await addDoc(collection(db, 'efa_communications'), { ...data, timestamp: serverTimestamp() });
+};
+
+export const updateEFACommunication = async (id: string, data: Partial<EFACommunication>) => {
+    await updateDoc(doc(db, 'efa_communications', id), data);
+};
+
+export const deleteEFACommunication = async (id: string) => {
+    await deleteDoc(doc(db, 'efa_communications', id));
+};
+
+export interface EFAEvent {
+    id: string;
+    event: string;
+    date: string;
+    location: string;
+    timestamp?: any;
+}
+
+export const fetchEFAEvents = async (): Promise<EFAEvent[]> => {
+    try {
+        const snapshot = await getDocs(collection(db, 'efa_events'));
+        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EFAEvent));
+        return sortByLatest(dbItems);
+    } catch { return []; }
+};
+
+export const addEFAEvent = async (data: Omit<EFAEvent, 'id'>) => {
+    await addDoc(collection(db, 'efa_events'), { ...data, timestamp: serverTimestamp() });
+};
+
+export const updateEFAEvent = async (id: string, data: Partial<EFAEvent>) => {
+    await updateDoc(doc(db, 'efa_events', id), data);
+};
+
+export const deleteEFAEvent = async (id: string) => {
+    await deleteDoc(doc(db, 'efa_events', id));
 };
 
 export interface AppSettings {
@@ -194,22 +255,8 @@ export interface LeagueRegistrationRequest {
     requestType: 'create' | 'manage';
     targetLeagueId?: string;
     categoryId?: string;
+    competitionType?: 'league' | 'tournament';
 }
-
-export const handleFirestoreError = (error: any, operation: string) => {
-    const firebaseError = error as { code?: string, message?: string };
-    const code = firebaseError.code;
-    if (code === 'unavailable' || code === 'deadline-exceeded' || firebaseError.message?.includes('reach Cloud Firestore backend')) {
-        return;
-    }
-    if (code === 'permission-denied') {
-        return;
-    }
-    if (code === 'failed-precondition' && firebaseError.message?.includes('index')) {
-        return;
-    }
-    console.error(`[Firestore Error] '${operation}':`, error);
-};
 
 export interface Ad {
   imageUrl: string;
@@ -348,8 +395,8 @@ export const recordRevenue = async (amount: number) => {
             totalRevenue: increment(amount),
             pendingPayout: increment(amount)
         }, { merge: true });
-    } catch (e) {
-        console.error("Failed to sync revenue with database", e);
+    } catch (e: any) {
+        console.error("Failed to sync revenue with database", { message: e.message, code: e.code });
     }
 };
 
@@ -491,19 +538,22 @@ export const fetchAllCompetitions = async (): Promise<Record<string, Competition
     const comps: Record<string, Competition> = {};
     try {
         const snapshot = await getDocs(collection(db, 'competitions'));
-        snapshot.forEach(doc => { comps[doc.id] = doc.data() as Competition; });
+        snapshot.forEach(doc => { comps[doc.id] = makePlain(doc.data()) as Competition; });
     } catch (error) { handleFirestoreError(error, 'fetch all comps'); }
     return comps;
 };
 
-export const listenToAllCompetitions = (callback: (allComps: Record<string, Competition>) => void): (() => void) => {
+export const listenToAllCompetitions = (
+    callback: (allComps: Record<string, Competition>, error?: any) => void
+): (() => void) => {
     return onSnapshot(collection(db, "competitions"), (querySnapshot) => {
         const comps: Record<string, Competition> = {};
-        querySnapshot.forEach((doc) => { comps[doc.id] = doc.data() as Competition; });
+        querySnapshot.forEach((doc) => { comps[doc.id] = makePlain(doc.data()) as Competition; });
         callback(comps);
     }, (error) => {
+        console.error("DEBUG: listenToAllCompetitions error:", error?.message || String(error));
         handleFirestoreError(error, 'listen to all comps');
-        callback({});
+        callback({}, error);
     });
 };
 
@@ -511,14 +561,14 @@ export const fetchCompetition = async (id: string): Promise<Competition | undefi
     try {
         const docRef = doc(db, 'competitions', id);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) return docSnap.data() as Competition;
+        if (docSnap.exists()) return makePlain(docSnap.data()) as Competition;
         return undefined;
     } catch (error) { return undefined; }
 };
 
 export const listenToCompetition = (id: string, callback: (data: Competition | undefined) => void): (() => void) => {
     return onSnapshot(doc(db, 'competitions', id), (docSnap) => {
-        callback(docSnap.exists() ? docSnap.data() as Competition : undefined);
+        callback(docSnap.exists() ? makePlain(docSnap.data()) as Competition : undefined);
     }, (error) => {
         handleFirestoreError(error, `listen to comp ${id}`);
         callback(undefined);
@@ -546,19 +596,109 @@ export const fetchTeamByIdGlobally = async (teamId: string | number): Promise<{ 
     return null;
 };
 
-export const fetchPlayerById = async (playerId: number): Promise<{ player: Player, team: Team, competitionId: string } | null> => {
+export const fetchPlayerById = async (playerId: number | string): Promise<{ player: Player, team: Team, competitionId: string } | null> => {
     const comps = await fetchAllCompetitions();
+    const searchId = String(playerId);
     for (const [compId, comp] of Object.entries(comps)) {
         if (comp.teams) {
             const allMatches = [...(comp.fixtures || []), ...(comp.results || [])];
             const reconciledTeams = reconcilePlayers(comp.teams, allMatches);
             for (const team of reconciledTeams) {
-                const player = team.players?.find(p => p.id === playerId);
+                const player = team.players?.find(p => String(p.id) === searchId);
                 if (player) return { player, team, competitionId: compId };
             }
         }
     }
     return null;
+};
+
+export const transferPlayer = async (
+    playerId: string | number,
+    sourceTeamId: string | number,
+    sourceCompId: string,
+    destTeamId: string | number,
+    destCompId: string,
+    transferDate: string = new Date().toISOString()
+) => {
+    const sourceDocRef = doc(db, 'competitions', sourceCompId);
+    const destDocRef = doc(db, 'competitions', destCompId);
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const sourceSnap = await transaction.get(sourceDocRef);
+            const destSnap = await transaction.get(destDocRef);
+
+            if (!sourceSnap.exists()) throw new Error("Source competition not found");
+            if (!destSnap.exists()) throw new Error("Destination competition not found");
+
+            const sourceData = sourceSnap.data() as Competition;
+            const destData = destSnap.data() as Competition;
+
+            let playerToTransfer: Player | null = null;
+            let sourceTeamName = "";
+            let destTeamName = "";
+
+            // 1. Remove player from source team
+            const updatedSourceTeams = (sourceData.teams || []).map(t => {
+                if (String(t.id) === String(sourceTeamId)) {
+                    sourceTeamName = t.name;
+                    const playerIndex = (t.players || []).findIndex(p => String(p.id) === String(playerId));
+                    if (playerIndex !== -1) {
+                        playerToTransfer = { ...t.players![playerIndex] };
+                        const updatedPlayers = [...t.players!];
+                        updatedPlayers.splice(playerIndex, 1);
+                        return { ...t, players: updatedPlayers };
+                    }
+                }
+                return t;
+            });
+
+            if (!playerToTransfer) throw new Error("Player not found in source team");
+
+            // 2. Find destination team name
+            const destTeam = (destData.teams || []).find(t => String(t.id) === String(destTeamId));
+            if (!destTeam) throw new Error("Destination team not found");
+            destTeamName = destTeam.name;
+
+            // 3. Update player data
+            const year = new Date(transferDate).getFullYear();
+            const updatedPlayer: Player = {
+                ...playerToTransfer,
+                club: destTeamName,
+                transferHistory: [
+                    ...(playerToTransfer.transferHistory || []),
+                    { date: `${year}-01-01`, from: sourceTeamName, to: destTeamName, type: 'permanent', year: String(year) }
+                ].sort((a, b) => parseInt(b.year || '0') - parseInt(a.year || '0'))
+            };
+
+            // 4. Add player to destination team
+            const updatedDestTeams = (destData.teams || []).map(t => {
+                if (String(t.id) === String(destTeamId)) {
+                    return { ...t, players: [...(t.players || []), updatedPlayer] };
+                }
+                return t;
+            });
+
+            // 5. Commit updates
+            if (sourceCompId === destCompId) {
+                // If same competition, we need to be careful with the teams array
+                // Actually, if it's the same doc, we just update it once
+                const finalTeams = updatedSourceTeams.map(t => {
+                    if (String(t.id) === String(destTeamId)) {
+                        return { ...t, players: [...(t.players || []), updatedPlayer] };
+                    }
+                    return t;
+                });
+                transaction.update(sourceDocRef, { teams: finalTeams });
+            } else {
+                transaction.update(sourceDocRef, { teams: updatedSourceTeams });
+                transaction.update(destDocRef, { teams: updatedDestTeams });
+            }
+        });
+    } catch (error) {
+        handleFirestoreError(error, 'transfer player');
+        throw error;
+    }
 };
 
 export const updatePlayerStats = async (compId: string, teamName: string, playerName: string, statType: 'goal' | 'assist' | 'appearance' | 'yellow_card' | 'red_card' | 'clean_sheet') => {
@@ -573,7 +713,7 @@ export const updatePlayerStats = async (compId: string, teamName: string, player
                     const players = [...(t.players || [])];
                     let player = players.find(p => superNormalize(p.name) === superNormalize(playerName));
                     if (!player) {
-                        player = { id: Date.now() + Math.floor(Math.random() * 1000), name: playerName, position: 'Midfielder', number: 0, photoUrl: '', bio: { nationality: 'Eswatini', age: 0, height: '-' }, stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0 }, transferHistory: [] };
+                        player = { id: String(Date.now() + Math.floor(Math.random() * 1000)), name: playerName, position: 'Midfielder', number: 0, photoUrl: '', age: 0, nationality: 'Eswatini', height: '-', stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0 }, transferHistory: [] };
                         players.push(player);
                     }
                     const updatedPlayers = players.map(p => {
@@ -595,7 +735,7 @@ export const updatePlayerStats = async (compId: string, teamName: string, player
             });
             transaction.update(docRef, { teams: updatedTeams });
         });
-    } catch (e) { console.error("Player stats sync failed", e); }
+    } catch (e: any) { console.error("Player stats sync failed", { message: e.message, code: e.code }); }
 };
 
 export const fetchDirectoryEntries = async (): Promise<DirectoryEntity[]> => {
@@ -764,21 +904,21 @@ export const deleteArchiveItem = async (id: string) => { await deleteDoc(doc(db,
 export const fetchOnThisDayData = async (): Promise<OnThisDayEvent[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'onThisDay'));
-        return snapshot.docs.map(doc => ({ id: parseInt(doc.id) || 0, ...doc.data() } as OnThisDayEvent));
+        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as unknown as OnThisDayEvent));
     } catch { return mockOnThisDayData; }
 };
 
 export const fetchPhotoGalleries = async (): Promise<PhotoAlbum[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'photoGalleries'));
-        return snapshot.docs.map(doc => ({ id: parseInt(doc.id) || Date.now(), ...doc.data() } as PhotoAlbum));
+        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as unknown as PhotoAlbum));
     } catch { return []; }
 };
 
 export const fetchBehindTheScenesData = async (): Promise<BehindTheScenesContent[]> => {
     try {
         const snapshot = await getDocs(collection(db, 'behind_the_scenes'));
-        return snapshot.docs.map(doc => ({ id: parseInt(doc.id) || Date.now(), ...doc.data() } as BehindTheScenesContent));
+        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as unknown as BehindTheScenesContent));
     } catch { return []; }
 };
 
@@ -845,13 +985,13 @@ export const addHybridTournament = async (data: Omit<HybridTournament, 'id'>) =>
 export const updateHybridTournament = async (id: string, data: Partial<HybridTournament>) => { await updateDoc(doc(db, 'hybrid_tournaments', id), data); };
 export const deleteHybridTournament = async (id: string) => { await deleteDoc(doc(db, 'hybrid_tournaments', id)); };
 
-export const fetchRefereesData = async (): Promise<{ referees: Referee[], ruleOfTheWeek: Rule }> => {
+export const fetchRefereesData = async (): Promise<{ referees: Referee[], ruleOfTheWeek: Rule | null }> => {
     try {
         const docRef = doc(db, 'referees', 'main');
         const snap = await getDoc(docRef);
         if (snap.exists()) return snap.data() as { referees: Referee[], ruleOfTheWeek: Rule };
-        return defaultRefereeData;
-    } catch { return defaultRefereeData; }
+        return { referees: defaultRefereeData, ruleOfTheWeek: null };
+    } catch { return { referees: defaultRefereeData, ruleOfTheWeek: null }; }
 };
 
 export const updateRefereesData = async (data: { referees: Referee[], ruleOfTheWeek: Rule }) => {
@@ -880,13 +1020,13 @@ export const updateAd = async (placementId: string, data: Ad) => {
     await updateDoc(doc(db, 'ads', 'main'), { [placementId]: data });
 };
 
-export const fetchSponsors = async (): Promise<{ spotlight: Sponsor, kitPartner: KitPartner }> => {
+export const fetchSponsors = async (): Promise<{ spotlight: Sponsor | null, kitPartner: KitPartner | null }> => {
     try {
         const docRef = doc(db, 'sponsors', 'main');
         const snap = await getDoc(docRef);
         if (snap.exists()) return snap.data() as { spotlight: Sponsor, kitPartner: KitPartner };
-        return defaultSponsors;
-    } catch { return defaultSponsors; }
+        return { spotlight: defaultSponsors[0] || null, kitPartner: null };
+    } catch { return { spotlight: defaultSponsors[0] || null, kitPartner: null }; }
 };
 
 export const submitSponsorRequest = async (data: any) => { await addDoc(collection(db, 'sponsorRequests'), { ...data, status: 'pending', submittedAt: serverTimestamp() }); };
@@ -939,13 +1079,28 @@ export const approveLeagueRequest = async (request: LeagueRegistrationRequest) =
 
     // 1. Create the competition doc if it's a 'create' request
     if (request.requestType === 'create') {
-        const compRef = doc(db, 'competitions', slug);
-        batch.set(compRef, {
-            name: request.leagueName,
-            region: request.region, // Explicitly capture the region for hub mapping
-            categoryId: request.categoryId || 'regional-leagues',
-            teams: [], fixtures: [], results: []
-        }, { merge: true });
+        if (request.competitionType === 'tournament') {
+            const cupRef = doc(db, 'cups', slug);
+            batch.set(cupRef, {
+                name: request.leagueName,
+                region: request.region,
+                categoryId: request.categoryId || 'regional-leagues',
+                type: 'bracket',
+                rounds: [
+                    { title: 'Quarter-Finals', matches: [] },
+                    { title: 'Semi-Finals', matches: [] },
+                    { title: 'Final', matches: [] }
+                ]
+            }, { merge: true });
+        } else {
+            const compRef = doc(db, 'competitions', slug);
+            batch.set(compRef, {
+                name: request.leagueName,
+                region: request.region, // Explicitly capture the region for hub mapping
+                categoryId: request.categoryId || 'regional-leagues',
+                teams: [], fixtures: [], results: []
+            }, { merge: true });
+        }
     }
 
     // 2. Update manager permissions & add to managedLeagues array
@@ -1023,6 +1178,10 @@ export const fetchAllUsers = async (): Promise<User[]> => {
 };
 
 export const updateUserRole = async (userId: string, role: User['role']) => { await updateDoc(doc(db, 'users', userId), { role }); };
+
+export const updateUserPermissions = async (userId: string, permissions: Partial<Pick<User, 'canAccessEFADashboard'>>) => { 
+    await updateDoc(doc(db, 'users', userId), permissions); 
+};
 
 export const fetchRegionConfigs = async (): Promise<RegionConfig[]> => {
     const snapshot = await getDocs(collection(db, 'region_configs'));

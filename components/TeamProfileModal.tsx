@@ -79,7 +79,7 @@ const TeamProfileModal: React.FC<TeamProfileModalProps> = ({ team, onClose }) =>
         
         <div className="p-6 sm:p-8">
             <header className="flex flex-col sm:flex-row items-center gap-6 mb-8">
-                <img src={team.crestUrl} alt={`${team.name} crest`} className="w-24 h-24 object-contain flex-shrink-0 bg-white/80 rounded-full p-2" />
+                <img src={team.crestUrl || 'https://via.placeholder.com/150?text=Crest'} alt={`${team.name} crest`} className="w-24 h-24 object-contain flex-shrink-0 bg-white/80 rounded-full p-2" />
                 <div className="flex-grow text-center sm:text-left">
                     <h2 id={`team-profile-title-${team.id}`} className="text-3xl sm:text-4xl font-display font-bold">{team.name}</h2>
                 </div>
@@ -103,10 +103,10 @@ const TeamProfileModal: React.FC<TeamProfileModalProps> = ({ team, onClose }) =>
             <section className="mb-8">
                 <h3 className="text-xl font-bold font-display mb-4 border-b pb-2">Season Stats</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                    <StatBox label="Played" value={team.stats.p} />
-                    <StatBox label="Won" value={team.stats.w} color="bg-green-100 text-green-800" />
-                    <StatBox label="Drawn" value={team.stats.d} color="bg-yellow-100 text-yellow-800" />
-                    <StatBox label="Lost" value={team.stats.l} color="bg-red-100 text-red-800" />
+                    <StatBox label="Played" value={team.stats?.p || 0} />
+                    <StatBox label="Won" value={team.stats?.w || 0} color="bg-green-100 text-green-800" />
+                    <StatBox label="Drawn" value={team.stats?.d || 0} color="bg-yellow-100 text-yellow-800" />
+                    <StatBox label="Lost" value={team.stats?.l || 0} color="bg-red-100 text-red-800" />
                 </div>
             </section>
 
@@ -114,26 +114,35 @@ const TeamProfileModal: React.FC<TeamProfileModalProps> = ({ team, onClose }) =>
                 <section>
                     <h3 className="text-xl font-bold font-display mb-4 border-b-2 border-yellow-500 pb-2">Upcoming Fixtures</h3>
                     <ul className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                        {team.fixtures.length > 0 ? team.fixtures.map((fixture, index) => (
-                            <li key={index} className="text-sm bg-gray-100 p-2 rounded-md flex justify-between">
-                                <span className="font-semibold">{fixture.opponent}</span>
-                                <span className="text-gray-500">({fixture.date})</span>
-                            </li>
-                        )) : <p className="text-sm text-gray-500">No upcoming fixtures.</p>}
+                        {(team.fixtures || []).length > 0 ? (team.fixtures || []).map((fixture, index) => {
+                            const opponent = fixture.teamA === team.name ? fixture.teamB : fixture.teamA;
+                            return (
+                                <li key={index} className="text-sm bg-gray-100 p-2 rounded-md flex justify-between">
+                                    <span className="font-semibold">{opponent}</span>
+                                    <span className="text-gray-500">({fixture.date})</span>
+                                </li>
+                            );
+                        }) : <p className="text-sm text-gray-500">No upcoming fixtures.</p>}
                     </ul>
                 </section>
 
                 <section>
                     <h3 className="text-xl font-bold font-display mb-4 border-b-2 border-green-500 pb-2">Recent Results</h3>
                      <ul className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                        {team.results.length > 0 ? team.results.map((result, index) => (
-                            <li key={index} className="text-sm bg-gray-100 p-2 rounded-md flex justify-between">
-                                <span className="font-semibold">{result.opponent}</span>
-                                <span className={`font-bold ${result.score.startsWith('W') ? 'text-green-600' : result.score.startsWith('L') ? 'text-red-600' : 'text-gray-600'}`}>
-                                    {result.score}
-                                </span>
-                            </li>
-                        )) : <p className="text-sm text-gray-500">No recent results.</p>}
+                        {(team.results || []).length > 0 ? (team.results || []).map((result, index) => {
+                            const opponent = result.teamA === team.name ? result.teamB : result.teamA;
+                            const score = `${result.scoreA} - ${result.scoreB}`;
+                            const isWin = (result.teamA === team.name && (result.scoreA || 0) > (result.scoreB || 0)) || (result.teamB === team.name && (result.scoreB || 0) > (result.scoreA || 0));
+                            const isLoss = (result.teamA === team.name && (result.scoreA || 0) < (result.scoreB || 0)) || (result.teamB === team.name && (result.scoreB || 0) < (result.scoreA || 0));
+                            return (
+                                <li key={index} className="text-sm bg-gray-100 p-2 rounded-md flex justify-between">
+                                    <span className="font-semibold">{opponent}</span>
+                                    <span className={`font-bold ${isWin ? 'text-green-600' : isLoss ? 'text-red-600' : 'text-gray-600'}`}>
+                                        {score}
+                                    </span>
+                                </li>
+                            );
+                        }) : <p className="text-sm text-gray-500">No recent results.</p>}
                     </ul>
                 </section>
             </div>

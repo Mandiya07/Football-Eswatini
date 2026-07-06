@@ -1,18 +1,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { listenToAllCompetitions, fetchDirectoryEntries } from '../services/api';
+import { fetchDirectoryEntries } from '../services/api';
 import { CompetitionFixture } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
 import { findInMap } from '../services/utils';
 import ChevronLeftIcon from './icons/ChevronLeftIcon';
 import ChevronRightIcon from './icons/ChevronRightIcon';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 interface LiveMatch extends CompetitionFixture {
     teamACrest?: string;
     teamBCrest?: string;
-    teamAId?: number;
-    teamBId?: number;
+    teamAId?: string;
+    teamBId?: string;
 }
 
 const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, DirectoryEntity>, competitionId: string }> = ({ match, directoryMap, competitionId }) => {
@@ -32,7 +33,7 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
         }
     }, [match]);
 
-    const TeamLink: React.FC<{ teamName: string, teamId?: number, crestUrl?: string, justification: 'start' | 'end' }> = ({ teamName, teamId, crestUrl, justification }) => {
+    const TeamLink: React.FC<{ teamName: string, teamId?: string, crestUrl?: string, justification: 'start' | 'end' }> = ({ teamName, teamId, crestUrl, justification }) => {
         let linkProps = { isLinkable: !!teamId, competitionId: competitionId, teamId: teamId };
         if (!linkProps.isLinkable) {
             const teamEntity = findInMap(teamName, directoryMap);
@@ -40,9 +41,9 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
         }
         const content = (
             <div className={`flex items-center gap-2 overflow-hidden ${justification === 'end' ? 'justify-end text-right' : 'justify-start text-left'}`}>
-                {justification === 'start' && crestUrl && <img src={crestUrl} alt="" className="w-5 h-5 object-contain flex-shrink-0" />}
+                {justification === 'start' && crestUrl && <img src={crestUrl} alt="" referrerPolicy="no-referrer" className="w-5 h-5 object-contain flex-shrink-0" />}
                 <p className="font-bold text-[11px] sm:text-xs truncate leading-tight flex-grow">{teamName}</p>
-                {justification === 'end' && crestUrl && <img src={crestUrl} alt="" className="w-5 h-5 object-contain flex-shrink-0" />}
+                {justification === 'end' && crestUrl && <img src={crestUrl} alt="" referrerPolicy="no-referrer" className="w-5 h-5 object-contain flex-shrink-0" />}
             </div>
         );
         return linkProps.isLinkable ? <Link to={`/competitions/${linkProps.competitionId}/teams/${linkProps.teamId}`} className="hover:underline flex-grow min-w-0">{content}</Link> : <div className="flex-grow min-w-0">{content}</div>;
@@ -72,52 +73,49 @@ const LiveMatchCard: React.FC<{ match: LiveMatch, directoryMap: Map<string, Dire
 };
 
 const LiveScoreboard: React.FC = () => {
+    const { competitions: allComps } = useDataCache();
     const [matches, setMatches] = useState<LiveMatch[]>([]);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        let unsubscribe: (() => void) | undefined;
-        
         const startListening = async () => {
             const dirEntries = await fetchDirectoryEntries();
             const map = new Map<string, DirectoryEntity>();
             dirEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
             setDirectoryMap(map);
+        };
+        startListening();
+    }, []);
 
-            unsubscribe = listenToAllCompetitions((allComps) => {
-                const combined: LiveMatch[] = [];
-                const now = new Date();
-                Object.entries(allComps).forEach(([compId, comp]) => {
-                    if (comp.fixtures) {
-                        comp.fixtures.forEach(f => {
-                            const matchTime = new Date(`${f.fullDate}T${f.time || '15:00'}`);
-                            const isLive = f.status === 'live' || f.status === 'suspended';
-                            const isStartingSoon = matchTime > now && (matchTime.getTime() - now.getTime() < 7200000);
-                            const justStarted = f.status === 'scheduled' && now >= matchTime && (now.getTime() - matchTime.getTime() < 10800000);
-                            
-                            if (isLive || isStartingSoon || justStarted) {
-                                const teamA = comp.teams?.find(t => t.name === f.teamA);
-                                const teamB = comp.teams?.find(t => t.name === f.teamB);
-                                const dirA = findInMap(f.teamA, map);
-                                const dirB = findInMap(f.teamB, map);
-                                combined.push({ ...f, teamACrest: teamA?.crestUrl || dirA?.crestUrl, teamBCrest: teamB?.crestUrl || dirB?.crestUrl, teamAId: teamA?.id || dirA?.teamId, teamBId: teamB?.id || dirB?.teamId });
-                            }
-                        });
+    useEffect(() => {
+        const combined: LiveMatch[] = [];
+        const now = new Date();
+        Object.entries(allComps).forEach(([compId, comp]) => {
+            if (comp.fixtures) {
+                comp.fixtures.forEach(f => {
+                    const matchTime = new Date(`${f.fullDate}T${f.time || '15:00'}`);
+                    const isLive = f.status === 'live' || f.status === 'suspended';
+                    const isStartingSoon = matchTime > now && (matchTime.getTime() - now.getTime() < 7200000);
+                    const justStarted = f.status === 'scheduled' && now >= matchTime && (now.getTime() - matchTime.getTime() < 10800000);
+                    
+                    if (isLive || isStartingSoon || justStarted) {
+                        const teamA = comp.teams?.find(t => t.name === f.teamA);
+                        const teamB = comp.teams?.find(t => t.name === f.teamB);
+                        const dirA = findInMap(f.teamA, directoryMap);
+                        const dirB = findInMap(f.teamB, directoryMap);
+                        combined.push({ ...f, teamACrest: teamA?.crestUrl || dirA?.crestUrl, teamBCrest: teamB?.crestUrl || dirB?.crestUrl, teamAId: teamA?.id || dirA?.teamId, teamBId: teamB?.id || dirB?.teamId });
                     }
                 });
-                combined.sort((a, b) => {
-                    if (a.status === 'live' && b.status !== 'live') return -1;
-                    if (b.status === 'live' && a.status !== 'live') return 1;
-                    return 0;
-                });
-                setMatches(combined);
-            });
-        };
-        
-        startListening();
-        return () => unsubscribe?.();
-    }, []);
+            }
+        });
+        combined.sort((a, b) => {
+            if (a.status === 'live' && b.status !== 'live') return -1;
+            if (b.status === 'live' && a.status !== 'live') return 1;
+            return 0;
+        });
+        setMatches(combined);
+    }, [allComps, directoryMap]);
 
     if (matches.length === 0) return null;
 

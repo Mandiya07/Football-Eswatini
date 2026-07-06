@@ -134,7 +134,7 @@ const SubmitResultsPage: React.FC = () => {
                         throw new Error("This result has already been submitted.");
                     }
                     newResult = {
-                        id: Date.now(),
+                        id: String(Date.now()),
                         teamA: homeTeam,
                         teamB: awayTeam,
                         time: '15:00',

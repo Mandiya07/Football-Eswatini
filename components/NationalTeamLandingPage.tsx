@@ -5,16 +5,20 @@ import NationalTeamIcon from './icons/NationalTeamIcon';
 import TrophyIcon from './icons/TrophyIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import NewsSection from './News';
-import { fetchAllCompetitions, Competition, fetchCategories, fetchCups } from '../services/api';
+import { fetchCategories, fetchCups } from '../services/api';
 import Spinner from './ui/Spinner';
+import { useDataCache } from '../contexts/DataCacheContext';
+import { Competition } from '../data/teams';
 
 interface NationalTeamSummary extends Partial<Competition> {
   id: string;
   name: string;
+  description?: string;
   isCup?: boolean;
 }
 
 const NationalTeamLandingPage: React.FC = () => {
+  const { competitions: allComps } = useDataCache();
   const [teams, setTeams] = useState<NationalTeamSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,8 +26,7 @@ const NationalTeamLandingPage: React.FC = () => {
     const loadTeams = async () => {
       setLoading(true);
       try {
-        const [allCompetitions, allCategories, allCups] = await Promise.all([
-            fetchAllCompetitions(),
+        const [allCategories, allCups] = await Promise.all([
             fetchCategories(),
             fetchCups()
         ]);
@@ -35,7 +38,7 @@ const NationalTeamLandingPage: React.FC = () => {
         );
         const targetCatId = nationalCat ? nationalCat.id : 'national-teams';
 
-        const nationalTeams = Object.entries(allCompetitions)
+        const nationalTeams = Object.entries(allComps)
           .map(([id, comp]) => ({ id, ...comp }))
           .filter(comp => comp.categoryId === targetCatId || comp.categoryId === 'national-teams');
         

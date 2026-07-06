@@ -1,15 +1,16 @@
+
 export interface NewsItem {
   id: string;
-  image: string;
   title: string;
-  date: string;
-  url: string;
-  category: string | string[];
   summary: string;
   content: string;
+  image: string;
+  imageUrl?: string;
+  date: string;
+  author: string;
+  category: string;
+  tags: string[];
+  url?: string;
 }
 
-export const newsData: NewsItem[] = [
-  // Live news is pulled from Firestore 'news' collection.
-  // This array is kept minimal to avoid cluttering the UI with stale mock data.
-];
+export const newsData: NewsItem[] = [];

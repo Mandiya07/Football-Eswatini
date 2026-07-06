@@ -14,6 +14,8 @@ import ImageUploader from '../ui/ImageUploader';
 import ImageIcon from '../icons/ImageIcon';
 import InfoIcon from '../icons/InfoIcon';
 
+import { safeLocalStorage, safeSessionStorage } from '../../services/utils';
+
 const MaintenanceTools: React.FC = () => {
     const [status, setStatus] = useState<string | null>(null);
     const [repairLoading, setRepairLoading] = useState(false);
@@ -39,8 +41,8 @@ const MaintenanceTools: React.FC = () => {
         if (!window.confirm("This will clear all local browser data and reload. You will be logged out. Proceed?")) return;
         setStatus("Purging...");
         try {
-            localStorage.clear();
-            sessionStorage.clear();
+            safeLocalStorage.clear();
+            safeSessionStorage.clear();
             if ('caches' in window) {
                 const names = await caches.keys();
                 await Promise.all(names.map(name => caches.delete(name)));

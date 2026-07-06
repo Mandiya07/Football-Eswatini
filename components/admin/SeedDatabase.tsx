@@ -41,14 +41,17 @@ const initialCategories = [
     { id: 'build-it-u13-national', name: 'Build It U-13 National', order: 110 },
 ];
 
+import { handleFirestoreError, OperationType } from '../../services/api';
+
 const SeedDatabase: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const handleSync = async () => {
-        if (!window.confirm("SYNC STRUCTURAL METADATA: This will update system categories and global configs. It will NOT overwrite your tournament bracket results. Proceed?")) return;
         setLoading(true);
         setStatus(null);
+        setShowConfirm(false);
 
         try {
             const batch = writeBatch(db);
@@ -84,10 +87,22 @@ const SeedDatabase: React.FC = () => {
                 batch.set(cupRef, { name: cup.name, logoUrl: cup.logoUrl }, m);
             });
 
+            // 6. INITIAL COMPETITION HUBS (If they don't exist)
+            const initialComps = [
+                { id: 'mtn-premier-league', name: 'MTN Premier League', type: 'league', categoryId: 'premier-leagues', region: 'National' },
+                { id: 'national-first-division', name: 'National First Division', type: 'league', categoryId: 'national-divisions', region: 'National' },
+                { id: 'ingwenyama-cup', name: 'Ingwenyama Cup', type: 'cup', categoryId: 'premier-leagues', region: 'National' },
+                { id: 'ebulubeni-knockout', name: 'Ebulubeni Knockout', type: 'cup', categoryId: 'regional-leagues', region: 'Manzini' }
+            ];
+            initialComps.forEach(comp => {
+                const { id, ...data } = comp;
+                batch.set(doc(db, 'competitions', id), { ...data, teams: [], fixtures: [], results: [] }, m);
+            });
+
             await batch.commit();
             setStatus({ type: 'success', msg: 'Structural metadata synchronized with cloud.' });
         } catch (error: any) {
-            console.error("Sync error:", error);
+            handleFirestoreError(error, OperationType.WRITE, 'batch_sync');
             setStatus({ type: 'error', msg: 'Sync Failed: ' + (error.message || 'Check connection.') });
         } finally {
             setLoading(false);
@@ -106,13 +121,35 @@ const SeedDatabase: React.FC = () => {
                 </p>
                 
                 <div className="flex flex-col gap-4">
-                    <Button 
-                        onClick={handleSync} 
-                        disabled={loading} 
-                        className="bg-primary text-white hover:bg-primary-dark h-11 px-8 shadow-lg w-full sm:w-fit font-black uppercase tracking-widest text-xs"
-                    >
-                        {loading ? <Spinner className="w-5 h-5 border-2"/> : 'Sync Structural Metadata'}
-                    </Button>
+                    {!showConfirm ? (
+                        <Button 
+                            onClick={() => setShowConfirm(true)} 
+                            disabled={loading} 
+                            className="bg-primary text-white hover:bg-primary-dark h-11 px-8 shadow-lg w-full sm:w-fit font-black uppercase tracking-widest text-xs"
+                        >
+                            {loading ? <Spinner className="w-5 h-5 border-2"/> : 'Sync Structural Metadata'}
+                        </Button>
+                    ) : (
+                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                            <p className="text-sm font-bold text-yellow-800 mb-4">
+                                SYNC STRUCTURAL METADATA: This will update system categories and global configs. It will NOT overwrite your tournament bracket results. Proceed?
+                            </p>
+                            <div className="flex gap-2">
+                                <Button 
+                                    onClick={handleSync} 
+                                    className="bg-yellow-600 text-white hover:bg-yellow-700 h-9 px-4 text-xs font-bold uppercase"
+                                >
+                                    Yes, Sync Now
+                                </Button>
+                                <Button 
+                                    onClick={() => setShowConfirm(false)} 
+                                    className="bg-gray-200 text-gray-800 hover:bg-gray-300 h-9 px-4 text-xs font-bold uppercase"
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                     
                     {status && (
                         <div className={`p-4 rounded-xl text-sm font-bold flex items-center gap-2 animate-fade-in ${status.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>

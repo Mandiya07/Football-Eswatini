@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { addScoutedPlayer, deleteScoutedPlayer, fetchScoutedPlayers, updateScoutedPlayer } from '../../services/api';
+import { addScoutedPlayer, deleteScoutedPlayer, fetchScoutedPlayers, updateScoutedPlayer, handleFirestoreError, OperationType } from '../../services/api';
 import { ScoutedPlayer } from '../../data/scouting';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -8,12 +8,16 @@ import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
 import ScoutingFormModal from './ScoutingFormModal';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const ScoutingManagement: React.FC = () => {
     const [players, setPlayers] = useState<ScoutedPlayer[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPlayer, setEditingPlayer] = useState<ScoutedPlayer | null>(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [playerToDelete, setPlayerToDelete] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const loadPlayers = async () => {
         setLoading(true);
@@ -36,21 +40,41 @@ const ScoutingManagement: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (playerId: string) => {
-        if (window.confirm("Delete this scouted player's profile?")) {
-            await deleteScoutedPlayer(playerId);
+    const handleDelete = (playerId: string) => {
+        setPlayerToDelete(playerId);
+        setShowConfirmModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!playerToDelete) return;
+        setIsSubmitting(true);
+        try {
+            await deleteScoutedPlayer(playerToDelete);
+            setShowConfirmModal(false);
+            setPlayerToDelete(null);
             loadPlayers();
+        } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `scouted_players/${playerToDelete}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleSave = async (data: Omit<ScoutedPlayer, 'id'>, id?: string) => {
-        if (id) {
-            await updateScoutedPlayer(id, data);
-        } else {
-            await addScoutedPlayer(data);
+        setIsSubmitting(true);
+        try {
+            if (id) {
+                await updateScoutedPlayer(id, data);
+            } else {
+                await addScoutedPlayer(data);
+            }
+            setIsModalOpen(false);
+            loadPlayers();
+        } catch (error) {
+            handleFirestoreError(error, id ? OperationType.UPDATE : OperationType.CREATE, id ? `scouted_players/${id}` : 'scouted_players');
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsModalOpen(false);
-        loadPlayers();
     };
 
     return (
@@ -86,6 +110,16 @@ const ScoutingManagement: React.FC = () => {
                 </CardContent>
             </Card>
             {isModalOpen && <ScoutingFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSave} player={editingPlayer} />}
+            
+            <ConfirmationModal
+                isOpen={showConfirmModal}
+                onClose={() => { setShowConfirmModal(false); setPlayerToDelete(null); }}
+                onConfirm={confirmDelete}
+                title="Delete Scouted Player"
+                message="Are you sure you want to delete this scouted player's profile? This action cannot be undone."
+                confirmText={isSubmitting ? 'Deleting...' : 'Delete'}
+                variant="danger"
+            />
         </>
     );
 };

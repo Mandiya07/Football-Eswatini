@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
-import { fetchRegionConfigs, updateRegionConfig, RegionConfig, handleFirestoreError } from '../../services/api';
+import { fetchRegionConfigs, updateRegionConfig, RegionConfig, handleFirestoreError, OperationType } from '../../services/api';
 import GlobeIcon from '../icons/GlobeIcon';
 import ImageUploader from '../ui/ImageUploader';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
@@ -32,7 +32,7 @@ const RegionManagement: React.FC = () => {
                 setRegions(data);
             }
         } catch (error) {
-            console.error(error);
+            handleFirestoreError(error, OperationType.GET, 'regionConfigs');
         } finally {
             setLoading(false);
         }
@@ -54,7 +54,7 @@ const RegionManagement: React.FC = () => {
             setSuccessId(region.id);
             setTimeout(() => setSuccessId(null), 3000);
         } catch (error) {
-            alert("Failed to save region configuration.");
+            handleFirestoreError(error, OperationType.UPDATE, `regionConfigs/${region.id}`);
         } finally {
             setSavingId(null);
         }

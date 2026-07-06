@@ -162,7 +162,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                                 <ul className="divide-y divide-gray-200 -my-4">
                                     {cartItems.map(item => (
                                         <li key={item.product.id} className="flex items-center gap-4 py-4">
-                                            <img src={item.product.imageUrl} alt={item.product.name} className="w-16 h-16 object-contain rounded-md border" />
+                                            <img src={item.product.imageUrl || 'https://via.placeholder.com/150?text=Product'} alt={item.product.name} className="w-16 h-16 object-contain rounded-md border" />
                                             <div className="flex-grow">
                                                 <p className="font-semibold text-sm">{item.product.name}</p>
                                                 <p className="text-xs text-gray-500">

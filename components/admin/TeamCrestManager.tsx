@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { fetchAllCompetitions, fetchDirectoryEntries, updateDirectoryEntry, addDirectoryEntry, deleteDirectoryEntry, handleFirestoreError } from '../../services/api';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { fetchDirectoryEntries, updateDirectoryEntry, addDirectoryEntry, deleteDirectoryEntry, handleFirestoreError, OperationType } from '../../services/api';
 import { DirectoryEntity } from '../../data/directory';
+import { Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Spinner from '../ui/Spinner';
 import SearchIcon from '../icons/SearchIcon';
@@ -12,6 +13,8 @@ import Button from '../ui/Button';
 import InfoIcon from '../icons/InfoIcon';
 import { db } from '../../services/firebase';
 import { doc, writeBatch, collection } from 'firebase/firestore';
+import ConfirmationModal from '../ui/ConfirmationModal';
+import { useDataCache } from '../../contexts/DataCacheContext';
 
 interface EntityItem {
     id?: string;
@@ -22,22 +25,22 @@ interface EntityItem {
 }
 
 const TeamCrestManager: React.FC = () => {
+    const { competitions: allCompsCache } = useDataCache();
     const [allItems, setAllItems] = useState<EntityItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
     const [savingStatus, setSavingStatus] = useState<Record<string, 'saving' | 'saved' | 'error' | 'deleting'>>({});
     const [autoSyncToDirectory, setAutoSyncToDirectory] = useState(true);
+    const [deleteConfirm, setDeleteConfirm] = useState<EntityItem | null>(null);
 
     const [directoryEntries, setDirectoryEntries] = useState<Map<string, DirectoryEntity>>(new Map());
 
-    const loadAllData = async () => {
+    const loadAllData = useCallback(async () => {
         setLoading(true);
         try {
-            const [allComps, dirEntries] = await Promise.all([
-                fetchAllCompetitions(),
-                fetchDirectoryEntries()
-            ]);
+            const dirEntries = await fetchDirectoryEntries();
+            const allComps = allCompsCache;
 
             const dirMap = new Map<string, DirectoryEntity>();
             dirEntries.forEach(e => dirMap.set(e.name.trim().toLowerCase(), e));
@@ -75,11 +78,11 @@ const TeamCrestManager: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [allCompsCache]);
 
     useEffect(() => {
         loadAllData();
-    }, []);
+    }, [loadAllData]);
 
     const filteredItems = useMemo(() => {
         return allItems.filter(item => {
@@ -101,7 +104,7 @@ const TeamCrestManager: React.FC = () => {
         try {
             const batch = writeBatch(db);
             const dirEntry = findInMap(itemName, directoryEntries);
-            const allComps = await fetchAllCompetitions();
+            const allComps = allCompsCache;
             
             // 1. Update Directory (If exists or if auto-sync is on)
             if (dirEntry) {
@@ -120,10 +123,11 @@ const TeamCrestManager: React.FC = () => {
 
             // 2. Global Sync: Update every competition where this team exists
             Object.entries(allComps).forEach(([compId, comp]) => {
-                if (comp.teams) {
-                    const teamIndex = comp.teams.findIndex(t => t.name === itemName);
+                const compData = comp as Competition;
+                if (compData.teams) {
+                    const teamIndex = compData.teams.findIndex(t => t.name === itemName);
                     if (teamIndex !== -1) {
-                        const updatedTeams = [...comp.teams];
+                        const updatedTeams = [...compData.teams];
                         updatedTeams[teamIndex] = { ...updatedTeams[teamIndex], crestUrl: newCrestUrl };
                         const compRef = doc(db, 'competitions', compId);
                         batch.update(compRef, { teams: removeUndefinedProps(updatedTeams) });
@@ -141,17 +145,22 @@ const TeamCrestManager: React.FC = () => {
                 return ns;
             }), 2000);
         } catch (error) {
-            handleFirestoreError(error, `save crest for ${itemName}`);
+            handleFirestoreError(error, OperationType.WRITE, `directory/${itemName}`);
             setSavingStatus(prev => ({ ...prev, [itemName]: 'error' }));
         }
     };
 
-    const handleDeleteItem = async (item: EntityItem) => {
-        if (!window.confirm(`Permanently remove "${item.name}" from the directory? This only removes the Directory metadata; standard Competition data is preserved.`)) return;
-        
+    const handleDeleteItem = (item: EntityItem) => {
+        setDeleteConfirm(item);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirm) return;
+        const item = deleteConfirm;
         const itemName = item.name;
         if (!item.id) {
             alert("This entry is not in the Directory database yet.");
+            setDeleteConfirm(null);
             return;
         }
 
@@ -160,7 +169,7 @@ const TeamCrestManager: React.FC = () => {
             await deleteDirectoryEntry(item.id);
             await loadAllData();
         } catch (error) {
-            handleFirestoreError(error, `delete directory entry ${itemName}`);
+            handleFirestoreError(error, OperationType.DELETE, `directory/${item.id}`);
             setSavingStatus(prev => ({ ...prev, [itemName]: 'error' }));
         } finally {
             setSavingStatus(prev => {
@@ -168,6 +177,7 @@ const TeamCrestManager: React.FC = () => {
                 delete newState[itemName];
                 return newState;
             });
+            setDeleteConfirm(null);
         }
     };
 
@@ -277,6 +287,14 @@ const TeamCrestManager: React.FC = () => {
                     </div>
                 )}
             </CardContent>
+            <ConfirmationModal 
+                isOpen={!!deleteConfirm}
+                onClose={() => setDeleteConfirm(null)}
+                onConfirm={confirmDelete}
+                title="Delete Directory Entry"
+                message={`Permanently remove "${deleteConfirm?.name}" from the directory? This only removes the Directory metadata; standard Competition data is preserved.`}
+                confirmText="Delete"
+            />
         </Card>
     );
 };

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { fetchPlayerById, fetchCompetition, fetchAllCompetitions, fetchStandaloneMatches } from '../services/api';
+import { fetchPlayerById, fetchCompetition, fetchStandaloneMatches } from '../services/api';
 import { Player, Team, CompetitionFixture } from '../data/teams';
 import { Card, CardContent } from './ui/Card';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
@@ -11,7 +11,8 @@ import BarChartIcon from './icons/BarChartIcon';
 import HistoryIcon from './icons/HistoryIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import ShieldCheckIcon from './icons/ShieldCheckIcon';
-import { reconcilePlayers, superNormalize } from '../services/utils';
+import { reconcilePlayers, superNormalize, getCompCategory } from '../services/utils';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const StatCard: React.FC<{ label: string; value: number | string; icon?: React.ReactNode; colorClass?: string }> = ({ label, value, icon, colorClass = "text-gray-900" }) => (
     <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center text-center transition-all hover:shadow-md hover:border-primary/20">
@@ -22,6 +23,7 @@ const StatCard: React.FC<{ label: string; value: number | string; icon?: React.R
 );
 
 const PlayerProfilePage: React.FC = () => {
+  const { competitions: allComps } = useDataCache();
   const { playerId } = useParams<{ playerId: string }>();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
@@ -37,29 +39,32 @@ const PlayerProfilePage: React.FC = () => {
             return;
         }
         setLoading(true);
-        const data = await fetchPlayerById(parseInt(playerId, 10));
+        const data = await fetchPlayerById(playerId);
         
         if (data) {
             // RE-RECONCILE STATS FROM ALL COMPETITIONS & STANDALONE MATCHES
-            const [allComps, standalone] = await Promise.all([
-                fetchAllCompetitions(),
+            const [standalone] = await Promise.all([
                 fetchStandaloneMatches(data.team.name)
             ]);
 
             const normTeamName = superNormalize(data.team.name);
+            const resolvedCategory = data.competitionId ? getCompCategory(data.competitionId, allComps[data.competitionId]?.name) : 'senior';
             const masterMatchList: CompetitionFixture[] = [...standalone];
 
-            Object.values(allComps).forEach(hub => {
-                const hubMatches = [...(hub.fixtures || []), ...(hub.results || [])].filter(m => 
-                    superNormalize(m.teamA) === normTeamName || superNormalize(m.teamB) === normTeamName
-                );
-                masterMatchList.push(...hubMatches);
+            Object.entries(allComps).forEach(([hubId, hub]) => {
+                const hubCategory = getCompCategory(hubId, hub.name);
+                if (hubCategory === resolvedCategory) {
+                    const hubMatches = [...(hub.fixtures || []), ...(hub.results || [])].filter(m => 
+                        superNormalize(m.teamA || '') === normTeamName || superNormalize(m.teamB || '') === normTeamName
+                    );
+                    masterMatchList.push(...hubMatches);
+                }
             });
 
             // Use the original team object as the base but apply global reconciliation
             const reconciled = reconcilePlayers([data.team], masterMatchList);
             const updatedTeam = reconciled[0];
-            const updatedPlayer = updatedTeam?.players.find(p => p.id === parseInt(playerId, 10));
+            const updatedPlayer = updatedTeam?.players.find(p => p.id === playerId);
             
             if (updatedPlayer && updatedTeam) {
                 setPlayer(updatedPlayer);
@@ -127,13 +132,13 @@ const PlayerProfilePage: React.FC = () => {
     <div className="py-12 bg-slate-50/50 min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
          <div className="mb-6">
-            <button
-                onClick={() => navigate(-1)}
+            <Link
+                to={competitionId ? `/competitions/${competitionId}/teams/${team.id}` : `/team/${team.id}`}
                 className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100"
             >
                 <ArrowLeftIcon className="w-4 h-4" />
                 Back
-            </button>
+            </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
@@ -193,23 +198,23 @@ const PlayerProfilePage: React.FC = () => {
                     </div>
                     <CardContent className="p-8 bg-slate-50/30">
                          <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                            <StatCard label="Appearances" value={player.stats.appearances} />
-                            <StatCard label="Goals Scored" value={player.stats.goals} colorClass="text-primary" />
-                            <StatCard label="Assists" value={player.stats.assists} colorClass="text-blue-500" />
+                             <StatCard label="Appearances" value={player.stats?.appearances || 0} />
+                            <StatCard label="Goals Scored" value={player.stats?.goals || 0} colorClass="text-primary" />
+                            <StatCard label="Assists" value={player.stats?.assists || 0} colorClass="text-blue-500" />
                             
                             <StatCard 
                                 label="Yellow Cards" 
-                                value={player.stats.yellowCards || 0} 
+                                value={player.stats?.yellowCards || 0} 
                                 icon={<div className="w-4 h-6 bg-yellow-400 rounded-sm shadow-sm border border-yellow-500"></div>}
                             />
                             <StatCard 
                                 label="Red Cards" 
-                                value={player.stats.redCards || 0} 
+                                value={player.stats?.redCards || 0} 
                                 icon={<div className="w-4 h-6 bg-red-600 rounded-sm shadow-sm border border-red-700"></div>}
                             />
                             <StatCard 
                                 label="Clean Sheets" 
-                                value={player.stats.cleanSheets || 0} 
+                                value={player.stats?.cleanSheets || 0} 
                                 icon={<ShieldCheckIcon className="w-6 h-6 text-green-500" />}
                                 colorClass="text-green-600"
                             />
@@ -230,17 +235,17 @@ const PlayerProfilePage: React.FC = () => {
                     <CardContent className="p-8">
                         <h2 className="text-xl font-display font-black uppercase tracking-tight mb-6 text-slate-800 border-b pb-4">Player Profile</h2>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                            <div className="flex flex-col">
+                             <div className="flex flex-col">
                                 <span className="text-slate-400 text-[10px] uppercase tracking-[0.2em] font-black mb-1">Nationality</span>
-                                <span className="font-bold text-slate-900">{player.bio.nationality}</span>
+                                <span className="font-bold text-slate-900">{player.nationality || 'N/A'}</span>
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-slate-400 text-[10px] uppercase tracking-[0.2em] font-black mb-1">Age</span>
-                                <span className="font-bold text-slate-900">{player.bio.age} Years</span>
+                                <span className="font-bold text-slate-900">{player.age || 'N/A'} Years</span>
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-slate-400 text-[10px] uppercase tracking-[0.2em] font-black mb-1">Height</span>
-                                <span className="font-bold text-slate-900">{player.bio.height}</span>
+                                <span className="font-bold text-slate-900">{player.height || 'N/A'}</span>
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-slate-400 text-[10px] uppercase tracking-[0.2em] font-black mb-1">Current Club</span>
@@ -258,7 +263,7 @@ const PlayerProfilePage: React.FC = () => {
                             Career Timeline
                         </h2>
                         <div className="overflow-hidden rounded-2xl border border-slate-100">
-                            {player.transferHistory.length > 0 ? (
+                            {player.transferHistory && player.transferHistory.length > 0 ? (
                                 <table className="w-full text-sm">
                                     <thead className="bg-slate-50 text-slate-400 font-black uppercase text-[10px] tracking-widest">
                                         <tr>
@@ -266,17 +271,19 @@ const PlayerProfilePage: React.FC = () => {
                                             <th className="px-6 py-4 text-left">From</th>
                                             <th className="px-6 py-4 text-center w-12"></th>
                                             <th className="px-6 py-4 text-left">To</th>
+                                            <th className="px-6 py-4 text-right">Fee</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50 bg-white">
                                         {player.transferHistory.map((transfer, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50 transition-colors group">
-                                                <td className="px-6 py-4 font-mono text-slate-500 font-bold">{transfer.year}</td>
+                                                <td className="px-6 py-4 font-mono text-slate-500 font-bold">{transfer.year || transfer.date}</td>
                                                 <td className="px-6 py-4 font-bold text-slate-700">{transfer.from}</td>
                                                 <td className="px-6 py-4 text-center text-slate-300">
                                                     <ArrowRightIcon className="w-4 h-4 mx-auto group-hover:text-primary transition-colors" />
                                                 </td>
                                                 <td className="px-6 py-4 font-black text-primary">{transfer.to}</td>
+                                                <td className="px-6 py-4 text-right font-bold text-slate-500">{transfer.fee || 'Undisclosed'}</td>
                                             </tr>
                                         ))}
                                     </tbody>

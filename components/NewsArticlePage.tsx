@@ -9,7 +9,8 @@ import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import AdBanner from './AdBanner';
 import MessageSquareIcon from './icons/MessageSquareIcon';
 import Button from './ui/Button';
-import { useAuth, User } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import { User } from '../types/auth';
 import BadgeCheckIcon from './icons/BadgeCheckIcon';
 
 function formatTimeAgo(timestamp: { seconds: number } | null): string {
@@ -123,7 +124,7 @@ const NewsCommentSection: React.FC<{ articleId: string }> = ({ articleId }) => {
             <div className="space-y-4 mb-6">
                 {comments.length > 0 ? comments.map(comment => (
                     <div key={comment.id} className="flex items-start gap-3 text-sm">
-                        <img src={comment.userAvatar} alt={comment.userName} className="w-8 h-8 rounded-full mt-1 border border-gray-200" />
+                        <img src={comment.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(comment.userName || 'User')}`} alt={comment.userName} className="w-8 h-8 rounded-full mt-1 border border-gray-200" />
                         <div className="flex-1 bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
                             <div className="flex justify-between items-baseline mb-1">
                                 <span className="font-semibold text-gray-900">{comment.userName}</span>
@@ -142,7 +143,7 @@ const NewsCommentSection: React.FC<{ articleId: string }> = ({ articleId }) => {
             {isLoggedIn && user ? (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-2">
                     <div className="flex gap-3">
-                        <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full border border-gray-200" />
+                        <img src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || 'User')}`} alt={user.name} className="w-8 h-8 rounded-full border border-gray-200" />
                         <textarea 
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
@@ -224,7 +225,9 @@ const NewsArticlePage: React.FC = () => {
                 </div>
                 
                 <Card className="shadow-lg animate-fade-in border-0 overflow-hidden rounded-[2.5rem]">
-                    <img src={article.image} alt={article.title} className="w-full h-64 md:h-[450px] object-cover" />
+                    {article.image && (
+                        <img src={article.image} alt={article.title} className="w-full h-64 md:h-[450px] object-cover" />
+                    )}
                     <CardContent className="p-8 md:p-12">
                         <div className="flex justify-between items-center mb-6 text-sm text-gray-500">
                              <span className="font-black px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] uppercase tracking-widest">

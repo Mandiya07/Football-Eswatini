@@ -28,7 +28,7 @@ const OnThisDay: React.FC<{ events: OnThisDayEvent[] }> = ({ events }) => {
     return (
         <Card className="shadow-xl overflow-hidden bg-gray-800 text-white">
             <div className="grid grid-cols-1 md:grid-cols-2">
-                <img src={event.imageUrl} alt={event.title} loading="lazy" className="w-full h-64 md:h-full object-cover" />
+                <img src={event.imageUrl || 'https://via.placeholder.com/600?text=History'} alt={event.title} loading="lazy" className="w-full h-64 md:h-full object-cover" />
                 <div className="p-8 flex flex-col justify-center">
                     <p className="font-bold text-yellow-400">{event.day}/{event.month}/{event.year}</p>
                     <h3 className="text-3xl font-display font-bold mt-2 mb-3">{event.title}</h3>
@@ -52,7 +52,7 @@ const ArchiveCard: React.FC<{ item: ArchiveItem, onPlayVideo: (video: Video) => 
                 );
             case 'photo':
                 const photo = item.details as ArchivePhoto;
-                return <img src={photo.imageUrl} alt={item.title} loading="lazy" className="w-full h-40 object-cover mt-2 rounded-md" />;
+                return <img src={photo.imageUrl || 'https://via.placeholder.com/600?text=Archive'} alt={item.title} loading="lazy" className="w-full h-40 object-cover mt-2 rounded-md" />;
             case 'clip':
                 const clip = item.details as ArchiveClip;
                 return <VideoCard video={clip.video} onPlay={onPlayVideo} />;

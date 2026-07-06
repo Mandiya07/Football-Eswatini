@@ -2,13 +2,23 @@
 import React from 'react';
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={`rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm ${className || ''}`}
-      {...props}
-    />
-  )
+  ({ className, ...props }, ref) => {
+    const hasBg = className && (className.includes('bg-') || className.includes('from-'));
+    const hasText = className && className.includes('text-');
+    const hasBorder = className && (className.includes('border-') || className.includes('border '));
+    
+    const defaultBg = hasBg ? '' : 'bg-white';
+    const defaultText = hasText ? '' : 'text-slate-950';
+    const defaultBorder = hasBorder ? '' : 'border border-slate-200';
+    
+    return (
+      <div
+        ref={ref}
+        className={`rounded-xl shadow-sm ${defaultBorder} ${defaultBg} ${defaultText} ${className || ''}`}
+        {...props}
+      />
+    );
+  }
 );
 Card.displayName = "Card";
 

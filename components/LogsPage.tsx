@@ -33,10 +33,10 @@ const LogsPage: React.FC = () => {
     <div className="py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
         <div className="text-center md:text-left mb-8">
-          <h1 className="text-4xl md:text-5xl font-display font-extrabold text-blue-800 mb-2">
+          <h1 className="text-5xl md:text-[3.5rem] font-black text-[#2f40a1] mb-2 tracking-tight">
             League Standings
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-gray-700 font-medium max-w-2xl">
             View the current league tables for all available competitions.
           </p>
         </div>

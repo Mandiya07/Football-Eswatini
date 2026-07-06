@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
-import { fetchNews, listenToAllCompetitions, listenToCups, addPodcast, listenToPodcasts, deletePodcast } from '../../services/api';
+import { fetchNews, listenToAllCompetitions, listenToCups, addPodcast, listenToPodcasts, deletePodcast, handleFirestoreError, OperationType } from '../../services/api';
 import { calculateStandings, compressImage, pcmToWav } from '../../services/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import Spinner from '../ui/Spinner';
+import ConfirmationModal from '../ui/ConfirmationModal';
 import MicIcon from '../icons/MicIcon';
 import RadioIcon from '../icons/RadioIcon';
 import PlayIcon from '../icons/PlayIcon';
@@ -14,8 +15,10 @@ import TrashIcon from '../icons/TrashIcon';
 import RefreshIcon from '../icons/RefreshIcon';
 import ImageIcon from '../icons/ImageIcon';
 import CheckIcon from '../icons/CheckIcon';
+import { useDataCache } from '../../contexts/DataCacheContext';
 
 const AdminPodcasts: React.FC = () => {
+    const { competitions: allComps } = useDataCache();
     const { user } = useAuth();
     const [isPublishing, setIsPublishing] = useState(false);
     const [podcasts, setPodcasts] = useState<any[]>([]);
@@ -28,6 +31,8 @@ const AdminPodcasts: React.FC = () => {
     const [audioDataUri, setAudioDataUri] = useState<string | null>(null);
     const [coverArt, setCoverArt] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     useEffect(() => {
         const unsub = listenToPodcasts(setPodcasts);
@@ -60,14 +65,8 @@ const AdminPodcasts: React.FC = () => {
 
         try {
             // 1. Fetch Data for Context
-            const [news, comps, cups] = await Promise.all([
+            const [news, cups] = await Promise.all([
                 fetchNews(),
-                new Promise<any>((resolve) => {
-                    const unsub = listenToAllCompetitions((data) => {
-                        unsub();
-                        resolve(data);
-                    });
-                }),
                 new Promise<any>((resolve) => {
                     const unsub = listenToCups((data) => {
                         unsub();
@@ -76,7 +75,7 @@ const AdminPodcasts: React.FC = () => {
                 })
             ]);
 
-            const premierLeague = comps['mtn-premier-league'];
+            const premierLeague = allComps['mtn-premier-league'];
             const standings = premierLeague ? calculateStandings(premierLeague.teams || [], premierLeague.results || [], premierLeague.fixtures || []) : [];
             
             const newsContext = news.slice(0, 5).map(n => n.title).join('. ');
@@ -112,7 +111,7 @@ const AdminPodcasts: React.FC = () => {
             const generateScriptWithRetry = async (retries = 3, delay = 2000): Promise<any> => {
                 try {
                     return await ai.models.generateContent({
-                        model: "gemini-3-flash-preview",
+                        model: "gemini-3.5-flash",
                         contents: scriptPrompt,
                     });
                 } catch (error: any) {
@@ -164,7 +163,7 @@ const AdminPodcasts: React.FC = () => {
             const generateWithRetry = async (retries = 3, delay = 2000): Promise<any> => {
                 try {
                     return await ai.models.generateContent({
-                        model: "gemini-2.5-flash-preview-tts",
+                        model: "gemini-3.1-flash-tts-preview",
                         contents: [{ parts: [{ text: ttsPrompt }] }],
                         config: {
                             responseModalities: ["AUDIO" as any],
@@ -244,13 +243,24 @@ const AdminPodcasts: React.FC = () => {
             setCoverArt(null);
             alert("Podcast published successfully!");
         } catch (err) {
-            console.error(err);
-            alert("Failed to publish podcast.");
+            handleFirestoreError(err, OperationType.CREATE, 'podcasts');
         } finally {
             setIsPublishing(false);
         }
     };
 
+    const handleDeletePodcast = async () => {
+        if (!confirmDeleteId) return;
+        setIsDeleting(true);
+        try {
+            await deletePodcast(confirmDeleteId);
+            setConfirmDeleteId(null);
+        } catch (err) {
+            handleFirestoreError(err, OperationType.DELETE, `podcasts/${confirmDeleteId}`);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
     const addTopic = () => {
         if (newTopic.trim()) {
             setTopics([...topics, newTopic.trim()]);
@@ -413,7 +423,7 @@ const AdminPodcasts: React.FC = () => {
                                             <p className="text-[9px] text-gray-400 mt-1">Published by {p.author}</p>
                                         </div>
                                         <button 
-                                            onClick={() => window.confirm("Delete this episode?") && deletePodcast(p.id)}
+                                            onClick={() => setConfirmDeleteId(p.id)}
                                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                         >
                                             <TrashIcon className="w-4 h-4" />
@@ -425,6 +435,16 @@ const AdminPodcasts: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            <ConfirmationModal 
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeletePodcast}
+                title="Delete Episode"
+                message="Are you sure you want to delete this podcast episode? This action cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
         </div>
     );
 };

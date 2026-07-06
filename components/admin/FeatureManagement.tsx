@@ -8,7 +8,8 @@ import {
     fetchExclusiveContent, addExclusiveContent, updateExclusiveContent, deleteExclusiveContent,
     fetchTeamYamVideos, addTeamYamVideo, updateTeamYamVideo, deleteTeamYamVideo,
     fetchArchiveData, addArchiveItem, updateArchiveItem, deleteArchiveItem,
-    fetchBehindTheScenesData, addBehindTheScenesContent, updateBehindTheScenesContent, deleteBehindTheScenesContent
+    fetchBehindTheScenesData, addBehindTheScenesContent, updateBehindTheScenesContent, deleteBehindTheScenesContent,
+    handleFirestoreError, OperationType
 } from '../../services/api';
 import PencilIcon from '../icons/PencilIcon';
 import TrashIcon from '../icons/TrashIcon';
@@ -23,6 +24,8 @@ const FeatureManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | number | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Generic Form State
     const [formData, setFormData] = useState<any>({});
@@ -44,7 +47,7 @@ const FeatureManagement: React.FC = () => {
             }
             setItems(data);
         } catch (error) {
-            console.error("Failed to load data", error);
+            handleFirestoreError(error, OperationType.GET, activeType);
         } finally {
             setLoading(false);
         }
@@ -87,7 +90,7 @@ const FeatureManagement: React.FC = () => {
     };
 
     const handleDelete = async (id: string | number) => {
-        if (!window.confirm("Delete this item?")) return;
+        setIsSubmitting(true);
         try {
             switch (activeType) {
                 case 'coaching': await deleteCoachingContent(String(id)); break;
@@ -96,14 +99,18 @@ const FeatureManagement: React.FC = () => {
                 case 'archive': await deleteArchiveItem(String(id)); break;
                 case 'behind-the-scenes': await deleteBehindTheScenesContent(String(id)); break;
             }
+            setConfirmDeleteId(null);
             loadData();
         } catch (error) {
-            console.error("Delete failed", error);
+            handleFirestoreError(error, OperationType.DELETE, `${activeType}/${id}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
         try {
             if (activeType === 'archive') {
                 const archivePayload = {
@@ -162,8 +169,9 @@ const FeatureManagement: React.FC = () => {
             setIsModalOpen(false);
             loadData();
         } catch (error) {
-            console.error("Save failed", error);
-            alert("Failed to save item: " + (error as Error).message);
+            handleFirestoreError(error, editingItem ? OperationType.UPDATE : OperationType.CREATE, editingItem ? `${activeType}/${editingItem.id}` : activeType);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -332,7 +340,7 @@ const FeatureManagement: React.FC = () => {
                                 </div>
                                 <div className="flex gap-2">
                                     <button onClick={() => handleEdit(item)} className="p-1 bg-blue-100 text-blue-600 rounded"><PencilIcon className="w-4 h-4"/></button>
-                                    <button onClick={() => handleDelete(item.id)} className="p-1 bg-red-100 text-red-600 rounded"><TrashIcon className="w-4 h-4"/></button>
+                                    <button onClick={() => setConfirmDeleteId(item.id)} className="p-1 bg-red-100 text-red-600 rounded"><TrashIcon className="w-4 h-4"/></button>
                                 </div>
                             </div>
                         ))}
@@ -340,6 +348,32 @@ const FeatureManagement: React.FC = () => {
                     </div>
                 )}
             </CardContent>
+
+            {confirmDeleteId && (
+                <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                        <h4 className="text-xl font-bold mb-2">Delete Item</h4>
+                        <p className="text-gray-600 mb-6">
+                            Are you sure you want to delete this item?
+                        </p>
+                        <div className="flex gap-3">
+                            <Button 
+                                onClick={() => handleDelete(confirmDeleteId)}
+                                disabled={isSubmitting}
+                                className="bg-red-600 text-white hover:bg-red-700 flex-1"
+                            >
+                                {isSubmitting ? 'Deleting...' : 'Delete'}
+                            </Button>
+                            <Button 
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="bg-gray-100 text-gray-800 hover:bg-gray-200 flex-1"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">

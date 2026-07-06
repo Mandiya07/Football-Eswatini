@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { listenToLiveUpdates, LiveUpdate, listenToAllCompetitions } from '../services/api';
+import { listenToLiveUpdates, LiveUpdate } from '../services/api';
 import { CompetitionFixture } from '../data/teams';
 import { Card, CardContent } from './ui/Card';
 import Spinner from './ui/Spinner';
@@ -13,12 +13,15 @@ import { FixtureItem } from './Fixtures';
 import AlertTriangleIcon from './icons/AlertTriangleIcon';
 import XCircleIcon from './icons/XCircleIcon';
 import WhistleIcon from './icons/WhistleIcon';
+import { safeJSONStringify } from '../services/utils';
 import { DirectoryEntity } from '../data/directory';
 import AdBanner from './AdBanner';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import Button from './ui/Button';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 import BellIcon from './icons/BellIcon';
+import { safeLocalStorage, makePlain } from '../services/utils';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const EventIcon: React.FC<{ type: LiveUpdate['type'] }> = ({ type }) => {
     switch (type) {
@@ -68,62 +71,60 @@ const LiveUpdatesPage: React.FC = () => {
     const [expandedMatches, setExpandedMatches] = useState<Set<string | number>>(new Set());
     const [notifiedMatches, setNotifiedMatches] = useState<Set<string | number>>(new Set());
     
+    const { competitions: allCompetitions } = useDataCache();
     const emptyMap = useMemo(() => new Map<string, DirectoryEntity>(), []);
 
     useEffect(() => {
         setLoading(true);
         // Load notified matches from local storage
-        const saved = localStorage.getItem('notified_matches');
+        const saved = safeLocalStorage.getItem('notified_matches');
         if (saved) setNotifiedMatches(new Set(JSON.parse(saved)));
 
-        const unsubscribeComps = listenToAllCompetitions((allCompetitions) => {
-            const active: { fixture: CompetitionFixture, competitionName: string, competitionId: string }[] = [];
-            const upcoming: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
-            const results: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
+        const active: { fixture: CompetitionFixture, competitionName: string, competitionId: string }[] = [];
+        const upcoming: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
+        const results: { fixture: CompetitionFixture, competitionId: string, competitionName: string }[] = [];
+        
+        const now = new Date();
+        const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+        const twoWeeksAhead = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
+        
+        Object.entries(allCompetitions).forEach(([compId, comp]) => {
+            const compName = comp.displayName || comp.name;
             
-            const now = new Date();
-            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-            const twoWeeksAhead = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
-            
-            Object.entries(allCompetitions).forEach(([compId, comp]) => {
-                const compName = comp.displayName || comp.name;
-                
-                if (comp.fixtures) {
-                    comp.fixtures.forEach(f => {
-                        const ts = getMatchTimestamp(f);
-                        const isCurrentlyActive = f.status === 'live' || f.status === 'suspended' || f.status === 'abandoned' || 
-                                                 (ts > 0 && Math.abs(now.getTime() - ts) < 4 * 60 * 60 * 1000);
+            if (comp.fixtures) {
+                comp.fixtures.forEach(f => {
+                    const ts = getMatchTimestamp(f);
+                    const isCurrentlyActive = f.status === 'live' || f.status === 'suspended' || f.status === 'abandoned' || 
+                                             (ts > 0 && Math.abs(now.getTime() - ts) < 4 * 60 * 60 * 1000);
 
-                        if (isCurrentlyActive) {
-                            active.push({ fixture: f, competitionName: compName, competitionId: compId });
-                        } else if (ts > now.getTime() && ts <= twoWeeksAhead.getTime()) {
-                            upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
-                        }
-                    });
-                }
+                    if (isCurrentlyActive) {
+                        active.push({ fixture: f, competitionName: compName, competitionId: compId });
+                    } else if (ts > now.getTime() && ts <= twoWeeksAhead.getTime()) {
+                        upcoming.push({ fixture: f, competitionId: compId, competitionName: compName });
+                    }
+                });
+            }
 
-                if (comp.results) {
-                    comp.results.forEach(r => {
-                        const ts = getMatchTimestamp(r);
-                        if (ts >= oneWeekAgo.getTime() && ts < now.getTime()) {
-                            results.push({ fixture: r, competitionId: compId, competitionName: compName });
-                        }
-                    });
-                }
-            });
-
-            setUpcomingMatches(upcoming.sort((a, b) => getMatchTimestamp(a.fixture) - getMatchTimestamp(b.fixture)));
-            setRecentResults(results.sort((a, b) => getMatchTimestamp(b.fixture) - getMatchTimestamp(a.fixture)));
-            setActiveFixtures(active);
-            setLoading(false);
+            if (comp.results) {
+                comp.results.forEach(r => {
+                    const ts = getMatchTimestamp(r);
+                    if (ts >= oneWeekAgo.getTime() && ts < now.getTime()) {
+                        results.push({ fixture: r, competitionId: compId, competitionName: compName });
+                    }
+                });
+            }
         });
+
+        setUpcomingMatches(upcoming.sort((a, b) => getMatchTimestamp(a.fixture) - getMatchTimestamp(b.fixture)));
+        setRecentResults(results.sort((a, b) => getMatchTimestamp(b.fixture) - getMatchTimestamp(a.fixture)));
+        setActiveFixtures(active);
+        setLoading(false);
 
         const unsubscribeUpdates = listenToLiveUpdates(setUpdates);
         return () => {
-            unsubscribeComps();
             unsubscribeUpdates();
         };
-    }, []);
+    }, [allCompetitions]);
 
     const toggleExpand = (id: string | number) => {
         const next = new Set(expandedMatches);
@@ -144,7 +145,7 @@ const LiveUpdatesPage: React.FC = () => {
             next.add(id);
         }
         setNotifiedMatches(next);
-        localStorage.setItem('notified_matches', JSON.stringify(Array.from(next)));
+        safeLocalStorage.setItem('notified_matches', safeJSONStringify(Array.from(next)));
     };
 
     const liveMatches = useMemo(() => {

@@ -10,6 +10,7 @@ import InstagramIcon from '../icons/InstagramIcon';
 import YouTubeIcon from '../icons/YouTubeIcon';
 import GlobeIcon from '../icons/GlobeIcon';
 import BookIcon from '../icons/BookIcon';
+import AdminPreviewModal from './AdminPreviewModal';
 
 type TeamFormData = {
     name: string;
@@ -26,7 +27,7 @@ type TeamFormData = {
 interface TeamFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: number, addToDirectory?: boolean) => void;
+    onSave: (data: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>>, id?: string, addToDirectory?: boolean) => void;
     team: Team | null;
     competitionId: string;
 }
@@ -46,6 +47,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
     
     // Default to true for new teams to encourage directory population
     const [addToDirectory, setAddToDirectory] = useState(true);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     
     useEffect(() => {
         if (!team) {
@@ -94,7 +96,7 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const dataToSave: Partial<Omit<Team, 'id' | 'stats' | 'players' | 'fixtures' | 'results' | 'staff'>> = {
+        const dataToSave: Partial<Team> = {
             name: formData.name,
             crestUrl: formData.crestUrl || `https://via.placeholder.com/128/CCCCCC/FFFFFF?text=${formData.name.substring(0, 2).toUpperCase()}`,
             socialMedia: {
@@ -225,12 +227,22 @@ const TeamFormModal: React.FC<TeamFormModalProps> = ({ isOpen, onClose, onSave, 
                         </div>
 
                         <div className="flex justify-end gap-2 pt-4">
+                            <Button type="button" variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => setIsPreviewOpen(true)}>
+                                Preview Squad Card
+                            </Button>
                             <Button type="button" onClick={onClose} className="bg-gray-200 text-gray-800">Cancel</Button>
                             <Button type="submit" className="bg-primary text-white hover:bg-primary-dark">Save Team</Button>
                         </div>
                     </form>
                 </CardContent>
             </Card>
+
+            <AdminPreviewModal 
+                isOpen={isPreviewOpen}
+                onClose={() => setIsPreviewOpen(false)}
+                type="squad"
+                data={formData}
+            />
         </div>
     );
 };

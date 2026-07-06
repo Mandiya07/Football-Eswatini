@@ -14,7 +14,7 @@ const VideoCard: React.FC<{ video: Video; onPlay: (video: Video) => void }> = Re
             role="button"
             aria-label={`Play video: ${video.title}`}
         >
-            <img src={video.thumbnailUrl} alt={video.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            <img src={video.thumbnailUrl || 'https://via.placeholder.com/400?text=Video'} alt={video.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/60 transition-colors duration-300"></div>
             
             <div className="absolute inset-0 flex items-center justify-center">

@@ -7,7 +7,7 @@ import CheckCircleIcon from '../icons/CheckCircleIcon';
 import PhotoIcon from '../icons/PhotoIcon';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { handleFirestoreError } from '../../services/api';
+import { handleFirestoreError, OperationType } from '../../services/api';
 import { compressImage } from '../../services/utils';
 
 const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
@@ -84,7 +84,7 @@ const ClubGalleryManagement: React.FC<{ clubName: string }> = ({ clubName }) => 
             setSuccessMessage("Gallery created successfully!");
             setFormData({ title: '', date: new Date().toISOString().split('T')[0], coverUrl: '', imageUrls: '' });
         } catch (error) {
-            handleFirestoreError(error, 'create gallery');
+            handleFirestoreError(error, OperationType.CREATE, 'galleries');
         } finally {
             setIsSubmitting(false);
         }

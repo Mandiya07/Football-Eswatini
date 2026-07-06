@@ -3,9 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../services/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { NewsItem } from '../../data/news';
+import { handleFirestoreError, OperationType } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
+import ConfirmationModal from '../ui/ConfirmationModal';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
@@ -16,20 +18,27 @@ const NewsManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingArticle, setEditingArticle] = useState<NewsItem | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchNews = async () => {
         setLoading(true);
-        const newsCollection = collection(db, "news");
-        const q = query(newsCollection);
-        const querySnapshot = await getDocs(q);
-        const newsItems: NewsItem[] = [];
-        querySnapshot.forEach((doc) => {
-            newsItems.push({ id: doc.id, ...doc.data() } as NewsItem);
-        });
-        // Sort on the client to avoid needing a Firestore index
-        newsItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setNews(newsItems);
-        setLoading(false);
+        try {
+            const newsCollection = collection(db, "news");
+            const q = query(newsCollection);
+            const querySnapshot = await getDocs(q);
+            const newsItems: NewsItem[] = [];
+            querySnapshot.forEach((doc) => {
+                newsItems.push({ id: doc.id, ...doc.data() } as NewsItem);
+            });
+            // Sort on the client to avoid needing a Firestore index
+            newsItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            setNews(newsItems);
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, 'news');
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -46,19 +55,22 @@ const NewsManagement: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (articleId: string) => {
-        if (window.confirm("Are you sure you want to delete this article? This action cannot be undone.")) {
-            try {
-                await deleteDoc(doc(db, "news", articleId));
-                fetchNews(); // Refresh list
-            } catch (error) {
-                console.error("Error deleting article: ", error);
-                alert("Failed to delete article.");
-            }
+    const handleDelete = async () => {
+        if (!confirmDeleteId) return;
+        setIsSubmitting(true);
+        try {
+            await deleteDoc(doc(db, "news", confirmDeleteId));
+            setConfirmDeleteId(null);
+            fetchNews(); // Refresh list
+        } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `news/${confirmDeleteId}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleSave = async (articleData: Omit<NewsItem, 'id'>, id?: string) => {
+        setIsSubmitting(true);
         try {
             if (id) {
                 // Update existing article
@@ -73,8 +85,9 @@ const NewsManagement: React.FC = () => {
             setIsModalOpen(false);
             fetchNews(); // Refresh list
         } catch (error) {
-            console.error("Error saving article: ", error);
-            alert("Failed to save article.");
+            handleFirestoreError(error, OperationType.WRITE, id ? `news/${id}` : 'news');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -104,8 +117,8 @@ const NewsManagement: React.FC = () => {
                                         <Button onClick={() => handleEdit(article)} className="bg-blue-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Edit ${article.title}`}>
                                             <PencilIcon className="w-4 h-4 text-white" />
                                         </Button>
-                                        <Button onClick={() => handleDelete(article.id)} className="bg-red-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Remove ${article.title}`}>
-                                            <TrashIcon className="w-4 h-4 text-white" />
+                                        <Button onClick={() => setConfirmDeleteId(article.id)} disabled={isSubmitting && confirmDeleteId === article.id} className="bg-red-600 text-white h-8 w-8 p-0 flex items-center justify-center shadow-sm" aria-label={`Remove ${article.title}`}>
+                                            {isSubmitting && confirmDeleteId === article.id ? <Spinner className="w-3 h-3 border-white border-2" /> : <TrashIcon className="w-4 h-4 text-white" />}
                                         </Button>
                                     </div>
                                 </div>
@@ -116,6 +129,17 @@ const NewsManagement: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
+
+            <ConfirmationModal 
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDelete}
+                title="Delete Article"
+                message="Are you sure you want to delete this article? This action cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
+
             {isModalOpen && (
                 <NewsFormModal
                     isOpen={isModalOpen}

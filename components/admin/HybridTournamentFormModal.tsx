@@ -136,7 +136,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
         if (!newMatch.teamA || !newMatch.teamB || !newMatch.date) return;
         const dateObj = new Date(newMatch.date);
         const matchToAdd: CompetitionFixture = {
-            id: Date.now(),
+            id: String(Date.now()),
             teamA: newMatch.teamA,
             teamB: newMatch.teamB,
             scoreA: newMatch.scoreA !== '' ? parseInt(newMatch.scoreA) : undefined,
@@ -145,7 +145,10 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
             fullDate: newMatch.date,
             date: dateObj.getDate().toString(),
             day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
-            time: '15:00'
+            time: '15:00',
+            competitionId: id,
+            venue: '',
+            round: ''
         };
         setMatches([...matches, matchToAdd]);
         setNewMatch({ teamA: '', teamB: '', scoreA: '', scoreB: '', date: '', status: 'scheduled' });
@@ -251,7 +254,7 @@ const HybridTournamentFormModal: React.FC<HybridTournamentFormModalProps> = ({ i
                                 {teams.map((t, idx) => (
                                     <div key={idx} className="bg-white border border-gray-100 rounded-xl p-3 flex items-center justify-between shadow-sm">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <img src={t.crestUrl} className="w-8 h-8 object-contain bg-gray-50 rounded p-0.5" alt="" />
+                                            <img src={t.crestUrl || 'https://via.placeholder.com/150?text=Crest'} className="w-8 h-8 object-contain bg-gray-50 rounded p-0.5" alt="" />
                                             <span className="text-sm font-bold text-gray-800 truncate">{t.name}</span>
                                         </div>
                                         <div className="flex gap-1">

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth, User } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import { User } from '../types/auth';
 import { Card, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import Spinner from './ui/Spinner';
@@ -139,7 +140,7 @@ const JournalistPortalPage: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
                     <div className="flex items-center gap-6">
                         <div className="relative">
-                            <img src={user.avatar} className="w-24 h-24 rounded-2xl object-cover border-4 border-slate-50 shadow-lg" alt="" />
+                            <img src={user.avatar || 'https://via.placeholder.com/150?text=Avatar'} className="w-24 h-24 rounded-2xl object-cover border-4 border-slate-50 shadow-lg" alt="" />
                             <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1.5 rounded-full border-2 border-white shadow-md">
                                 <BadgeCheckIcon className="w-4 h-4" />
                             </div>
@@ -201,7 +202,7 @@ const JournalistPortalPage: React.FC = () => {
                                     <div className="space-y-4">
                                         {myArticles.length > 0 ? myArticles.map(article => (
                                             <div key={article.id} className="flex gap-6 p-4 border border-slate-100 rounded-3xl bg-slate-50/30 hover:bg-white transition-all hover:shadow-md group">
-                                                <img src={article.image} className="w-28 h-24 rounded-2xl object-cover shadow-sm" alt=""/>
+                                                <img src={article.image || 'https://via.placeholder.com/400?text=Article'} className="w-28 h-24 rounded-2xl object-cover shadow-sm" alt=""/>
                                                 <div className="flex-grow min-w-0 flex flex-col justify-center">
                                                     <h4 className="font-bold text-lg text-slate-900 line-clamp-1 group-hover:text-indigo-600 transition-colors">{article.title}</h4>
                                                     <p className="text-xs text-slate-500 mt-1">{new Date(article.date).toLocaleDateString()}</p>

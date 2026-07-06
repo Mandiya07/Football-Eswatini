@@ -59,8 +59,12 @@ const ApiImportPage: React.FC = () => {
 
     // --- AUTOMATIC KEY DETECTION ---
     const systemKeys = useMemo(() => {
-        const fdKey = process.env.FOOTBALL_DATA_API_KEY || FAILSAFE_KEYS.footballData;
-        const afKey = process.env.API_FOOTBALL_KEY || FAILSAFE_KEYS.apiFootball;
+        let fdKey = FAILSAFE_KEYS.footballData;
+        let afKey = FAILSAFE_KEYS.apiFootball;
+        try {
+            fdKey = import.meta.env.VITE_FOOTBALL_DATA_API_KEY || FAILSAFE_KEYS.footballData;
+            afKey = import.meta.env.VITE_API_FOOTBALL_KEY || FAILSAFE_KEYS.apiFootball;
+        } catch (e) {}
         return { footballData: fdKey, apiFootball: afKey };
     }, []);
 

@@ -5,6 +5,8 @@ import BellIcon from './icons/BellIcon';
 import XCircleIcon from './icons/XCircleIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 
+import { safeLocalStorage, makePlain, safeJSONStringify } from '../services/utils';
+
 const PushNotificationsManager: React.FC = () => {
     const [permission, setPermission] = useState<NotificationPermission>('default');
     const [isSubscribed, setIsSubscribed] = useState(false);
@@ -17,23 +19,27 @@ const PushNotificationsManager: React.FC = () => {
     });
 
     useEffect(() => {
-        if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-            return;
+        try {
+            if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+                return;
+            }
+
+            setPermission(Notification.permission);
+
+            navigator.serviceWorker.ready.then(reg => {
+                reg.pushManager.getSubscription().then(sub => {
+                    if (sub) {
+                        setIsSubscribed(true);
+                        setSubscription(sub);
+                    }
+                });
+            });
+        } catch (e) {
+            console.warn('Push notifications blocked by environment:', e);
         }
 
-        setPermission(Notification.permission);
-
-        navigator.serviceWorker.ready.then(reg => {
-            reg.pushManager.getSubscription().then(sub => {
-                if (sub) {
-                    setIsSubscribed(true);
-                    setSubscription(sub);
-                }
-            });
-        });
-
         // Load preferences from local storage
-        const savedPrefs = localStorage.getItem('notification_preferences');
+        const savedPrefs = safeLocalStorage.getItem('notification_preferences');
         if (savedPrefs) {
             setPreferences(JSON.parse(savedPrefs));
         }
@@ -41,21 +47,26 @@ const PushNotificationsManager: React.FC = () => {
 
     const savePreferences = (newPrefs: typeof preferences) => {
         setPreferences(newPrefs);
-        localStorage.setItem('notification_preferences', JSON.stringify(newPrefs));
+        safeLocalStorage.setItem('notification_preferences', safeJSONStringify(newPrefs));
         // In a real app, you would also update this on your backend
     };
 
     const requestPermissionAndSubscribe = async () => {
-        if (!('Notification' in window)) {
-            alert('This browser does not support desktop notification');
-            return;
-        }
+        try {
+            if (!('Notification' in window)) {
+                alert('This browser does not support desktop notification');
+                return;
+            }
 
-        const currentPermission = await Notification.requestPermission();
-        setPermission(currentPermission);
+            const currentPermission = await Notification.requestPermission();
+            setPermission(currentPermission);
 
-        if (currentPermission === 'granted') {
-            subscribeUser();
+            if (currentPermission === 'granted') {
+                subscribeUser();
+            }
+        } catch (e) {
+            console.warn('Notification permission request failed:', e);
+            alert('Notifications are blocked in this environment.');
         }
     };
 
@@ -103,7 +114,14 @@ const PushNotificationsManager: React.FC = () => {
     };
 
     const renderContent = () => {
-        if (permission === 'denied') {
+        let hasNotificationSupport = false;
+        try {
+            hasNotificationSupport = 'Notification' in window;
+        } catch (e) {
+            hasNotificationSupport = false;
+        }
+        
+        if (permission === 'denied' || !hasNotificationSupport) {
             return (
                 <div className="flex items-center gap-3 p-4 bg-red-50 rounded-2xl border border-red-100">
                     <XCircleIcon className="w-6 h-6 text-red-600" />
@@ -158,7 +176,14 @@ const PushNotificationsManager: React.FC = () => {
         );
     }
 
-    if (!('Notification' in window)) return null;
+    let hasNotificationSupport = false;
+    try {
+        hasNotificationSupport = 'Notification' in window;
+    } catch (e) {
+        hasNotificationSupport = false;
+    }
+    
+    if (!hasNotificationSupport) return null;
 
     return (
         <Card className="shadow-2xl border-0 overflow-hidden rounded-[2rem]">

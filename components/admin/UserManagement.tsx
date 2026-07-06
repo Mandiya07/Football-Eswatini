@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { fetchAllUsers, updateUserRole, handleFirestoreError, addNotification } from '../../services/api';
-import { User } from '../../contexts/AuthContext';
+import { fetchAllUsers, updateUserRole, updateUserPermissions, handleFirestoreError, addNotification, OperationType } from '../../services/api';
+import { User } from '../../types/auth';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
+import ConfirmationModal from '../ui/ConfirmationModal';
 import SearchIcon from '../icons/SearchIcon';
 import ShieldIcon from '../icons/ShieldIcon';
 import UserIcon from '../icons/UserIcon';
@@ -16,7 +17,9 @@ const UserManagement: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [processingId, setProcessingId] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [confirmRoleChange, setConfirmRoleChange] = useState<{ userId: string, newRole: User['role'] } | null>(null);
+    const [confirmPermissionChange, setConfirmPermissionChange] = useState<{ userId: string, canAccess: boolean } | null>(null);
 
     const loadUsers = async () => {
         setLoading(true);
@@ -24,7 +27,7 @@ const UserManagement: React.FC = () => {
             const data = await fetchAllUsers();
             setUsers(data);
         } catch (err) {
-            handleFirestoreError(err, 'load users');
+            handleFirestoreError(err, OperationType.GET, 'users');
         } finally {
             setLoading(false);
         }
@@ -42,10 +45,25 @@ const UserManagement: React.FC = () => {
         );
     }, [users, searchTerm]);
 
-    const handleRoleChange = async (userId: string, newRole: User['role']) => {
-        if (!window.confirm(`Are you sure you want to change this user's role to ${newRole.toUpperCase()}?`)) return;
-        
-        setProcessingId(userId);
+    const handlePermissionChange = async () => {
+        if (!confirmPermissionChange) return;
+        const { userId, canAccess } = confirmPermissionChange;
+        setIsProcessing(true);
+        try {
+            await updateUserPermissions(userId, { canAccessEFADashboard: canAccess });
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, canAccessEFADashboard: canAccess } : u));
+            setConfirmPermissionChange(null);
+        } catch (error) {
+            handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleRoleChange = async () => {
+        if (!confirmRoleChange) return;
+        const { userId, newRole } = confirmRoleChange;
+        setIsProcessing(true);
         try {
             await updateUserRole(userId, newRole);
             setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
@@ -57,10 +75,11 @@ const UserManagement: React.FC = () => {
                 message: `Your account role has been updated to ${newRole.replace('_', ' ')}. Check your new permissions.`,
                 type: 'success'
             });
+            setConfirmRoleChange(null);
         } catch (error) {
-            handleFirestoreError(error, 'change role');
+            handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
         } finally {
-            setProcessingId(null);
+            setIsProcessing(false);
         }
     };
 
@@ -110,35 +129,45 @@ const UserManagement: React.FC = () => {
                                             {getRoleBadge(u.role)}
                                             {u.club && <span className="text-[10px] text-red-600 font-black uppercase tracking-tight bg-red-50 px-2 rounded-full border border-red-100">{u.club}</span>}
                                             {u.journalismCredentials?.outlet && <span className="text-[10px] text-indigo-600 font-black uppercase tracking-tight bg-indigo-50 px-2 rounded-full border border-indigo-100">{u.journalismCredentials.outlet}</span>}
+                                            {u.canAccessEFADashboard && <span className="text-[10px] text-blue-600 font-black uppercase tracking-tight bg-blue-50 px-2 rounded-full border border-blue-100 flex items-center gap-1"><ShieldIcon className="w-3 h-3" /> EFA Access</span>}
                                         </div>
                                     </div>
                                 </div>
                                 
                                 <div className="flex flex-wrap gap-2 w-full lg:w-auto border-t lg:border-t-0 pt-4 lg:pt-0">
+                                    <Button 
+                                        onClick={() => setConfirmPermissionChange({ userId: u.id, canAccess: !u.canAccessEFADashboard })}
+                                        disabled={isProcessing && confirmPermissionChange?.userId === u.id}
+                                        variant={u.canAccessEFADashboard ? "secondary" : "outline"}
+                                        className="h-9 px-4 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm active:scale-95 transition-all"
+                                    >
+                                        {isProcessing && confirmPermissionChange?.userId === u.id ? <Spinner className="w-3 h-3 border-white border-2" /> : <ShieldIcon className="w-4 h-4" />}
+                                        {u.canAccessEFADashboard ? 'Revoke EFA Access' : 'Grant EFA Access'}
+                                    </Button>
                                     {u.role !== 'journalist' && (
                                         <Button 
-                                            onClick={() => handleRoleChange(u.id, 'journalist')}
-                                            disabled={processingId === u.id}
+                                            onClick={() => setConfirmRoleChange({ userId: u.id, newRole: 'journalist' })}
+                                            disabled={isProcessing && confirmRoleChange?.userId === u.id}
                                             className="bg-indigo-600 text-white text-[10px] h-9 px-4 font-black uppercase tracking-widest flex items-center gap-2 shadow-sm active:scale-95 transition-all"
                                         >
-                                            {processingId === u.id ? <Spinner className="w-3 h-3 border-white border-2" /> : <NewspaperIcon className="w-4 h-4 text-white" />}
+                                            {isProcessing && confirmRoleChange?.userId === u.id ? <Spinner className="w-3 h-3 border-white border-2" /> : <NewspaperIcon className="w-4 h-4 text-white" />}
                                             Make Journalist
                                         </Button>
                                     )}
                                     {u.role !== 'super_admin' && (
                                         <Button 
-                                            onClick={() => handleRoleChange(u.id, 'super_admin')}
-                                            disabled={processingId === u.id}
+                                            onClick={() => setConfirmRoleChange({ userId: u.id, newRole: 'super_admin' })}
+                                            disabled={isProcessing && confirmRoleChange?.userId === u.id}
                                             className="bg-slate-900 text-white text-[10px] h-9 px-4 font-black uppercase tracking-widest flex items-center gap-2 shadow-sm active:scale-95 transition-all"
                                         >
-                                            {processingId === u.id ? <Spinner className="w-3 h-3 border-white border-2" /> : <ShieldIcon className="w-4 h-4 text-white" />}
+                                            {isProcessing && confirmRoleChange?.userId === u.id ? <Spinner className="w-3 h-3 border-white border-2" /> : <ShieldIcon className="w-4 h-4 text-white" />}
                                             Make Admin
                                         </Button>
                                     )}
                                     {u.role !== 'user' && (
                                         <Button 
-                                            onClick={() => handleRoleChange(u.id, 'user')}
-                                            disabled={processingId === u.id}
+                                            onClick={() => setConfirmRoleChange({ userId: u.id, newRole: 'user' })}
+                                            disabled={isProcessing && confirmRoleChange?.userId === u.id}
                                             variant="secondary"
                                             className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                                         >
@@ -156,6 +185,28 @@ const UserManagement: React.FC = () => {
                     </div>
                 )}
             </CardContent>
+
+            <ConfirmationModal 
+                isOpen={!!confirmRoleChange}
+                onClose={() => setConfirmRoleChange(null)}
+                onConfirm={handleRoleChange}
+                title="Change User Role"
+                message={`Are you sure you want to change this user's role to ${confirmRoleChange?.newRole.replace('_', ' ').toUpperCase()}?`}
+                confirmText="Confirm Change"
+                variant="primary"
+            />
+
+            <ConfirmationModal 
+                isOpen={!!confirmPermissionChange}
+                onClose={() => setConfirmPermissionChange(null)}
+                onConfirm={handlePermissionChange}
+                title="Change Special Permissions"
+                message={confirmPermissionChange?.canAccess 
+                    ? "Are you sure you want to grant this user access to the Strategic EFA Dashboard?" 
+                    : "Are you sure you want to revoke this user's access to the Strategic EFA Dashboard?"}
+                confirmText="Confirm Action"
+                variant="primary"
+            />
         </Card>
     );
 };

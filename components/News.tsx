@@ -20,7 +20,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
         return (
             <Link to={item.url} className="group flex gap-4 items-center bg-white/50 p-3 rounded-2xl border border-gray-100 hover:bg-white hover:shadow-md transition-all">
                 <div className="w-20 h-16 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 shadow-inner">
-                    <img src={item.image} alt={item.title} className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    <img src={item.image || item.imageUrl || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800'} alt={item.title} className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 </div>
                 <div className="min-w-0 flex-grow">
                     <h4 className="text-xs font-black text-gray-900 line-clamp-2 leading-tight group-hover:text-primary transition-colors">{item.title}</h4>
@@ -33,7 +33,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
     if (variant === 'hero') {
         return (
             <Link to={item.url} className="group block relative rounded-[2.5rem] overflow-hidden shadow-2xl h-full min-h-[400px]">
-                <img src={item.image} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[2000ms] group-hover:scale-110" />
+                <img src={item.image || item.imageUrl || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800'} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[2000ms] group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
                 <div className="absolute bottom-0 left-0 right-0 p-8 md:p-10 space-y-4">
                     <div className="flex items-center gap-3">
@@ -62,7 +62,7 @@ export const NewsCard: React.FC<{ item: NewsItem; variant?: 'default' | 'compact
         <Link to={item.url} className="group block h-full">
             <Card className="h-full border-0 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden rounded-[2rem]">
                 <div className="relative h-52 overflow-hidden">
-                    <img src={item.image} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <img src={item.image || item.imageUrl || 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800'} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     <div className="absolute top-4 left-4">
                         <span className="bg-white/90 backdrop-blur-md text-primary text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest shadow-lg">
                             {mainCategory}

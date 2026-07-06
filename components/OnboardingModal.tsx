@@ -13,7 +13,7 @@ interface OnboardingModalProps {
 
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose }) => {
   const [step, setStep] = useState(1);
-  const [selectedTeamIds, setSelectedTeamIds] = useState<number[]>([]);
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const { updateUser } = useAuth();
 
   const handleFinish = () => {
@@ -62,7 +62,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ onClose }) => {
             <div>
               <h2 id="onboarding-title" className="text-2xl font-display font-bold text-blue-800 mb-2">Select Your Favorite Teams</h2>
               <p className="text-gray-600 mb-6 text-sm">Follow teams to get personalized news, notifications, and quick access to their stats. You can change this anytime in your profile.</p>
-              <TeamSelector selectedTeamIds={selectedTeamIds} onSelectionChange={setSelectedTeamIds} />
+              <TeamSelector selectedTeamIds={selectedTeamIds} onSelectionChange={(ids) => setSelectedTeamIds(ids)} />
               <div className="flex justify-between items-center mt-8">
                 <Button onClick={onClose} className="text-gray-600 font-semibold">Skip for Now</Button>
                 <Button onClick={handleFinish} className="bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500">

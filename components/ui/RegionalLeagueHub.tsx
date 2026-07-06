@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './Card';
-import { Competition, fetchAllCompetitions } from '../../services/api';
+import { Competition, listenToAllCompetitions, listenToCups } from '../../services/api';
 import { superNormalize } from '../../services/utils';
 import Spinner from './Spinner';
 import MapPinIcon from '../icons/MapPinIcon';
@@ -25,27 +25,53 @@ const REGIONS = [
 ];
 
 const RegionalLeagueHub: React.FC<RegionalLeagueHubProps> = ({ categoryId, hubType, description }) => {
-    const [leagues, setLeagues] = useState<Competition[]>([]);
+    const [leagues, setLeagues] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
 
     useEffect(() => {
-        const load = async () => {
-            setLoading(true);
-            try {
-                const all = await fetchAllCompetitions();
-                // Filter competitions that match this specific page's category
-                const filtered = Object.entries(all)
-                    .filter(([_, comp]) => comp.categoryId === categoryId)
-                    .map(([id, comp]) => ({ ...comp, id })) as any[];
-                setLeagues(filtered);
-            } catch (e) {
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
+        setLoading(true);
+        let active = true;
+
+        let unsubComps: (() => void) | undefined;
+        let unsubCups: (() => void) | undefined;
+
+        let compsData: Record<string, Competition> = {};
+        let cupsData: any[] = [];
+
+        const updateState = () => {
+            if (!active) return;
+            // Filter competitions that match this specific page's category
+            const filteredComps = Object.entries(compsData)
+                .filter(([_, comp]) => comp.categoryId === categoryId)
+                .map(([id, comp]) => ({ ...comp, id, isCup: false })) as any[];
+
+            // Filter cups/tournaments that match this specific page's category
+            const filteredCups = cupsData
+                .filter(cup => cup.categoryId === categoryId)
+                .map(cup => ({ ...cup, isCup: true })) as any[];
+
+            const combined = [...filteredComps, ...filteredCups];
+            setLeagues(combined);
+            setLoading(false);
         };
-        load();
+
+        unsubComps = listenToAllCompetitions((allComps, err) => {
+            if (err) console.error(err);
+            compsData = allComps || {};
+            updateState();
+        });
+
+        unsubCups = listenToCups((allCups) => {
+            cupsData = allCups || [];
+            updateState();
+        });
+
+        return () => {
+            active = false;
+            if (unsubComps) unsubComps();
+            if (unsubCups) unsubCups();
+        };
     }, [categoryId]);
 
     const filteredLeagues = useMemo(() => {
@@ -97,7 +123,7 @@ const RegionalLeagueHub: React.FC<RegionalLeagueHubProps> = ({ categoryId, hubTy
             </section>
 
             {/* 2. Specialized Creation Feature */}
-            <Card className="bg-slate-900 text-white rounded-[2.5rem] shadow-2xl overflow-hidden border-0 relative group">
+            <Card className="bg-[#002B7F] text-white rounded-[2.5rem] shadow-2xl overflow-hidden border-0 relative group">
                 <div className="absolute top-0 right-0 p-12 opacity-5 scale-150 transform group-hover:rotate-12 transition-transform duration-1000">
                     <TrophyIcon className="w-64 h-64" />
                 </div>
@@ -137,7 +163,7 @@ const RegionalLeagueHub: React.FC<RegionalLeagueHubProps> = ({ categoryId, hubTy
                 {loading ? <div className="flex justify-center py-10"><Spinner /></div> : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredLeagues.map((league: any) => (
-                            <Link key={league.id} to={league.id.includes('cup') ? `/cups?id=${league.id}` : `/region-hub/${league.id}`} className="group">
+                            <Link key={`${league.id}-${league.isCup ? 'cup' : 'comp'}`} to={league.isCup ? `/cups?id=${league.id}` : `/region-hub/${league.id}`} className="group">
                                 <Card className="h-full hover:shadow-xl transition-all duration-300 border border-gray-100 bg-white rounded-2xl">
                                     <CardContent className="p-6">
                                         <div className="flex items-center gap-4">
@@ -150,11 +176,15 @@ const RegionalLeagueHub: React.FC<RegionalLeagueHubProps> = ({ categoryId, hubTy
                                             </div>
                                             <div className="min-w-0">
                                                 <h3 className="font-bold text-lg text-gray-900 group-hover:text-primary transition-colors truncate">{league.name}</h3>
-                                                <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-1">Real-Time Standings</p>
+                                                <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-1">
+                                                    {league.isCup ? 'Tournament Bracket' : 'Real-Time Standings'}
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="flex justify-between items-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-50">
-                                            <span className="font-black text-[10px] uppercase tracking-widest text-gray-400">View Match Center</span>
+                                            <span className="font-black text-[10px] uppercase tracking-widest text-gray-400">
+                                                {league.isCup ? 'View Bracket Center' : 'View Match Center'}
+                                            </span>
                                             <ArrowRightIcon className="w-5 h-5 text-blue-600 group-hover:translate-x-1 transition-transform" />
                                         </div>
                                     </CardContent>

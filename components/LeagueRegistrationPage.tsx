@@ -38,6 +38,7 @@ const LeagueRegistrationPage: React.FC = () => {
     const [targetLeagueId, setTargetLeagueId] = useState('');
     const [category, setCategory] = useState('');
     const [region, setRegion] = useState('Hhohho');
+    const [competitionType, setCompetitionType] = useState<'league' | 'tournament'>('league');
     const [managerName, setManagerName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
     const [phone, setPhone] = useState('');
@@ -65,13 +66,7 @@ const LeagueRegistrationPage: React.FC = () => {
 
                 // TIME SAVING MAPPING LOGIC
                 if (fixedCategory) {
-                    if (fixedCategory === 'schools') {
-                        setCategory('schools'); // Schools Football
-                    } else if (fixedCategory.startsWith('u') || fixedCategory.includes('grassroots') || fixedCategory.includes('development')) {
-                        setCategory('development'); // Youth and Development
-                    } else {
-                        setCategory(fixedCategory);
-                    }
+                    setCategory(fixedCategory);
                 } else if (cats.length > 0) {
                     setCategory(cats[0].id);
                 }
@@ -131,6 +126,7 @@ const LeagueRegistrationPage: React.FC = () => {
                 requestType,
                 region, 
                 categoryId: requestType === 'manage' ? 'existing' : category,
+                competitionType: requestType === 'manage' ? 'league' : competitionType,
                 managerName: isLoggedIn && user ? user.name : managerName,
                 managerEmail: isLoggedIn && user ? user.email : email,
                 managerId: user?.id || 'new_user',
@@ -221,24 +217,56 @@ const LeagueRegistrationPage: React.FC = () => {
                                                 
                                                 <div>
                                                     <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Placement Category</label>
-                                                    <select value={category} onChange={e => setCategory(e.target.value)} className={selectClass} required>
-                                                        <option value="" disabled>-- Choose Competition Type --</option>
-                                                        {(Object.entries(groupedCategories) as [string, DBCategory[]][]).map(([group, cats]) => (
-                                                            cats.length > 0 && (
-                                                                <optgroup label={group} key={group}>
-                                                                    {cats.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                                                                </optgroup>
-                                                            )
-                                                        ))}
-                                                    </select>
+                                                    {fixedCategory ? (
+                                                        <div className="block w-full border border-gray-200 bg-gray-50/80 text-gray-700 rounded-xl py-3 px-4 sm:text-sm h-[52px] font-black flex items-center justify-between">
+                                                            <span>{typeName}</span>
+                                                            <span className="text-[10px] bg-blue-100 text-blue-800 font-black uppercase px-2.5 py-0.5 rounded-md tracking-wider">Locked</span>
+                                                        </div>
+                                                    ) : (
+                                                        <select value={category} onChange={e => setCategory(e.target.value)} className={selectClass} required>
+                                                            <option value="" disabled>-- Choose Competition Type --</option>
+                                                            {(Object.entries(groupedCategories) as [string, DBCategory[]][]).map(([group, cats]) => (
+                                                                cats.length > 0 && (
+                                                                    <optgroup label={group} key={group}>
+                                                                        {cats.map((cat, index) => <option key={`${cat.id}-${index}`} value={cat.id}>{cat.name}</option>)}
+                                                                    </optgroup>
+                                                                )
+                                                            ))}
+                                                        </select>
+                                                    )}
                                                     <p className="text-[9px] text-gray-400 mt-2 italic px-1">Determines which hub this league appears in (e.g. Schools, Youth Hub, etc.)</p>
                                                 </div>
 
                                                 <div>
                                                     <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Official Region</label>
                                                     <select value={region} onChange={e => setRegion(e.target.value)} className={selectClass}>
-                                                        <option>Hhohho</option><option>Manzini</option><option>Lubombo</option><option>Shiselweni</option><option>National</option>
+                                                        <option key="hhohho">Hhohho</option><option key="manzini">Manzini</option><option key="lubombo">Lubombo</option><option key="shiselweni">Shiselweni</option><option key="national">National</option>
                                                     </select>
+                                                </div>
+
+                                                <div className="md:col-span-2">
+                                                    <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Competition Format</label>
+                                                    <div className="flex gap-4">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setCompetitionType('league')}
+                                                            className={`flex-1 py-3 px-4 rounded-xl border-2 font-bold text-sm transition-all ${competitionType === 'league' ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                                                        >
+                                                            League (Round Robin)
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setCompetitionType('tournament')}
+                                                            className={`flex-1 py-3 px-4 rounded-xl border-2 font-bold text-sm transition-all ${competitionType === 'tournament' ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                                                        >
+                                                            Tournament (Brackets)
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-[9px] text-gray-400 mt-2 italic px-1">
+                                                        {competitionType === 'league' 
+                                                            ? 'Standard league format with points, standings, and home/away fixtures.' 
+                                                            : 'Knockout format with quarter-finals, semi-finals, and a final bracket.'}
+                                                    </p>
                                                 </div>
                                             </>
                                         ) : (
@@ -251,7 +279,7 @@ const LeagueRegistrationPage: React.FC = () => {
                                                         className={selectClass}
                                                         required
                                                     >
-                                                        {allLeagues.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                        {allLeagues.map((l, index) => <option key={`${l.id}-${index}`} value={l.id}>{l.name}</option>)}
                                                     </select>
                                                 </div>
                                                 <div className="p-4 bg-indigo-50 text-indigo-800 rounded-xl text-xs border border-indigo-100 flex gap-3">

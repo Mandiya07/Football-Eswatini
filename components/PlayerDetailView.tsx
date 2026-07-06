@@ -12,7 +12,7 @@ const PlayerDetailView: React.FC<{ player: ScoutedPlayer }> = ({ player }) => {
         <CardContent className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                 <img 
-                    src={player.photoUrl} 
+                    src={player.photoUrl || 'https://via.placeholder.com/300?text=Player'} 
                     alt={player.name} 
                     className="w-full h-auto aspect-square object-cover rounded-lg shadow-md lg:col-span-1" 
                 />

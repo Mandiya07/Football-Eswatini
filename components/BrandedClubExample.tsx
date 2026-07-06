@@ -25,34 +25,44 @@ import VideoPlayer from './VideoPlayer';
 
 // Mock Data for the Example
 const MOCK_BRANDED_TEAM: Team = {
-    id: 999,
+    id: '999',
     name: 'Mbabane Swallows',
+    shortName: 'Swallows',
+    logo: 'https://via.placeholder.com/128/D22730/FFFFFF?text=MS',
     crestUrl: 'https://via.placeholder.com/128/D22730/FFFFFF?text=MS',
+    primaryColor: '#D22730',
+    secondaryColor: '#FFFFFF',
+    stadium: 'Somhlolo National Stadium',
+    city: 'Mbabane',
+    coach: 'Caleb Ngwenya',
+    founded: 1948,
     stats: { p: 15, w: 10, d: 3, l: 2, gs: 34, gc: 12, gd: 22, pts: 33, form: 'W W D W L' },
     players: [
-        { id: 101, name: 'Sandile "Nkomishi" Ginindza', position: 'Goalkeeper', number: 1, photoUrl: '', bio: { age: 28, height: '1.82m', nationality: 'Eswatini' }, stats: { appearances: 15, goals: 0, assists: 1 }, transferHistory: [] },
-        { id: 102, name: 'Wonder "Samba Jive" Nhleko', position: 'Midfielder', number: 10, photoUrl: '', bio: { age: 32, height: '1.70m', nationality: 'Eswatini' }, stats: { appearances: 14, goals: 5, assists: 8 }, transferHistory: [] },
-        { id: 103, name: 'Felix Badenhorst', position: 'Forward', number: 20, photoUrl: '', bio: { age: 30, height: '1.85m', nationality: 'Eswatini' }, stats: { appearances: 15, goals: 12, assists: 3 }, transferHistory: [] },
-        { id: 104, name: 'Sanele Mkhweli', position: 'Defender', number: 3, photoUrl: '', bio: { age: 26, height: '1.78m', nationality: 'Eswatini' }, stats: { appearances: 15, goals: 1, assists: 4 }, transferHistory: [] },
+        { id: '101', name: 'Sandile "Nkomishi" Ginindza', position: 'Goalkeeper', number: 1, photoUrl: '', age: 28, nationality: 'Eswatini', bio: 'Experienced goalkeeper and national team regular.', stats: { appearances: 15, goals: 0, assists: 1, yellowCards: 0, redCards: 0 }, transferHistory: [] },
+        { id: '102', name: 'Wonder "Samba Jive" Nhleko', position: 'Midfielder', number: 10, photoUrl: '', age: 32, nationality: 'Eswatini', bio: 'Veteran playmaker with exceptional vision.', stats: { appearances: 14, goals: 5, assists: 8, yellowCards: 1, redCards: 0 }, transferHistory: [] },
+        { id: '103', name: 'Felix Badenhorst', position: 'Forward', number: 20, photoUrl: '', age: 30, nationality: 'Eswatini', bio: 'Prolific goalscorer and club legend.', stats: { appearances: 15, goals: 12, assists: 3, yellowCards: 2, redCards: 0 }, transferHistory: [] },
+        { id: '104', name: 'Sanele Mkhweli', position: 'Defender', number: 3, photoUrl: '', age: 26, nationality: 'Eswatini', bio: 'Solid left-back with great crossing ability.', stats: { appearances: 15, goals: 1, assists: 4, yellowCards: 3, redCards: 0 }, transferHistory: [] },
     ],
     fixtures: [
-        { opponent: 'Green Mamba', date: '2023-11-04' },
-        { opponent: 'Royal Leopards', date: '2023-11-11' },
+        { id: 'f1', teamA: 'Mbabane Swallows', teamB: 'Green Mamba', fullDate: '2023-11-04', date: '4', day: 'SAT', time: '15:00', status: 'scheduled', venue: 'Somhlolo National Stadium' },
+        { id: 'f2', teamA: 'Mbabane Swallows', teamB: 'Royal Leopards', fullDate: '2023-11-11', date: '11', day: 'SAT', time: '15:00', status: 'scheduled', venue: 'Somhlolo National Stadium' },
     ],
     results: [
-        { opponent: 'Manzini Wanderers', score: 'W 2-0' },
-        { opponent: 'Young Buffaloes', score: 'D 1-1' },
-        { opponent: 'Moneni Pirates', score: 'W 3-1' },
+        { id: 'r1', teamA: 'Mbabane Swallows', teamB: 'Manzini Wanderers', fullDate: '2023-10-28', date: '28', day: 'SAT', time: '15:00', status: 'finished', venue: 'Somhlolo National Stadium' },
+        { id: 'r2', teamA: 'Mbabane Swallows', teamB: 'Young Buffaloes', fullDate: '2023-10-21', date: '21', day: 'SAT', time: '15:00', status: 'finished', venue: 'Somhlolo National Stadium' },
+        { id: 'r3', teamA: 'Mbabane Swallows', teamB: 'Moneni Pirates', fullDate: '2023-10-14', date: '14', day: 'SAT', time: '15:00', status: 'finished', venue: 'Somhlolo National Stadium' },
     ],
     staff: [
-        { id: 1, name: 'Caleb Ngwenya', role: 'Head Coach', email: '', phone: '' },
-        { id: 2, name: 'Siyabonga Bhembe', role: 'Assistant Coach', email: '', phone: '' },
-        { id: 3, name: 'Dr. Samkelo Dlamini', role: 'Team Doctor', email: '', phone: '' },
-        { id: 4, name: 'Musa Mamba', role: 'Kit Manager', email: '', phone: '' }
+        { id: '1', name: 'Caleb Ngwenya', role: 'Head Coach', email: '', phone: '' },
+        { id: '2', name: 'Siyabonga Bhembe', role: 'Assistant Coach', email: '', phone: '' },
+        { id: '3', name: 'Dr. Samkelo Dlamini', role: 'Team Doctor', email: '', phone: '' },
+        { id: '4', name: 'Musa Mamba', role: 'Kit Manager', email: '', phone: '' }
     ],
     branding: {
         primaryColor: '#D22730', // Swallows Red
         secondaryColor: '#FFFFFF',
+        accentColor: '#FFD700',
+        logoUrl: 'https://via.placeholder.com/128/D22730/FFFFFF?text=MS',
         bannerUrl: 'https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&w=1600&q=80', // Generic stadium/crowd
         welcomeMessage: "Welcome to the official digital home of the Beautiful Birds. Here you will find exclusive updates direct from the technical bench."
     },
@@ -67,10 +77,7 @@ const MOCK_BRANDED_TEAM: Team = {
         { id: 'v1', title: 'Match Highlights: Swallows vs Wanderers', url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', date: '2023-11-01' },
         { id: 'v2', title: 'Coach Interview Pre-Match', url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4', date: '2023-10-28' }
     ],
-    kitSponsor: {
-        name: 'Moneni',
-        logoUrl: 'https://via.placeholder.com/100x50?text=Sponsor'
-    }
+    kitSponsor: { name: 'Moneni', logoUrl: '' }
 };
 
 // Additional Mock Content for Features
@@ -160,7 +167,7 @@ const BrandedClubExample: React.FC = () => {
                 <div className="relative z-10 flex flex-col sm:flex-row items-end sm:items-center gap-6 w-full">
                     <div className="relative">
                         <img 
-                            src={team.crestUrl} 
+                            src={team.crestUrl || 'https://via.placeholder.com/128?text=Club'} 
                             alt={`${team.name} crest`} 
                             className="w-32 h-32 object-contain bg-white rounded-full p-2 border-4 shadow-lg"
                             style={{ borderColor: primaryColor }} 
@@ -257,7 +264,7 @@ const BrandedClubExample: React.FC = () => {
                                 <h3 className="text-xl font-bold font-display mb-4 border-b pb-2">Next Match</h3>
                                 <div className="bg-gray-900 text-white p-6 rounded-lg flex justify-between items-center">
                                     <div className="text-center">
-                                        <img src={team.crestUrl} className="w-12 h-12 mx-auto mb-2 object-contain"/>
+                                        <img src={team.crestUrl || 'https://via.placeholder.com/150?text=Crest'} className="w-12 h-12 mx-auto mb-2 object-contain"/>
                                         <span className="font-bold">{team.name}</span>
                                     </div>
                                     <div className="text-center px-4">
@@ -282,7 +289,7 @@ const BrandedClubExample: React.FC = () => {
                             {MOCK_NEWS.map(news => (
                                 <div key={news.id} className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow group">
                                     <div className="h-40 overflow-hidden">
-                                        <img src={news.image} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" alt="" />
+                                        <img src={news.image || 'https://via.placeholder.com/400?text=News'} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" alt="" />
                                     </div>
                                     <div className="p-4">
                                         <p className="text-xs text-gray-500 mb-1">{news.date}</p>
@@ -340,29 +347,32 @@ const BrandedClubExample: React.FC = () => {
 
                 {activeTab === 'fixtures' && (
                     <div className="space-y-3">
-                        {team.fixtures.map((fixture, i) => (
-                            <div key={i} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border text-xs font-bold text-gray-400">VS</div>
-                                    <span className="font-bold text-gray-700 text-lg">{fixture.opponent}</span>
+                        {team.fixtures?.map((fixture, i) => {
+                            return (
+                                <div key={i} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border text-xs font-bold text-gray-400">VS</div>
+                                        <span className="font-bold text-gray-700 text-lg">{fixture.teamB}</span>
+                                    </div>
+                                    <span className="text-sm font-semibold text-gray-500 bg-white px-3 py-1 rounded border">{fixture.fullDate}</span>
                                 </div>
-                                <span className="text-sm font-semibold text-gray-500 bg-white px-3 py-1 rounded border">{fixture.date}</span>
-                            </div>
-                        ))}
+                            );
+                        })}
                          <div className="mt-8 pt-6 border-t">
                             <h4 className="font-bold text-gray-700 mb-4">Recent Results</h4>
                             <div className="space-y-3">
-                                {team.results.map((result, i) => (
-                                    <div key={i} className="flex justify-between items-center p-4 bg-white rounded-lg border border-gray-100">
-                                        <div className="flex items-center gap-3">
-                                            <span className={`text-xs font-bold px-2 py-1 rounded ${result.score.includes('W') ? 'bg-green-100 text-green-700' : result.score.includes('D') ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                                {result.score.split(' ')[0]}
-                                            </span>
-                                            <span className="font-semibold text-gray-800">{result.opponent}</span>
+                                {team.results?.map((result, i) => {
+                                    return (
+                                        <div key={i} className="flex justify-between items-center p-4 bg-white rounded-lg border border-gray-100">
+                                            <div className="flex items-center gap-3">
+                                                <span className={`text-xs font-bold px-2 py-1 rounded ${result.status === 'finished' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                                                    {result.teamB}
+                                                </span>
+                                            </div>
+                                            <span className="font-bold text-gray-900">{result.status}</span>
                                         </div>
-                                        <span className="font-bold text-gray-900">{result.score.split(' ')[1]}</span>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -374,7 +384,7 @@ const BrandedClubExample: React.FC = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {MOCK_GALLERY.map((img, i) => (
                                 <div key={i} className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer">
-                                    <img src={img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                    <img src={img || 'https://via.placeholder.com/400?text=Gallery'} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                         <PhotoIcon className="w-8 h-8 text-white" />
                                     </div>

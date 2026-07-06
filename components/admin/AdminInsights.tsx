@@ -8,7 +8,7 @@ import SparklesIcon from '../icons/SparklesIcon';
 import ArrowRightIcon from '../icons/ArrowRightIcon';
 import BarChartIcon from '../icons/BarChartIcon';
 import BriefcaseIcon from '../icons/BriefcaseIcon';
-import { fetchMerchantBalance, MerchantBalance } from '../../services/api';
+import { fetchMerchantBalance, MerchantBalance, handleFirestoreError, OperationType } from '../../services/api';
 import Spinner from '../ui/Spinner';
 
 const AdminInsights: React.FC = () => {
@@ -17,9 +17,14 @@ const AdminInsights: React.FC = () => {
 
     useEffect(() => {
         const load = async () => {
-            const data = await fetchMerchantBalance();
-            setBalance(data);
-            setLoading(false);
+            try {
+                const data = await fetchMerchantBalance();
+                setBalance(data);
+            } catch (error) {
+                handleFirestoreError(error, OperationType.GET, 'merchant_balance');
+            } finally {
+                setLoading(false);
+            }
         };
         load();
     }, []);

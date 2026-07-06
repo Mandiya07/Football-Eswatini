@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { fetchAllCompetitions, fetchCups } from '../services/api';
+import { fetchCups } from '../services/api';
 import { Competition } from '../data/teams';
 import Spinner from './ui/Spinner';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
@@ -9,6 +9,7 @@ import { Card, CardContent } from './ui/Card';
 import TrophyIcon from './icons/TrophyIcon';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import { superNormalize } from '../services/utils';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 interface CategorizedLeagues {
     [key: string]: (Competition & { id: string, isCup?: boolean })[];
@@ -18,16 +19,17 @@ const RegionDetailPage: React.FC = () => {
   const { regionId } = useParams<{ regionId: string }>();
   const [loading, setLoading] = useState(true);
   const [allLeagues, setAllLeagues] = useState<(Competition & { id: string, isCup?: boolean })[]>([]);
+  const { competitions: allCompsCache } = useDataCache();
 
   useEffect(() => {
     const loadLeagues = async () => {
       if (!regionId) return;
       setLoading(true);
       try {
-        const [allComps, allCups] = await Promise.all([
-            fetchAllCompetitions(),
+        const [allCups] = await Promise.all([
             fetchCups()
         ]);
+        const allComps = allCompsCache;
         const target = regionId.toLowerCase().trim();
         const targetNorm = superNormalize(target);
         
@@ -57,7 +59,7 @@ const RegionDetailPage: React.FC = () => {
       }
     };
     loadLeagues();
-  }, [regionId]);
+  }, [regionId, allCompsCache]);
 
   const categorizedData = useMemo(() => {
     const groups: CategorizedLeagues = {
@@ -159,8 +161,8 @@ const RegionDetailPage: React.FC = () => {
                             <div className="h-px bg-gray-200 flex-grow"></div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {items.map((league) => (
-                                <Link key={league.id} to={league.isCup ? `/cups?id=${league.id}` : `/region-hub/${league.id}`} className="group">
+                            {items.map((league, index) => (
+                                <Link key={`${league.id}-${index}`} to={league.isCup ? `/cups?id=${league.id}` : `/region-hub/${league.id}`} className="group">
                                     <Card className="h-full hover:shadow-2xl transition-all duration-300 border border-gray-100 bg-white rounded-3xl overflow-hidden">
                                         <CardContent className="p-6">
                                             <div className="flex items-center gap-4">

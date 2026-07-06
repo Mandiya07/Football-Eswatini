@@ -1,16 +1,29 @@
+
 export interface PhotoAlbum {
-    id: number;
-    title: string;
-    date: string;
-    coverUrl: string;
-    imageUrls: string[];
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  coverUrl?: string;
+  photos: string[];
+  imageUrls?: string[];
+  date: string;
+  category: string;
 }
 
 export interface BehindTheScenesContent {
-    id: number;
-    type: 'photo' | 'video';
-    title: string;
-    description: string;
-    thumbnailUrl: string;
-    contentUrl: string; // URL to video or full-size photo
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  thumbnailUrl?: string;
+  videoUrl: string;
+  contentUrl?: string;
+  date: string;
+  duration: string;
+  category: string;
+  type?: 'video' | 'article' | 'gallery';
 }
+
+export const photoAlbums: PhotoAlbum[] = [];
+export const behindTheScenesData: BehindTheScenesContent[] = [];

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchYouthData, handleFirestoreError } from '../../services/api';
+import { fetchYouthData, handleFirestoreError, OperationType } from '../../services/api';
 import { YouthLeague, RisingStarPlayer, YouthArticle, YouthTeam, youthData as mockYouthData } from '../../data/youth';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -15,6 +15,7 @@ import YouthArticleFormModal from './YouthArticleFormModal';
 import FileTextIcon from '../icons/FileTextIcon';
 import { removeUndefinedProps, compressImage } from '../../services/utils';
 import ImageIcon from '../icons/ImageIcon';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const YouthManagement: React.FC = () => {
     const [leagues, setLeagues] = useState<YouthLeague[]>([]);
@@ -39,6 +40,10 @@ const YouthManagement: React.FC = () => {
     // New League Modal
     const [isNewLeagueModalOpen, setIsNewLeagueModalOpen] = useState(false);
     const [newLeagueForm, setNewLeagueForm] = useState({ name: '', id: '' });
+
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<{ type: 'league' | 'team' | 'article', id: string | number, data?: any } | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const ALLOWED_IDS = [
         'u20-elite-league', 
@@ -90,11 +95,14 @@ const YouthManagement: React.FC = () => {
     const activeLeague = leagues.find(l => l.id === activeLeagueId);
 
     const saveLeagueState = async (updatedLeague: YouthLeague) => {
+        setIsSubmitting(true);
         try {
             await setDoc(doc(db, 'youth', updatedLeague.id), removeUndefinedProps(updatedLeague));
             setLeagues(prev => prev.map(l => l.id === updatedLeague.id ? updatedLeague : l));
         } catch (err) {
-            handleFirestoreError(err, 'save youth league data');
+            handleFirestoreError(err, OperationType.UPDATE, `youth/${updatedLeague.id}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -112,6 +120,7 @@ const YouthManagement: React.FC = () => {
             articles: []
         };
 
+        setIsSubmitting(true);
         try {
             await setDoc(doc(db, 'youth', leagueId), newLeague);
             setLeagues([...leagues, newLeague]);
@@ -119,12 +128,19 @@ const YouthManagement: React.FC = () => {
             setIsNewLeagueModalOpen(false);
             setNewLeagueForm({ name: '', id: '' });
         } catch (err) {
-            handleFirestoreError(err, 'create youth league');
+            handleFirestoreError(err, OperationType.CREATE, `youth/${leagueId}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    const handleDeleteLeague = async (id: string) => {
-        if (!window.confirm("ARE YOU SURE? This will permanently delete this competition. This action cannot be undone.")) return;
+    const handleDeleteLeague = (id: string) => {
+        setConfirmAction({ type: 'league', id });
+        setShowConfirmModal(true);
+    };
+
+    const confirmDeleteLeague = async (id: string) => {
+        setIsSubmitting(true);
         try {
             await deleteDoc(doc(db, 'youth', id));
             const updatedLeagues = leagues.filter(l => l.id !== id);
@@ -132,8 +148,12 @@ const YouthManagement: React.FC = () => {
             if (activeLeagueId === id) {
                 setActiveLeagueId(updatedLeagues[0]?.id || '');
             }
+            setShowConfirmModal(false);
+            setConfirmAction(null);
         } catch (err) {
-            handleFirestoreError(err, 'delete youth league');
+            handleFirestoreError(err, OperationType.DELETE, `youth/${id}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -144,10 +164,17 @@ const YouthManagement: React.FC = () => {
         setIsEditingLeague(false);
     };
 
-    const handleDeleteTeam = async (team: YouthTeam) => {
-        if (!activeLeague || !window.confirm("Remove this team?")) return;
+    const handleDeleteTeam = (team: YouthTeam) => {
+        setConfirmAction({ type: 'team', id: team.id, data: team });
+        setShowConfirmModal(true);
+    };
+
+    const confirmDeleteTeam = async (team: YouthTeam) => {
+        if (!activeLeague) return;
         const updatedTeams = (activeLeague.teams || []).filter(t => t.id !== team.id);
         await saveLeagueState({ ...activeLeague, teams: updatedTeams });
+        setShowConfirmModal(false);
+        setConfirmAction(null);
     };
 
     const handleTeamImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,7 +203,7 @@ const YouthManagement: React.FC = () => {
             };
         } else {
             const newTeam: YouthTeam = { 
-                id: Date.now(), 
+                id: String(Date.now()), 
                 name: teamFormData.name, 
                 crestUrl: teamFormData.crestUrl || '' 
             };
@@ -201,7 +228,7 @@ const YouthManagement: React.FC = () => {
     const handleSavePlayer = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!activeLeague) return;
-        const newPlayer: RisingStarPlayer = { id: editingPlayer ? editingPlayer.id : Date.now(), ...playerFormData };
+        const newPlayer: RisingStarPlayer = { id: editingPlayer ? editingPlayer.id : String(Date.now()), ...playerFormData };
         let updatedStars = [...(activeLeague.risingStars || [])];
         updatedStars = editingPlayer ? updatedStars.map(p => p.id === editingPlayer.id ? newPlayer : p) : [...updatedStars, newPlayer];
         await saveLeagueState({ ...activeLeague, risingStars: updatedStars });
@@ -221,10 +248,17 @@ const YouthManagement: React.FC = () => {
         setEditingArticle(null);
     };
 
-    const handleDeleteArticle = async (articleId: string) => {
-        if (!activeLeague || !window.confirm("Delete this article?")) return;
+    const handleDeleteArticle = (articleId: string) => {
+        setConfirmAction({ type: 'article', id: articleId });
+        setShowConfirmModal(true);
+    };
+
+    const confirmDeleteArticle = async (articleId: string) => {
+        if (!activeLeague) return;
         const updatedArticles = (activeLeague.articles || []).filter(a => a.id !== articleId);
         await saveLeagueState({ ...activeLeague, articles: updatedArticles });
+        setShowConfirmModal(false);
+        setConfirmAction(null);
     };
 
     if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
@@ -317,7 +351,7 @@ const YouthManagement: React.FC = () => {
                                     {(activeLeague.teams || []).map((team, idx) => (
                                         <div key={team.id} className="p-3 bg-white border border-gray-100 rounded-xl flex items-center justify-between shadow-sm group">
                                             <div className="flex items-center gap-3 overflow-hidden">
-                                                <img src={team.crestUrl} alt="" className="w-8 h-8 object-contain flex-shrink-0 bg-gray-50 rounded p-0.5" />
+                                                <img src={team.crestUrl || 'https://via.placeholder.com/150?text=Crest'} alt="" className="w-8 h-8 object-contain flex-shrink-0 bg-gray-50 rounded p-0.5" />
                                                 <span className="text-sm font-bold text-gray-800 truncate">{team.name}</span>
                                             </div>
                                             <div className="flex gap-1">
@@ -389,6 +423,22 @@ const YouthManagement: React.FC = () => {
             )}
             
             {isArticleModalOpen && <YouthArticleFormModal isOpen={isArticleModalOpen} onClose={() => setIsArticleModalOpen(false)} onSave={handleSaveArticle} article={editingArticle} />}
+            
+            {showConfirmModal && confirmAction && (
+                <ConfirmationModal
+                    isOpen={showConfirmModal}
+                    onClose={() => { setShowConfirmModal(false); setConfirmAction(null); }}
+                    onConfirm={() => {
+                        if (confirmAction.type === 'league') confirmDeleteLeague(confirmAction.id as string);
+                        if (confirmAction.type === 'team') confirmDeleteTeam(confirmAction.data as YouthTeam);
+                        if (confirmAction.type === 'article') confirmDeleteArticle(confirmAction.id as string);
+                    }}
+                    title={`Delete ${confirmAction.type.charAt(0).toUpperCase() + confirmAction.type.slice(1)}`}
+                    message={`Are you sure you want to delete this ${confirmAction.type}? This action cannot be undone.`}
+                    confirmText={isSubmitting ? 'Deleting...' : 'Delete'}
+                    variant="danger"
+                />
+            )}
         </div>
     );
 };

@@ -10,8 +10,8 @@ import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps } from '../../services/utils';
 import Spinner from '../ui/Spinner';
-// FIX: Added handleFirestoreError to the imports from api service to fix reference errors
-import { fetchCompetition, handleFirestoreError } from '../../services/api';
+import { fetchCompetition, handleFirestoreError, OperationType } from '../../services/api';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface TeamFixturesModalProps {
     isOpen: boolean;
@@ -25,6 +25,7 @@ const TeamFixturesModal: React.FC<TeamFixturesModalProps> = ({ isOpen, onClose, 
     const [allTeams, setAllTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<number | string | null>(null);
     
     const [newFixture, setNewFixture] = useState({
         opponentId: '',
@@ -69,7 +70,7 @@ const TeamFixturesModal: React.FC<TeamFixturesModalProps> = ({ isOpen, onClose, 
                 const dateObj = new Date(newFixture.date);
                 
                 const fixture: CompetitionFixture = {
-                    id: Date.now(),
+                    id: String(Date.now()),
                     teamA: team.name,
                     teamB: opponent.name,
                     fullDate: newFixture.date,
@@ -88,14 +89,18 @@ const TeamFixturesModal: React.FC<TeamFixturesModalProps> = ({ isOpen, onClose, 
             setNewFixture({ opponentId: '', date: '', time: '', venue: '', matchday: '' });
             loadData();
         } catch (error) {
-            handleFirestoreError(error, 'add fixture');
+            handleFirestoreError(error, OperationType.WRITE, `competitions/${competitionId}`);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleDeleteFixture = async (id: number | string) => {
-        if (!window.confirm("Delete this fixture?")) return;
+    const handleDeleteFixture = (id: number | string) => {
+        setDeleteConfirm(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirm) return;
         setIsSubmitting(true);
         try {
             const docRef = doc(db, 'competitions', competitionId);
@@ -103,14 +108,15 @@ const TeamFixturesModal: React.FC<TeamFixturesModalProps> = ({ isOpen, onClose, 
                 const docSnap = await transaction.get(docRef);
                 if (!docSnap.exists()) return; // Should not happen
                 const comp = docSnap.data() as Competition;
-                const updatedFixtures = (comp.fixtures || []).filter(f => f.id !== id);
+                const updatedFixtures = (comp.fixtures || []).filter(f => f.id !== deleteConfirm);
                 transaction.update(docRef, { fixtures: updatedFixtures });
             });
             loadData();
         } catch (error) {
-            handleFirestoreError(error, 'delete fixture');
+            handleFirestoreError(error, OperationType.WRITE, `competitions/${competitionId}`);
         } finally {
             setIsSubmitting(false);
+            setDeleteConfirm(null);
         }
     }
 
@@ -204,6 +210,14 @@ const TeamFixturesModal: React.FC<TeamFixturesModalProps> = ({ isOpen, onClose, 
                     </div>
                 </CardContent>
             </Card>
+            <ConfirmationModal 
+                isOpen={!!deleteConfirm}
+                onClose={() => setDeleteConfirm(null)}
+                onConfirm={confirmDelete}
+                title="Delete Fixture"
+                message="Are you sure you want to delete this fixture?"
+                confirmText="Delete"
+            />
         </div>
     );
 };

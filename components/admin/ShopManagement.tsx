@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { addProduct, deleteProduct, fetchProducts, updateProduct, fetchMatchTickets, addMatchTicket, deleteMatchTicket, MatchTicket } from '../../services/api';
+import { addProduct, deleteProduct, fetchProducts, updateProduct, fetchMatchTickets, addMatchTicket, deleteMatchTicket, MatchTicket, handleFirestoreError, OperationType } from '../../services/api';
 import { Product } from '../../data/shop';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -12,6 +12,7 @@ import TicketIcon from '../icons/TicketIcon';
 import StoreIcon from '../icons/StoreIcon';
 import ShopFormModal from './ShopFormModal';
 import TicketFormModal from './TicketFormModal';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const ShopManagement: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'merch' | 'tickets'>('merch');
@@ -25,18 +26,26 @@ const ShopManagement: React.FC = () => {
     const [tickets, setTickets] = useState<MatchTicket[]>([]);
     const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
+    const [confirmDelete, setConfirmDelete] = useState<{ id: string, type: 'merch' | 'ticket' } | null>(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const loadData = async () => {
         setLoading(true);
-        if (activeTab === 'merch') {
-            const data = await fetchProducts();
-            setProducts(data);
-        } else {
-            const data = await fetchMatchTickets();
-            setTickets(data);
+        try {
+            if (activeTab === 'merch') {
+                const data = await fetchProducts();
+                setProducts(data);
+            } else {
+                const data = await fetchMatchTickets();
+                setTickets(data);
+            }
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, activeTab === 'merch' ? 'products' : 'match_tickets');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -55,17 +64,30 @@ const ShopManagement: React.FC = () => {
     };
 
     const handleDeleteProduct = async (productId: string) => {
-        if (window.confirm("Delete this product?")) {
+        setIsSubmitting(true);
+        try {
             await deleteProduct(productId);
+            setConfirmDelete(null);
             loadData();
+        } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `products/${productId}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleSaveProduct = async (data: Omit<Product, 'id'>, id?: string) => {
-        if (id) await updateProduct(id, data);
-        else await addProduct(data);
-        setIsProductModalOpen(false);
-        loadData();
+        setIsSubmitting(true);
+        try {
+            if (id) await updateProduct(id, data);
+            else await addProduct(data);
+            setIsProductModalOpen(false);
+            loadData();
+        } catch (error) {
+            handleFirestoreError(error, id ? OperationType.UPDATE : OperationType.CREATE, id ? `products/${id}` : 'products');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     // --- Ticket Handlers ---
@@ -74,16 +96,29 @@ const ShopManagement: React.FC = () => {
     };
 
     const handleDeleteTicket = async (ticketId: string) => {
-        if (window.confirm("Remove this ticket listing?")) {
+        setIsSubmitting(true);
+        try {
             await deleteMatchTicket(ticketId);
+            setConfirmDelete(null);
             loadData();
+        } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `match_tickets/${ticketId}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleSaveTicket = async (data: Omit<MatchTicket, 'id'>) => {
-        await addMatchTicket(data);
-        setIsTicketModalOpen(false);
-        loadData();
+        setIsSubmitting(true);
+        try {
+            await addMatchTicket(data);
+            setIsTicketModalOpen(false);
+            loadData();
+        } catch (error) {
+            handleFirestoreError(error, OperationType.CREATE, 'match_tickets');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const TabButton: React.FC<{tabName: 'merch' | 'tickets'; label: string; Icon: any}> = ({ tabName, label, Icon }) => (
@@ -142,7 +177,7 @@ const ShopManagement: React.FC = () => {
                                         </div>
                                         <div className="flex-shrink-0 flex items-center gap-2">
                                             <Button onClick={() => handleEditProduct(product)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center"><PencilIcon className="w-4 h-4" /></Button>
-                                            <Button onClick={() => handleDeleteProduct(product.id)} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center"><TrashIcon className="w-4 h-4" /></Button>
+                                            <Button onClick={() => { setConfirmDelete({ id: product.id, type: 'merch' }); setShowConfirmModal(true); }} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center"><TrashIcon className="w-4 h-4" /></Button>
                                         </div>
                                     </div>
                                 )) : <p className="text-center text-gray-500 py-8">No merchandise found.</p>
@@ -159,7 +194,7 @@ const ShopManagement: React.FC = () => {
                                                 <p className="text-sm font-semibold text-green-600">E{ticket.price.toFixed(2)}</p>
                                             </div>
                                         </div>
-                                        <Button onClick={() => handleDeleteTicket(ticket.id)} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center">
+                                        <Button onClick={() => { setConfirmDelete({ id: ticket.id, type: 'ticket' }); setShowConfirmModal(true); }} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center">
                                             <TrashIcon className="w-4 h-4" />
                                         </Button>
                                     </div>
@@ -169,6 +204,18 @@ const ShopManagement: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
+
+            {showConfirmModal && confirmDelete && (
+                <ConfirmationModal
+                    isOpen={showConfirmModal}
+                    onClose={() => { setShowConfirmModal(false); setConfirmDelete(null); }}
+                    onConfirm={() => confirmDelete.type === 'merch' ? handleDeleteProduct(confirmDelete.id) : handleDeleteTicket(confirmDelete.id)}
+                    title={`Delete ${confirmDelete.type === 'merch' ? 'Product' : 'Ticket'}`}
+                    message={`Are you sure you want to delete this ${confirmDelete.type === 'merch' ? 'product' : 'ticket listing'}? This action cannot be undone.`}
+                    confirmText={isSubmitting ? 'Deleting...' : 'Delete'}
+                    variant="danger"
+                />
+            )}
 
             {isProductModalOpen && <ShopFormModal isOpen={isProductModalOpen} onClose={() => setIsProductModalOpen(false)} onSave={handleSaveProduct} product={editingProduct} />}
             {isTicketModalOpen && <TicketFormModal isOpen={isTicketModalOpen} onClose={() => setIsTicketModalOpen(false)} onSave={handleSaveTicket} />}

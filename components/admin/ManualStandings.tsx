@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchAllCompetitions, handleFirestoreError } from '../../services/api';
+import { fetchAllCompetitions, handleFirestoreError, OperationType } from '../../services/api';
 import { Team, Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -57,7 +57,7 @@ const ManualStandings: React.FC = () => {
         loadTeams();
     }, [selectedLeague]);
 
-    const handleStatChange = (teamId: number, field: keyof Team['stats'], value: string) => {
+    const handleStatChange = (teamId: string, field: keyof Team['stats'], value: string) => {
         const numValue = parseInt(value, 10) || 0;
         setTeams(prev => prev.map(t => {
             if (t.id === teamId) {
@@ -70,7 +70,7 @@ const ManualStandings: React.FC = () => {
         }));
     };
 
-    const handleFormChange = (teamId: number, value: string) => {
+    const handleFormChange = (teamId: string, value: string) => {
         setTeams(prev => prev.map(t => {
             if (t.id === teamId) {
                 return {
@@ -92,7 +92,7 @@ const ManualStandings: React.FC = () => {
             });
             alert("Standings updated successfully!");
         } catch (error) {
-            handleFirestoreError(error, 'manual standings update');
+            handleFirestoreError(error, OperationType.UPDATE, `competitions/${selectedLeague}`);
         } finally {
             setIsSaving(false);
         }

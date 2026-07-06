@@ -31,7 +31,7 @@ const EventIcon: React.FC<{ type: MatchEvent['type'] }> = ({ type }) => {
 
 const LineupList: React.FC<{ 
     players: Player[], 
-    lineup?: { starters: number[], subs: number[] },
+    lineup?: { starters: string[], subs: string[] },
     title: string 
 }> = ({ players, lineup, title }) => {
     if (!lineup) return (
@@ -228,7 +228,7 @@ const FixtureDetail: React.FC<{ fixture: CompetitionFixture, competitionId: stri
                         <div className="flex-grow overflow-y-auto space-y-4 mb-4 pr-2 custom-scrollbar">
                             {comments.length > 0 ? comments.map((comment) => (
                                 <div key={comment.id} className={`flex gap-2 sm:gap-3 ${comment.userId === user?.id ? 'flex-row-reverse' : ''}`}>
-                                    <img src={comment.userAvatar} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-200 shadow-sm" alt="" />
+                                    <img src={comment.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(comment.userName || 'User')}`} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-200 shadow-sm" alt="" />
                                     <div className={`max-w-[85%] sm:max-w-[80%] p-3 sm:p-4 rounded-2xl text-sm ${comment.userId === user?.id ? 'bg-primary text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200 shadow-sm'}`}>
                                         <div className="flex justify-between items-center gap-4 mb-1"><span className="font-black text-[9px] uppercase opacity-70 tracking-widest">{comment.userName}</span></div>
                                         <p className="leading-relaxed font-medium text-xs sm:text-sm">{comment.text}</p>

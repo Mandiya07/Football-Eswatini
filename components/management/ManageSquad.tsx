@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchAllCompetitions, fetchStandaloneMatches, handleFirestoreError, fetchDirectoryEntries } from '../../services/api';
+import { fetchAllCompetitions, fetchStandaloneMatches, handleFirestoreError, fetchDirectoryEntries, OperationType } from '../../services/api';
 import { Player, Competition, Team, CompetitionFixture } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -15,7 +15,7 @@ import PencilIcon from '../icons/PencilIcon';
 import SparklesIcon from '../icons/SparklesIcon';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { removeUndefinedProps, superNormalize, reconcilePlayers, findInMap } from '../../services/utils';
+import { removeUndefinedProps, superNormalize, reconcilePlayers, findInMap, getCompCategory } from '../../services/utils';
 import TeamRosterModal from '../admin/TeamRosterModal';
 
 const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ clubName, competitionId }) => {
@@ -74,14 +74,18 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
             });
 
             // 3. Aggregate every single match record involving these aliases from all hubs
+            const resolvedCategory = competitionId ? getCompCategory(competitionId, allCompetitionsData[competitionId]?.name) : 'senior';
             const masterMatchList: CompetitionFixture[] = [...standaloneMatches];
             const teamAliases = new Set(teamVersions.map(t => superNormalize(t.name)));
             
-            Object.values(allCompetitionsData).forEach(hub => {
-                const hubMatches = [...(hub.fixtures || []), ...(hub.results || [])].filter(m => 
-                    teamAliases.has(superNormalize(m.teamA)) || teamAliases.has(superNormalize(m.teamB))
-                );
-                masterMatchList.push(...hubMatches);
+            Object.entries(allCompetitionsData).forEach(([hubId, hub]) => {
+                const hubCategory = getCompCategory(hubId, hub.name);
+                if (hubCategory === resolvedCategory) {
+                    const hubMatches = [...(hub.fixtures || []), ...(hub.results || [])].filter(m => 
+                        teamAliases.has(superNormalize(m.teamA)) || teamAliases.has(superNormalize(m.teamB))
+                    );
+                    masterMatchList.push(...hubMatches);
+                }
             });
 
             // 4. Run Technical Reconciliation (Event Log -> Technical Stats)
@@ -96,12 +100,14 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
 
             // 5. Update global suggestions for "Add Existing Player"
             const globalList: {player: Player, teamName: string}[] = [];
-            Object.values(allCompetitionsData).forEach(c => {
-                c.teams?.forEach(t => {
-                    if (!teamAliases.has(superNormalize(t.name))) {
-                        t.players?.forEach(p => globalList.push({ player: p, teamName: t.name }));
-                    }
-                });
+            Object.entries(allCompetitionsData).forEach(([cId, c]) => {
+                if (getCompCategory(cId, c.name) === resolvedCategory) {
+                    c.teams?.forEach(t => {
+                        if (!teamAliases.has(superNormalize(t.name))) {
+                            t.players?.forEach(p => globalList.push({ player: p, teamName: t.name }));
+                        }
+                    });
+                }
             });
             setAllGlobalPlayers(globalList);
         } catch (error) {
@@ -122,6 +128,7 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
     
     const [newPlayer, setNewPlayer] = useState({
         name: '', position: 'Forward', number: '', photoUrl: '',
+        age: '', nationality: '',
         copiedBio: null as any
     });
 
@@ -140,7 +147,7 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
     };
 
     const handleSelectExisting = (item: {player: Player, teamName: string}) => {
-        setNewPlayer({ name: item.player.name, position: item.player.position, number: '', photoUrl: item.player.photoUrl, copiedBio: item.player.bio });
+        setNewPlayer({ name: item.player.name, position: item.player.position, number: '', photoUrl: item.player.photoUrl, age: '', nationality: '', copiedBio: item.player.bio });
         setShowSuggestions(false);
     };
 
@@ -166,7 +173,7 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
             });
             await loadData();
         } catch (error) {
-            handleFirestoreError(error, 'update squad');
+            handleFirestoreError(error, OperationType.UPDATE, 'competitions');
         } finally {
             setIsSubmitting(false);
         }
@@ -175,10 +182,12 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
     const handleAddPlayer = async (e: React.FormEvent) => {
         e.preventDefault();
         const playerToAdd: Player = {
-            id: Date.now(),
+            id: String(Date.now()),
             name: newPlayer.name.trim(),
             position: newPlayer.position as any,
             number: parseInt(newPlayer.number, 10) || 0,
+            age: parseInt(newPlayer.age, 10) || 18,
+            nationality: newPlayer.nationality || 'Eswatini',
             photoUrl: newPlayer.photoUrl || '',
             bio: newPlayer.copiedBio || { nationality: 'Eswatini', age: 21, height: '-' },
             stats: { appearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0 },
@@ -186,11 +195,11 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
             transferHistory: [],
         };
         await updateFirestoreSquad([...squad, playerToAdd]);
-        setNewPlayer({ name: '', position: 'Forward', number: '', photoUrl: '', copiedBio: null });
+        setNewPlayer({ name: '', position: 'Forward', number: '', photoUrl: '', age: '', nationality: '', copiedBio: null });
         setShowAddForm(false);
     };
     
-    const handleRemovePlayer = async (playerId: number) => {
+    const handleRemovePlayer = async (playerId: string) => {
         if (window.confirm("Remove player from roster? Historical match records are preserved but the profile link will be broken.")) {
             await updateFirestoreSquad(squad.filter(p => p.id !== playerId));
         }
@@ -245,7 +254,7 @@ const ManageSquad: React.FC<{ clubName: string; competitionId: string }> = ({ cl
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[0.2em]">Jersey #</label><input type="number" name="number" value={newPlayer.number} onChange={handleInputChange} required className={inputClass} min="1" max="99" /></div>
-                                <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[0.2em]">Position</label><select name="position" value={newPlayer.position} onChange={handleInputChange} required className={inputClass}><option>Forward</option><option>Midfielder</option><option>Defender</option><option>Goalkeeper</option></select></div>
+                                <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[0.2em]">Position</label><select name="position" value={newPlayer.position} onChange={handleInputChange} required className={inputClass}><option key="forward">Forward</option><option key="midfielder">Midfielder</option><option key="defender">Defender</option><option key="goalkeeper">Goalkeeper</option></select></div>
                             </div>
                         </div>
                         <div className="flex justify-end pt-2">

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import { DirectoryEntity, EntityCategory, Region } from '../data/directory';
-import { fetchDirectoryEntries, fetchCategories, Category, fetchAllCompetitions } from '../services/api';
+import { fetchDirectoryEntries, fetchCategories, Category } from '../services/api';
 import SearchIcon from './icons/SearchIcon';
 import ShieldIcon from './icons/ShieldIcon';
 import SchoolIcon from './icons/SchoolIcon';
@@ -16,10 +16,11 @@ import ArrowRightIcon from './icons/ArrowRightIcon';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import { superNormalize, calculateStandings } from '../services/utils';
-import { Competition, LogEntry } from '../data/teams';
+import { Competition, Team } from '../data/teams';
 import Button from './ui/Button';
 import FilterIcon from './icons/FilterIcon';
 import TrendingUpIcon from './icons/TrendingUpIcon';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const staticCategoryIcons: Record<EntityCategory, React.FC<React.SVGProps<SVGSVGElement>>> = {
     'Club': ShieldIcon,
@@ -27,6 +28,11 @@ const staticCategoryIcons: Record<EntityCategory, React.FC<React.SVGProps<SVGSVG
     'Referee': WhistleIcon,
     'Association': BuildingIcon,
     'Schools': SchoolIcon,
+    'Organization': BuildingIcon,
+    'Other': BuildingIcon,
+    'Stadium': MapPinIcon,
+    'Media': PhoneIcon,
+    'Sponsor': BuildingIcon,
 };
 
 const CATEGORY_OPTIONS: { value: EntityCategory | 'all', label: string }[] = [
@@ -36,6 +42,10 @@ const CATEGORY_OPTIONS: { value: EntityCategory | 'all', label: string }[] = [
     { value: 'Schools', label: 'Schools' },
     { value: 'Referee', label: 'Referees' },
     { value: 'Association', label: 'Associations' },
+    { value: 'Organization', label: 'Organizations' },
+    { value: 'Stadium', label: 'Stadiums' },
+    { value: 'Media', label: 'Media' },
+    { value: 'Sponsor', label: 'Sponsors' },
 ];
 
 const REGION_OPTIONS: { value: Region | 'all', label: string }[] = [
@@ -44,6 +54,7 @@ const REGION_OPTIONS: { value: Region | 'all', label: string }[] = [
     { value: 'Manzini', label: 'Manzini' },
     { value: 'Lubombo', label: 'Lubombo' },
     { value: 'Shiselweni', label: 'Shiselweni' },
+    { value: 'National', label: 'National' },
 ];
 
 const TIER_OPTIONS: { value: string, label: string }[] = [
@@ -70,7 +81,7 @@ const TIER_PRIORITY_HUB: Record<string, string> = {
     'Womens League': 'eswatini-women-football-league'
 };
 
-const DirectoryCard: React.FC<{ entity: DirectoryEntity; categoryLogo?: string; allComps: Record<string, Competition>; stats?: LogEntry }> = ({ entity, categoryLogo, allComps, stats }) => {
+const DirectoryCard: React.FC<{ entity: DirectoryEntity; categoryLogo?: string; allComps: Record<string, Competition>; stats?: Team['stats'] }> = ({ entity, categoryLogo, allComps, stats }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const StaticIcon = staticCategoryIcons[entity.category] || ShieldIcon;
     
@@ -174,6 +185,7 @@ const DirectoryCard: React.FC<{ entity: DirectoryEntity; categoryLogo?: string; 
 };
 
 const DirectoryPage: React.FC = () => {
+    const { competitions: allCompsCache } = useDataCache();
     const [allEntries, setAllEntries] = useState<DirectoryEntity[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [allComps, setAllComps] = useState<Record<string, Competition>>({});
@@ -189,13 +201,12 @@ const DirectoryPage: React.FC = () => {
         const loadData = async () => {
             setLoading(true);
             try {
-                const [directoryData, catData, competitionsData] = await Promise.all([
+                const [directoryData, catData] = await Promise.all([
                     fetchDirectoryEntries(),
-                    fetchCategories(),
-                    fetchAllCompetitions()
+                    fetchCategories()
                 ]);
                 setCategories(catData);
-                setAllComps(competitionsData);
+                setAllComps(allCompsCache);
                 setAllEntries(directoryData.filter(entity => {
                     if (entity.category !== 'Club' && entity.category !== 'Schools') return true;
                     return entity.tier && ALLOWED_CLUB_TIERS.includes(entity.tier);
@@ -204,14 +215,14 @@ const DirectoryPage: React.FC = () => {
             finally { setLoading(false); }
         };
         loadData();
-    }, []);
+    }, [allCompsCache]);
 
     const filteredAndSortedEntries = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
         
         // Pre-calculate stats for all entities to enable filtering and sorting by stats
         const entriesWithStats = allEntries.map(entity => {
-            let stats: LogEntry | undefined;
+            let stats: Team['stats'] | undefined;
             if (entity.category === 'Club') {
                 const normName = superNormalize(entity.name);
                 const priorityHubId = entity.tier ? TIER_PRIORITY_HUB[entity.tier] : null;
@@ -251,8 +262,8 @@ const DirectoryPage: React.FC = () => {
             .sort((a, b) => {
                 if (sortBy === 'name') return (a.entity.name || '').localeCompare(b.entity.name || '');
                 
-                const valA = a.stats ? a.stats[sortBy] : -999;
-                const valB = b.stats ? b.stats[sortBy] : -999;
+                const valA = a.stats ? (a.stats as any)[sortBy] : -999;
+                const valB = b.stats ? (b.stats as any)[sortBy] : -999;
                 return valB - valA; // Descending for stats
             });
     }, [searchTerm, selectedCategory, selectedRegion, selectedTier, sortBy, minPoints, allEntries, allComps]);
@@ -308,10 +319,10 @@ const DirectoryPage: React.FC = () => {
                                     <TrendingUpIcon className="w-3 h-3" /> Sort Results By
                                 </label>
                                 <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all">
-                                    <option value="name">Name (A-Z)</option>
-                                    <option value="pts">Points (High to Low)</option>
-                                    <option value="gd">Goal Difference</option>
-                                    <option value="gs">Goals Scored</option>
+                                    <option key="name" value="name">Name (A-Z)</option>
+                                    <option key="pts" value="pts">Points (High to Low)</option>
+                                    <option key="gd" value="gd">Goal Difference</option>
+                                    <option key="gs" value="gs">Goals Scored</option>
                                 </select>
                             </div>
 

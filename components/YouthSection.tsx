@@ -30,7 +30,13 @@ const YouthSection: React.FC<YouthSectionProps> = ({ league }) => {
                 <div className="flex flex-wrap gap-4">
                     {league.teams.map(team => (
                     <div key={team.id} className="flex items-center gap-3 bg-white py-2 px-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-default border border-gray-200">
-                        <img src={team.crestUrl} alt={team.name} className="w-8 h-8 object-contain" />
+                        {team.crestUrl ? (
+                            <img src={team.crestUrl} alt={team.name} className="w-8 h-8 object-contain" />
+                        ) : (
+                            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-[10px] font-bold text-gray-400">
+                                {team.name.charAt(0)}
+                            </div>
+                        )}
                         <span className="text-sm font-semibold text-gray-800">{team.name}</span>
                     </div>
                     ))}

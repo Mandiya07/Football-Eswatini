@@ -7,7 +7,7 @@ import CheckCircleIcon from '../icons/CheckCircleIcon';
 import VoteIcon from '../icons/VoteIcon';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { handleFirestoreError } from '../../services/api';
+import { handleFirestoreError, OperationType } from '../../services/api';
 
 const ClubPollsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [pollType, setPollType] = useState('Player of the Month');
@@ -49,7 +49,7 @@ const ClubPollsManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
             setQuestion('');
             setOptions(['', '']);
         } catch (error) {
-            handleFirestoreError(error, 'create poll');
+            handleFirestoreError(error, OperationType.CREATE, 'polls');
         } finally {
             setIsSubmitting(false);
         }

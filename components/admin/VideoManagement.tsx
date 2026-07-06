@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { addVideo, deleteVideo, fetchVideos, updateVideo } from '../../services/api';
+import { addVideo, deleteVideo, fetchVideos, updateVideo, handleFirestoreError, OperationType } from '../../services/api';
 import { Video } from '../../data/videos';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
+import ConfirmationModal from '../ui/ConfirmationModal';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
@@ -18,12 +19,19 @@ const VideoManagement: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
     const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const loadVideos = async () => {
         setLoading(true);
-        const data = await fetchVideos();
-        setVideos(data);
-        setLoading(false);
+        try {
+            const data = await fetchVideos();
+            setVideos(data);
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, 'videos');
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -40,21 +48,35 @@ const VideoManagement: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if (window.confirm("Delete this video?")) {
-            await deleteVideo(id);
+    const handleDelete = async () => {
+        if (!confirmDeleteId) return;
+        setIsSubmitting(true);
+        try {
+            await deleteVideo(confirmDeleteId);
+            setConfirmDeleteId(null);
             loadVideos();
+        } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `videos/${confirmDeleteId}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleSave = async (data: Omit<Video, 'id'>, id?: string) => {
-        if (id) {
-            await updateVideo(id, data);
-        } else {
-            await addVideo(data);
+        setIsSubmitting(true);
+        try {
+            if (id) {
+                await updateVideo(id, data);
+            } else {
+                await addVideo(data);
+            }
+            setIsModalOpen(false);
+            loadVideos();
+        } catch (error) {
+            handleFirestoreError(error, OperationType.WRITE, id ? `videos/${id}` : 'videos');
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsModalOpen(false);
-        loadVideos();
     };
 
     return (
@@ -86,7 +108,9 @@ const VideoManagement: React.FC = () => {
                                     </div>
                                     <div className="flex-shrink-0 flex items-center gap-2">
                                         <Button onClick={() => handleEdit(video)} className="bg-blue-100 text-blue-700 h-8 w-8 p-0 flex items-center justify-center"><PencilIcon className="w-4 h-4" /></Button>
-                                        <Button onClick={() => handleDelete(video.id)} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center"><TrashIcon className="w-4 h-4" /></Button>
+                                        <Button onClick={() => setConfirmDeleteId(video.id)} disabled={isSubmitting && confirmDeleteId === video.id} className="bg-red-100 text-red-700 h-8 w-8 p-0 flex items-center justify-center">
+                                            {isSubmitting && confirmDeleteId === video.id ? <Spinner className="w-3 h-3 border-red-700 border-2" /> : <TrashIcon className="w-4 h-4" />}
+                                        </Button>
                                     </div>
                                 </div>
                             ))}
@@ -96,6 +120,16 @@ const VideoManagement: React.FC = () => {
             </Card>
             {isModalOpen && <VideoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSave} video={editingVideo} />}
             {isRecapModalOpen && <RecapGeneratorModal isOpen={isRecapModalOpen} onClose={() => setIsRecapModalOpen(false)} />}
+            
+            <ConfirmationModal 
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDelete}
+                title="Delete Video"
+                message="Are you sure you want to delete this video? This action cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
         </>
     );
 };

@@ -1,40 +1,62 @@
 
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, memoryLocalCache, setLogLevel } from "firebase/firestore";
+import { getFirestore, Firestore, setLogLevel, initializeFirestore } from "firebase/firestore";
+import { getAuth, inMemoryPersistence, browserLocalPersistence, setPersistence, Auth } from "firebase/auth";
+import firebaseConfig from "../firebase-applet-config.json";
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCXyZ65n3Tk120LcvVY0MH1XgvAVu4Qk3Y",
-  authDomain: "football-eswatini.firebaseapp.com",
-  projectId: "football-eswatini",
-  storageBucket: "football-eswatini.firebasestorage.app",
-  messagingSenderId: "5006077401",
-  appId: "1:5006077401:web:75e9ae4f364f2132703dc8"
-};
+// Silence Firebase internal offline errors in test modes
+setLogLevel('silent');
 
-// Initialize Firebase and export the app instance
+// Initialize Firebase App
 export const app = initializeApp(firebaseConfig);
 
-/**
- * Initialize Firestore with settings optimized for web-based development environments
- * and potentially restricted network conditions.
- * 
- * 1. memoryLocalCache: Bypasses IndexedDB initialization which can hang or timeout in sandboxed frames.
- * 2. experimentalForceLongPolling: Ensures connectivity even if WebSockets are blocked by proxies.
- * 3. experimentalAutoDetectLongPolling: Set to false to strictly enforce the long polling protocol.
- * 4. useFetchStreams: false. Disables Fetch Streams, which can cause hangs in certain browser configurations.
- * 5. host: Explicitly set to ensure the global endpoint is targeted.
- */
-setLogLevel('error');
+export const dbId = (firebaseConfig as any).firestoreDatabaseId;
+export const db = initializeFirestore(app, { experimentalForceLongPolling: true }, dbId); /* CRITICAL: The app will break without this line */
 
-export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache(),
-  host: 'firestore.googleapis.com',
-  ssl: true,
-  experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: false,
-  ignoreUndefinedProperties: true,
-  // @ts-ignore - useFetchStreams is valid but might not be in the current type definition
-  useFetchStreams: false
-} as any);
+// Test connection
+import('firebase/firestore').then(({ doc, getDocFromServer }) => {
+  getDocFromServer(doc(db, 'test', 'connection')).catch((error) => {
+    if(error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn("Please check your Firebase configuration.");
+    }
+  });
+}).catch(console.warn);
+
+let authInstance: Auth | null = null;
+try {
+  authInstance = getAuth(app);
+  // Attempt to set local persistence but fallback to memory if iframe blocks it
+  setPersistence(authInstance, browserLocalPersistence).catch(() => {
+    console.warn("Local persistence blocked (likely iframe restrictions), falling back to memory.");
+    if (authInstance) setPersistence(authInstance, inMemoryPersistence).catch((err: any) => console.error(err?.message || String(err)));
+  });
+} catch (error: any) {
+  console.error("Failed to initialize Auth", error?.message || String(error));
+}
+
+export const auth: Auth | null = authInstance;
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export const handleFirestoreError = (error: any, operation: OperationType | string, path?: string | null) => {
+    // Only log actual errors, ignore benign connection resets
+    if (error?.code === 'unavailable' || error?.code === 'deadline-exceeded') return;
+    
+    // Pick safe properties to avoid circular reference crashes in the environment log handle
+    const safeError = {
+        code: error?.code || 'unknown',
+        message: error?.message || String(error),
+        operation,
+        path: path || 'n/a'
+    };
+    
+    console.error(`[Firestore Error] ${operation}:`, safeError);
+};
+

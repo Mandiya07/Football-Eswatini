@@ -27,13 +27,16 @@ const BehindTheScenes: React.FC = () => {
     const handlePlayVideo = (item: BehindTheScenesContent) => {
         if (item.type !== 'video') return;
         const video: Video = {
-            id: item.id.toString(),
+            id: item.id,
             title: item.title,
             description: item.description,
-            thumbnailUrl: item.thumbnailUrl,
-            videoUrl: item.contentUrl,
-            duration: '', // Duration not available in this data model
-            category: 'fan', // Placeholder
+            thumbnail: item.thumbnailUrl || item.thumbnail || '',
+            thumbnailUrl: item.thumbnailUrl || item.thumbnail || '',
+            videoUrl: item.contentUrl || item.videoUrl || '',
+            date: item.date || new Date().toISOString().split('T')[0],
+            duration: item.duration || '',
+            category: item.category || 'fan',
+            views: 0,
         };
         setSelectedVideo(video);
     };

@@ -86,7 +86,7 @@ const CommentSection: React.FC<{ articleId: string }> = ({ articleId }) => {
             <div className="space-y-3 mb-4 max-h-48 overflow-y-auto pr-2">
                 {comments.length > 0 ? comments.map(comment => (
                     <div key={comment.id} className="flex items-start gap-2 text-sm">
-                        <img src={comment.userAvatar} alt={comment.userName} className="w-6 h-6 rounded-full mt-1" />
+                        <img src={comment.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(comment.userName || 'User')}`} alt={comment.userName} className="w-6 h-6 rounded-full mt-1" />
                         <div className="flex-1 bg-gray-50 p-2 rounded-lg">
                             <div className="flex justify-between items-baseline mb-1">
                                 <span className="font-semibold text-xs">{comment.userName}</span>

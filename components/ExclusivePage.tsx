@@ -40,7 +40,7 @@ const ExclusivePage: React.FC = () => {
                             <Card key={article.id} className="shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden">
                                 <div className="flex flex-col md:flex-row">
                                     <div className="md:w-1/3 h-64 md:h-auto relative">
-                                        <img src={article.imageUrl} alt={article.title} className="w-full h-full object-cover" />
+                                        <img src={article.imageUrl || 'https://via.placeholder.com/600?text=Exclusive'} alt={article.title} className="w-full h-full object-cover" />
                                     </div>
                                     <CardContent className="md:w-2/3 p-8 flex flex-col justify-center">
                                         <div className="mb-2">

@@ -1,6 +1,7 @@
 
 import React, { useState, lazy, Suspense, useEffect } from 'react';
-import { useAuth, ManagedTeam } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
+import { ManagedTeam } from '../types/auth';
 import { useSearchParams } from 'react-router-dom';
 import ClubLoginPrompt from './management/ClubLoginPrompt';
 import UpdateScores from './management/UpdateScores';

@@ -288,6 +288,23 @@ const DataManagementPage: React.FC = () => {
                             </Link>
                         </CardContent>
                     </Card>
+
+                    <Card className="shadow-lg border-l-4 border-indigo-600">
+                        <CardContent className="p-8 text-center flex flex-col items-center h-full">
+                            <div className="bg-indigo-100 p-4 rounded-3xl mb-6">
+                                <TrophyIcon className="w-10 h-10 text-indigo-600" />
+                            </div>
+                            <h2 className="text-2xl font-bold font-display text-gray-800">Tournament Bracket</h2>
+                            <p className="text-gray-600 mt-2 mb-6 flex-grow text-sm">
+                                Create and manage tournament brackets for cup competitions.
+                            </p>
+                            <Link to="/data-management/tournament-bracket" className="w-full">
+                                <Button className="bg-indigo-600 text-white font-black hover:bg-indigo-700 w-full h-12 rounded-xl text-[10px] uppercase tracking-widest">
+                                    Bracket Builder
+                                </Button>
+                            </Link>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
 

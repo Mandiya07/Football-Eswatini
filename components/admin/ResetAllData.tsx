@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { resetAllCompetitionData, handleFirestoreError } from '../../services/api';
+import { resetAllCompetitionData, handleFirestoreError, OperationType } from '../../services/api';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
+import ConfirmationModal from '../ui/ConfirmationModal';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 
 const ResetAllData: React.FC = () => {
     const [confirmationText, setConfirmationText] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
 
     const CONFIRMATION_PHRASE = "permanently reset all";
@@ -15,11 +17,10 @@ const ResetAllData: React.FC = () => {
 
     const handleDelete = async () => {
         if (!isConfirmed) return;
+        setShowConfirmModal(true);
+    };
 
-        if (!window.confirm(`ARE YOU ABSOLUTELY SURE?\n\nThis will permanently delete all teams, fixtures, and results from EVERY competition. This action cannot be undone.`)) {
-            return;
-        }
-
+    const confirmReset = async () => {
         setSubmitting(true);
         setStatusMessage({ type: '', text: '' });
 
@@ -27,8 +28,9 @@ const ResetAllData: React.FC = () => {
             await resetAllCompetitionData();
             setStatusMessage({ type: 'success', text: `All competition data has been successfully reset. The database is now a clean slate.` });
             setConfirmationText('');
+            setShowConfirmModal(false);
         } catch (error) {
-            // The API function now handles the alert. We just set a status message here.
+            handleFirestoreError(error, OperationType.DELETE, 'competitions');
             setStatusMessage({ type: 'error', text: `Failed to reset data. See alert for details.` });
         } finally {
             setSubmitting(false);
@@ -75,6 +77,15 @@ const ResetAllData: React.FC = () => {
                     </div>
                 )}
             </CardContent>
+            <ConfirmationModal 
+                isOpen={showConfirmModal}
+                onClose={() => setShowConfirmModal(false)}
+                onConfirm={confirmReset}
+                title="ARE YOU ABSOLUTELY SURE?"
+                message="This will permanently delete all teams, fixtures, and results from EVERY competition. This action cannot be undone."
+                confirmText="Permanently Reset All Data"
+                variant="danger"
+            />
         </Card>
     );
 };

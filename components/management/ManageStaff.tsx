@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchCompetition, handleFirestoreError } from '../../services/api';
+import { fetchCompetition, handleFirestoreError, OperationType } from '../../services/api';
 import { StaffMember, Team, Competition } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -136,7 +136,7 @@ const ManageStaff: React.FC<{ clubName: string }> = ({ clubName }) => {
             });
             setStaff(updatedStaff);
         } catch (error) {
-            handleFirestoreError(error, 'update team staff');
+            handleFirestoreError(error, OperationType.UPDATE, 'competitions');
         } finally {
             setIsSubmitting(false);
         }
@@ -156,7 +156,7 @@ const ManageStaff: React.FC<{ clubName: string }> = ({ clubName }) => {
         setEditingMember(null);
     };
     
-    const handleRemove = async (id: number) => {
+    const handleRemove = async (id: string) => {
         if (window.confirm("Are you sure you want to remove this staff member?")) {
             const updatedStaff = staff.filter(s => s.id !== id);
             await updateFirestoreStaff(updatedStaff);

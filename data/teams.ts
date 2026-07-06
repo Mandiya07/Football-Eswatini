@@ -1,164 +1,192 @@
-export interface LogEntry {
-  p: number;
-  w: number;
-  d: number;
-  l: number;
-  gs: number;
-  gc: number;
-  gd: number;
-  pts: number;
-  form: string;
-}
 
 export interface PlayerStats {
-    appearances: number;
-    goals: number;
-    assists: number;
-    yellowCards?: number;
-    redCards?: number;
-    cleanSheets?: number;
-    potmWins?: number;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+  appearances: number;
+  cleanSheets?: number;
+  potmWins?: number;
 }
 
 export interface Player {
-    id: number;
-    name: string;
-    position: 'Goalkeeper' | 'Defender' | 'Midfielder' | 'Forward';
-    number: number;
-    photoUrl: string;
-    club?: string; // Player's current club
-    bio: {
-        nationality: string;
-        age: number;
-        height: string;
-    };
-    baseStats?: PlayerStats; // Manual/Historical baseline
-    stats: PlayerStats;      // Current calculated total
-    transferHistory: {
-        from: string;
-        to: string;
-        year: number;
-    }[];
-}
-
-export interface TeamFixture {
-    opponent: string;
-    date: string;
-}
-
-export interface TeamResult {
-    opponent: string;
-
-    score: string; // e.g., "W 2-1"
-}
-
-export interface StaffMember {
-  id: number;
+  id: string;
   name: string;
-  role: 'Head Coach' | 'Assistant Coach' | 'Goalkeeper Coach' | 'Physiotherapist' | 'Team Doctor' | 'Kit Manager';
-  email: string;
-  phone: string;
+  number: number;
+  position: string;
+  age: number;
+  nationality: string;
+  height?: string;
+  goals?: number;
+  assists?: number;
+  yellowCards?: number;
+  redCards?: number;
+  appearances?: number;
+  photo?: string;
   photoUrl?: string;
-}
-
-export interface TeamBranding {
-    primaryColor: string;
-    secondaryColor: string;
-    bannerUrl?: string;
-    welcomeMessage?: string;
+  club?: string;
+  bio?: string;
+  baseStats?: PlayerStats;
+  transferHistory?: {
+    date: string;
+    from: string;
+    to: string;
+    type: string;
+    year?: string;
+    fee?: string;
+  }[];
+  stats?: PlayerStats;
+  isDiscovered?: boolean;
 }
 
 export interface TeamSocialMedia {
-    facebook?: string;
-    instagram?: string;
-    twitter?: string;
-    youtube?: string;
-    website?: string;
+  facebook?: string;
+  twitter?: string;
+  instagram?: string;
+  youtube?: string;
+  website?: string;
 }
 
 export interface TeamVideo {
-    id: string;
-    title: string;
-    url: string;
-    date: string;
+  id: string;
+  title: string;
+  url: string;
+  date: string;
+}
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+  photo?: string;
+  photoUrl?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface Team {
-  id: number;
+  id: string;
   name: string;
-  stats: LogEntry;
-  crestUrl: string;
+  shortName: string;
+  logo: string;
+  primaryColor: string;
+  secondaryColor: string;
+  stadium: string;
+  city: string;
+  coach: string;
+  founded: number;
   players: Player[];
-  fixtures: TeamFixture[];
-  results: TeamResult[];
-  staff: StaffMember[];
-  kitSponsor?: {
-    name: string;
-    logoUrl: string;
-  };
-  branding?: TeamBranding;
+  crestUrl?: string;
+  kitSponsor?: { name: string; logoUrl: string; };
   socialMedia?: TeamSocialMedia;
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    logoUrl: string;
+    bannerUrl?: string;
+    welcomeMessage?: string;
+  };
+  staff?: StaffMember[];
+  fixtures?: CompetitionFixture[];
+  results?: CompetitionFixture[];
   videos?: TeamVideo[];
-  competitionId?: string;
+  standings?: {
+    played: number;
+    won: number;
+    drawn: number;
+    lost: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    points: number;
+  };
+  stats?: {
+    p: number;
+    w: number;
+    d: number;
+    l: number;
+    gs: number;
+    gc: number;
+    gd: number;
+    pts: number;
+    form: string;
+  };
+  region?: string;
 }
 
 export interface MatchEvent {
-    minute?: number; // Optional minute to support incidents with unknown time
-    type: 'goal' | 'yellow-card' | 'red-card' | 'substitution' | 'info' | 'match_status';
-    description: string;
-    playerName?: string;
-    playerID?: number;
-    teamName?: string;
-}
-
-export interface MatchLineup {
-    starters: number[]; // Player IDs
-    subs: number[]; // Player IDs
+  id?: string;
+  minute?: number;
+  type: 'goal' | 'yellow' | 'red' | 'substitute' | 'yellow-card' | 'red-card' | 'substitution' | 'info';
+  player?: string;
+  playerName?: string;
+  playerID?: string;
+  assist?: string;
+  teamId?: string;
+  teamName?: string;
+  description?: string;
 }
 
 export interface CompetitionFixture {
-    id: number | string;
-    matchday?: number;
-    date: string;
-    day: string;
-    fullDate?: string;
-    teamA: string;
-    teamB: string;
-    time: string;
-    status?: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled' | 'abandoned' | 'suspended';
-    scoreA?: number;
-    scoreB?: number;
-    scoreAPen?: number;
-    scoreBPen?: number;
-    liveMinute?: number;
-    venue?: string;
-    referee?: string;
-    teamAForm?: string; // e.g., "W D L W W"
-    teamBForm?: string;
-    competition?: string;
-    events?: MatchEvent[];
-    galleryImages?: string[];
-    lineups?: {
-        teamA?: MatchLineup;
-        teamB?: MatchLineup;
-    };
-    playerOfTheMatch?: {
-        name: string;
-        playerID?: number;
-        teamName: string;
-    };
-}
-  
-export interface Competition {
+  id: string;
+  date: string;
+  time: string;
+  venue: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
+  homeScore?: number;
+  awayScore?: number;
+  status: 'scheduled' | 'live' | 'finished' | 'postponed' | 'abandoned' | 'suspended' | 'cancelled';
+  events?: MatchEvent[];
+  competitionId?: string;
+  round?: string;
+  teamA?: string;
+  teamB?: string;
+  scoreA?: number;
+  scoreB?: number;
+  matchday?: number;
+  fullDate?: string;
+  liveMinute?: number;
+  playerOfTheMatch?: {
     name: string;
-    logoUrl?: string;
-    fixtures: CompetitionFixture[];
-    results: CompetitionFixture[];
-    teamIds?: number[]; 
-    teams?: Team[]; 
-    categoryId?: string;
-    externalApiId?: string;
-    displayName?: string;
-    description?: string;
-    region?: string;
+    teamName: string;
+    playerID?: string | number;
+  };
+  referee?: string;
+  lineups?: {
+    teamA?: { starters: string[], subs: string[] };
+    teamB?: { starters: string[], subs: string[] };
+    home?: any[];
+    away?: any[];
+  };
+  day?: string;
+  competition?: string;
+  galleryImages?: string[];
 }
+
+export interface Competition {
+  id: string;
+  name: string;
+  type: 'league' | 'cup' | 'tournament';
+  season: string;
+  teams: Team[];
+  fixtures: CompetitionFixture[];
+  results: CompetitionFixture[];
+  logoUrl?: string;
+  displayName?: string;
+  categoryId?: string;
+  externalApiId?: string;
+  region?: string;
+  competitionType?: 'league' | 'cup';
+}
+
+export interface LogEntry {
+  id: string;
+  date: string;
+  action: string;
+  user: string;
+  details: string;
+}
+
+export const teams: Team[] = [];
+export const competitions: Competition[] = [];

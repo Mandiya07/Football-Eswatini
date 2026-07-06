@@ -20,7 +20,7 @@ const RisingStars: React.FC<RisingStarsProps> = ({ players }) => {
         {players.map(player => (
           <Card key={player.id} className="bg-gradient-to-br from-white to-green-50 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 flex flex-col sm:flex-row group">
             <div className="sm:w-2/5 overflow-hidden">
-                <img src={player.photoUrl} alt={player.name} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                <img src={player.photoUrl || 'https://via.placeholder.com/300?text=Player'} alt={player.name} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
             </div>
             <div className="sm:w-3/5 p-5 flex flex-col">
                 <div>

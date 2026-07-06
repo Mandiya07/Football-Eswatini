@@ -184,7 +184,10 @@ const ApprovalQueue: React.FC = () => {
                                         <div className="flex items-center gap-2 mb-1">
                                             {req.requestType === 'manage' ? <ShieldCheckIcon className="w-5 h-5 text-blue-600"/> : <TrophyIcon className="w-5 h-5 text-green-600"/>}
                                             <span className="font-bold text-lg text-gray-900">{req.leagueName}</span>
-                                            {req.requestType === 'manage' && <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Manage Existing</span>}
+                                            <div className="flex gap-1">
+                                                {req.requestType === 'manage' && <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Manage Existing</span>}
+                                                {req.competitionType === 'tournament' && <span className="bg-purple-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">Tournament Bracket</span>}
+                                            </div>
                                         </div>
                                         <div className="text-sm text-gray-600 space-y-1">
                                             <p><span className="font-semibold">Region:</span> {req.region}</p>

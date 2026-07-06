@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import { Team } from '../../data/teams';
-import { fetchAllCompetitions, listenToCups, deleteCup, handleFirestoreError, fetchCategories, Category } from '../../services/api';
+import { fetchAllCompetitions, listenToCups, deleteCup, handleFirestoreError, fetchCategories, Category, OperationType } from '../../services/api';
 import { Tournament as DisplayTournament, CupHubSlot } from '../../data/cups';
 import Spinner from '../ui/Spinner';
 import { doc, setDoc } from 'firebase/firestore';
@@ -19,13 +19,14 @@ import CheckIcon from '../icons/CheckIcon';
 import GlobeIcon from '../icons/GlobeIcon';
 import ArrowRightIcon from '../icons/ArrowRightIcon';
 import ArrowLeftIcon from '../icons/ArrowLeftIcon';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 interface AdminBracketMatch {
   id: string;
   round: number;
   matchInRound: number;
-  team1Id: number | null;
-  team2Id: number | null;
+  team1Id: string | null;
+  team2Id: string | null;
   team1Name?: string;
   team2Name?: string;
   team1Crest?: string;
@@ -34,7 +35,7 @@ interface AdminBracketMatch {
   team2Mode?: 'id' | 'name';
   score1: string;
   score2: string;
-  winner: 'team1' | 'team2' | null; 
+  winner: string | null; 
   nextMatchId: string | null;
   date?: string;
   time?: string;
@@ -48,14 +49,14 @@ interface AdminTournament {
     logoUrl?: string;
     categoryId?: string;
     type?: 'bracket' | 'league';
-    hubSlot?: CupHubSlot;
+    hubSlot?: string;
     customCrests?: Record<string, string>;
 }
 
 const MatchCard: React.FC<{
   match: AdminBracketMatch;
   teams: Team[];
-  onTeamSelect: (matchId: string, teamSlot: 'team1' | 'team2', value: { id: number | null, name: string | undefined, mode: 'id' | 'name', crestUrl: string | undefined }) => void;
+  onTeamSelect: (matchId: string, teamSlot: 'team1' | 'team2', value: { id: string | null, name: string | undefined, mode: 'id' | 'name', crestUrl: string | undefined }) => void;
   onScoreChange: (matchId: string, scoreSlot: 'score1' | 'score2', value: string) => void;
   onDateTimeChange: (matchId: string, field: 'date' | 'time' | 'venue', value: string) => void;
   onDeclareWinner: (matchId: string) => void;
@@ -200,7 +201,7 @@ const TournamentBracket: React.FC = () => {
     const [numTeams, setNumTeams] = useState(8);
     const [tournamentName, setTournamentName] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
-    const [selectedHubSlot, setSelectedHubSlot] = useState<CupHubSlot | ''>('');
+    const [selectedHubSlot, setSelectedHubSlot] = useState<string>('');
     const [newTournamentLogo, setNewTournamentLogo] = useState('');
     const [tournamentType, setTournamentType] = useState<'bracket' | 'league'>('bracket');
     const [allTeams, setAllTeams] = useState<Team[]>([]); 
@@ -208,6 +209,8 @@ const TournamentBracket: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isRenaming, setIsRenaming] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [tournamentToDelete, setTournamentToDelete] = useState<string | null>(null);
     
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -299,8 +302,7 @@ const TournamentBracket: React.FC = () => {
             console.log("Tournament saved successfully (Deduplicated):", updated.id);
         } catch (err) {
             console.error("Save failed:", err);
-            alert(`CRITICAL ERROR: Failed to save tournament changes. This usually happens when the tournament is too large (over 1MB). I have implemented deduplication to help, but try using smaller images if this persists. \n\nError: ${err instanceof Error ? err.message : 'Unknown error'}`);
-            handleFirestoreError(err, 'update bracket in db');
+            handleFirestoreError(err, OperationType.UPDATE, `cups/${updated.id}`);
         } finally { 
             setSaving(false); 
         }
@@ -365,25 +367,25 @@ const TournamentBracket: React.FC = () => {
                     const mAny = m as any;
                     
                     // Robust extraction of team IDs (handling 0 as valid)
-                    let t1Id: number | null = null;
-                    if (m.team1?.id !== undefined && m.team1.id !== null) t1Id = m.team1.id;
-                    else if (mAny.team1Id !== undefined && mAny.team1Id !== null) t1Id = mAny.team1Id;
+                    let t1Id: string | null = null;
+                    if (m.team1?.id !== undefined && m.team1.id !== null) t1Id = String(m.team1.id);
+                    else if (mAny.team1Id !== undefined && mAny.team1Id !== null) t1Id = String(mAny.team1Id);
                     
-                    let t2Id: number | null = null;
-                    if (m.team2?.id !== undefined && m.team2.id !== null) t2Id = m.team2.id;
-                    else if (mAny.team2Id !== undefined && mAny.team2Id !== null) t2Id = mAny.team2Id;
+                    let t2Id: string | null = null;
+                    if (m.team2?.id !== undefined && m.team2.id !== null) t2Id = String(m.team2.id);
+                    else if (mAny.team2Id !== undefined && mAny.team2Id !== null) t2Id = String(mAny.team2Id);
 
                     // Robust extraction of team names (handling empty string as valid)
                     let t1Name = mAny.team1Name;
                     if (t1Name === undefined || t1Name === null) t1Name = m.team1?.name;
                     if ((t1Name === undefined || t1Name === null) && t1Id !== null) {
-                        t1Name = allTeams.find(at => at.id === t1Id)?.name;
+                        t1Name = allTeams.find(at => String(at.id) === t1Id)?.name;
                     }
                     
                     let t2Name = mAny.team2Name;
                     if (t2Name === undefined || t2Name === null) t2Name = m.team2?.name;
                     if ((t2Name === undefined || t2Name === null) && t2Id !== null) {
-                        t2Name = allTeams.find(at => at.id === t2Id)?.name;
+                        t2Name = allTeams.find(at => String(at.id) === t2Id)?.name;
                     }
 
                     // Hydrate crests from the deduplicated map if they aren't in the match
@@ -420,12 +422,21 @@ const TournamentBracket: React.FC = () => {
         setTournament(adminT);
     };
 
-    const handleDeleteTournament = async (id: string) => {
-        if (!window.confirm("Delete this tournament structure?")) return;
-        setDeletingId(id);
+    const handleDeleteTournament = (id: string) => {
+        setTournamentToDelete(id);
+        setShowConfirmModal(true);
+    };
+
+    const confirmDeleteTournament = async () => {
+        if (!tournamentToDelete) return;
+        setDeletingId(tournamentToDelete);
         try {
-            await deleteCup(id);
-            setExistingTournaments(prev => prev.filter(t => t.id !== id));
+            await deleteCup(tournamentToDelete);
+            setExistingTournaments(prev => prev.filter(t => t.id !== tournamentToDelete));
+            setShowConfirmModal(false);
+            setTournamentToDelete(null);
+        } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `cups/${tournamentToDelete}`);
         } finally {
             setDeletingId(null);
         }
@@ -491,7 +502,7 @@ const TournamentBracket: React.FC = () => {
 
     if (loading && existingTournaments.length === 0) return <div className="flex justify-center p-12"><Spinner /></div>;
 
-    const HUB_SLOTS: { value: CupHubSlot, label: string }[] = [
+    const HUB_SLOTS: { value: string, label: string }[] = [
         { value: 'national', label: 'Ingwenyama: National Finals' },
         { value: 'trade-fair', label: 'Cups Hub: Trade Fair Cup' },
         { value: 'hhohho', label: 'Ingwenyama: Hhohho Region' },
@@ -513,8 +524,8 @@ const TournamentBracket: React.FC = () => {
 
                             {existingTournaments.length > 0 && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {existingTournaments.map(t => (
-                                        <div key={t.id} className="p-4 bg-white border border-gray-100 rounded-xl flex items-center justify-between hover:shadow-md transition-shadow">
+                                    {existingTournaments.map((t, index) => (
+                                        <div key={`${t.id}-${index}`} className="p-4 bg-white border border-gray-100 rounded-xl flex items-center justify-between hover:shadow-md transition-shadow">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center p-1 border">
                                                     <img src={t.logoUrl || 'https://via.placeholder.com/64?text=Cup'} className="max-h-full max-w-full object-contain" alt="" />
@@ -550,7 +561,7 @@ const TournamentBracket: React.FC = () => {
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Hub Placement Slot</label>
-                                        <select value={selectedHubSlot} onChange={e => setSelectedHubSlot(e.target.value as any)} className="w-full p-2 border rounded-lg text-sm font-bold text-blue-700 bg-blue-50">
+                                        <select value={selectedHubSlot} onChange={e => setSelectedHubSlot(e.target.value)} className="w-full p-2 border rounded-lg text-sm font-bold text-blue-700 bg-blue-50">
                                             <option value="">-- No Slot (Independent) --</option>
                                             {HUB_SLOTS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                         </select>
@@ -697,6 +708,15 @@ const TournamentBracket: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
+            <ConfirmationModal
+                isOpen={showConfirmModal}
+                onClose={() => { setShowConfirmModal(false); setTournamentToDelete(null); }}
+                onConfirm={confirmDeleteTournament}
+                title="Delete Tournament"
+                message="Are you sure you want to delete this tournament structure and all its bracket data? This action cannot be undone."
+                confirmText={deletingId ? 'Deleting...' : 'Delete'}
+                variant="danger"
+            />
         </div>
     );
 };

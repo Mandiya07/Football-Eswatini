@@ -7,12 +7,13 @@ import { doc, setDoc, updateDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { CompetitionFixture } from '../../data/teams';
 import Spinner from '../ui/Spinner';
 // FIX: Import 'fetchCategories' which is now correctly exported from the API service.
-import { fetchCategories, Category, handleFirestoreError, fetchAllCompetitions } from '../../services/api';
+import { fetchCategories, Category, handleFirestoreError, fetchAllCompetitions, OperationType } from '../../services/api';
 
 const CreateEntities: React.FC = () => {
     const [leagueName, setLeagueName] = useState('');
     const [externalApiId, setExternalApiId] = useState('');
     const [seasonYear, setSeasonYear] = useState('');
+    const [competitionType, setCompetitionType] = useState<'league' | 'tournament'>('league');
     
     // Fixture Form State
     const [fixture, setFixture] = useState({ home: '', away: '', date: '' });
@@ -66,10 +67,12 @@ const CreateEntities: React.FC = () => {
                         fixtures: [],
                         results: [],
                         categoryId: data.categoryId,
+                        type: data.competitionType,
                         externalApiId: data.externalApiId || null,
                     });
                     setLeagueName('');
                     setExternalApiId('');
+                    setCompetitionType('league');
                     // Refresh competitions list
                     const updatedComps = await fetchAllCompetitions();
                     const compList = Object.entries(updatedComps).map(([id, c]) => ({ id, name: c.name }));
@@ -84,14 +87,15 @@ const CreateEntities: React.FC = () => {
                     const docRef = doc(db, 'competitions', targetCompetitionId);
                     const matchDate = new Date(data.date);
                     const newFixture: CompetitionFixture = {
-                        id: Date.now(),
+                        id: String(Date.now()),
                         teamA: data.home,
                         teamB: data.away,
                         fullDate: matchDate.toISOString().split('T')[0],
                         date: matchDate.getDate().toString(),
                         day: matchDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
                         time: matchDate.toTimeString().substring(0, 5),
-                        status: 'scheduled'
+                        status: 'scheduled',
+                        venue: 'TBD'
                     };
                     await updateDoc(docRef, {
                         fixtures: arrayUnion(newFixture)
@@ -106,7 +110,7 @@ const CreateEntities: React.FC = () => {
             }
             alert(`${type.charAt(0).toUpperCase() + type.slice(1)} created successfully!`);
         } catch (error) {
-            handleFirestoreError(error, `create ${type}`);
+            handleFirestoreError(error, OperationType.CREATE, `competitions/${type === 'fixture' ? targetCompetitionId : 'new'}`);
         } finally {
             setSubmitting(null);
         }
@@ -121,11 +125,18 @@ const CreateEntities: React.FC = () => {
                 <CardContent className="p-6">
                     <h3 className="text-2xl font-bold font-display mb-1">Create New League</h3>
                     <p className="text-sm text-gray-600 mb-4">Add a new competition to the system.</p>
-                    <form onSubmit={handleSubmit('league', { leagueName, externalApiId, categoryId: selectedCategory })} className="space-y-4">
+                    <form onSubmit={handleSubmit('league', { leagueName, externalApiId, categoryId: selectedCategory, competitionType })} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="leagueName" className={labelClass}>League Name</label>
+                                <label htmlFor="leagueName" className={labelClass}>Competition Name</label>
                                 <input type="text" id="leagueName" value={leagueName} onChange={e => setLeagueName(e.target.value)} required className={inputClass} placeholder="e.g., Women's Super League" />
+                            </div>
+                            <div>
+                                <label htmlFor="competitionType" className={labelClass}>Type</label>
+                                <select id="competitionType" value={competitionType} onChange={e => setCompetitionType(e.target.value as 'league' | 'tournament')} className={inputClass}>
+                                    <option value="league">League</option>
+                                    <option value="tournament">Tournament Bracket</option>
+                                </select>
                             </div>
                             <div>
                                 <label htmlFor="category" className={labelClass}>Category</label>
@@ -133,17 +144,14 @@ const CreateEntities: React.FC = () => {
                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
-                        </div>
-                        <div>
-                            <label htmlFor="externalApiId" className={labelClass}>External API ID (Optional)</label>
-                            <input type="text" id="externalApiId" value={externalApiId} onChange={e => setExternalApiId(e.target.value)} className={inputClass} placeholder="e.g., 2021 (football-data) or 4328 (thesportsdb)" />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Link competition data from external APIs (Football-Data.org or TheSportsDB) to enable automatic imports.
-                            </p>
+                            <div>
+                                <label htmlFor="externalApiId" className={labelClass}>External API ID (Optional)</label>
+                                <input type="text" id="externalApiId" value={externalApiId} onChange={e => setExternalApiId(e.target.value)} className={inputClass} placeholder="e.g., 2021 (football-data)" />
+                            </div>
                         </div>
                         <div className="text-right">
-                             <Button type="submit" className="bg-primary text-white hover:bg-primary-dark h-11 w-36 flex justify-center items-center" disabled={submitting === 'league'}>
-                                {submitting === 'league' ? <Spinner className="w-5 h-5 border-2" /> : 'Create League'}
+                             <Button type="submit" className="bg-primary text-white hover:bg-primary-dark h-11 w-48 flex justify-center items-center" disabled={submitting === 'league'}>
+                                {submitting === 'league' ? <Spinner className="w-5 h-5 border-2" /> : 'Create Competition'}
                             </Button>
                         </div>
                     </form>

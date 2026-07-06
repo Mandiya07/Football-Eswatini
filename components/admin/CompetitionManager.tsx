@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
-import { fetchAllCompetitions, handleFirestoreError, Competition } from '../../services/api';
+import ConfirmationModal from '../ui/ConfirmationModal';
+import { fetchAllCompetitions, handleFirestoreError, Competition, OperationType } from '../../services/api';
 import { db } from '../../services/firebase';
 import { doc, setDoc, deleteDoc, runTransaction } from 'firebase/firestore';
 import SearchIcon from '../icons/SearchIcon';
@@ -27,7 +28,8 @@ const CompetitionManager: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingComp, setEditingComp] = useState<CompetitionItem | null>(null);
-    const [processingId, setProcessingId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -39,7 +41,7 @@ const CompetitionManager: React.FC = () => {
             } as CompetitionItem));
             setCompetitions(list.sort((a, b) => a.name.localeCompare(b.name)));
         } catch (error) {
-            console.error("Failed to load competitions", error);
+            handleFirestoreError(error, OperationType.GET, 'competitions');
         } finally {
             setLoading(false);
         }
@@ -66,18 +68,17 @@ const CompetitionManager: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm("Delete this competition? This will remove all associated teams, fixtures, and results. This action is irreversible.")) return;
-        
-        setProcessingId(id);
+    const handleDelete = async () => {
+        if (!confirmDeleteId) return;
+        setIsDeleting(true);
         try {
-            await deleteDoc(doc(db, 'competitions', id));
-            setCompetitions(prev => prev.filter(c => c.id !== id));
-            alert("Competition deleted successfully.");
+            await deleteDoc(doc(db, 'competitions', confirmDeleteId));
+            setCompetitions(prev => prev.filter(c => c.id !== confirmDeleteId));
+            setConfirmDeleteId(null);
         } catch (error) {
-            handleFirestoreError(error, 'delete competition');
+            handleFirestoreError(error, OperationType.DELETE, `competitions/${confirmDeleteId}`);
         } finally {
-            setProcessingId(null);
+            setIsDeleting(false);
         }
     };
 
@@ -89,7 +90,7 @@ const CompetitionManager: React.FC = () => {
             setIsModalOpen(false);
             await loadData();
         } catch (error) {
-            handleFirestoreError(error, 'save competition');
+            handleFirestoreError(error, OperationType.UPDATE, `competitions/${id}`);
         } finally {
             setLoading(false);
         }
@@ -162,12 +163,12 @@ const CompetitionManager: React.FC = () => {
                                                 <PencilIcon className="w-4 h-4" />
                                             </button>
                                             <button 
-                                                onClick={() => handleDelete(comp.id)}
-                                                disabled={processingId === comp.id}
+                                                onClick={() => setConfirmDeleteId(comp.id)}
+                                                disabled={isDeleting && confirmDeleteId === comp.id}
                                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                 title="Delete Competition"
                                             >
-                                                {processingId === comp.id ? <Spinner className="w-4 h-4 border-2 border-red-600"/> : <TrashIcon className="w-4 h-4" />}
+                                                {isDeleting && confirmDeleteId === comp.id ? <Spinner className="w-4 h-4 border-2 border-red-600"/> : <TrashIcon className="w-4 h-4" />}
                                             </button>
                                         </div>
                                     </div>
@@ -182,6 +183,16 @@ const CompetitionManager: React.FC = () => {
                 </CardContent>
             </Card>
 
+            <ConfirmationModal 
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDelete}
+                title="Delete Competition"
+                message="Are you sure you want to delete this competition? This will remove all associated teams, fixtures, and results. This action is irreversible."
+                confirmText="Delete"
+                variant="danger"
+            />
+
             {isModalOpen && (
                 <CompetitionFormModal
                     isOpen={isModalOpen}
@@ -191,8 +202,10 @@ const CompetitionManager: React.FC = () => {
                         id: editingComp.id,
                         name: editingComp.name,
                         logoUrl: editingComp.logoUrl,
-                        externalApiId: editingComp.externalApiId
-                    } : { id: '', name: '' }}
+                        externalApiId: editingComp.externalApiId,
+                        type: editingComp.type as 'league' | 'tournament',
+                        categoryId: editingComp.categoryId
+                    } : { id: '', name: '', type: 'league', categoryId: '' }}
                 />
             )}
         </div>

@@ -8,10 +8,11 @@ import FilmIcon from '../icons/FilmIcon';
 import TrashIcon from '../icons/TrashIcon';
 import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { fetchCompetition, handleFirestoreError } from '../../services/api';
+import { fetchCompetition, handleFirestoreError, OperationType } from '../../services/api';
 import { removeUndefinedProps } from '../../services/utils';
 import { Competition, TeamVideo } from '../../data/teams';
 import VideoPlayer from '../VideoPlayer';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [videos, setVideos] = useState<TeamVideo[]>([]);
@@ -22,6 +23,8 @@ const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
+    const [videoToDelete, setVideoToDelete] = useState<string | null>(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     const COMPETITION_ID = 'mtn-premier-league';
 
@@ -95,14 +98,13 @@ const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
             setTimeout(() => setSuccessMessage(''), 3000);
 
         } catch (error) {
-            handleFirestoreError(error, 'add video');
+            handleFirestoreError(error, OperationType.UPDATE, 'competitions');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDelete = async (videoId: string) => {
-        if (!window.confirm("Are you sure you want to remove this video?")) return;
         setIsSubmitting(true);
 
         const updatedVideos = videos.filter(v => v.id !== videoId);
@@ -125,9 +127,11 @@ const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
             });
             setVideos(updatedVideos);
         } catch (error) {
-            handleFirestoreError(error, 'delete video');
+            handleFirestoreError(error, OperationType.UPDATE, 'competitions');
         } finally {
             setIsSubmitting(false);
+            setVideoToDelete(null);
+            setShowConfirmModal(false);
         }
     };
 
@@ -213,7 +217,7 @@ const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
                                         <p className="text-xs text-gray-500 mt-1">{video.date}</p>
                                     </div>
                                     <button 
-                                        onClick={() => handleDelete(video.id)}
+                                        onClick={() => { setVideoToDelete(video.id); setShowConfirmModal(true); }}
                                         className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors"
                                         title="Delete Video"
                                     >
@@ -227,6 +231,15 @@ const ClubVideoManagement: React.FC<{ clubName: string }> = ({ clubName }) => {
                     <p className="text-center text-gray-500 py-8 italic">No videos added yet.</p>
                 )}
             </CardContent>
+            <ConfirmationModal
+                isOpen={showConfirmModal}
+                onClose={() => { setShowConfirmModal(false); setVideoToDelete(null); }}
+                onConfirm={() => videoToDelete && handleDelete(videoToDelete)}
+                title="Remove Video"
+                message="Are you sure you want to remove this video from your club profile?"
+                confirmText={isSubmitting ? 'Removing...' : 'Remove'}
+                variant="danger"
+            />
         </Card>
     );
 };

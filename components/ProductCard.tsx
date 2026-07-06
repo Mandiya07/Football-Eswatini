@@ -34,7 +34,7 @@ const ProductCard: React.FC<ProductCardProps> = React.memo(({ product, onAddToCa
           </div>
       )}
       <div className="relative bg-gray-100 overflow-hidden p-4">
-        <img src={product.imageUrl} alt={product.name} loading="lazy" className="w-full h-48 object-contain group-hover:scale-105 transition-transform duration-300" />
+        <img src={product.imageUrl || 'https://via.placeholder.com/300?text=Product'} alt={product.name} loading="lazy" className="w-full h-48 object-contain group-hover:scale-105 transition-transform duration-300" />
       </div>
       <CardContent className="flex flex-col flex-grow p-4">
         <div className="flex-grow">

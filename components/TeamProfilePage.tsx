@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Team, Player, Competition, CompetitionFixture, TeamVideo } from '../data/teams';
-import { fetchCompetition, handleFirestoreError, fetchDirectoryEntries, fetchStandaloneMatches, fetchAllCompetitions, fetchTeamByIdGlobally } from '../services/api';
+import { fetchCompetition, handleFirestoreError, fetchDirectoryEntries, fetchStandaloneMatches, fetchTeamByIdGlobally } from '../services/api';
 import { DirectoryEntity } from '../data/directory';
 import { Card, CardContent } from './ui/Card';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
@@ -14,7 +14,7 @@ import CheckCircleIcon from './icons/CheckCircleIcon';
 import Spinner from './ui/Spinner';
 import FormGuide from './ui/FormGuide';
 import { useAuth } from '../contexts/AuthContext';
-import { removeUndefinedProps, findInMap, reconcilePlayers, superNormalize, calculateStandings } from '../services/utils';
+import { removeUndefinedProps, findInMap, reconcilePlayers, superNormalize, calculateStandings, getCompCategory } from '../services/utils';
 import FacebookIcon from './icons/FacebookIcon';
 import InstagramIcon from './icons/InstagramIcon';
 import YouTubeIcon from './icons/YouTubeIcon';
@@ -25,6 +25,7 @@ import VideoPlayer from './VideoPlayer';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import Button from './ui/Button';
 import { FixtureItem } from './Fixtures';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const HERO_IMAGES = [
     "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2000&auto=format&fit=crop", // Stadium
@@ -38,6 +39,7 @@ const HERO_IMAGES = [
 ];
 
 const TeamProfilePage: React.FC = () => {
+  const { competitions: allCompetitionsData } = useDataCache();
   const { competitionId, teamId } = useParams<{ competitionId: string, teamId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
@@ -47,7 +49,6 @@ const TeamProfilePage: React.FC = () => {
   const [teamResults, setTeamResults] = useState<CompetitionFixture[]>([]);
   const [loading, setLoading] = useState(true);
   const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
-  const [allComps, setAllComps] = useState<Record<string, Competition>>({});
   const [currentCompTeams, setCurrentCompTeams] = useState<Team[]>([]);
   const [expandedMatchId, setExpandedMatchId] = useState<string | number | null>(null);
   
@@ -69,11 +70,9 @@ const TeamProfilePage: React.FC = () => {
       }
       setLoading(true);
       
-      const [directoryEntries, allCompetitionsData] = await Promise.all([
-          fetchDirectoryEntries(),
-          fetchAllCompetitions()
+      const [directoryEntries] = await Promise.all([
+          fetchDirectoryEntries()
       ]);
-      setAllComps(allCompetitionsData);
 
       // Search for the team identity
       let teamMatch: Team | null = null;
@@ -122,12 +121,16 @@ const TeamProfilePage: React.FC = () => {
           const normName = superNormalize(teamMatch.name);
 
           // AGGREGATE ALL MATCHES IN SYSTEM
+          const resolvedCategory = resolvedCompId ? getCompCategory(resolvedCompId, allCompetitionsData[resolvedCompId]?.name) : 'senior';
           const masterMatchList: CompetitionFixture[] = [];
-          Object.values(allCompetitionsData).forEach(hub => {
-              const hubMatches = [...(hub.fixtures || []), ...(hub.results || [])].filter(m => 
-                  superNormalize(m.teamA) === normName || superNormalize(m.teamB) === normName
-              );
-              masterMatchList.push(...hubMatches);
+          Object.entries(allCompetitionsData).forEach(([hubId, hub]) => {
+              const hubCategory = getCompCategory(hubId, hub.name);
+              if (hubCategory === resolvedCategory) {
+                  const hubMatches = [...(hub.fixtures || []), ...(hub.results || [])].filter(m => 
+                      superNormalize(m.teamA) === normName || superNormalize(m.teamB) === normName
+                  );
+                  masterMatchList.push(...hubMatches);
+              }
           });
 
           const standalone = await fetchStandaloneMatches(teamMatch.name);
@@ -177,8 +180,8 @@ const TeamProfilePage: React.FC = () => {
     switch(activeTab) {
         case 'overview': return <OverviewTab team={team} primaryColor={team?.branding?.primaryColor} welcomeMessage={team?.branding?.welcomeMessage} />;
         case 'squad': return <SquadTab players={team?.players || []} />;
-        case 'fixtures': return <MatchTab matches={teamFixtures} teams={currentCompTeams} directoryMap={directoryMap} competitionId={activeCompId || ''} expandedId={expandedMatchId} setExpandedId={setExpandedMatchId} />;
-        case 'results': return <MatchTab matches={teamResults} teams={currentCompTeams} directoryMap={directoryMap} competitionId={activeCompId || ''} expandedId={expandedMatchId} setExpandedId={setExpandedMatchId} />;
+        case 'fixtures': return <MatchTab matches={teamFixtures} teams={currentCompTeams} directoryMap={directoryMap} competitionId={activeCompId || ''} expandedId={expandedMatchId} setExpandedId={setExpandedMatchId} currentTeamName={team.name} />;
+        case 'results': return <MatchTab matches={teamResults} teams={currentCompTeams} directoryMap={directoryMap} competitionId={activeCompId || ''} expandedId={expandedMatchId} setExpandedId={setExpandedMatchId} currentTeamName={team.name} />;
         case 'videos': return <VideosTab videos={team?.videos} />;
         default: return null;
     }
@@ -196,16 +199,16 @@ const TeamProfilePage: React.FC = () => {
     <div className="py-12" style={team.branding ? { backgroundColor: `${team.branding.primaryColor}08` } : {}}>
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-            <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors">
+            <Link to="/competitions" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors">
                 <ArrowLeftIcon className="w-4 h-4" /> Back
-            </button>
+            </Link>
         </div>
 
         <Card className="shadow-lg animate-fade-in overflow-hidden" style={team.branding ? { borderTop: `4px solid ${team.branding.secondaryColor}` } : {}}>
             <header className="bg-cover bg-center p-8 relative min-h-[350px] flex items-end transition-all" style={{ backgroundImage: `url('${bannerImg}')` }}>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent"></div>
                 <div className="relative z-10 flex flex-col sm:flex-row items-end sm:items-center gap-6 w-full">
-                    <img src={findInMap(team.name, directoryMap)?.crestUrl || team.crestUrl} alt="" className="w-24 h-24 sm:w-32 sm:h-32 object-contain bg-white rounded-full p-2 border-4 border-white shadow-lg" />
+                    <img src={findInMap(team.name, directoryMap)?.crestUrl || team.crestUrl || 'https://via.placeholder.com/150?text=Team'} alt="" className="w-24 h-24 sm:w-32 sm:h-32 object-contain bg-white rounded-full p-2 border-4 border-white shadow-lg" />
                     <div className="mb-2 flex-grow">
                         <h1 className="text-3xl sm:text-5xl font-display font-extrabold text-white tracking-tight" style={{textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>{team.name}</h1>
                         <div className="flex flex-wrap items-center gap-6 mt-4">
@@ -218,7 +221,7 @@ const TeamProfilePage: React.FC = () => {
                                 </div>
                             )}
                             
-                            <Link to="/partnerships" className="ml-0 sm:ml-2">
+                            <Link to="/club-management" className="ml-0 sm:ml-2">
                                 <Button variant="accent" className="h-10 px-6 rounded-xl shadow-2xl flex items-center gap-2 group transition-all">
                                     <BriefcaseIcon className="w-4 h-4 text-white group-hover:scale-110 transition-transform" />
                                     Manage Team
@@ -279,8 +282,8 @@ const SquadTab: React.FC<{players: Player[]}> = ({players}) => (
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex justify-between items-end">
                         <p className="text-white font-black text-xl leading-none">#{player.number}</p>
                         <div className="flex flex-col gap-1 items-end">
-                            {player.stats.goals > 0 && <div className="flex items-center gap-1 bg-green-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">⚽ {player.stats.goals}</div>}
-                            {(player.stats.yellowCards || 0) > 0 && <div className="flex items-center gap-1 bg-yellow-400 text-yellow-900 text-[8px] font-black px-1.5 py-0.5 rounded shadow-sm border border-yellow-500">🟨 {player.stats.yellowCards}</div>}
+                            {(player.stats?.goals || 0) > 0 && <div className="flex items-center gap-1 bg-green-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">⚽ {player.stats?.goals}</div>}
+                            {(player.stats?.yellowCards || 0) > 0 && <div className="flex items-center gap-1 bg-yellow-400 text-yellow-900 text-[8px] font-black px-1.5 py-0.5 rounded shadow-sm border border-yellow-500">🟨 {player.stats?.yellowCards}</div>}
                         </div>
                     </div>
                 </div>
@@ -291,7 +294,7 @@ const SquadTab: React.FC<{players: Player[]}> = ({players}) => (
     </div>
 );
 
-const MatchTab: React.FC<{ matches: CompetitionFixture[], teams: Team[], directoryMap: Map<string, any>, competitionId: string, expandedId: any, setExpandedId: any }> = ({ matches, teams, directoryMap, competitionId, expandedId, setExpandedId }) => (
+const MatchTab: React.FC<{ matches: CompetitionFixture[], teams: Team[], directoryMap: Map<string, any>, competitionId: string, expandedId: any, setExpandedId: any, currentTeamName: string }> = ({ matches, teams, directoryMap, competitionId, expandedId, setExpandedId, currentTeamName }) => (
     <div className="space-y-4">
         {matches.length > 0 ? matches.map(m => (
             <Card key={m.id} className="overflow-hidden border border-gray-100 shadow-sm">
@@ -304,6 +307,7 @@ const MatchTab: React.FC<{ matches: CompetitionFixture[], teams: Team[], directo
                     isDeleting={false} 
                     directoryMap={directoryMap} 
                     competitionId={competitionId} 
+                    currentTeamName={currentTeamName}
                 />
             </Card>
         )) : <p className="text-center py-10 text-gray-400 italic">No matches found in this category.</p>}

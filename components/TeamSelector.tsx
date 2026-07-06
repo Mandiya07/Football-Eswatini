@@ -6,8 +6,8 @@ import SearchIcon from './icons/SearchIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 
 interface TeamSelectorProps {
-  selectedTeamIds: number[];
-  onSelectionChange: (ids: number[]) => void;
+  selectedTeamIds: string[];
+  onSelectionChange: (ids: string[]) => void;
 }
 
 const TeamSelector: React.FC<TeamSelectorProps> = ({ selectedTeamIds, onSelectionChange }) => {
@@ -30,7 +30,7 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({ selectedTeamIds, onSelectio
     );
   }, [allTeams, searchTerm]);
 
-  const handleToggle = (teamId: number) => {
+  const handleToggle = (teamId: string) => {
     const newSelection = selectedTeamIds.includes(teamId)
       ? selectedTeamIds.filter(id => id !== teamId)
       : [...selectedTeamIds, teamId];
@@ -68,7 +68,7 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({ selectedTeamIds, onSelectio
                   : 'bg-white hover:bg-gray-50 border-gray-200'
               }`}
             >
-              <img src={team.crestUrl} alt={team.name} className="w-8 h-8 rounded-full object-contain" />
+              <img src={team.crestUrl} alt={team.name} referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-contain" />
               <span className="font-semibold text-sm flex-grow">{team.name}</span>
               {isSelected && <CheckCircleIcon className="w-6 h-6 text-blue-600 flex-shrink-0" />}
             </button>

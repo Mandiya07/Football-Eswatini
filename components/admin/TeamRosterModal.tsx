@@ -14,8 +14,10 @@ import { db } from '../../services/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
 import { removeUndefinedProps, superNormalize } from '../../services/utils';
 import Spinner from '../ui/Spinner';
-import { handleFirestoreError } from '../../services/api';
+import { handleFirestoreError, transferPlayer } from '../../services/api';
 import InfoIcon from '../icons/InfoIcon';
+import ShareIcon from '../icons/ShareIcon';
+import { useDataCache } from '../../contexts/DataCacheContext';
 
 interface TeamRosterModalProps {
     isOpen: boolean;
@@ -27,11 +29,15 @@ interface TeamRosterModalProps {
 }
 
 const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSave, team, competitionId, initialPlayer }) => {
+    const { competitions: allCompsCache } = useDataCache();
     const [players, setPlayers] = useState<Player[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [activeTab, setActiveTab] = useState<'basic' | 'technical' | 'history'>('basic');
+    const [activeTab, setActiveTab] = useState<'basic' | 'technical' | 'history' | 'transfer'>('basic');
     
-    const [editingId, setEditingId] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [allCompetitions, setAllCompetitions] = useState<Record<string, Competition>>({});
+    const [destCompId, setDestCompId] = useState(competitionId);
+    const [destTeamId, setDestTeamId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '', position: 'Forward', number: '', photoUrl: '',
         age: '', nationality: '', height: '',
@@ -60,9 +66,9 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             position: player.position || 'Forward',
             number: player.number === 0 ? '' : String(player.number), 
             photoUrl: player.photoUrl || '',
-            age: String(player.bio?.age || ''),
-            nationality: player.bio?.nationality || '',
-            height: player.bio?.height || '',
+            age: String(player.age || ''),
+            nationality: player.nationality || '',
+            height: player.height || '',
             appearances: String(source.appearances || 0),
             goals: String(source.goals || 0),
             assists: String(source.assists || 0),
@@ -71,7 +77,15 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             redCards: String(source.redCards || 0),
             potmWins: String(source.potmWins || 0)
         });
-        setTransferHistory(player.transferHistory || []);
+        
+        // Map the existing transferHistory to the modal's state type
+        const history = (player.transferHistory || []).map(th => ({
+            from: th.from,
+            to: th.to,
+            year: th.year ? parseInt(th.year) : parseInt(th.date.split('-')[0]) || new Date().getFullYear(),
+        }));
+        
+        setTransferHistory(history);
         setActiveTab('basic');
     }, []);
 
@@ -97,8 +111,11 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
             } else {
                 resetForm();
             }
+            
+            // Use cached competitions for transfer dropdown
+            setAllCompetitions(allCompsCache);
         }
-    }, [team, initialPlayer, isOpen, startEditing, resetForm]);
+    }, [team, initialPlayer, isOpen, startEditing, resetForm, allCompsCache]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -158,21 +175,51 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
         };
 
         const playerToSave: Player = {
-            id: editingId || Date.now(),
+            id: editingId || String(Date.now()),
             name: formData.name.trim(),
             position: formData.position as any,
             number: parseInt(formData.number, 10) || 0,
             photoUrl: formData.photoUrl,
-            bio: { nationality: formData.nationality || 'Eswatini', age: parseInt(formData.age, 10) || 0, height: formData.height || '-' },
+            age: parseInt(formData.age, 10) || 0,
+            nationality: formData.nationality || 'Eswatini',
+            height: formData.height || '-',
             baseStats: manualBaseline,
             stats: manualBaseline, // Initial total, will be reconciled on next load
-            transferHistory: transferHistory,
+            transferHistory: transferHistory.map(th => ({
+                from: th.from,
+                to: th.to,
+                year: String(th.year),
+                date: `${th.year}-01-01`,
+                type: 'permanent',
+            })),
+            club: team.name // Ensure club is set
         };
         
         let updated: Player[] = editingId ? players.map(p => p.id === editingId ? playerToSave : p) : [...players, playerToSave];
         await updateFirestore(updated.sort((a,b) => a.number - b.number));
         resetForm();
         onClose();
+    };
+
+    const handleTransfer = async () => {
+        if (!editingId || !destTeamId) return;
+        if (destCompId === competitionId && destTeamId === team.id) {
+            alert("Cannot transfer to the same team.");
+            return;
+        }
+
+        if (!window.confirm("Are you sure you want to transfer this player? This will move them to the new team and update their history.")) return;
+
+        setIsSubmitting(true);
+        try {
+            await transferPlayer(editingId, team.id, competitionId, destTeamId, destCompId);
+            onSave();
+            onClose();
+        } catch (error) {
+            console.error("Transfer failed", error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -216,9 +263,9 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
                         {/* Form */}
                         <div className="lg:w-2/3 order-1 lg:order-2">
                             <form onSubmit={handleSavePlayer} className="space-y-8">
-                                <div className="flex p-1 bg-slate-100 rounded-2xl w-fit">
-                                    {(['basic', 'technical', 'history'] as const).map(tab => (
-                                        <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500'}`}>{tab}</button>
+                                <div className="flex p-1 bg-slate-100 rounded-2xl w-fit overflow-x-auto max-w-full">
+                                    {(['basic', 'technical', 'history', 'transfer'] as const).map(tab => (
+                                        <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-white text-primary shadow-sm' : 'text-slate-500'}`}>{tab}</button>
                                     ))}
                                 </div>
 
@@ -331,6 +378,73 @@ const TeamRosterModal: React.FC<TeamRosterModalProps> = ({ isOpen, onClose, onSa
                                                     </div>
                                                 ))}
                                             </div>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'transfer' && (
+                                        <div className="space-y-8 animate-fade-in">
+                                            <div className="bg-purple-50 p-6 rounded-3xl border border-purple-100 flex items-start gap-4">
+                                                <ShareIcon className="w-6 h-6 text-purple-600 mt-1" />
+                                                <div>
+                                                    <p className="text-sm text-purple-800 font-bold uppercase tracking-tight">Transfer Marketplace</p>
+                                                    <p className="text-xs text-purple-700 leading-relaxed mt-1">Move this player to another team. This operation is atomic and will update the player's history automatically across competitions.</p>
+                                                </div>
+                                            </div>
+
+                                            {!editingId ? (
+                                                <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-3xl">
+                                                    <p className="text-slate-400 text-sm italic">Select a player from the squad list to begin a transfer.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-6">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Destination Competition</label>
+                                                            <select 
+                                                                value={destCompId} 
+                                                                onChange={e => {
+                                                                    setDestCompId(e.target.value);
+                                                                    setDestTeamId(null);
+                                                                }} 
+                                                                className={inputClass}
+                                                            >
+                                                                {Object.entries(allCompetitions).map(([id, comp]) => (
+                                                                    <option key={id} value={id}>{comp.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Destination Team</label>
+                                                            <select 
+                                                                value={destTeamId || ''} 
+                                                                onChange={e => setDestTeamId(e.target.value)} 
+                                                                className={inputClass}
+                                                                required
+                                                            >
+                                                                <option value="" disabled>Select Team</option>
+                                                                {(allCompetitions[destCompId]?.teams || [])
+                                                                    .filter(t => t.id !== team.id || destCompId !== competitionId)
+                                                                    .sort((a, b) => a.name.localeCompare(b.name))
+                                                                    .map(t => (
+                                                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                                                    ))
+                                                                }
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="pt-6">
+                                                        <Button 
+                                                            type="button" 
+                                                            onClick={handleTransfer} 
+                                                            disabled={isSubmitting || !destTeamId}
+                                                            className="w-full bg-purple-600 text-white h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-purple-700"
+                                                        >
+                                                            {isSubmitting ? <Spinner className="w-5 h-5 border-white" /> : 'Execute Atomic Transfer'}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

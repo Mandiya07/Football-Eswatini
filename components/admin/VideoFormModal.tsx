@@ -12,14 +12,22 @@ interface VideoFormModalProps {
 }
 
 const VideoFormModal: React.FC<VideoFormModalProps> = ({ isOpen, onClose, onSave, video }) => {
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        title: string;
+        description: string;
+        thumbnailUrl?: string;
+        videoUrl: string;
+        duration: string;
+        date: string;
+        category: string;
+    }>({
         title: '', 
         description: '', 
         thumbnailUrl: '', 
         videoUrl: '',
         duration: '', 
         date: new Date().toISOString().split('T')[0],
-        category: 'highlight' as Video['category']
+        category: 'highlight'
     });
 
     useEffect(() => {

@@ -5,6 +5,7 @@ import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import XIcon from '../icons/XIcon';
 import { Region } from '../../data/directory';
+import { makePlain, safeJSONStringify } from '../../services/utils';
 
 interface ScoutingFormModalProps {
     isOpen: boolean;
@@ -25,22 +26,30 @@ const ScoutingFormModal: React.FC<ScoutingFormModalProps> = ({ isOpen, onClose, 
     useEffect(() => {
         if (player) {
             const plainStats = player.stats.map(stat => ({ label: stat.label, value: stat.value }));
+            console.log("plainStats:", plainStats);
 
             setFormData({
                 name: player.name,
                 age: player.age,
-                position: player.position,
-                region: player.region,
+                position: player.position as PlayerPosition,
+                region: player.region as Region,
                 photoUrl: player.photoUrl,
                 videoUrl: player.videoUrl || '',
                 strengths: player.strengths.join(', '),
                 bio: player.bio,
-                stats: JSON.stringify(plainStats, null, 2),
+                stats: (() => {
+                    try {
+                        return safeJSONStringify(plainStats, null, 2);
+                    } catch (e) {
+                        console.error("Error stringifying player stats:", e);
+                        return "[]";
+                    }
+                })(),
                 contactEmail: player.contactEmail
             });
         } else {
             setFormData({
-                name: '', age: 16, position: 'Forward', region: 'Hhohho', photoUrl: '', videoUrl: '',
+                name: '', age: 16, position: 'Forward' as PlayerPosition, region: 'Hhohho' as Region, photoUrl: '', videoUrl: '',
                 strengths: '', bio: '', stats: '[\n  {\n    "label": "Goals",\n    "value": 0\n  }\n]', contactEmail: ''
             });
         }

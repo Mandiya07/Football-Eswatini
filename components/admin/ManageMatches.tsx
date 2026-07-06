@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
+import { fetchCompetition, handleFirestoreError, OperationType } from '../../services/api';
 import { Competition, CompetitionFixture, Team, Player } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -12,49 +12,64 @@ import { doc, runTransaction } from 'firebase/firestore';
 import { calculateStandings, removeUndefinedProps } from '../../services/utils';
 import EditMatchModal from './EditMatchModal';
 import { useAuth } from '../../contexts/AuthContext';
+import ConfirmationModal from '../ui/ConfirmationModal';
+import { useDataCache } from '../../contexts/DataCacheContext';
 
 const ManageMatches: React.FC = () => {
+    const { competitions: allCompsCache } = useDataCache();
     const { user } = useAuth();
     const [competitions, setCompetitions] = useState<{ id: string, name: string }[]>([]);
     const [selectedComp, setSelectedComp] = useState('mtn-premier-league'); 
     const [data, setData] = useState<Competition | null>(null);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<number | string | null>(null);
+    const [confirmDeleteMatch, setConfirmDeleteMatch] = useState<CompetitionFixture | null>(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingMatch, setEditingMatch] = useState<CompetitionFixture | null>(null);
     const [savingId, setSavingId] = useState<number | string | null>(null);
 
     useEffect(() => {
-        const loadCompetitions = async () => {
-            const allComps = await fetchAllCompetitions();
-            const list = Object.entries(allComps)
-                .filter(([_, c]) => c && c.name)
-                .map(([id, c]) => ({ id, name: c.name }));
-            setCompetitions(list.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-            
-            if (!list.find(c => c.id === selectedComp) && list.length > 0) {
-                setSelectedComp(list[0].id);
-            }
-        };
-        loadCompetitions();
-    }, []);
+        const list = Object.entries(allCompsCache)
+            .filter(([_, c]) => c && c.name)
+            .map(([id, c]) => ({ id, name: c.name }));
+        setCompetitions(list.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        
+        if (!list.find(c => c.id === selectedComp) && list.length > 0) {
+            setSelectedComp(list[0].id);
+        }
+    }, [allCompsCache]);
 
     const loadMatchData = async () => {
         if (!selectedComp) return;
+        
+        // Use cache first
+        if (allCompsCache[selectedComp]) {
+          setData(allCompsCache[selectedComp]);
+          setLoading(false);
+          return;
+        }
+
         setLoading(true);
-        const compData = await fetchCompetition(selectedComp);
-        setData(compData || null);
-        setLoading(false);
+        try {
+            const compData = await fetchCompetition(selectedComp);
+            setData(compData || null);
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, `competitions/${selectedComp}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
         loadMatchData();
-    }, [selectedComp]);
+    }, [selectedComp, allCompsCache]);
 
     const handleDelete = async (match: CompetitionFixture) => {
-        if (!window.confirm(`Delete ${match.teamA} vs ${match.teamB}?`)) return;
         setDeletingId(match.id);
+        setIsSubmitting(true);
         
         try {
             const docRef = doc(db, 'competitions', selectedComp);
@@ -75,17 +90,20 @@ const ManageMatches: React.FC = () => {
                     teams: updatedTeams
                 }));
             });
+            setConfirmDeleteMatch(null);
             loadMatchData();
         } catch (error: any) {
-            handleFirestoreError(error, 'delete match');
+            handleFirestoreError(error, OperationType.DELETE, `competitions/${selectedComp}/matches/${match.id}`);
         } finally {
             setDeletingId(null);
+            setIsSubmitting(false);
         }
     };
 
     const handleSaveMatch = async (updatedMatch: CompetitionFixture) => {
         setSavingId(updatedMatch.id);
         setIsEditModalOpen(false);
+        setIsSubmitting(true);
         try {
             const docRef = doc(db, 'competitions', selectedComp);
             await runTransaction(db, async (transaction) => {
@@ -103,10 +121,11 @@ const ManageMatches: React.FC = () => {
                 transaction.update(docRef, removeUndefinedProps({ fixtures: newFixtures, results: newResults, teams: finalTeams }));
             });
             loadMatchData();
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            handleFirestoreError(error, OperationType.UPDATE, `competitions/${selectedComp}/matches/${updatedMatch.id}`);
         } finally {
             setSavingId(null);
+            setIsSubmitting(false);
         }
     };
 
@@ -135,7 +154,7 @@ const ManageMatches: React.FC = () => {
                                             <span className="text-sm font-semibold">{match.teamA} vs {match.teamB}</span>
                                             <div className="flex gap-2">
                                                 <button onClick={() => { setEditingMatch(match); setIsEditModalOpen(true); }} className="p-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors"><PencilIcon className="w-4 h-4 text-white"/></button>
-                                                <button onClick={() => handleDelete(match)} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors"><TrashIcon className="w-4 h-4 text-white"/></button>
+                                                <button onClick={() => { setConfirmDeleteMatch(match); setShowConfirmModal(true); }} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors"><TrashIcon className="w-4 h-4 text-white"/></button>
                                             </div>
                                         </div>
                                     ))}
@@ -149,7 +168,7 @@ const ManageMatches: React.FC = () => {
                                             <span className="text-sm font-semibold">{match.teamA} {match.scoreA}-{match.scoreB} {match.teamB}</span>
                                             <div className="flex gap-2">
                                                 <button onClick={() => { setEditingMatch(match); setIsEditModalOpen(true); }} className="p-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors"><PencilIcon className="w-4 h-4 text-white"/></button>
-                                                <button onClick={() => handleDelete(match)} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors"><TrashIcon className="w-4 h-4 text-white"/></button>
+                                                <button onClick={() => { setConfirmDeleteMatch(match); setShowConfirmModal(true); }} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors"><TrashIcon className="w-4 h-4 text-white"/></button>
                                             </div>
                                         </div>
                                     ))}
@@ -159,6 +178,19 @@ const ManageMatches: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
+
+            {showConfirmModal && confirmDeleteMatch && (
+                <ConfirmationModal
+                    isOpen={showConfirmModal}
+                    onClose={() => { setShowConfirmModal(false); setConfirmDeleteMatch(null); }}
+                    onConfirm={() => handleDelete(confirmDeleteMatch)}
+                    title="Delete Match"
+                    message={`Are you sure you want to delete the match between ${confirmDeleteMatch.teamA} and ${confirmDeleteMatch.teamB}? This action cannot be undone.`}
+                    confirmText={isSubmitting ? 'Deleting...' : 'Delete'}
+                    variant="danger"
+                />
+            )}
+
             {isEditModalOpen && editingMatch && (
                 <EditMatchModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} match={editingMatch} teams={data?.teams || []} onSave={handleSaveMatch} />
             )}

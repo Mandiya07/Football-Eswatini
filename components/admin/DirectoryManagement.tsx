@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { addDirectoryEntry, deleteDirectoryEntry, fetchDirectoryEntries, updateDirectoryEntry, fetchAllCompetitions, handleFirestoreError } from '../../services/api';
+import { addDirectoryEntry, deleteDirectoryEntry, fetchDirectoryEntries, updateDirectoryEntry, fetchAllCompetitions, handleFirestoreError, OperationType } from '../../services/api';
 import { DirectoryEntity } from '../../data/directory';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
+import ConfirmationModal from '../ui/ConfirmationModal';
 import PlusCircleIcon from '../icons/PlusCircleIcon';
 import TrashIcon from '../icons/TrashIcon';
 import PencilIcon from '../icons/PencilIcon';
@@ -18,15 +19,22 @@ const DirectoryManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEntry, setEditingEntry] = useState<DirectoryEntity | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
     const loadEntries = async () => {
         setLoading(true);
-        const data = await fetchDirectoryEntries();
-        setEntries(data || []);
-        setLoading(false);
+        try {
+            const data = await fetchDirectoryEntries();
+            setEntries(data || []);
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, 'directory');
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -54,18 +62,32 @@ const DirectoryManagement: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if (window.confirm("Delete this entry?")) {
-            await deleteDirectoryEntry(id);
+    const handleDelete = async () => {
+        if (!confirmDeleteId) return;
+        setIsSubmitting(true);
+        try {
+            await deleteDirectoryEntry(confirmDeleteId);
+            setConfirmDeleteId(null);
             loadEntries();
+        } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `directory/${confirmDeleteId}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleSave = async (data: any, id?: string) => {
-        if (id) await updateDirectoryEntry(id, data);
-        else await addDirectoryEntry(data);
-        setIsModalOpen(false);
-        loadEntries();
+        setIsSubmitting(true);
+        try {
+            if (id) await updateDirectoryEntry(id, data);
+            else await addDirectoryEntry(data);
+            setIsModalOpen(false);
+            loadEntries();
+        } catch (error) {
+            handleFirestoreError(error, id ? OperationType.UPDATE : OperationType.CREATE, id ? `directory/${id}` : 'directory');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -91,7 +113,9 @@ const DirectoryManagement: React.FC = () => {
                                     </div>
                                     <div className="flex gap-2">
                                         <button onClick={() => handleEdit(entry)} className="p-2 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors"><PencilIcon className="w-4 h-4"/></button>
-                                        <button onClick={() => handleDelete(entry.id)} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors"><TrashIcon className="w-4 h-4"/></button>
+                                        <button onClick={() => setConfirmDeleteId(entry.id)} disabled={isSubmitting && confirmDeleteId === entry.id} className="p-2 bg-red-600 text-white rounded-lg shadow-sm hover:bg-red-700 transition-colors">
+                                            {isSubmitting && confirmDeleteId === entry.id ? <Spinner className="w-4 h-4 border-2 border-white" /> : <TrashIcon className="w-4 h-4"/>}
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -99,6 +123,17 @@ const DirectoryManagement: React.FC = () => {
                     )}
                 </CardContent>
             </Card>
+
+            <ConfirmationModal 
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDelete}
+                title="Delete Entry"
+                message="Are you sure you want to delete this directory entry?"
+                confirmText="Delete"
+                variant="danger"
+            />
+
             {isModalOpen && <DirectoryFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSave} entry={editingEntry} />}
         </>
     );

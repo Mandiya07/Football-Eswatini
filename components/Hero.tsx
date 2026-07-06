@@ -3,89 +3,92 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CompetitionFixture, Team } from '../data/teams';
 import { DirectoryEntity } from '../data/directory';
-import { listenToAllCompetitions, fetchDirectoryEntries } from '../services/api';
+import { fetchDirectoryEntries } from '../services/api';
 import CountdownTimer from './CountdownTimer';
-import { findInMap } from '../services/utils';
+import { findInMap, safeLocalStorage } from '../services/utils';
 import ArrowRightIcon from './icons/ArrowRightIcon';
 import SparklesIcon from './icons/SparklesIcon';
 import Spinner from './ui/Spinner';
 import { GoogleGenAI } from "@google/genai";
+import { useDataCache } from '../contexts/DataCacheContext';
 
 const Hero: React.FC = () => {
+    const { competitions: allComps } = useDataCache();
     const [nextMatch, setNextMatch] = useState<(CompetitionFixture & { competitionName?: string }) | null>(null);
     const [teams, setTeams] = useState<Team[]>([]);
     const [directoryMap, setDirectoryMap] = useState<Map<string, DirectoryEntity>>(new Map());
     
     const [backgroundImage, setBackgroundImage] = useState<string>(
-        localStorage.getItem('fe_hero_bg') || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2076&auto=format&fit=crop"
+        safeLocalStorage.getItem('fe_hero_bg') || "https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=2076&auto=format&fit=crop"
     );
     const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
-        let unsubscribe: (() => void) | undefined;
-        
         const startListening = async () => {
             const dirEntries = await fetchDirectoryEntries();
             const map = new Map<string, DirectoryEntity>();
             dirEntries.forEach(entry => map.set(entry.name.trim().toLowerCase(), entry));
             setDirectoryMap(map);
-
-            unsubscribe = listenToAllCompetitions((allComps) => {
-                const findUpcoming = (fixtures: CompetitionFixture[]) => {
-                    const now = Date.now();
-                    return (fixtures || [])
-                        .filter(f => (f.status === 'live' || f.status === 'scheduled') && f.fullDate)
-                        .sort((a, b) => {
-                            const statusOrder: Record<string, number> = {
-                                'live': 0, 'scheduled': 1
-                            };
-                            const priorityA = statusOrder[a.status || 'scheduled'] ?? 99;
-                            const priorityB = statusOrder[b.status || 'scheduled'] ?? 99;
-                            if (priorityA !== priorityB) return priorityA - priorityB;
-
-                            const timeA = new Date(a.fullDate! + 'T' + (a.time || '15:00')).getTime();
-                            const timeB = new Date(b.fullDate! + 'T' + (b.time || '15:00')).getTime();
-                            return Math.abs(timeA - now) - Math.abs(timeB - now);
-                        });
-                };
-
-                let bestMatch: (CompetitionFixture & { competitionName?: string }) | null = null;
-                let activeTeams: Team[] = [];
-                
-                const priorityIds = ['mtn-premier-league', 'national-first-division', 'uefa-champions-league', 'world-cup-qualifiers-men'];
-                const otherIds = Object.keys(allComps).filter(id => !priorityIds.includes(id));
-                const allCheckOrder = [...priorityIds, ...otherIds];
-
-                for (const id of allCheckOrder) {
-                    const comp = allComps[id];
-                    if (comp) {
-                        const upcoming = findUpcoming(comp.fixtures || []);
-                        if (upcoming.length > 0) {
-                            bestMatch = { 
-                                ...upcoming[0], 
-                                competitionName: comp.displayName || comp.name || upcoming[0].competition 
-                            };
-                            activeTeams = comp.teams || [];
-                            break;
-                        }
-                    }
-                }
-                if (bestMatch) {
-                    setNextMatch(bestMatch);
-                    setTeams(activeTeams);
-                }
-            });
         };
         startListening();
-        return () => unsubscribe?.();
     }, []);
 
+    useEffect(() => {
+        const findUpcoming = (fixtures: CompetitionFixture[]) => {
+            const now = Date.now();
+            return (fixtures || [])
+                .filter(f => (f.status === 'live' || f.status === 'scheduled') && f.fullDate)
+                .sort((a, b) => {
+                    const statusOrder: Record<string, number> = {
+                        'live': 0, 'scheduled': 1
+                    };
+                    const priorityA = statusOrder[a.status || 'scheduled'] ?? 99;
+                    const priorityB = statusOrder[b.status || 'scheduled'] ?? 99;
+                    if (priorityA !== priorityB) return priorityA - priorityB;
+
+                    const timeA = new Date(a.fullDate! + 'T' + (a.time || '15:00')).getTime();
+                    const timeB = new Date(b.fullDate! + 'T' + (b.time || '15:00')).getTime();
+                    return Math.abs(timeA - now) - Math.abs(timeB - now);
+                });
+        };
+
+        let bestMatch: (CompetitionFixture & { competitionName?: string }) | null = null;
+        let activeTeams: Team[] = [];
+        
+        const priorityIds = ['mtn-premier-league', 'national-first-division', 'uefa-champions-league', 'world-cup-qualifiers-men'];
+        const otherIds = Object.keys(allComps).filter(id => !priorityIds.includes(id));
+        const allCheckOrder = [...priorityIds, ...otherIds];
+
+        for (const id of allCheckOrder) {
+            const comp = allComps[id];
+            if (comp) {
+                const upcoming = findUpcoming(comp.fixtures || []);
+                if (upcoming.length > 0) {
+                    bestMatch = { 
+                        ...upcoming[0], 
+                        competitionName: comp.displayName || comp.name || upcoming[0].competition 
+                    };
+                    activeTeams = comp.teams || [];
+                    break;
+                }
+            }
+        }
+        if (bestMatch) {
+            setNextMatch(bestMatch);
+            setTeams(activeTeams);
+        }
+    }, [allComps]);
+
     const handleRefineBackground = async () => {
-        if (isGenerating || !process.env.API_KEY) return;
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (isGenerating || !apiKey) {
+            console.warn("AI Visual Refinement skipped: No VITE_GEMINI_API_KEY found.");
+            return;
+        }
         
         setIsGenerating(true);
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey });
             const prompt = "Cinematic, wide-angle high-end sports photography background of a modern football stadium in Eswatini. Dramatic evening sky with sunset colors (deep blue, red, gold), lush green grass with professional white markings, a soccer ball on the pitch, vibrant but slightly blurred crowd waving Eswatini flags. 8k resolution, photorealistic, shallow depth of field, intense atmosphere.";
             
             const response = await ai.models.generateContent({
@@ -103,7 +106,7 @@ const Hero: React.FC = () => {
                     const base64Data = part.inlineData.data;
                     const imageUrl = `data:image/png;base64,${base64Data}`;
                     setBackgroundImage(imageUrl);
-                    localStorage.setItem('fe_hero_bg', imageUrl);
+                    safeLocalStorage.setItem('fe_hero_bg', imageUrl);
                     break;
                 }
             }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchAllCompetitions, fetchCompetition, handleFirestoreError } from '../../services/api';
+import { fetchAllCompetitions, fetchCompetition, handleFirestoreError, OperationType } from '../../services/api';
 import { Team, Competition, CompetitionFixture } from '../../data/teams';
 import { Card, CardContent } from '../ui/Card';
 import Button from '../ui/Button';
@@ -8,7 +8,7 @@ import RefreshIcon from '../icons/RefreshIcon';
 import CheckCircleIcon from '../icons/CheckCircleIcon';
 import { db } from '../../services/firebase';
 import { doc, getDoc, runTransaction } from 'firebase/firestore';
-import { calculateStandings, removeUndefinedProps, superNormalize } from '../../services/utils';
+import { calculateStandings, removeUndefinedProps, superNormalize, makePlain, safeJSONStringify } from '../../services/utils';
 import AlertTriangleIcon from '../icons/AlertTriangleIcon';
 import DownloadIcon from '../icons/DownloadIcon';
 
@@ -87,7 +87,8 @@ const RecalculateLogs: React.FC = () => {
         try {
             const comp = await fetchCompetition(selectedLeague);
             if (!comp) return;
-            const dataStr = JSON.stringify(comp, null, 2);
+            
+            const dataStr = safeJSONStringify(comp, null, 2);
             const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
             const exportFileDefaultName = `${selectedLeague}-backup-${new Date().toISOString().split('T')[0]}.json`;
             const linkElement = document.createElement('a');
@@ -124,7 +125,7 @@ const RecalculateLogs: React.FC = () => {
             setStatusMessage({ type: 'success', text: `Successfully synchronized statistics for ${selectedLeague}.` });
             analyzeLeague(selectedLeague);
         } catch (error) {
-            handleFirestoreError(error, 'recalculate standings');
+            handleFirestoreError(error, OperationType.WRITE, `competitions/${selectedLeague}`);
         } finally {
             setSubmitting(false);
         }

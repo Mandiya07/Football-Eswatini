@@ -36,7 +36,7 @@ const SubmitFixturesPage: React.FC = () => {
             setLoading(true);
             const allComps = await fetchAllCompetitions();
             const leagueList = Object.entries(allComps)
-                .map(([id, comp]) => ({ id, name: comp.name }));
+                .map(([id, comp]) => ({ id, name: comp.name || 'Unknown Competition' }));
             setCompetitions(leagueList);
             if (leagueList.length > 0 && !leagueList.find(l => l.id === 'mtn-premier-league')) {
                 setSelectedComp(leagueList[0].id);
@@ -127,7 +127,7 @@ const SubmitFixturesPage: React.FC = () => {
                     updatedFixtures = [...currentFixtures];
                     updatedFixtures[existingFixtureIndex] = { ...updatedFixtures[existingFixtureIndex], ...fixtureData };
                 } else {
-                    const newFixture: CompetitionFixture = { id: Date.now(), ...fixtureData };
+                    const newFixture: CompetitionFixture = { id: String(Date.now()), ...fixtureData };
                     updatedFixtures = [...currentFixtures, newFixture];
                 }
                 
@@ -178,7 +178,7 @@ const SubmitFixturesPage: React.FC = () => {
                                 <div>
                                     <label htmlFor="competition" className="block text-sm font-medium text-gray-700 mb-1">Competition Hub</label>
                                     <select id="competition" value={selectedComp} onChange={e => setSelectedComp(e.target.value)} className={inputClass}>
-                                        {competitions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        {competitions.map((c, idx) => <option key={`${c.id}-${idx}`} value={c.id}>{c.name}</option>)}
                                     </select>
                                 </div>
                                 
@@ -187,12 +187,12 @@ const SubmitFixturesPage: React.FC = () => {
                                         <>
                                             <select value={homeTeam} onChange={e => setHomeTeam(e.target.value)} className={inputClass} required>
                                                 <option value="" disabled>Select Home Team</option>
-                                                {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                                {teams.map((t, idx) => <option key={`${t.id}-${idx}`} value={t.name}>{t.name}</option>)}
                                             </select>
                                             <span className="font-bold text-gray-500 text-center">vs</span>
                                             <select value={awayTeam} onChange={e => setAwayTeam(e.target.value)} className={inputClass} required>
                                                 <option value="" disabled>Select Away Team</option>
-                                                {teams.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                                {teams.map((t, idx) => <option key={`${t.id}-${idx}`} value={t.name}>{t.name}</option>)}
                                             </select>
                                         </>
                                     ) : (
