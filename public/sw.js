@@ -40,7 +40,7 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
-  const url = new Date(event.request.url);
+  const url = new URL(event.request.url);
 
   // Avoid intercepting Firebase or Chrome extension requests
   if (event.request.url.includes('firestore.googleapis.com') || event.request.url.startsWith('chrome-extension:')) {
